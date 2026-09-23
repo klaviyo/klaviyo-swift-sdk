@@ -25,7 +25,7 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testRegisterThenUnregisterUsesLastPublicIntent() async throws {
-        let tokenA = try makeJWT(subject: "A")
+        let tokenA = try makeAuthJWT(subject: "A")
 
         klaviyoSDK.registerAuthTokenProvider { tokenA }
         klaviyoSDK.unregisterAuthTokenProvider()
@@ -40,7 +40,7 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testUnregisterThenRegisterUsesLastPublicIntent() async throws {
-        let tokenB = try makeJWT(subject: "B")
+        let tokenB = try makeAuthJWT(subject: "B")
 
         klaviyoSDK.unregisterAuthTokenProvider()
         klaviyoSDK.registerAuthTokenProvider { tokenB }
@@ -51,8 +51,8 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testRegisterUnregisterRegisterUsesLastPublicIntent() async throws {
-        let tokenA = try makeJWT(subject: "A")
-        let tokenB = try makeJWT(subject: "B")
+        let tokenA = try makeAuthJWT(subject: "A")
+        let tokenB = try makeAuthJWT(subject: "B")
 
         klaviyoSDK.registerAuthTokenProvider { tokenA }
         klaviyoSDK.unregisterAuthTokenProvider()
@@ -64,7 +64,7 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testResetQueuesClearBeforeLaterRegistration() async throws {
-        let tokenB = try makeJWT(subject: "B")
+        let tokenB = try makeAuthJWT(subject: "B")
         let revision = AuthTokenCommandQueue.shared.revision
 
         klaviyoSDK.resetProfile()
@@ -103,25 +103,6 @@ final class AuthTokenFacadeTests: XCTestCase {
         await effectGate.open()
         await effect.value
     }
-
-    private func makeJWT(subject: String) throws -> String {
-        let timestamp = environment.date().timeIntervalSince1970
-        let payload = try JSONSerialization.data(withJSONObject: [
-            "sub": subject,
-            "iat": timestamp - 60,
-            "exp": timestamp + 3600
-        ])
-        return [Data("{}".utf8), payload, Data(subject.utf8)]
-            .map(base64URLEncode)
-            .joined(separator: ".")
-    }
-
-    private func base64URLEncode(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
 }
 
 private actor DispatchEffectGate {
@@ -137,19 +118,5 @@ private actor DispatchEffectGate {
         isOpen = true
         waiters.forEach { $0.resume() }
         waiters.removeAll()
-    }
-}
-
-private func XCTAssertThrowsErrorAsync<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ errorHandler: (Error) -> Void = { _ in },
-    file: StaticString = #filePath,
-    line: UInt = #line
-) async {
-    do {
-        _ = try await expression()
-        XCTFail("Expected expression to throw", file: file, line: line)
-    } catch {
-        errorHandler(error)
     }
 }

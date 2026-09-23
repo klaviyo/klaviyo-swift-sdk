@@ -17,6 +17,7 @@ struct KlaviyoState: Equatable, Codable {
         case uninitialized
         case initializing
         case initialized
+        case changingCompany(String)
     }
 
     enum PendingRequest: Equatable {
