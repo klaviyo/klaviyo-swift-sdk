@@ -425,6 +425,16 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertTrue(scripts[0].contains(firstToken))
         XCTAssertTrue(scripts[1].contains(secondToken))
     }
+
+    @MainActor
+    func testClearAuthTokenRemovesJWTFromWebView() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+
+        await viewModel.clearAuthToken()
+
+        let script = try XCTUnwrap(tokenScripts(delegate).first)
+        XCTAssertEqual(script, "document.head.removeAttribute('data-klaviyo-jwt');")
+    }
 }
 
 extension IAFWebViewModel {

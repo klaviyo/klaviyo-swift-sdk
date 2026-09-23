@@ -18,6 +18,7 @@ struct KlaviyoState: Equatable, Codable {
         case initializing
         case initialized
         case changingCompany(String)
+        case resettingProfile
     }
 
     enum PendingRequest: Equatable {
@@ -25,9 +26,11 @@ struct KlaviyoState: Equatable, Codable {
         case aggregateEvent(Data)
         case profile(Profile)
         case pushToken(String, PushEnablement)
+        case resetProfile
         case setEmail(String)
         case setExternalId(String)
         case setPhoneNumber(String)
+        case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     }
 
     struct PushTokenData: Equatable, Codable {

@@ -906,12 +906,16 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.resetProfile) {
+        await store.send(.resetProfile) {
+            $0.initalizationState = .resettingProfile
+        }
+        await store.receive(.completeProfileReset) {
             // reset(preserveTokenData: true) is the default for resetProfile
             $0.email = nil
             $0.phoneNumber = nil
             $0.externalId = nil
             $0.pendingProfile = nil
+            $0.initalizationState = .initialized
             // pushTokenData is preserved and a new token request is enqueued
             // anonymousId is regenerated since the profile was identified
             $0.pushTokenData = initialState.pushTokenData
@@ -929,6 +933,44 @@ class StateManagementEdgeCaseTests: XCTestCase {
             )
             $0.queue = [request]
         }
+    }
+
+    @MainActor
+    func testResetProfileBuffersFollowingActionsUntilResetCompletes() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.initalizationState = .resettingProfile
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        let event = Event(name: .openedAppMetric)
+        let profile = Profile(email: "after-reset@example.com")
+
+        await store.send(.enqueueEvent(event)) {
+            $0.pendingRequests = [.event(event)]
+        }
+        await store.send(.enqueueProfile(profile)) {
+            $0.pendingRequests = [.event(event), .profile(profile)]
+        }
+
+        await store.send(.completeProfileReset)
+
+        XCTAssertEqual(store.state.initalizationState, .initialized)
+        XCTAssertEqual(store.state.email, profile.email)
+    }
+
+    @MainActor
+    func testProfileResetDrainsBufferedProfileBeforeNewerProfile() {
+        var state = INITIALIZED_TEST_STATE()
+        let bufferedProfile = Profile(email: "buffered@example.com")
+        let newerProfile = Profile(email: "newer@example.com")
+        state.initalizationState = .resettingProfile
+        state.pendingRequests = [.profile(bufferedProfile)]
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .completeProfileReset)
+        XCTAssertEqual(state.email, bufferedProfile.email)
+
+        _ = reducer.reduce(into: &state, action: .enqueueProfile(newerProfile))
+        XCTAssertEqual(state.email, newerProfile.email)
     }
 }
 
