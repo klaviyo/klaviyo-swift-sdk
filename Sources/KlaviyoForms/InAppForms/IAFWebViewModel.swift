@@ -371,19 +371,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             } else {
                 // In-app deep link: route to the host app's registered deep link handler.
-                if UIApplication.shared.canOpenURL(url) {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
-                    }
-                    EventDispatcher.shared.dispatch(.deepLink(url))
-                } else {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .private)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
-                    }
-                    // No navigation occurred — skip the formCtaClicked lifecycle event below,
-                    // consistent with its "fired after the SDK has initiated navigation" contract.
-                    return
+                // No `canOpenURL` pre-check here: the destination is an in-process handler, not
+                // LaunchServices. `canOpenURL` is false for any custom scheme the host app does
+                // not declare in its own `CFBundleURLTypes`, which gated out apps that route deep
+                // links through `registerDeepLinkHandler(_:)` before their handler was ever
+                // consulted (MAGE-1070). `DeepLinkHandler` logs its own failures downstream.
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }
+                EventDispatcher.shared.dispatch(.deepLink(url))
             }
 
             // 3. Invoke lifecycle handler when form identity fields are present. Both deep
