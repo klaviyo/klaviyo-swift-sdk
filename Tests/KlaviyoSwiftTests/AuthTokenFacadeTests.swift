@@ -25,7 +25,7 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testRegisterThenUnregisterUsesLastPublicIntent() async throws {
-        let tokenA = try makeJWT(subject: "A")
+        let tokenA = try makeAuthJWT(subject: "A")
 
         sdk.registerAuthTokenProvider { tokenA }
         sdk.unregisterAuthTokenProvider()
@@ -40,7 +40,7 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testUnregisterThenRegisterUsesLastPublicIntent() async throws {
-        let tokenB = try makeJWT(subject: "B")
+        let tokenB = try makeAuthJWT(subject: "B")
 
         sdk.unregisterAuthTokenProvider()
         sdk.registerAuthTokenProvider { tokenB }
@@ -51,8 +51,8 @@ final class AuthTokenFacadeTests: XCTestCase {
     }
 
     func testRegisterUnregisterRegisterUsesLastPublicIntent() async throws {
-        let tokenA = try makeJWT(subject: "A")
-        let tokenB = try makeJWT(subject: "B")
+        let tokenA = try makeAuthJWT(subject: "A")
+        let tokenB = try makeAuthJWT(subject: "B")
 
         sdk.registerAuthTokenProvider { tokenA }
         sdk.unregisterAuthTokenProvider()
@@ -61,38 +61,5 @@ final class AuthTokenFacadeTests: XCTestCase {
 
         let currentToken = try await AuthTokenManager.shared.currentToken()
         XCTAssertEqual(currentToken, tokenB)
-    }
-
-    private func makeJWT(subject: String) throws -> String {
-        let now = environment.date().timeIntervalSince1970
-        let payload = try JSONSerialization.data(withJSONObject: [
-            "sub": subject,
-            "iat": now - 60,
-            "exp": now + 3600
-        ])
-        return [Data("{}".utf8), payload, Data(subject.utf8)]
-            .map(base64URLEncode)
-            .joined(separator: ".")
-    }
-
-    private func base64URLEncode(_ data: Data) -> String {
-        data.base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
-    }
-}
-
-private func XCTAssertThrowsErrorAsync<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ errorHandler: (Error) -> Void = { _ in },
-    file: StaticString = #filePath,
-    line: UInt = #line
-) async {
-    do {
-        _ = try await expression()
-        XCTFail("Expected expression to throw", file: file, line: line)
-    } catch {
-        errorHandler(error)
     }
 }

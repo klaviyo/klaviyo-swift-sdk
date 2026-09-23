@@ -52,11 +52,137 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         let newApiKey = "new-api-key"
         // Using a new key should update the key and generate two requests
-        _ = await store.send(.initialize(newApiKey)) {
+        await store.send(.initialize(newApiKey)) {
+            $0.initalizationState = .changingCompany(newApiKey)
+        }
+        await store.receive(.completeCompanyChange(newApiKey)) {
             $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
                         $0.buildTokenRequest(apiKey: newApiKey, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)]
             $0.apiKey = newApiKey
+            $0.initalizationState = .initialized
         }
+    }
+
+    @MainActor
+    func testCompanyChangeInvalidatesAuthBeforePublishingNewAPIKey() async throws {
+        let tokenA = try makeAuthJWT(subject: "company-A")
+        let tokenB = try makeAuthJWT(subject: "company-B")
+        let firstCallEntered = AuthTestGate()
+        let releaseFirstCall = AuthTestGate()
+        let tokenSource = CompanyTokenSource(
+            firstToken: tokenA,
+            nextToken: tokenB,
+            firstCallEntered: firstCallEntered,
+            releaseFirstCall: releaseFirstCall
+        )
+        let register = AuthTokenCommandQueue.shared.enqueue(.register {
+            await tokenSource.token()
+        })
+        await firstCallEntered.wait()
+
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        let newAPIKey = "new-api-key"
+
+        await store.send(.initialize(newAPIKey)) {
+            $0.initalizationState = .changingCompany(newAPIKey)
+        }
+        XCTAssertEqual(store.state.apiKey, initialState.apiKey)
+
+        await store.receive(.completeCompanyChange(newAPIKey)) {
+            $0.queue = [
+                $0.buildUnregisterRequest(
+                    apiKey: $0.apiKey!,
+                    anonymousId: $0.anonymousId!,
+                    pushToken: $0.pushTokenData!.pushToken
+                ),
+                $0.buildTokenRequest(
+                    apiKey: newAPIKey,
+                    anonymousId: $0.anonymousId!,
+                    pushToken: $0.pushTokenData!.pushToken,
+                    enablement: $0.pushTokenData!.pushEnablement
+                )
+            ]
+            $0.apiKey = newAPIKey
+            $0.initalizationState = .initialized
+        }
+
+        let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(currentToken, tokenB)
+
+        await releaseFirstCall.open()
+        await register.value
+        let tokenAfterLateCompletion = try await AuthTokenManager.shared.currentToken()
+        XCTAssertEqual(tokenAfterLateCompletion, tokenB)
+
+        AuthTokenCommandQueue.shared.enqueue(.unregister)
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
+    }
+
+    @MainActor
+    func testCompanyChangeBuffersActionsUntilNewCompanyIsCurrent() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.initalizationState = .changingCompany("new-api-key")
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        let newAPIKey = "new-api-key"
+        let event = Event(name: .openedAppMetric)
+        let profile = Profile(email: "new@example.com")
+
+        await store.send(.enqueueEvent(event)) {
+            $0.pendingRequests = [.event(event)]
+        }
+        await store.send(.enqueueProfile(profile)) {
+            $0.pendingRequests = [.event(event), .profile(profile)]
+        }
+
+        await store.send(.completeCompanyChange(newAPIKey))
+
+        XCTAssertEqual(store.state.apiKey, newAPIKey)
+        XCTAssertEqual(store.state.email, profile.email)
+        XCTAssertTrue(store.state.queue.allSatisfy { request in
+            switch request.endpoint {
+            case let .createEvent(apiKey, _), let .createProfile(apiKey, _):
+                return apiKey == newAPIKey
+            default:
+                return true
+            }
+        })
+    }
+
+    @MainActor
+    func testCompanyChangeDrainsBufferedProfileBeforeNewerProfile() {
+        var state = INITIALIZED_TEST_STATE()
+        let newAPIKey = "new-api-key"
+        let bufferedProfile = Profile(email: "buffered@example.com")
+        let newerProfile = Profile(email: "newer@example.com")
+        state.initalizationState = .changingCompany(newAPIKey)
+        state.pendingRequests = [.profile(bufferedProfile)]
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange(newAPIKey))
+        XCTAssertEqual(state.email, bufferedProfile.email)
+
+        _ = reducer.reduce(into: &state, action: .enqueueProfile(newerProfile))
+        XCTAssertEqual(state.email, newerProfile.email)
+    }
+
+    @MainActor
+    func testRapidCompanyChangesOnlyCommitLatestTarget() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.initalizationState = .changingCompany("company-C")
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+        let apiKeyB = "company-B"
+        let apiKeyC = "company-C"
+
+        await store.send(.completeCompanyChange(apiKeyB))
+
+        XCTAssertEqual(store.state.apiKey, initialState.apiKey)
+
+        await store.send(.completeCompanyChange(apiKeyC))
+
+        XCTAssertEqual(store.state.apiKey, apiKeyC)
     }
 
     // MARK: - Send Request
