@@ -91,9 +91,10 @@ enum KlaviyoCommands {
     /// props into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
     /// just before each drain. Does NOT enqueue directly.
     static func setProfileProperty(_ key: Profile.ProfileKey, _ value: AnyEncodable) {
-        // Parity gate (mirrors `RequestEnqueuer.route`): drop pre-init profile attributes unless
-        // durable pre-init capture is on, so nothing is staged before an apiKey exists.
-        if SDKConfigStore.shared.current.apiKey == nil, !featureFlags.enablePreInitDiskCapture {
+        // Parity gate: drop pre-init profile attributes unless durable pre-init capture is on, so
+        // nothing is staged before `initialize()`. Gate on LifecycleState (session-fresh), NOT the
+        // disk-hydrated apiKey — otherwise a warm start would stage instead of drop.
+        if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
             environment.emitDeveloperWarning(
                 "Klaviyo SDK not initialized; dropping pre-init profile property")
             return
@@ -350,6 +351,13 @@ enum KlaviyoCommands {
     /// The `apply` closure must be pure and must NOT call back into `IdentityStore` — the store's
     /// `writeLock` is non-reentrant.
     private static func applyIdentifierChange(_ apply: (inout ProfileData) -> Void) {
+        // Parity: drop a pre-init identifier entirely (don't persist) so the same setter after
+        // initialize() still sends instead of dedup-no-oping. Gate on LifecycleState (session), NOT
+        // the disk-hydrated apiKey. Matches Android; capture-on still buffers via the path below.
+        if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
+            environment.emitDeveloperWarning("Klaviyo SDK not initialized; dropping pre-init identifier")
+            return
+        }
         var updated = ProfileData()
         IdentityStore.shared.mutate { profile in
             apply(&profile)
