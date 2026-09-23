@@ -83,6 +83,8 @@ enum KlaviyoAction: Equatable {
     case resetProfile
     case resetProfileWithQueuedAuthClear
 
+    case completeProfileReset
+
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
 
@@ -150,7 +152,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetProfileWithQueuedAuthClear, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .completeProfileReset, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -185,6 +187,16 @@ struct KlaviyoReducer: ReducerProtocol {
                 return beginCompanyChange(to: apiKey, state: &state)
             case .initializing:
                 return .none
+            case .resettingProfile:
+                guard apiKey != state.apiKey else {
+                    return .none
+                }
+                state.initalizationState = .changingCompany(apiKey)
+                return .run { send in
+                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                    await command.value
+                    await send(.completeCompanyChange(apiKey))
+                }
             case .uninitialized:
                 break
             }
@@ -647,18 +659,33 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 if case .changingCompany = state.initalizationState {
                     state.pendingRequests.append(action == .resetProfile ? .resetProfile : .resetProfileWithQueuedAuthClear)
+                    return .none
+                }
+                guard case .uninitialized = state.initalizationState else {
+                    state.pendingRequests.append(action == .resetProfile ? .resetProfile : .resetProfileWithQueuedAuthClear)
+                    return .none
                 }
                 return .none
             }
-            state.reset()
-
-            // Clear the auth-token cache and cancel any scheduled refresh tied
-            // to the outgoing profile. The provider is retained — see
-            // ``AuthTokenManager/clearTokenState()``.
+            state.initalizationState = .resettingProfile
             if action == .resetProfile {
-                AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                return .run { send in
+                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+                    await command.value
+                    await send(.completeProfileReset)
+                }
             }
             return .none
+
+        case .completeProfileReset:
+            guard case .resettingProfile = state.initalizationState else {
+                return .none
+            }
+            let pendingRequests = state.pendingRequests
+            state.pendingRequests = []
+            state.reset()
+            state.initalizationState = .initialized
+            return replayPendingRequests(pendingRequests, into: &state)
 
         case let .setProfileProperty(key, value):
             guard case .initialized = state.initalizationState else {
