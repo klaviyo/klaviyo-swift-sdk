@@ -61,15 +61,18 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
         ))
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
         return (apiKey, resolvedAnon, pushToken)
     }
 
-    /// Seeds an `.initializing` state (between begin and complete).
+    /// Seeds an `.initializing` state (between begin and complete). Mirrors production, where the
+    /// session is already marked during `.initializing` (right after the key is installed).
     private func seedInitializing(anonymousId: String? = nil) {
         let resolvedAnon = anonymousId ?? environment.uuid().uuidString
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnon))
         LifecycleState.shared.beginInitializing()
+        SessionState.markInitialized()
         // Note: completeInitialization() is intentionally NOT called.
     }
 

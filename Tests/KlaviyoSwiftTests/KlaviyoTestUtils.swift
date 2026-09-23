@@ -36,10 +36,12 @@ func resetCanonicalCoreStores() {
 /// `seedPostInitWithToken` when you also want identity + a token seeded.
 func markSessionInitialized() {
     // Reset first so this is deterministic even if a prior test left the lifecycle past
-    // `.uninitialized` (the `beginInitializing` transition is what flips the `SessionState` mirror).
+    // `.uninitialized`. `initialize()` marks `SessionState` explicitly after claiming the lifecycle;
+    // mirror that here since `beginInitializing()` no longer flips the mirror on its own.
     LifecycleState.shared.reset()
     LifecycleState.shared.beginInitializing()
     LifecycleState.shared.completeInitialization()
+    SessionState.markInitialized()
 }
 
 /// Bounded async poll: waits until `condition` holds or `timeout` elapses. FAILS (XCTFail) on
@@ -119,6 +121,7 @@ class KlaviyoBaseTestCase: XCTestCase {
         ))
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
         return (apiKey, resolvedAnon, pushToken)
     }
 

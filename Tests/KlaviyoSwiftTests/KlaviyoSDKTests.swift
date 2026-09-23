@@ -55,6 +55,7 @@ class KlaviyoSDKTests: XCTestCase {
         IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
         recordedRequests = registerRecordingQueueStore()
     }
 

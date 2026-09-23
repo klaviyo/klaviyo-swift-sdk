@@ -72,8 +72,6 @@ final class LifecycleState {
             return true
         }
         if transitioned {
-            // Mirror the session signal into Core for `RequestEnqueuer.route`.
-            SessionState.markInitialized()
             subject.send(.initializing)
         }
         return transitioned

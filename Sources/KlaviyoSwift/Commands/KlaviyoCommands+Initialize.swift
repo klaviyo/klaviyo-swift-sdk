@@ -142,12 +142,13 @@ extension KlaviyoCommands {
         }
 
         // ── Branch 3: FALL-THROUGH — normal cold-start init ──────────────────────────────────────
-        // Install the incoming key BEFORE `beginInitializing()` flips `SessionState` — otherwise a
-        // concurrent enqueue could observe the initialized session while `SDKConfigStore` still holds
-        // the prior launch's key and route under the wrong company. Until the session flips, `route`
-        // buffers/drops, so the pre-flip window is safe.
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        // Claim the init first: a call that loses the claim returns without writing the key, so it
+        // can't overwrite `SDKConfigStore` for the in-flight init. The winner then installs the key
+        // and only afterward opens routing (`SessionState.markInitialized()`), so `route` never
+        // observes the initialized session with the prior launch's key.
         guard LifecycleState.shared.beginInitializing() else { return }
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        SessionState.markInitialized()
         // Migrate synchronously, before any identity read can hydrate a fresh anonymousId over the
         // persisted identity (and before a racing host setter could be clobbered by the migration).
         migrateLegacyStateIfNeeded(apiKey: apiKey)
