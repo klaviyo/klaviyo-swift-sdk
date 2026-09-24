@@ -288,6 +288,13 @@ package actor AuthTokenManager {
         return try await race(fetch: task, timeoutSeconds: mode.rawValue)
     }
 
+    /// Returns the current cached token when it is still valid, without invoking
+    /// or waiting for the registered provider.
+    package func cachedTokenIfValid() -> String? {
+        guard let cachedToken, isCachedTokenValid(cachedToken) else { return nil }
+        return cachedToken.rawToken
+    }
+
     /// Returns a stream of token strings produced by *proactive* refreshes.
     ///
     /// Each call returns an independent `AsyncStream` backed by its own

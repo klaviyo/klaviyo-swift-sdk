@@ -127,13 +127,14 @@ class IAFPresentationManager {
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: nil)
-        setupFormLifecycleListener()
         initialTokenTask?.cancel()
         initialTokenTask = Task {
             _ = try? await AuthTokenManager.shared.currentToken()
         }
+        let profileData = try await KlaviyoInternal.fetchProfileData()
+        let authToken = await AuthTokenManager.shared.cachedTokenIfValid()
+        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+        setupFormLifecycleListener()
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms

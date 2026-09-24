@@ -18,6 +18,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
     }
 
+    private struct DocumentAuthState {
+        let generation: Int
+        let token: String?
+    }
+
     // MARK: - Properties
 
     weak var delegate: KlaviyoWebViewDelegate?
@@ -29,7 +34,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let apiKey: String
     private(set) var profileData: ProfileData?
     private var authToken: String?
+    private let loadAuthToken: String?
     private let assetSource: String?
+
+    private var nextDocumentGeneration = 0
+    private var pendingDocumentGeneration: Int?
+    private var committedDocumentGeneration: Int?
+    private var readyDocumentGeneration: Int?
+    private var deliveredAuthState: DocumentAuthState?
+    private var authTokenReconciliationTask: Task<Void, Never>?
 
     private var profileUpdatesCancellable: AnyCancellable?
     private var profileUpdateTask: Task<Void, Never>?
@@ -139,6 +152,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.apiKey = apiKey
         self.profileData = profileData
         self.authToken = authToken
+        loadAuthToken = authToken
         self.assetSource = assetSource
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
@@ -305,21 +319,49 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// The token value is never logged — only the success/failure of the update.
     @MainActor
     func pushAuthToken(_ token: String) async {
-        guard token != authToken else { return }
         authToken = token
+        await enqueueAuthTokenReconciliation().value
+    }
+
+    @MainActor
+    func clearAuthToken() async {
+        authToken = nil
+        await enqueueAuthTokenReconciliation().value
+    }
+
+    @MainActor
+    private func reconcileReadyDocument() async {
+        guard pendingDocumentGeneration == nil,
+              let generation = readyDocumentGeneration else { return }
+        let token = authToken
+        guard !isAuthStateDelivered(token, to: generation) else { return }
+        await reconcileAuthState(token, to: generation)
+    }
+
+    @MainActor
+    private func reconcileAuthState(_ token: String?, to generation: Int) async {
+        guard !isAuthStateDelivered(token, to: generation) else { return }
+        if let token {
+            await applyAuthToken(token, to: generation)
+        } else {
+            await removeAuthToken(from: generation)
+        }
+    }
+
+    @MainActor
+    private func applyAuthToken(_ token: String, to generation: Int) async {
+        guard let delegate else { return }
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
         let authTokenScript = createAuthTokenScript(from: token)
         do {
-            _ = try await delegate?.evaluateJavaScript(authTokenScript)
+            _ = try await delegate.evaluateJavaScript(authTokenScript)
+            deliveredAuthState = DocumentAuthState(generation: generation, token: token)
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successfully updated In-App Forms HTML with refreshed auth token")
             }
         } catch {
-            if authToken == token {
-                authToken = nil
-            }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error updating In-App Forms HTML with refreshed auth token; error: \(error)")
             }
@@ -327,12 +369,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
-    func clearAuthToken() async {
-        authToken = nil
+    private func removeAuthToken(from generation: Int) async {
+        guard let delegate else { return }
         do {
-            _ = try await delegate?.evaluateJavaScript(
+            _ = try await delegate.evaluateJavaScript(
                 "document.head.removeAttribute('data-klaviyo-jwt');"
             )
+            deliveredAuthState = DocumentAuthState(generation: generation, token: nil)
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning(
@@ -349,6 +392,64 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
         }
+
+        switch event {
+        case .didStartProvisionalNavigation:
+            guard pendingDocumentGeneration == nil else { return }
+            nextDocumentGeneration += 1
+            pendingDocumentGeneration = nextDocumentGeneration
+        case .didFailProvisionalNavigation:
+            pendingDocumentGeneration = nil
+            if readyDocumentGeneration != nil {
+                enqueueAuthTokenReconciliation()
+            }
+        case .didCommitNavigation:
+            let generation: Int
+            if let pendingGeneration = pendingDocumentGeneration {
+                generation = pendingGeneration
+            } else {
+                nextDocumentGeneration += 1
+                generation = nextDocumentGeneration
+            }
+            pendingDocumentGeneration = nil
+            committedDocumentGeneration = generation
+            readyDocumentGeneration = nil
+        case .didFinishNavigation:
+            guard let generation = committedDocumentGeneration else { return }
+            readyDocumentGeneration = generation
+            if pendingDocumentGeneration == nil {
+                enqueueAuthTokenReconciliation(
+                    loadState: DocumentAuthState(generation: generation, token: loadAuthToken)
+                )
+            }
+        case .didReceiveServerRedirectForProvisionalNavigation,
+             .didFailNavigation:
+            break
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    private func enqueueAuthTokenReconciliation(
+        loadState: DocumentAuthState? = nil
+    ) -> Task<Void, Never> {
+        let previous = authTokenReconciliationTask
+        let task = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self else { return }
+            if let loadState {
+                guard self.readyDocumentGeneration == loadState.generation else { return }
+                self.deliveredAuthState = loadState
+            }
+            await self.reconcileReadyDocument()
+        }
+        authTokenReconciliationTask = task
+        return task
+    }
+
+    private func isAuthStateDelivered(_ token: String?, to generation: Int) -> Bool {
+        guard let deliveredAuthState else { return false }
+        return deliveredAuthState.generation == generation && deliveredAuthState.token == token
     }
 
     @MainActor
