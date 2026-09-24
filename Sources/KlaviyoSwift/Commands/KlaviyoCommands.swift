@@ -139,7 +139,9 @@ enum KlaviyoCommands {
                 enablement: enablement,
                 background: newTokenData.pushBackground
             )
-            QueueStore.shared.enqueue(request)
+            // `.synchronous`: the register must reach disk no later than the optimistic token write,
+            // so a kill can't leave a persisted token with no queued request to send it.
+            QueueStore.shared.enqueue(request, persist: .synchronous)
         } else {
             // Pre-init (incl. warm start): route via RequestEnqueuer (SessionState gated → buffer/drop),
             // without persisting.

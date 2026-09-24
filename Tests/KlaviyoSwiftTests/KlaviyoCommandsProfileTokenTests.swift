@@ -79,6 +79,48 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, anonymousId)
     }
 
+    /// Post-init `setPushToken` must persist the register synchronously, so a kill between the
+    /// token write and the queue write can't leave a token on disk with no request to send it.
+    /// The deferred-persist store only surfaces `.synchronous` writes on disk.
+    @MainActor
+    func testSetPushTokenPostInitPersistsRegisterSynchronously() {
+        seedPostInitWithToken()
+        // Clear the token so the new value isn't deduped.
+        IdentityStore.shared.updatePushToken(nil)
+        let readDisk = seedDeferredPersistQueueStore()
+
+        KlaviyoCommands.setPushToken("new-tok", .authorized)
+
+        XCTAssertEqual(readDisk().count, 1,
+                       "post-init setPushToken must persist the register synchronously (durable on disk)")
+    }
+
+    /// End-to-end reconciliation: a post-init `setPushToken` optimistically persists its token; when
+    /// the flush engine permanently fails the register, the token is rolled back so setting the SAME
+    /// token again re-enqueues instead of dedup-skipping a token that never registered.
+    @MainActor
+    func testPermanentRegisterFailureLetsSameTokenReEnqueue() async {
+        seedPostInitWithToken()
+        IdentityStore.shared.updatePushToken(nil)
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.setPushToken("tok-1", .authorized)
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, "tok-1",
+                       "token is optimistically persisted as the register is routed")
+        XCTAssertEqual(readQueue().count, 1, "register enqueued")
+
+        // Flush engine sends once and permanently fails (non-retryable) → optimistic token cleared.
+        let failing: RequestQueue.Send = { _, _ in .failure(.internalError("boom")) }
+        let queue = RequestQueue(clock: SleepClock { _ in }, send: failing)
+        await queue.flushNow()
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "optimistic token rolled back after the register is permanently dropped")
+
+        KlaviyoCommands.setPushToken("tok-1", .authorized)
+        XCTAssertEqual(readQueue().count, 1,
+                       "same token re-enqueues after its failed register cleared the optimistic write")
+    }
+
     /// Enablement change on an existing token → updates IdentityStore and enqueues via QueueStore.
     @MainActor
     func testSetPushTokenEnablementChangedPostInitEnqueues() {

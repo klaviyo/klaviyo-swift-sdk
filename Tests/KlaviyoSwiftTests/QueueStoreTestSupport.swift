@@ -38,6 +38,25 @@ private func registerTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [Kl
     return { lock.lock(); defer { lock.unlock() }; return stored }
 }
 
+/// Registers a shared `QueueStore` whose debounced persists are DEFERRED (the scheduled work is
+/// captured but never run), so a test can distinguish `.synchronous` (writes to disk immediately)
+/// from `.debounced` (stays in memory until a debounce that never fires here). Returns a closure
+/// reading what has actually reached disk. Resets the shared store first.
+@discardableResult
+func seedDeferredPersistQueueStore() -> () -> [KlaviyoRequest] {
+    QueueStore.resetShared()
+    var stored: [KlaviyoRequest] = []
+    let lock = NSLock()
+    let io = QueueStore.DiskIO(
+        load: { lock.lock(); defer { lock.unlock() }; return stored },
+        save: { new in lock.lock(); defer { lock.unlock() }; stored = new }
+    )
+    let scheduler = QueueStore.PersistScheduler { _, _ in } // never run debounced work
+    let store = QueueStore(diskIO: io, scheduler: scheduler, emitWarning: { _ in })
+    QueueStore.register(store)
+    return { lock.lock(); defer { lock.unlock() }; return stored }
+}
+
 /// Registers a recording spy `QueueStore` that accumulates every request ever persisted
 /// (appending each `save` call), so drain-then-flush sequences are fully observable. Resets the
 /// shared store first (like `seedTestQueueStore`) — call before other registrations.
