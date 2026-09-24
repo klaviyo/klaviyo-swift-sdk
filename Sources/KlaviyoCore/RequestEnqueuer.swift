@@ -8,9 +8,9 @@
 import Foundation
 
 /// Ungated Core enqueue entry point. Reads identity + apiKey from the shared stores itself,
-/// so callers never thread identity or check for an apiKey. apiKey present → build + enqueue
-/// to `QueueStore`; apiKey absent → build an apiKey-free payload → `UnattributedBuffer`.
-/// Routes pre-init calls to `UnattributedBuffer`; post-init calls to `QueueStore`.
+/// so callers never thread identity or check for an apiKey. Routing is gated on `SessionState`:
+/// post-init → build + enqueue to `QueueStore`; pre-init → buffer to `UnattributedBuffer`
+/// (`enablePreInitDiskCapture` on) or drop (parity default).
 public enum RequestEnqueuer {
     static let missingAnonymousIdWarning = "RequestEnqueuer: missing anonymousId"
 
@@ -199,6 +199,11 @@ public enum RequestEnqueuer {
                     KlaviyoRequest(endpoint: .createProfile(apiKey, payload)), persist: policy
                 )
             case let .pushToken(payload):
+                // Persist the captured token to `IdentityStore` as it is routed into the queue, so
+                // token-dependent commands (`setPushEnablement`, profile fold) see it before the
+                // register request completes. Mirrors the post-init persist-when-routed path in
+                // `setPushToken`; only reachable when `enablePreInitDiskCapture` buffered a token.
+                IdentityStore.shared.updatePushToken(PushTokenData(payload))
                 queue.enqueue(
                     KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy
                 )
