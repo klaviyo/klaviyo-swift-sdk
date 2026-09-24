@@ -25,13 +25,13 @@ jobs:
           # If PR doesn't target master, this check doesn't apply — clean up any stale label and pass
           if [[ "$BASE_REF" != "master" ]]; then
             echo "PR targets '$BASE_REF' (not master) — check not required."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
           if [[ "$HEAD_REF" == rel/* ]] || [[ "$HEAD_REF" == ci/* ]] || [[ "$HEAD_REF" == docs/* ]] || [[ "$HEAD_REF" == dependabot/* ]]; then
             echo "Branch '$HEAD_REF' is allowed to target master."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -41,7 +41,7 @@ jobs:
           TITLE_REGEX='^(ci|chore|docs|rel)(\([^)]*\))?!?:[[:space:]]'
           if [[ "$TITLE_LC" =~ $TITLE_REGEX ]]; then
             echo "PR title '$PR_TITLE' has an allowed conventional-commit prefix — allowed to target master."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -51,7 +51,7 @@ jobs:
 
           if [ -n "$HAS_OVERRIDE" ]; then
             echo "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
-            gh pr edit $PR_NUMBER --repo $REPO --remove-label "$LABEL" 2>/dev/null || true
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "$LABEL" 2>/dev/null || true
             exit 0
           fi
 
@@ -79,7 +79,7 @@ jobs:
           _Enforced by the \`pr-target-check\` workflow._"
           fi
 
-          gh pr edit $PR_NUMBER --repo $REPO --add-label "$LABEL"
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
 
           echo "Branch '$HEAD_REF' cannot target master directly. Use a rel/*, ci/*, docs/*, or dependabot/* branch, a ci:/chore:/docs:/rel: PR title, or add the manual-merge label to override."
           exit 1
