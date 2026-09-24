@@ -409,6 +409,82 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 
+    // MARK: - Deep Link Tests (openDeepLink without `openExternally`)
+
+    /// Builds the message onsite actually sends for a "Go to app screen" CTA: the URL under the
+    /// platform-split `ios`/`android` keys, and no `openExternally` flag
+    /// (fender `deepLinkToScreenAction.ts`).
+    private func makeDeepLinkMessage(
+        url: String = "holafly://notifications?utm_source=push_flow",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Go"
+    ) -> MockWKScriptMessage {
+        var data: [String: String] = ["ios": url, "android": url]
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataJson) } }"
+        )
+    }
+
+    /// MAGE-1070 regression. A custom scheme absent from the test bundle's `CFBundleURLTypes`
+    /// makes `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
+    /// dispatch lane, because the destination is the host app's in-process handler rather than
+    /// LaunchServices. Before the fix, this silently dropped the navigation.
+    @MainActor
+    func testDeepLinkWithUndeclaredSchemeStillDispatches() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "holafly://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'holafly' must not be declared in the test bundle for this to regress"
+        )
+
+        // When - JS sends the deep link CTA message
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then - the deep link is dispatched even though `canOpenURL` is false
+        guard case let .deepLink(dispatchedURL)? = spyDispatcher.received.first else {
+            XCTFail("Expected a .deepLink command, got \(spyDispatcher.received)")
+            return
+        }
+        XCTAssertEqual(dispatchedURL, url)
+    }
+
+    /// The CTA lifecycle event must fire for deep links too. The previous early return suppressed
+    /// it whenever `canOpenURL` was false, which made this failure mode harder to diagnose.
+    @MainActor
+    func testDeepLinkWithUndeclaredSchemeFiresLifecycleEvent() throws {
+        // Given
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // When
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then
+        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Go")
+        XCTAssertEqual(url, URL(string: "holafly://notifications?utm_source=push_flow"))
+    }
+
     @MainActor
     func testTrackProfileEventDispatchesCreateEvent() throws {
         // Given - a spy registered as the inbound-dispatch target
