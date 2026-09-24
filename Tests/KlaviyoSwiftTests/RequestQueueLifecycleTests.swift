@@ -174,6 +174,7 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
     func testSetProfilePropertyStagesIntoBuffer() async throws {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-stage-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-stage" }
+        markSessionInitialized()
         seedTestQueueStore()
 
         KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Blob"))

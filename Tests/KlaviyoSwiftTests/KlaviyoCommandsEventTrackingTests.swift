@@ -61,15 +61,18 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
         ))
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
         return (apiKey, resolvedAnon, pushToken)
     }
 
-    /// Seeds an `.initializing` state (between begin and complete).
+    /// Seeds an `.initializing` state (between begin and complete). Mirrors production, where the
+    /// session is already marked during `.initializing` (right after the key is installed).
     private func seedInitializing(anonymousId: String? = nil) {
         let resolvedAnon = anonymousId ?? environment.uuid().uuidString
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnon))
         LifecycleState.shared.beginInitializing()
+        SessionState.markInitialized()
         // Note: completeInitialization() is intentionally NOT called.
     }
 
@@ -78,6 +81,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Pre-init: event must still land in the durable buffer via `RequestEnqueuer`.
     @MainActor
     func testEnqueueEventPreInitBuffersViaRequestEnqueuer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -248,6 +252,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Aggregate event is always forwarded to `RequestEnqueuer` with no init gate.
     @MainActor
     func testEnqueueAggregateEventRoutesToRequestEnqueuer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No SDKConfigStore apiKey → lands in UnattributedBuffer.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-agg"))
@@ -361,6 +366,7 @@ class KlaviyoCommandsEventTrackingTests: KlaviyoBaseTestCase {
     /// Pre-init (no apiKey): failed tracking-link resolution must buffer in `UnattributedBuffer`.
     @MainActor
     func testTrackingLinkResolutionFailedPreInitBuffers() throws {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         // No apiKey in SDKConfigStore → ungated path buffers in UnattributedBuffer.
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))

@@ -56,6 +56,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
         IdentityStore.shared.updatePushToken(tokenData)
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
 
         var initial: [KlaviyoRequest] = []
         if withQueuedItems {

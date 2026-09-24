@@ -54,6 +54,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// a createProfile payload in the UnattributedBuffer.
     @MainActor
     func testSetEmailPreInitEnqueuesProfileViaRequestEnqueuerBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -120,6 +121,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// Pre-init: new phone must buffer a profile.
     @MainActor
     func testSetPhoneNumberPreInitEnqueuesProfileBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -182,6 +184,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// Pre-init: new externalId must buffer a profile.
     @MainActor
     func testSetExternalIdPreInitEnqueuesProfileBuffer() {
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         seedPreInit()
 
@@ -265,6 +268,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         // No push token.
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.resetProfile()
@@ -308,11 +312,39 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         let anonId = "anon-already-anonymous"
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: anonId)) // no email/phone/externalId
+        markSessionInitialized()
 
         KlaviyoCommands.resetProfile()
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, anonId,
                        "resetProfile on an anonymous profile must preserve anonymousId")
+    }
+
+    /// Parity: a pre-init `resetProfile` is a no-op — no identity mutation, no request. Matches
+    /// Swift/Android, and avoids a warm-start reset that logs the device out locally while the server
+    /// keeps the token on the old profile.
+    @MainActor
+    func testResetProfilePreInitIsNoOpUnderParity() {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        // Warm start: persisted identity + token, but initialize() has not run this session.
+        IdentityStore.shared.update(ProfileData(email: "id@x.com", anonymousId: "anon-keep"))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "tok",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+        let readQueue = seedTestQueueStore()
+
+        KlaviyoCommands.resetProfile()
+
+        XCTAssertEqual(IdentityStore.shared.current.email, "id@x.com",
+                       "pre-init reset must not clear PII")
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-keep",
+                       "pre-init reset must not mint a new anonymousId")
+        XCTAssertTrue(readQueue().isEmpty, "pre-init reset must not enqueue")
     }
 
     // MARK: - setProfileProperty
@@ -353,6 +385,30 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         default:
             XCTFail("expected registerPushToken from buffer flush")
         }
+    }
+
+    /// Parity gate: pre-init `setProfileProperty` (default flags, no apiKey) is dropped — nothing is
+    /// staged, so a later flush enqueues nothing. Mirrors Android/Swift dropping pre-init attributes.
+    @MainActor
+    func testSetProfilePropertyPreInitDropsUnderParityFlags() {
+        // Default parity flags: base setUp resets featureFlags → enablePreInitDiskCapture == false.
+        resetCanonicalCoreStores()
+        ProfilePropertyBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+        let readQueue = seedTestQueueStore()
+
+        // Pre-init: no apiKey in SDKConfigStore → the property must be dropped, not staged.
+        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Alice"))
+
+        let flushExpect = XCTestExpectation(description: "flush")
+        Task {
+            await ProfilePropertyBuffer.shared.flushIntoQueue()
+            flushExpect.fulfill()
+        }
+        wait(for: [flushExpect], timeout: 2)
+
+        XCTAssertTrue(readQueue().isEmpty,
+                      "pre-init profile property must be dropped, not staged for a later flush")
     }
 
     // MARK: - R4 Regression: 4xx field-clear must not be resurrected by a subsequent setter
@@ -401,6 +457,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// profile (not drop silently).
     @MainActor
     func testSetEmailPreInitWithStoredTokenBuffersProfile() {
+        featureFlags.enablePreInitDiskCapture = true
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
         // No apiKey in SDKConfigStore (pre-init).
@@ -429,14 +486,15 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     /// a push token is stored in `IdentityStore`, but `initialize()` has NOT been called this
     /// session — so `LifecycleState.shared.current == .uninitialized`.
     ///
-    /// `LifecycleState` is the gate (not `SDKConfigStore`), so a warm-start falls through to the
-    /// profile branch via `RequestEnqueuer` rather than the token re-association branch.
-    ///
-    /// Expected: `setEmail` routes to `QueueStore` as a `createProfile` (not `registerPushToken`).
+    /// `LifecycleState`/`SessionState` is the gate (not the disk-hydrated `SDKConfigStore.apiKey`),
+    /// so a warm-start `setEmail` is treated as pre-init: under default parity flags it is DROPPED
+    /// entirely — no request AND no store write — so the same setter after `initialize()` still sends
+    /// instead of dedup-no-oping. Matches Android's pre-init drop.
     @MainActor
-    func testSetEmailWarmStartPreInitBuffersProfileNotTokenReassociation() {
+    func testSetEmailWarmStartPreInitDroppedUnderParity() {
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
         // LifecycleState is .uninitialized (reset in setUp + not advanced here — warm start).
         XCTAssertEqual(LifecycleState.shared.current, .uninitialized,
                        "precondition: warm-start must start with LifecycleState == .uninitialized")
@@ -456,21 +514,42 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
 
         KlaviyoCommands.setEmail("new@example.com")
 
-        // Warm-start (LifecycleState == .uninitialized) must take the PROFILE branch.
-        // The enqueued request must be a createProfile, NOT a registerPushToken.
-        // (RequestEnqueuer re-gates on SDKConfigStore: since "persisted-key" is present, the
-        // profile lands directly in QueueStore — consistent with old warm-start behavior.)
+        // Warm-start pre-init: the request must NOT be stamped under the persisted key.
+        XCTAssertTrue(readQueue().isEmpty,
+                      "warm-start setEmail must not enqueue under the disk-hydrated apiKey")
+        // Dropped entirely: the new email must NOT be persisted (so the post-init re-set still sends).
+        XCTAssertEqual(IdentityStore.shared.current.email, "old@example.com",
+                       "warm-start setEmail must be dropped, not persisted to IdentityStore")
+    }
+
+    /// Regression (default parity): a pre-init `setEmail` is dropped WITHOUT persisting, so the same
+    /// email after `initialize()` is not a dedup no-op and still sends. Mirrors the token fix.
+    @MainActor
+    func testSetEmailPreInitDropThenPostInitSends() {
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+        let readQueue = seedTestQueueStore()
+
+        // Pre-init (uninitialized, default parity): dropped, not persisted.
+        KlaviyoCommands.setEmail("user@x.com")
+        XCTAssertNil(IdentityStore.shared.current.email, "pre-init email must not be persisted")
+        XCTAssertTrue(readQueue().isEmpty, "pre-init email must not enqueue")
+
+        // Simulate initialize().
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        markSessionInitialized()
+
+        // The SAME email post-init must now send (not a dedup no-op against a stale disk value).
+        KlaviyoCommands.setEmail("user@x.com")
+        XCTAssertEqual(IdentityStore.shared.current.email, "user@x.com")
         let queued = readQueue()
-        XCTAssertEqual(queued.count, 1, "warm-start setEmail must enqueue exactly one request")
+        XCTAssertEqual(queued.count, 1,
+                       "post-init setEmail must send after a pre-init drop of the same value")
         guard case .createProfile = queued.first?.endpoint else {
-            return XCTFail(
-                "warm-start setEmail must enqueue a createProfile (not registerPushToken), "
-                    + "got \(queued.first?.endpoint as Any)"
-            )
+            return XCTFail("expected createProfile, got \(queued.first?.endpoint as Any)")
         }
-        // Identity update must still be persisted.
-        XCTAssertEqual(IdentityStore.shared.current.email, "new@example.com",
-                       "warm-start setEmail must persist the new email to IdentityStore")
     }
 
     /// Post-init (LifecycleState == .initialized) + token present: setEmail must enqueue a TOKEN

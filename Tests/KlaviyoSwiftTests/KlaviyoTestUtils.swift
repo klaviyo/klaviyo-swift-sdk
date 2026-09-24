@@ -21,10 +21,27 @@ import XCTest
 func resetCanonicalCoreStores() {
     IdentityStore.shared.reset()
     SDKConfigStore.shared.reset()
+    // Session-scoped init signal that `RequestEnqueuer.route` gates on. Clear it so a prior test that
+    // advanced the lifecycle can't make a fresh test's pre-init call look post-init.
+    SessionState.markUninitialized()
     // The shared QueueStore is process-global; clear it so a spy store injected by
     // `seedTestQueueStore` in one test can't bleed into the next (which would otherwise resolve a
     // stale in-memory queue instead of the empty production/disk-backed store).
     QueueStore.resetShared()
+}
+
+/// Advances `LifecycleState` to `.initialized` — which also flips the Core `SessionState` mirror that
+/// `RequestEnqueuer.route` gates on — for tests that seed config/identity inline and then exercise a
+/// post-init enqueue path (the same gate state `initialize()` establishes). Prefer
+/// `seedPostInitWithToken` when you also want identity + a token seeded.
+func markSessionInitialized() {
+    // Reset first so this is deterministic even if a prior test left the lifecycle past
+    // `.uninitialized`. `initialize()` marks `SessionState` explicitly after claiming the lifecycle;
+    // mirror that here since `beginInitializing()` no longer flips the mirror on its own.
+    LifecycleState.shared.reset()
+    LifecycleState.shared.beginInitializing()
+    LifecycleState.shared.completeInitialization()
+    SessionState.markInitialized()
 }
 
 /// Bounded async poll: waits until `condition` holds or `timeout` elapses. FAILS (XCTFail) on
@@ -51,8 +68,10 @@ class KlaviyoBaseTestCase: XCTestCase {
     @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
+        featureFlags = .production
         resetCanonicalCoreStores()
         UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         BadgeManager.resetToProduction()
@@ -60,6 +79,7 @@ class KlaviyoBaseTestCase: XCTestCase {
 
     @MainActor
     override func tearDown() async throws {
+        PreInitMemoryBuffer.shared.reset()
         ProfilePropertyBuffer.shared.reset()
         BadgeManager.resetToProduction()
     }
@@ -101,6 +121,7 @@ class KlaviyoBaseTestCase: XCTestCase {
         ))
         LifecycleState.shared.beginInitializing()
         LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
         return (apiKey, resolvedAnon, pushToken)
     }
 

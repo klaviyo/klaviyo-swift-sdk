@@ -50,28 +50,29 @@ extension KlaviyoCommands {
             // Switch the config to the new company.
             SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
 
-            // Reset identity, preserving the push token:
-            //  - If identified → mint a fresh anonymousId.
-            //  - Clear PII. Token untouched inside mutate (lives in IdentityStore separately).
-            //  - Clear staged profile properties.
-            //  - Re-enqueue the token under the NEW apiKey.
             let previousPushTokenData = IdentityStore.shared.pushToken
-            IdentityStore.shared.mutate { profile in
-                if profile.email != nil || profile.phoneNumber != nil || profile.externalId != nil {
-                    profile.anonymousId = IdentityStore.shared.mintNewAnonymousId()
+            if featureFlags.enableCompanySwitchReset {
+                // iOS behavior: mint a fresh anon for an identified profile, clear PII, reset staged props.
+                IdentityStore.shared.mutate { profile in
+                    if profile.email != nil || profile.phoneNumber != nil || profile.externalId != nil {
+                        profile.anonymousId = IdentityStore.shared.mintNewAnonymousId()
+                    }
+                    profile.email = nil
+                    profile.phoneNumber = nil
+                    profile.externalId = nil
                 }
-                profile.email = nil
-                profile.phoneNumber = nil
-                profile.externalId = nil
+                ProfilePropertyBuffer.shared.reset()
             }
-            ProfilePropertyBuffer.shared.reset()
+            // Parity (flag OFF): keep the existing profile (PII + anon) and staged props untouched.
 
             // Re-register the token under the NEW apiKey (gated: apiKey + anonymousId + tokenData).
             if let newAnon = IdentityStore.shared.current.anonymousId,
                let tokenData = previousPushTokenData {
-                let profile = ProfilePayload(
-                    email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
-                )
+                let profile: ProfilePayload = featureFlags.enableCompanySwitchReset
+                    ? ProfilePayload(email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon)
+                    : RequestBuilding.profilePayload(
+                        from: Profile(), identity: IdentityStore.shared.current, anonymousId: newAnon
+                    )
                 let request = RequestFactory.tokenRequest(
                     apiKey: apiKey,
                     pushToken: tokenData.pushToken,
@@ -114,32 +115,44 @@ extension KlaviyoCommands {
             }
             // NOTE: do NOT clear the push token here — the switch must preserve it so the
             // token can be re-registered under the new company immediately below.
-            // Give the new company a clean identity: mint a fresh anon and drop any PII so
-            // `completeInitialization` hydrates it. Unconditional (matches the runtime switch
-            // path's reset()) so an anonymous-only switch does not carry the old company's anon.
-            IdentityStore.shared.update(ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
-            // Re-register the preserved token under the new company (identity-only, fresh anon).
+            if featureFlags.enableCompanySwitchReset {
+                // iOS behavior: give the new company a clean identity (fresh anon, PII dropped).
+                IdentityStore.shared.update(
+                    ProfileData(anonymousId: IdentityStore.shared.mintNewAnonymousId()))
+            }
+            // Parity (flag OFF): retain the persisted device-scoped identity (PII + anon) as-is.
+
+            // Re-register the preserved token under the new company.
             if let tokenData = IdentityStore.shared.pushToken,
                let newAnon = IdentityStore.shared.current.anonymousId {
+                let profile: ProfilePayload = featureFlags.enableCompanySwitchReset
+                    ? ProfilePayload(email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon)
+                    : RequestBuilding.profilePayload(
+                        from: Profile(), identity: IdentityStore.shared.current, anonymousId: newAnon
+                    )
                 let request = RequestFactory.tokenRequest(
                     apiKey: apiKey,
                     pushToken: tokenData.pushToken,
                     enablement: tokenData.pushEnablement,
                     background: tokenData.pushBackground.rawValue,
-                    profile: ProfilePayload(
-                        email: nil, phoneNumber: nil, externalId: nil, anonymousId: newAnon
-                    )
+                    profile: profile
                 )
                 QueueStore.shared.enqueue(request)
             }
         }
 
         // ── Branch 3: FALL-THROUGH — normal cold-start init ──────────────────────────────────────
+        // Claim the init first: a call that loses the claim returns without writing the key, so it
+        // can't overwrite `SDKConfigStore` for the in-flight init. The winner installs the key,
+        // migrates, and only then opens routing (`SessionState.markInitialized()`), so `route` never
+        // observes the initialized session with the prior launch's key or with unmigrated identity.
         guard LifecycleState.shared.beginInitializing() else { return }
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-        // Migrate synchronously, before any identity read can hydrate a fresh anonymousId over the
-        // persisted identity (and before a racing host setter could be clobbered by the migration).
+        // Migrate synchronously, before routing opens, so no identity read can hydrate a fresh
+        // anonymousId over the persisted identity and no racing host setter can pass the session gate
+        // while legacy state is still migrating.
         migrateLegacyStateIfNeeded(apiKey: apiKey)
+        SessionState.markInitialized()
         Task { await completeInitialization(apiKey: apiKey) }
     }
 

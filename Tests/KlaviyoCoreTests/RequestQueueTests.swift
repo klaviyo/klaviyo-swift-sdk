@@ -432,6 +432,121 @@ final class RequestQueueTests: XCTestCase {
                       "store must be empty: non-retryable dequeued, successor succeeded and dequeued")
     }
 
+    // MARK: - Optimistic push-token reconciliation
+
+    /// When a `registerPushToken` is permanently dropped (here a non-retryable `.internalError`), the
+    /// optimistic `IdentityStore` token written when the caller set it is rolled back — so a later
+    /// identical `setPushToken` re-enqueues instead of dedup-skipping a token that never registered.
+    func testRegisterPermanentFailureClearsMatchingOptimisticToken() async {
+        QueueStore.register(makeQueueStore())
+        let payload = PushTokenPayload(
+            pushToken: "tok-1",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        )
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
+        IdentityStore.shared.updatePushToken(PushTokenData(payload))
+        let spy = SendSpy(results: [.failure(.internalError("boom"))])
+        QueueStore.shared.enqueue(
+            KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
+            persist: .synchronous
+        )
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "permanently failed register is dropped")
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "optimistic token must be cleared when its register is permanently dropped")
+    }
+
+    /// The rollback is guarded on a token match: if a newer token was set after the failing register
+    /// was enqueued, dropping the old register must not wipe the newer token.
+    func testRegisterPermanentFailurePreservesNewerToken() async {
+        QueueStore.register(makeQueueStore())
+        let oldPayload = PushTokenPayload(
+            pushToken: "tok-old",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        )
+        let newerToken = PushTokenData(PushTokenPayload(
+            pushToken: "tok-new",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        ))
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
+        IdentityStore.shared.updatePushToken(newerToken)
+        let spy = SendSpy(results: [.failure(.internalError("boom"))])
+        QueueStore.shared.enqueue(
+            KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", oldPayload)),
+            persist: .synchronous
+        )
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(IdentityStore.shared.pushToken, newerToken,
+                       "a newer token set after the failing register must be preserved")
+    }
+
+    /// Android parity: a server 4xx rejection of a register does NOT clear the token (unlike a
+    /// non-retryable internal failure), so we don't churn the same token back onto the queue.
+    func testRegisterHttpErrorKeepsToken() async {
+        QueueStore.register(makeQueueStore())
+        let payload = PushTokenPayload(
+            pushToken: "tok-1",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        )
+        let tokenData = PushTokenData(payload)
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
+        IdentityStore.shared.updatePushToken(tokenData)
+        let spy = SendSpy(results: [.failure(.httpError(400, Data()))])
+        QueueStore.shared.enqueue(
+            KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
+            persist: .synchronous
+        )
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(IdentityStore.shared.pushToken, tokenData,
+                       "a 4xx rejection must not clear the token (Android parity)")
+    }
+
+    /// The realistic permanent-failure path: a register that exhausts its retry ceiling on repeated
+    /// network errors is dropped, and its optimistic token is rolled back like the non-retryable case.
+    func testRegisterExhaustingRetriesClearsOptimisticToken() async {
+        QueueStore.register(makeQueueStore())
+        let payload = PushTokenPayload(
+            pushToken: "tok-1",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        )
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
+        IdentityStore.shared.updatePushToken(PushTokenData(payload))
+        let spy = SendSpy(results: [.failure(.networkError(NSError(domain: "test", code: -1)))])
+        QueueStore.shared.enqueue(
+            KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
+            persist: .synchronous
+        )
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        // Each flush retries once; drive past the register endpoint's maxRetries (50) so it is dropped.
+        for _ in 0...(KlaviyoEndpoint.registerPushToken("k", payload).maxRetries + 1) {
+            await queue.flushNow()
+        }
+
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "register must be dropped after exhausting retries")
+        XCTAssertNil(IdentityStore.shared.pushToken,
+                     "optimistic token must be cleared once the register exhausts its retries")
+    }
+
     // MARK: - Connectivity
 
     /// `.reachableViaWiFi` sets `flushInterval = 10.0`: the run loop requests 10-second sleeps.

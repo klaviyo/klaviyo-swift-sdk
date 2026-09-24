@@ -228,6 +228,7 @@ public actor RequestQueue {
         case .dequeue:
             // Non-retryable: remove the head and keep sending the rest of the batch.
             // Parity: `deQueueCompletedResults` for a non-retryable failure.
+            clearOptimisticPushToken(head, error: error)
             requestsInFlight.removeFirst()
             retryState = .retry(FlushConstants.initialAttempt)
             return .continueSending
@@ -253,6 +254,7 @@ public actor RequestQueue {
             retryState = newState
             if case let .retry(count) = newState,
                count > head.endpoint.maxRetries {
+                clearOptimisticPushToken(head, error: error)
                 requestsInFlight.removeFirst()
                 retryState = .retry(FlushConstants.initialAttempt)
             }
@@ -268,11 +270,26 @@ public actor RequestQueue {
             retryState = newState
             if case let .retryWithBackoff(requestCount, _, _) = newState,
                requestCount > head.endpoint.maxRetries {
+                clearOptimisticPushToken(head, error: error)
                 requestsInFlight.removeFirst()
                 retryState = .retry(FlushConstants.initialAttempt)
             }
             restoreLease()
             return .stopFlush
         }
+    }
+
+    /// Rolls back the optimistic `IdentityStore` push token when its `registerPushToken` is
+    /// permanently dropped, so a later identical `setPushToken` re-enqueues rather than dedup-
+    /// skipping a token that never registered. Guarded two ways:
+    /// - Only when the stored token still matches the dropped request's token, so a newer token set
+    ///   in the meantime is preserved.
+    /// - Not on a server 4xx (`httpError`): Android parity keeps the token on a definitive rejection
+    ///   rather than churning the same value back onto the queue.
+    private func clearOptimisticPushToken(_ head: KlaviyoRequest, error: KlaviyoAPIError) {
+        if case .httpError = error { return }
+        guard case let .registerPushToken(_, payload) = head.endpoint,
+              IdentityStore.shared.pushToken?.pushToken == payload.data.attributes.token else { return }
+        IdentityStore.shared.updatePushToken(nil)
     }
 }

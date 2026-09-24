@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import KlaviyoCore
 
 /// The SDK's session-scoped initialization state machine.
 ///
@@ -70,7 +71,9 @@ final class LifecycleState {
             value = .initializing
             return true
         }
-        if transitioned { subject.send(.initializing) }
+        if transitioned {
+            subject.send(.initializing)
+        }
         return transitioned
     }
 
@@ -92,6 +95,7 @@ final class LifecycleState {
     /// Resets to `.uninitialized`. Intended for test isolation only.
     package func reset() {
         lock.withLock { value = .uninitialized }
+        SessionState.markUninitialized()
         subject.send(.uninitialized)
     }
 }

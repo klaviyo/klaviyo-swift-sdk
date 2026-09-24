@@ -18,10 +18,17 @@ final class RequestEnqueuerTests: XCTestCase {
         super.setUp()
         fileIO = FileIODouble()
         environment = fileIO.makeEnvironment()
+        // Enable durable disk capture so these unit tests remain a spec for the
+        // capture-ON code path (UnattributedBuffer). Parity tests live in
+        // RequestEnqueuerPreInitGateTests.
+        featureFlags.enablePreInitDiskCapture = true
         UnattributedBuffer.shared.reset()
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
         QueueStore.resetShared()
+        // route() gates on the session signal; start each test pre-init. Post-init tests below opt in
+        // via SessionState.markInitialized() (Core can't reach KlaviyoSwift's LifecycleState).
+        SessionState.markUninitialized()
     }
 
     override func tearDown() {
@@ -29,6 +36,8 @@ final class RequestEnqueuerTests: XCTestCase {
         SDKConfigStore.shared.reset()
         IdentityStore.shared.reset()
         QueueStore.resetShared()
+        SessionState.markUninitialized()
+        featureFlags = .production
         environment = KlaviyoEnvironment.test()
         fileIO = nil
         super.tearDown()
@@ -50,6 +59,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testEventWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("X")))
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
         XCTAssertEqual(QueueStore.current()?.count, 1)
@@ -57,6 +67,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testPriorityEventFrontInsertsInQueue() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("normal")))
         RequestEnqueuer.enqueueEvent(
             Event(name: .customEvent("urgent"), properties: nil, identifiers: nil,
@@ -97,6 +108,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testProfileWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         let payload = CreateProfilePayload(data: ProfilePayload(
             email: "ada@example.com", anonymousId: "anon-1"
         ))
@@ -122,6 +134,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testAggregateEventWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         let payload = Data("test-aggregate".utf8)
         RequestEnqueuer.enqueueAggregateEvent(payload)
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
@@ -146,6 +159,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testPushTokenWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.enqueuePushToken("device-token-abc", enablement: .authorized)
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
         XCTAssertEqual(QueueStore.current()?.count, 1)
@@ -191,6 +205,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testSubscriptionWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.enqueueSubscription(payload: subscriptionPayload())
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
         XCTAssertEqual(QueueStore.current()?.count, 1)
@@ -202,6 +217,7 @@ final class RequestEnqueuerTests: XCTestCase {
     func testDrainMapsSubscriptionToCreateSubscriptionEndpoint() {
         RequestEnqueuer.enqueueSubscription(payload: subscriptionPayload())
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
 
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
@@ -232,6 +248,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testTrackingLinkClickWithApiKeyGoesToQueueStore() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.enqueueTrackingLinkClicked(
             trackingLink: trackingLinkURL, clickTime: environment.date()
         )
@@ -251,6 +268,7 @@ final class RequestEnqueuerTests: XCTestCase {
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("3")))
 
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
 
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
@@ -270,6 +288,7 @@ final class RequestEnqueuerTests: XCTestCase {
                   value: nil, priority: .high))
 
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
 
         XCTAssertEqual(QueueStore.current()?.requests.first?.priority, .high)
@@ -281,6 +300,7 @@ final class RequestEnqueuerTests: XCTestCase {
         )
 
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
 
         XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 0)
@@ -294,6 +314,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
     func testDrainEmptyBufferIsNoOp() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
         XCTAssertEqual(QueueStore.current()?.count, 0)
     }
@@ -301,6 +322,7 @@ final class RequestEnqueuerTests: XCTestCase {
     func testDrainPersistsQueueBeforeClearingBuffer() {
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("1")))
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         RequestEnqueuer.drainBuffer(apiKey: "pk-1")
         // Buffer file must be gone.
         XCTAssertNil(loadPersisted(PersistedUnattributedBuffer.self, fileName: StoreFile.unattributed))
@@ -312,6 +334,7 @@ final class RequestEnqueuerTests: XCTestCase {
     func testDrainWithMismatchedApiKeyIsSkipped() {
         // Configure the active SDK key to "pk-1" and buffer one event.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         // Reset to no-apiKey so the event lands in the buffer, then drain with wrong key.
         SDKConfigStore.shared.reset()
         RequestEnqueuer.enqueueEvent(Event(name: .customEvent("buffered")))
@@ -319,6 +342,7 @@ final class RequestEnqueuerTests: XCTestCase {
 
         // Set active key back to "pk-1" so QueueStore resolves it, then drain with a wrong key.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-1"))
+        SessionState.markInitialized()
         var warnings: [String] = []
         environment.emitDeveloperWarning = { warnings.append($0) }
 

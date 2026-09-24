@@ -8,9 +8,9 @@
 import Foundation
 
 /// Ungated Core enqueue entry point. Reads identity + apiKey from the shared stores itself,
-/// so callers never thread identity or check for an apiKey. apiKey present → build + enqueue
-/// to `QueueStore`; apiKey absent → build an apiKey-free payload → `UnattributedBuffer`.
-/// Routes pre-init calls to `UnattributedBuffer`; post-init calls to `QueueStore`.
+/// so callers never thread identity or check for an apiKey. Routing is gated on `SessionState`:
+/// post-init → build + enqueue to `QueueStore`; pre-init → buffer to `UnattributedBuffer`
+/// (`enablePreInitDiskCapture` on) or drop (parity default).
 public enum RequestEnqueuer {
     static let missingAnonymousIdWarning = "RequestEnqueuer: missing anonymousId"
 
@@ -29,18 +29,38 @@ public enum RequestEnqueuer {
         )
     }
 
-    /// The single routing rule: apiKey present → build a request and enqueue it to `QueueStore`;
-    /// apiKey absent → append the apiKey-free payload to the `UnattributedBuffer`. The captured
-    /// apiKey stamps the endpoint (`build(apiKey)`); the queue itself is the single shared store.
+    /// Routes a request based on `SessionState.isInitialized` (whether `initialize()` has started this
+    /// process):
+    ///
+    /// - Post-init → build a request and enqueue directly to `QueueStore` (`apiKey` is set by the time
+    ///   the session is marked).
+    /// - Pre-init + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
+    /// - Pre-init + `enablePreInitDiskCapture` OFF → hold a high-priority event (push-open) in the
+    ///   non-durable `PreInitMemoryBuffer`; drop everything else with a developer warning.
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
     ) {
-        if let apiKey = SDKConfigStore.shared.current.apiKey {
+        if SessionState.isInitialized, let apiKey = SDKConfigStore.shared.current.apiKey {
             QueueStore.shared.enqueue(build(apiKey))
-        } else {
+        } else if featureFlags.enablePreInitDiskCapture {
             UnattributedBuffer.shared.append(buffered)
+        } else if isHighPriorityEvent(buffered) {
+            // Android parity: hold pre-init push-opens in a non-durable in-memory buffer; drop the
+            // rest (Android drops all pre-init calls except in-memory push-opens).
+            PreInitMemoryBuffer.shared.append(buffered)
+        } else {
+            environment.emitDeveloperWarning(
+                "Klaviyo SDK not initialized; dropping pre-init request")
         }
+    }
+
+    /// A buffered request is a high-priority push-open iff it is a `.high`-priority event. On this
+    /// branch the only `.high` events are Klaviyo-prioritized events (`$opened_push`), mirroring
+    /// Android's `isKlaviyoMetric` high-priority lane.
+    private static func isHighPriorityEvent(_ request: UnattributedRequest) -> Bool {
+        if case let .event(_, priority) = request { return priority == .high }
+        return false
     }
 
     public static func enqueueEvent(_ event: Event) {
@@ -62,8 +82,8 @@ public enum RequestEnqueuer {
     /// supplies the full payload — profiles carry structured attributes (firstName/lastName/title/
     /// organization/image/location) that only the KlaviyoSwift `Profile` → `ProfilePayload` mapping
     /// can populate, so building here (with just identity + flat properties) would drop them. The
-    /// payload already embeds identifiers + anonymousId; routing is the same as every other request:
-    /// apiKey present → `QueueStore`, absent → durable `UnattributedBuffer`.
+    /// payload already embeds identifiers + anonymousId; routing is the same as every other request
+    /// (see `route`).
     public static func enqueueProfile(payload: CreateProfilePayload) {
         route(buffered: .profile(payload)) { apiKey in
             KlaviyoRequest(endpoint: .createProfile(apiKey, payload))
@@ -75,6 +95,25 @@ public enum RequestEnqueuer {
         let payload = RequestFactory.tokenPayload(
             identity: identity, pushToken: token, enablement: enablement,
             background: environment.getBackgroundSetting()
+        )
+        route(buffered: .pushToken(payload)) { apiKey in
+            KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
+        }
+    }
+
+    /// Enqueues a `registerPushToken` carrying a FULL profile (attributes + properties), used by the
+    /// Android-parity fold path where a profile update rides on the token request instead of a
+    /// separate createProfile. Routes buffer/queue like the identity-only overload.
+    public static func enqueuePushToken(
+        token: String,
+        enablement: PushEnablement,
+        profile: ProfilePayload
+    ) {
+        let payload = RequestFactory.tokenPayload(
+            pushToken: token,
+            enablement: enablement,
+            background: environment.getBackgroundSetting(),
+            profile: profile
         )
         route(buffered: .pushToken(payload)) { apiKey in
             KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload))
@@ -111,11 +150,14 @@ public enum RequestEnqueuer {
     }
 
     /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
-    /// removes only the drained FIFO prefix. At-least-once: the final enqueue persists synchronously
-    /// so the queue is durable before the buffer is trimmed. A crash in the gap re-drains next launch
-    /// (a dedup-able duplicate, never silent loss). Removing the exact drained prefix — rather than
-    /// clearing wholesale — means a request appended concurrently during the drain survives instead
-    /// of being wiped. Built + tested here; called by the slimmed `initialize(apiKey:)`.
+    /// removes only the drained FIFO prefix from the durable buffer. Drains BOTH the durable disk
+    /// buffer (`UnattributedBuffer`) and the non-durable in-memory buffer (`PreInitMemoryBuffer`);
+    /// in each operating mode one is empty, so draining both is always safe.
+    ///
+    /// At-least-once: the final enqueue persists synchronously so the queue is durable before the
+    /// disk buffer is trimmed. A crash in the gap re-drains next launch (a dedup-able duplicate,
+    /// never silent loss). Removing the exact drained prefix — rather than clearing wholesale — means
+    /// a request appended concurrently during the drain survives instead of being wiped.
     ///
     /// - Precondition: `apiKey` must equal `SDKConfigStore.shared.current.apiKey`. If they diverge
     ///   the drain is skipped so buffered requests aren't stamped with a key that no longer matches
@@ -128,14 +170,19 @@ public enum RequestEnqueuer {
             )
             return
         }
-        let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
-        guard !buffered.isEmpty else { return }
-        // Single shared queue. The `apiKey` validated above is what stamps each
-        // endpoint below, so every drained request carries the active company.
+
         let queue = QueueStore.shared
 
-        for (index, request) in buffered.enumerated() {
-            let isLast = index == buffered.count - 1
+        // Durable disk buffer (populated when enablePreInitDiskCapture is on).
+        let (buffered, cursor) = UnattributedBuffer.shared.drainSnapshot()
+        // Non-durable in-memory buffer (populated in Android-parity mode).
+        let memory = PreInitMemoryBuffer.shared.drain()
+
+        let all = buffered + memory
+        guard !all.isEmpty else { return }
+
+        for (index, request) in all.enumerated() {
+            let isLast = index == all.count - 1
             let policy: PersistPolicy = isLast ? .synchronous : .debounced
             switch request {
             case let .event(payload, priority):
@@ -152,6 +199,11 @@ public enum RequestEnqueuer {
                     KlaviyoRequest(endpoint: .createProfile(apiKey, payload)), persist: policy
                 )
             case let .pushToken(payload):
+                // Persist the captured token to `IdentityStore` as it is routed into the queue, so
+                // token-dependent commands (`setPushEnablement`, profile fold) see it before the
+                // register request completes. Mirrors the post-init persist-when-routed path in
+                // `setPushToken`; only reachable when `enablePreInitDiskCapture` buffered a token.
+                IdentityStore.shared.updatePushToken(PushTokenData(payload))
                 queue.enqueue(
                     KlaviyoRequest(endpoint: .registerPushToken(apiKey, payload)), persist: policy
                 )
