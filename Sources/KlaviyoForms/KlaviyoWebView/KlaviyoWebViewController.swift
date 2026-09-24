@@ -224,6 +224,10 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
         viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
     }
 
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        viewModel.handleNavigationEvent(.didCommitNavigation)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         viewModel.handleNavigationEvent(.didFinishNavigation)
     }

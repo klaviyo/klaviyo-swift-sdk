@@ -50,3 +50,24 @@ actor FormsTestGate {
         await withCheckedContinuation { waiters.append($0) }
     }
 }
+
+final class FormsBlockingGate: @unchecked Sendable {
+    private let semaphore = DispatchSemaphore(value: 0)
+
+    func open() {
+        semaphore.signal()
+    }
+
+    func wait(timeout: TimeInterval) -> Bool {
+        semaphore.wait(timeout: .now() + timeout) == .success
+    }
+}
+
+actor FormsInvocationCounter {
+    private var count = 0
+
+    func next() -> Int {
+        count += 1
+        return count
+    }
+}
