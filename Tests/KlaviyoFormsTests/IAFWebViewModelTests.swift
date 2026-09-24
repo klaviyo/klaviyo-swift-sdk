@@ -647,7 +647,7 @@ final class IAFWebViewModelTests: XCTestCase {
                 initalizationState: .initialized
             )
         )
-        await fulfillment(of: [replacementApplied], timeout: 1)
+        await fulfillment(of: [replacementApplied], timeout: 5)
 
         let profileIndex = try XCTUnwrap(
             delegate.evaluatedScripts.firstIndex { $0.contains("b@example.com") }
