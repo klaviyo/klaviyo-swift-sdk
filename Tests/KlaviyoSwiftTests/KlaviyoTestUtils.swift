@@ -7,18 +7,130 @@
 
 @testable import KlaviyoCore
 import Combine
-import CombineSchedulers
 import CoreLocation
 import XCTest
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
-let ARCHIVED_RETURNED_DATA = Data()
+/// Resets the canonical KlaviyoCore stores to a clean, deterministic state for test isolation.
+///
+/// `IdentityStore.shared` and `SDKConfigStore.shared` are process-wide singletons that persist
+/// across tests. Call this
+/// in `setUp` — AFTER installing the test `environment` — so hydration/minting use the test
+/// `fileClient` (whose `fileExists` closure decides whether `loadPersisted` reads or returns nil)
+/// and the deterministic test `uuid`, and so state never leaks between tests.
+func resetCanonicalCoreStores() {
+    IdentityStore.shared.reset()
+    SDKConfigStore.shared.reset()
+    // Session-scoped init signal that `RequestEnqueuer.route` gates on. Clear it so a prior test that
+    // advanced the lifecycle can't make a fresh test's pre-init call look post-init.
+    SessionState.markUninitialized()
+    // The shared QueueStore is process-global; clear it so a spy store injected by
+    // `seedTestQueueStore` in one test can't bleed into the next (which would otherwise resolve a
+    // stale in-memory queue instead of the empty production/disk-backed store).
+    QueueStore.resetShared()
+}
 
-extension ArchiverClient {
-    static let test = ArchiverClient(
-        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
+/// Advances `LifecycleState` to `.initialized` — which also flips the Core `SessionState` mirror that
+/// `RequestEnqueuer.route` gates on — for tests that seed config/identity inline and then exercise a
+/// post-init enqueue path (the same gate state `initialize()` establishes). Prefer
+/// `seedPostInitWithToken` when you also want identity + a token seeded.
+func markSessionInitialized() {
+    // Reset first so this is deterministic even if a prior test left the lifecycle past
+    // `.uninitialized`. `initialize()` marks `SessionState` explicitly after claiming the lifecycle;
+    // mirror that here since `beginInitializing()` no longer flips the mirror on its own.
+    LifecycleState.shared.reset()
+    LifecycleState.shared.beginInitializing()
+    LifecycleState.shared.completeInitialization()
+    SessionState.markInitialized()
+}
+
+/// Bounded async poll: waits until `condition` holds or `timeout` elapses. FAILS (XCTFail) on
+/// timeout rather than spinning forever, so a broken async path surfaces loudly.
+func waitForConditionOrFail(
+    timeout: TimeInterval = 2.0,
+    _ message: @autoclosure () -> String = "condition not met within timeout",
+    file: StaticString = #filePath,
+    line: UInt = #line,
+    _ condition: @escaping () async -> Bool
+) async throws {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+        if await condition() { return }
+        try await Task.sleep(nanoseconds: 20_000_000)
+    }
+    XCTFail(message(), file: file, line: line)
+}
+
+/// Shared base for KlaviyoSwift test suites. Resets the same process-wide singletons
+/// (test `environment`, canonical Core stores, the durable buffer, and `BadgeManager`) before each
+/// test. Subclasses that need extra setup should call `super` first.
+class KlaviyoBaseTestCase: XCTestCase {
+    @MainActor
+    override func setUp() async throws {
+        environment = KlaviyoEnvironment.test()
+        featureFlags = .production
+        resetCanonicalCoreStores()
+        UnattributedBuffer.shared.reset()
+        PreInitMemoryBuffer.shared.reset()
+        ProfilePropertyBuffer.shared.reset()
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        BadgeManager.resetToProduction()
+    }
+
+    @MainActor
+    override func tearDown() async throws {
+        PreInitMemoryBuffer.shared.reset()
+        ProfilePropertyBuffer.shared.reset()
+        BadgeManager.resetToProduction()
+    }
+
+    /// Installs a `SpyRequestQueue` as the environment request queue and returns it. The spy records
+    /// lifecycle/flush calls without draining `QueueStore`, so queue-content assertions stay
+    /// deterministic (and the real run loop never spins under the immediate test clock).
+    @discardableResult
+    func installSpyRequestQueue() -> SpyRequestQueue {
+        let spyQueue = SpyRequestQueue()
+        klaviyoSwiftEnvironment.requestQueue = spyQueue
+        return spyQueue
+    }
+
+    /// Seeds a post-init state: apiKey in `SDKConfigStore`, identity + push token in `IdentityStore`,
+    /// `LifecycleState` advanced to `.initialized`. Returns (apiKey, anonymousId, pushToken).
+    @discardableResult
+    func seedPostInitWithToken(
+        apiKey: String = TEST_API_KEY,
+        anonymousId: String? = nil,
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        pushToken: String = "blob_token"
+    ) -> (apiKey: String, anonymousId: String, pushToken: String) {
+        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(ProfileData(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            anonymousId: resolvedAnon
+        ))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: pushToken,
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
+        return (apiKey, resolvedAnon, pushToken)
+    }
+
+    /// Seeds a pre-init state: anonymousId only in `IdentityStore`, `LifecycleState` stays
+    /// `.uninitialized`.
+    func seedPreInit(anonymousId: String? = nil) {
+        let resolvedAnon = anonymousId ?? environment.uuid().uuidString
+        IdentityStore.shared.update(ProfileData(anonymousId: resolvedAnon))
+    }
 }
 
 extension AppLifeCycleEvents {
@@ -29,7 +141,6 @@ extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.test,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
@@ -55,7 +166,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
@@ -64,32 +174,13 @@ extension KlaviyoEnvironment {
     }
 }
 
-class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
-    }
-}
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {}
 
 class InvalidJSONDecoder: JSONDecoder, @unchecked Sendable {
+    private struct DecodingFailure: Error {}
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        throw KlaviyoDecodingError.invalidType
+        throw DecodingFailure()
     }
-}
-
-struct KlaviyoTestReducer: ReducerProtocol {
-    var reducer: (inout KlaviyoSwift.KlaviyoState, KlaviyoAction) -> EffectTask<KlaviyoSwift.KlaviyoAction> = { _, _ in .none }
-
-    func reduce(into state: inout KlaviyoSwift.KlaviyoState, action: KlaviyoSwift.KlaviyoAction) -> KlaviyoSwift.EffectTask<KlaviyoSwift.KlaviyoAction> {
-        reducer(&state, action)
-    }
-
-    typealias State = KlaviyoState
-
-    typealias Action = KlaviyoAction
-}
-
-extension Store where State == KlaviyoState, Action == KlaviyoAction {
-    static let test = Store(initialState: .test, reducer: KlaviyoTestReducer())
 }
 
 extension FileClient {
@@ -97,7 +188,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -134,17 +226,6 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
-}
-
-extension StateChangePublisher {
-    static let test = { () -> StateChangePublisher in
-        StateChangePublisher.debouncedPublisher = { publisher in
-            publisher
-                .debounce(for: .seconds(0), scheduler: DispatchQueue.immediate)
-                .eraseToAnyPublisher()
-        }
-        return Self()
-    }()
 }
 
 private final class KeyedArchiver: NSKeyedArchiver {

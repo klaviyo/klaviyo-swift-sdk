@@ -4,10 +4,14 @@
 //
 //  Created by Noah Durell on 2/21/23.
 //
+//  Facade coverage for the public `KlaviyoSDK` surface. The public methods forward to
+//  `KlaviyoCommands` (via `dispatchOnMainThread`) instead of dispatching TCA actions, so these
+//  tests assert the resulting Core-store / QueueStore side effects rather than a captured action.
+//
 
-@testable import KlaviyoSwift
+@testable import KlaviyoCore
+@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import Foundation
-import KlaviyoCore
 import XCTest
 
 // MARK: - KlaviyoSDKTests
@@ -17,12 +21,16 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: Properties
 
     var klaviyo = KlaviyoSDK()
+    /// Live recording of every request persisted to the shared `QueueStore` this test.
+    private var recordedRequests: () -> [KlaviyoRequest] = { [] }
 
     // MARK: Setup
 
     override func setUpWithError() throws {
         klaviyo = KlaviyoSDK()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
+        LifecycleState.shared.reset()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
         BadgeManager.resetToProduction()
@@ -31,111 +39,185 @@ class KlaviyoSDKTests: XCTestCase {
 
     override func tearDown() async throws {
         environment = KlaviyoEnvironment.test()
+        LifecycleState.shared.reset()
         BadgeManager.resetToProduction()
         DeepLinkManager.resetToProduction()
         klaviyo.setLoggingEnabled(true)
     }
 
-    func setupActionAssertion(expectedAction: KlaviyoAction, file: StaticString = #filePath, line: UInt = #line) -> XCTestExpectation {
-        let expectation = XCTestExpectation(description: "wait for action \(expectedAction)")
-        klaviyoSwiftEnvironment.send = { action in
-            XCTAssertEqual(action, expectedAction, file: file, line: line)
-            expectation.fulfill()
-            return nil
-        }
-        return expectation
+    // MARK: Helpers
+
+    /// Seeds an initialized SDK (apiKey + anon identity + `.initialized` lifecycle) and installs a
+    /// recording `QueueStore` so enqueued requests are observable. Facade calls that enqueue
+    /// (events, profiles) land in `recordedRequests()`.
+    private func seedInitializedRecording() {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
+        SessionState.markInitialized()
+        recordedRequests = registerRecordingQueueStore()
     }
 
-    // MARK: Tests
+    /// Returns the `Attributes` of every recorded `_openedPush` createEvent request, paired with the
+    /// owning request's priority.
+    private func openedPushEvents() -> [(attributes: CreateEventPayload.Event.Attributes, priority: RequestPriority)] {
+        recordedRequests().compactMap { request in
+            guard case let .createEvent(_, payload) = request.endpoint,
+                  payload.data.attributes.metric.data.attributes.name == "$opened_push" else {
+                return nil
+            }
+            return (payload.data.attributes, request.priority)
+        }
+    }
 
-    func testKlaviyoSDKInit() {
-        XCTAssertNotNil(klaviyo)
+    /// Polls until at least one `_openedPush` event is recorded. Fails (XCTFail) on timeout so a
+    /// missing event surfaces loudly rather than silently passing.
+    private func waitForOpenedPush(
+        timeout: TimeInterval = 1.0,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        try await waitForConditionOrFail(
+            timeout: timeout,
+            "openedPush event not received within \(timeout)s",
+            file: file,
+            line: line
+        ) { !self.openedPushEvents().isEmpty }
+    }
+
+    private func stringProperty(_ attributes: CreateEventPayload.Event.Attributes, _ key: String) -> String? {
+        (attributes.properties.value as? [String: Any])?[key] as? String
     }
 
     // MARK: test initialize
 
-    func testInitializeSDk() {
-        let expectation = setupActionAssertion(expectedAction: .initialize(TEST_API_KEY))
-
+    func testInitializeSDk() async throws {
         klaviyo.initialize(with: TEST_API_KEY)
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition { SDKConfigStore.shared.current.apiKey == TEST_API_KEY }
+        XCTAssertEqual(SDKConfigStore.shared.current.apiKey, TEST_API_KEY)
+        XCTAssertNotEqual(LifecycleState.shared.current, .uninitialized)
     }
 
-    // MARK: test set proprety
+    // MARK: test set property
 
-    func testSetFirstName() {
-        let expectation = setupActionAssertion(expectedAction: .setProfileProperty(.firstName, "test"))
-
+    func testSetFirstName() async throws {
+        seedInitializedRecording()
         klaviyo.set(profileAttribute: .firstName, value: "test")
 
-        wait(for: [expectation], timeout: 1.0)
+        // `set(profileAttribute:)` stages into `ProfilePropertyBuffer` via a main-queue hop. Yield
+        // to let that hop settle before flushing.
+        await Task.yield()
+        await Task.yield()
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+        let firstNames: [String?] = recordedRequests().map { request in
+            switch request.endpoint {
+            case let .registerPushToken(_, payload):
+                return payload.data.attributes.profile.data.attributes.firstName
+            case let .createProfile(_, payload):
+                return payload.data.attributes.firstName
+            default:
+                return nil
+            }
+        }
+        XCTAssertTrue(firstNames.contains("test"), "staged firstName must fold into an enqueued request")
     }
 
     // MARK: test set profile
 
-    func testSetProfile() {
+    func testSetProfile() async throws {
+        seedInitializedRecording()
         let profile = Profile(
             email: "john.smith@example.com",
             phoneNumber: "+15555551212",
             firstName: "John",
             lastName: "Smith"
         )
-        let expectation = setupActionAssertion(expectedAction: .enqueueProfile(profile))
-
         klaviyo.set(profile: profile)
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition {
+            self.recordedRequests().contains { request in
+                if case .createProfile = request.endpoint { return true }
+                return false
+            }
+        }
+        let profileRequest = recordedRequests().first { request in
+            if case .createProfile = request.endpoint { return true }
+            return false
+        }
+        guard case let .createProfile(_, payload)? = profileRequest?.endpoint else {
+            return XCTFail("expected a createProfile request")
+        }
+        XCTAssertEqual(payload.data.attributes.email, "john.smith@example.com")
+        XCTAssertEqual(payload.data.attributes.phoneNumber, "+15555551212")
     }
 
     // MARK: test create event
 
-    func testCreateEvent() {
-        let event = Event(name: .openedAppMetric)
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
+    func testCreateEvent() async throws {
+        seedInitializedRecording()
+        klaviyo.create(event: Event(name: .openedAppMetric))
 
-        klaviyo.create(event: event)
-
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition {
+            self.recordedRequests().contains { request in
+                if case .createEvent = request.endpoint { return true }
+                return false
+            }
+        }
+        let eventNames: [String] = recordedRequests().compactMap { request in
+            guard case let .createEvent(_, payload) = request.endpoint else { return nil }
+            return payload.data.attributes.metric.data.attributes.name
+        }
+        XCTAssertTrue(eventNames.contains("Opened App"))
     }
 
-    func testCreateEventFromDocumentation() {
+    func testCreateEventFromDocumentation() async throws {
+        seedInitializedRecording()
         let event = Event(name: .addedToCartMetric, properties: [
             "Total Price": 10.99,
             "Items Purchased": ["Hot Dog", "Fries", "Shake"]
         ], value: 10.99)
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(event))
-
         klaviyo.create(event: event)
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition {
+            self.recordedRequests().contains { request in
+                if case .createEvent = request.endpoint { return true }
+                return false
+            }
+        }
+        let eventNames: [String] = recordedRequests().compactMap { request in
+            guard case let .createEvent(_, payload) = request.endpoint else { return nil }
+            return payload.data.attributes.metric.data.attributes.name
+        }
+        XCTAssertTrue(eventNames.contains("Added to Cart"))
     }
 
     // MARK: test set push token
 
-    func testSetPushToken() {
+    func testSetPushToken() async throws {
+        seedInitializedRecording()
         let tokenData = "mytoken".data(using: .utf8)!
         let strToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
-        let expectation = setupActionAssertion(expectedAction: .setPushToken(strToken, .authorized))
-
         klaviyo.set(pushToken: tokenData)
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition { IdentityStore.shared.pushToken?.pushToken == strToken }
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, strToken)
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushEnablement, .authorized)
     }
 
-    func testSetAutomaticPushTokenUsesAutomaticAction() {
+    func testSetAutomaticPushTokenUsesAutomaticAction() async throws {
+        seedInitializedRecording()
         let tokenData = "automatic-token".data(using: .utf8)!
         let stringToken = tokenData.reduce("") { $0 + String(format: "%02.2hhx", $1) }
-        let expectation = setupActionAssertion(
-            expectedAction: .setAutomaticPushToken(stringToken, .authorized)
-        )
-
         klaviyo.setAutomatic(pushToken: tokenData)
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition { IdentityStore.shared.pushToken?.pushToken == stringToken }
+        XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, stringToken)
     }
 
     func testSetAutomaticPushTokenDiscardsOlderSettingsResultThatFinishesLast() async {
+        seedInitializedRecording()
         let firstToken = Data([0x01])
         let secondToken = Data([0x02])
         // `getNotificationSettings` runs from setAutomatic(pushToken:)'s unstructured Task, off
@@ -158,21 +240,6 @@ class KlaviyoSDKTests: XCTestCase {
             }
         }
 
-        let latestTokenSent = expectation(description: "latest automatic token sent")
-        let staleTokenSent = expectation(description: "stale automatic token not sent")
-        staleTokenSent.isInverted = true
-        klaviyoSwiftEnvironment.send = { action in
-            switch action {
-            case .setAutomaticPushToken("02", .authorized):
-                latestTokenSent.fulfill()
-            case .setAutomaticPushToken("01", _):
-                staleTokenSent.fulfill()
-            default:
-                XCTFail("Unexpected action: \(action)")
-            }
-            return nil
-        }
-
         KlaviyoSDK().setAutomatic(pushToken: firstToken)
         await fulfillment(of: [firstSettingsRequested], timeout: 1.0)
         KlaviyoSDK().setAutomatic(pushToken: secondToken)
@@ -183,10 +250,20 @@ class KlaviyoSDKTests: XCTestCase {
         continuationsLock.unlock()
         XCTAssertEqual(continuations.count, 2)
 
+        // Resolve the SECOND (latest) settings result first: its token must be applied.
         continuations[1].resume(returning: .authorized)
-        await fulfillment(of: [latestTokenSent], timeout: 1.0)
+        let latestApplied = expectation(description: "latest automatic token applied")
+        pollOnMain(latestApplied) { IdentityStore.shared.pushToken?.pushToken == "02" }
+        await fulfillment(of: [latestApplied], timeout: 1.0)
+
+        // Resolve the STALE first result last: it must be dropped (token stays "02").
         continuations[0].resume(returning: .denied)
-        await fulfillment(of: [staleTokenSent], timeout: 0.1)
+        // Yield to give the cooperative scheduler a chance to run the stale token path if broken.
+        for _ in 0..<5 { await Task.yield() }
+        XCTAssertEqual(
+            IdentityStore.shared.pushToken?.pushToken, "02",
+            "stale automatic token must not overwrite the latest"
+        )
     }
 
     func testAutomaticPushTokenSequenceDoesNotAllowNewClaimDuringLatestOperation() {
@@ -225,31 +302,35 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: test set external id
 
-    func testSetExternalId() {
-        let expectation = setupActionAssertion(expectedAction: .setExternalId("foo"))
-
+    func testSetExternalId() async throws {
+        seedInitializedRecording()
         _ = klaviyo.set(externalId: "foo")
 
-        wait(for: [expectation], timeout: 1.0)
+        try await waitForCondition { IdentityStore.shared.current.externalId == "foo" }
+        XCTAssertEqual(IdentityStore.shared.current.externalId, "foo")
     }
 
     // MARK: test handle push notification
 
-    func testHandlePushNotification() throws {
+    func testHandlePushNotification() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
         let push_body = ["body": [
             "_k": [
                 "foo": "bar"
             ]
         ]]
-        let expectation = setupActionAssertion(expectedAction: .enqueueEvent(.init(name: ._openedPush, properties: push_body)))
         let response = try UNNotificationResponse.with(userInfo: push_body)
         let handled = klaviyo.handle(notificationResponse: response) {
             callback.fulfill()
         }
 
-        wait(for: [expectation, callback], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
+        let opened = openedPushEvents()
+        XCTAssertEqual(opened.count, 1, "body tap tracks exactly one opened push")
+        XCTAssertEqual(opened.first?.priority, .high)
     }
 
     // MARK: test unhandle push notification
@@ -279,7 +360,18 @@ class KlaviyoSDKTests: XCTestCase {
     // MARK: test property getters
 
     func testPropertyGetters() {
-        klaviyoSwiftEnvironment.state = { KlaviyoState(email: "foo@foo.com", phoneNumber: "555BLOB", externalId: "my_test_id", pushTokenData: .init(pushToken: "blobtoken", pushEnablement: .authorized, pushBackground: .available, deviceData: .init(context: environment.appContextInfo())), queue: []) }
+        IdentityStore.shared.update(ProfileData(
+            email: "foo@foo.com",
+            phoneNumber: "555BLOB",
+            externalId: "my_test_id",
+            anonymousId: environment.uuid().uuidString
+        ))
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "blobtoken",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: DeviceMetadata(context: environment.appContextInfo())
+        ))
         let klaviyo = KlaviyoSDK()
         XCTAssertEqual("foo@foo.com", klaviyo.email)
         XCTAssertEqual("555BLOB", klaviyo.phoneNumber)
@@ -289,86 +381,58 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: tracking link handling
 
-    func testHandleUniversalTrackingLinkDispatchesTrackingLinkReceived() throws {
+    func testHandleUniversalTrackingLinkReturnsTrueForHTTPS() throws {
         let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link"))
-        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertTrue(result, "Should return true for valid HTTPS universal tracking link")
-        wait(for: [expectation], timeout: 1.0)
     }
 
     func testHandleUniversalTrackingLinkWithHTTPURL() throws {
         let url = try XCTUnwrap(URL(string: "http://email.klaviyo.com/u/tracking/link"))
-        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertTrue(result, "Should return true for valid HTTP universal tracking link")
-        wait(for: [expectation], timeout: 1.0)
     }
 
     func testHandleUniversalTrackingLinkWithDifferentPath() throws {
         let url = try XCTUnwrap(URL(string: "https://manage.kmail-lists.com/u/campaign/12345"))
-        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertTrue(result, "Should return true for universal tracking link with different domain")
-        wait(for: [expectation], timeout: 1.0)
     }
 
     func testHandleUniversalTrackingLinkRejectsNonTrackingURL() throws {
         let url = try XCTUnwrap(URL(string: "https://example.com/regular/path"))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertFalse(result, "Should return false for non-universal tracking URL")
     }
 
     func testHandleUniversalTrackingLinkRejectsCustomScheme() throws {
         let url = try XCTUnwrap(URL(string: "myapp://u/tracking/link"))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertFalse(result, "Should return false for custom scheme URL")
     }
 
     func testHandleUniversalTrackingLinkRejectsWrongPath() throws {
         let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/v/tracking/link"))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertFalse(result, "Should return false for URL without /u/ path prefix")
     }
 
     func testHandleUniversalTrackingLinkRejectsPathNotStartingWithU() throws {
         let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/user/tracking/link"))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertFalse(result, "Should return false for URL with path starting with /user/ instead of /u/")
     }
 
     func testHandleUniversalTrackingLinkWithQueryParameters() throws {
         let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link?utm_source=email&utm_campaign=test"))
-        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertTrue(result, "Should return true for universal tracking link with query parameters")
-        wait(for: [expectation], timeout: 1.0)
     }
 
     func testHandleUniversalTrackingLinkWithFragment() throws {
         let url = try XCTUnwrap(URL(string: "https://email.klaviyo.com/u/tracking/link#section"))
-        let expectation = setupActionAssertion(expectedAction: .trackingLinkReceived(url))
-
         let result = klaviyo.handleUniversalTrackingLink(url)
-
         XCTAssertTrue(result, "Should return true for universal tracking link with fragment")
-        wait(for: [expectation], timeout: 1.0)
     }
 
     func testHandleUniversalTrackingLinkEdgeCases() throws {
@@ -390,12 +454,23 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: - EventDispatcher Registration Tests
 
-    func testKlaviyoSDKInitRegistersAggregateEventDispatch() {
+    func testKlaviyoSDKInitRegistersAggregateEventDispatch() async throws {
+        seedInitializedRecording()
         _ = KlaviyoSDK() // registration happens in init
         let payload = Data("agg".utf8)
-        let expectation = setupActionAssertion(expectedAction: .enqueueAggregateEvent(payload))
         EventDispatcher.shared.dispatch(.aggregateEvent(payload))
-        wait(for: [expectation], timeout: 1.0)
+
+        try await waitForCondition {
+            self.recordedRequests().contains { request in
+                if case .aggregateEvent = request.endpoint { return true }
+                return false
+            }
+        }
+        let hasAggregate = recordedRequests().contains { request in
+            if case .aggregateEvent = request.endpoint { return true }
+            return false
+        }
+        XCTAssertTrue(hasAggregate)
     }
 
     func testKlaviyoSDKInitRegistersDeepLinkDispatch() async {
@@ -461,9 +536,9 @@ class KlaviyoSDKTests: XCTestCase {
 
     // MARK: - Push Action Button Tests
 
-    func testHandleActionButtonTap_DeepLinkWithAllProperties() throws {
+    func testHandleActionButtonTap_DeepLinkWithAllProperties() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionURL = try XCTUnwrap(URL(string: "myapp://products/123"))
         let actionId = "com.klaviyo.test.shop"
         let buttonLabel = "Shop Now"
@@ -484,59 +559,26 @@ class KlaviyoSDKTests: XCTestCase {
             ]
         ]
 
-        var capturedActions: [KlaviyoAction] = []
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
-            return nil
-        }
+        let response = try UNNotificationResponse.with(userInfo: userInfo, actionIdentifier: actionId)
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        let response = try UNNotificationResponse.with(
-            userInfo: userInfo,
-            actionIdentifier: actionId
-        )
-
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled, "Should handle Klaviyo notification with action button")
 
-        // Verify event was created
-        let eventAction = capturedActions.first { action in
-            if case let .enqueueEvent(event) = action {
-                return event.metric.name == ._openedPush
-            }
-            return false
-        }
-        XCTAssertNotNil(eventAction, "Should create $opened_push event")
-
-        // Verify event properties
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
-            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
-            XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
-            XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
-            XCTAssertEqual(event.properties["Button Action"] as? String, "Deep Link", "Should include Button Action with correct value")
-            XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString, "Should include Button Link")
-
-            // Verify standard push notification properties are preserved
-            let body = event.properties["body"] as? [String: Any]
-            XCTAssertNotNil(body, "Should preserve body dictionary")
-            XCTAssertEqual(body?["_k"] as? String, "test_notification_001", "Should preserve _k property")
-        }
+        let opened = try XCTUnwrap(openedPushEvents().first)
+        XCTAssertEqual(opened.priority, .high, "Opened-push event must be high priority")
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Label"), buttonLabel)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button ID"), actionId)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Action"), "Deep Link")
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Link"), actionURL.absoluteString)
+        let body = (opened.attributes.properties.value as? [String: Any])?["body"] as? [String: Any]
+        XCTAssertEqual(body?["_k"] as? String, "test_notification_001")
     }
 
-    func testHandleActionButtonTap_OpenAppWithoutURL() throws {
+    func testHandleActionButtonTap_OpenAppWithoutURL() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionId = "com.klaviyo.test.open"
         let buttonLabel = "Open App"
 
@@ -544,64 +586,29 @@ class KlaviyoSDKTests: XCTestCase {
             "body": [
                 "_k": "test_notification_002",
                 "action_buttons": [
-                    [
-                        "id": actionId,
-                        "label": buttonLabel,
-                        "action": "open_app"
-                        // No URL for openApp
-                    ]
+                    ["id": actionId, "label": buttonLabel, "action": "open_app"]
                 ]
             ]
         ]
 
-        var capturedActions: [KlaviyoAction] = []
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
-            return nil
-        }
+        let response = try UNNotificationResponse.with(userInfo: userInfo, actionIdentifier: actionId)
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        let response = try UNNotificationResponse.with(
-            userInfo: userInfo,
-            actionIdentifier: actionId
-        )
-
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
 
-        // Verify event was created
-        let eventAction = capturedActions.first { action in
-            if case let .enqueueEvent(event) = action {
-                return event.metric.name == ._openedPush
-            }
-            return false
-        }
-        XCTAssertNotNil(eventAction, "Should create $opened_push event")
-
-        // Verify event properties
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
-            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
-            XCTAssertEqual(event.properties["Button Label"] as? String, buttonLabel, "Should include Button Label")
-            XCTAssertEqual(event.properties["Button ID"] as? String, actionId, "Should include Button ID")
-            XCTAssertEqual(event.properties["Button Action"] as? String, "Open App", "Should include Button Action with correct value")
-            XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for openApp action")
-        }
+        let opened = try XCTUnwrap(openedPushEvents().first)
+        XCTAssertEqual(opened.priority, .high)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Label"), buttonLabel)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button ID"), actionId)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Action"), "Open App")
+        XCTAssertNil(stringProperty(opened.attributes, "Button Link"), "openApp has no Button Link")
     }
 
-    func testHandleActionButtonTap_NotTriggeredOnBodyTap() throws {
+    func testHandleActionButtonTap_NotTriggeredOnBodyTap() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
-        let eventCaptured = XCTestExpectation(description: "opened_push event enqueued")
         let actionId = "com.klaviyo.test.button"
         let buttonLabel = "Tap Me"
 
@@ -609,118 +616,72 @@ class KlaviyoSDKTests: XCTestCase {
             "body": [
                 "_k": "test_notification_004",
                 "action_buttons": [
-                    [
-                        "id": actionId,
-                        "label": buttonLabel,
-                        "action": "open_app"
-                    ]
+                    ["id": actionId, "label": buttonLabel, "action": "open_app"]
                 ]
             ]
         ]
 
-        var capturedActions: [KlaviyoAction] = []
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            // `handle(notificationResponse:)` enqueues the event and invokes the
-            // completion handler on two *independent* unstructured Tasks, so the
-            // callback can fulfill before the event is captured. Fulfill on the
-            // captured event too and wait on both, rather than asserting on a
-            // side effect that may not have landed yet.
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                eventCaptured.fulfill()
-            }
-            return nil
-        }
-
-        // Tap notification body (default action identifier)
         let response = try UNNotificationResponse.with(
             userInfo: userInfo,
             actionIdentifier: UNNotificationDefaultActionIdentifier
         )
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback, eventCaptured], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
 
-        // Verify event was created (for body tap)
-        let eventAction = capturedActions.first { action in
-            if case let .enqueueEvent(event) = action {
-                return event.metric.name == ._openedPush
-            }
-            return false
-        }
-        XCTAssertNotNil(eventAction, "Should create $opened_push event for body tap")
-
-        // Verify button properties are NOT included for body tap
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
-            XCTAssertEqual(event.metric.name.value, "$opened_push", "Event name should be $opened_push")
-            XCTAssertNil(event.properties["Button ID"], "Should NOT include Button ID for body tap")
-            XCTAssertNil(event.properties["Button Label"], "Should NOT include Button Label for body tap")
-            XCTAssertNil(event.properties["Button Action"], "Should NOT include Button Action for body tap")
-            XCTAssertNil(event.properties["Button Link"], "Should NOT include Button Link for body tap")
-        }
+        let opened = try XCTUnwrap(openedPushEvents().first)
+        XCTAssertEqual(opened.priority, .high)
+        XCTAssertNil(stringProperty(opened.attributes, "Button ID"), "body tap has no Button ID")
+        XCTAssertNil(stringProperty(opened.attributes, "Button Label"), "body tap has no Button Label")
+        XCTAssertNil(stringProperty(opened.attributes, "Button Action"), "body tap has no Button Action")
+        XCTAssertNil(stringProperty(opened.attributes, "Button Link"), "body tap has no Button Link")
     }
 
     // MARK: - Double-track guard
 
-    func testHandleShortCircuitsWhenAutoTracked() throws {
-        // Given
+    func testHandleShortCircuitsWhenAutoTracked() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "completion is called")
-        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
-        noEvent.isInverted = true
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { noEvent.fulfill() }
-            return nil
-        }
         let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
         let response = try UNNotificationResponse.with(userInfo: pushBody)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
-        // When
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        // Then
-        wait(for: [callback, noEvent], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        // Yield control briefly so any async enqueue work (if the guard were absent) can run.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertTrue(handled)
+        XCTAssertTrue(openedPushEvents().isEmpty, "auto-tracked response must not re-enqueue")
     }
 
-    func testProxyThenManualHandleEmitsOneEvent() throws {
-        // Given — proxy calls handle then marks the request ID (mirrors didReceive implementation)
+    func testProxyThenManualHandleEmitsOneEvent() async throws {
+        seedInitializedRecording()
         let proxyCallback = XCTestExpectation(description: "proxy completion fires")
         let manualCallback = XCTestExpectation(description: "manual completion fires")
-        var enqueueCount = 0
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { enqueueCount += 1 }
-            return nil
-        }
         let pushBody: [AnyHashable: Any] = ["body": ["_k": ["foo": "bar"]]]
         let response = try UNNotificationResponse.with(userInfo: pushBody)
 
-        // When (proxy path)
+        // proxy path
         let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
         XCTAssertTrue(wasTracked)
-        KlaviyoNotificationDelegate.shared.markAsAutoTracked(
-            dedupKey: response.klaviyoDedupKey
-        )
-        wait(for: [proxyCallback], timeout: 1.0)
+        KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
+        await fulfillment(of: [proxyCallback], timeout: 1.0)
+        try await waitForOpenedPush()
+        XCTAssertEqual(openedPushEvents().count, 1, "proxy call emits exactly one _openedPush")
 
-        // Then — exactly one event emitted on the proxy pass
-        XCTAssertEqual(enqueueCount, 1, "proxy call should emit exactly one _openedPush")
-
-        // When (manual host path for same response)
+        // manual host path for same response
         let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
         XCTAssertTrue(handled2)
-        wait(for: [manualCallback], timeout: 1.0)
-
-        // Then — no second event emitted
-        XCTAssertEqual(enqueueCount, 1, "manual handle must not emit a second event")
+        await fulfillment(of: [manualCallback], timeout: 1.0)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
+        XCTAssertEqual(openedPushEvents().count, 1, "manual handle must not emit a second event")
     }
 
     func testHandleShortCircuitSuppressesDeepLinkDispatch() throws {
-        // Given
         let callback = XCTestExpectation(description: "completion is called")
         let noDeepLink = XCTestExpectation(description: "no openDeepLink dispatched")
         noDeepLink.isInverted = true
@@ -732,23 +693,16 @@ class KlaviyoSDKTests: XCTestCase {
         let response = try UNNotificationResponse.with(userInfo: pushBody)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
-        // When
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        // Then
         wait(for: [callback, noDeepLink], timeout: 1.0)
         XCTAssertTrue(handled)
     }
 
-    func testProxyThenManualHandleDedupsViaTm() throws {
-        // Given — a real Klaviyo payload with tm present
+    func testProxyThenManualHandleDedupsViaTm() async throws {
+        seedInitializedRecording()
         let proxyCallback = XCTestExpectation(description: "proxy completion fires")
         let manualCallback = XCTestExpectation(description: "manual completion fires")
-        var enqueueCount = 0
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { enqueueCount += 1 }
-            return nil
-        }
         let pushBody: [AnyHashable: Any] = [
             "body": [
                 "_k": [
@@ -760,29 +714,24 @@ class KlaviyoSDKTests: XCTestCase {
         ]
         let response = try UNNotificationResponse.with(userInfo: pushBody)
 
-        // When (proxy path) - mark using the tm-based dedup key
         let wasTracked = klaviyo.handle(notificationResponse: response) { proxyCallback.fulfill() }
         XCTAssertTrue(wasTracked)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
-        wait(for: [proxyCallback], timeout: 1.0)
-        XCTAssertEqual(enqueueCount, 1, "proxy call should emit exactly one _openedPush")
+        await fulfillment(of: [proxyCallback], timeout: 1.0)
+        try await waitForOpenedPush()
+        XCTAssertEqual(openedPushEvents().count, 1, "proxy call emits exactly one _openedPush")
 
-        // When (manual host path) — same tm key must short-circuit
         let handled2 = klaviyo.handle(notificationResponse: response) { manualCallback.fulfill() }
         XCTAssertTrue(handled2)
-        wait(for: [manualCallback], timeout: 1.0)
-        XCTAssertEqual(enqueueCount, 1, "manual handle must not emit a second event")
+        await fulfillment(of: [manualCallback], timeout: 1.0)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
+        XCTAssertEqual(openedPushEvents().count, 1, "manual handle must not emit a second event")
     }
 
-    func testHandleShortCircuitsForActionButtonTapWhenAutoTracked() throws {
-        // Given
+    func testHandleShortCircuitsForActionButtonTapWhenAutoTracked() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "completion is called")
-        let noEvent = XCTestExpectation(description: "no enqueueEvent dispatched")
-        noEvent.isInverted = true
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { noEvent.fulfill() }
-            return nil
-        }
         let actionId = "com.klaviyo.test.button.dedup"
         let pushBody: [AnyHashable: Any] = [
             "body": [
@@ -793,23 +742,24 @@ class KlaviyoSDKTests: XCTestCase {
         let response = try UNNotificationResponse.with(userInfo: pushBody, actionIdentifier: actionId)
         KlaviyoNotificationDelegate.shared.markAsAutoTracked(dedupKey: response.klaviyoDedupKey)
 
-        // When
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        // Then
-        wait(for: [callback, noEvent], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
+        // Yield so any spurious enqueue work can run before the assertion.
+        for _ in 0..<5 { await Task.yield() }
         XCTAssertTrue(handled)
+        XCTAssertTrue(openedPushEvents().isEmpty, "auto-tracked action tap must not re-enqueue")
     }
 
     // MARK: - web_url tests
 
-    // Deep link / web URL resolution now routes through `DeepLinkManager`
-    // (`openDeepLinkSpy`/`openExternalURLSpy`), not a dispatched `KlaviyoAction` — only
-    // the `$opened_push` event track still goes through `klaviyoSwiftEnvironment.send`.
+    // Deep link / web URL resolution routes through `DeepLinkManager`
+    // (`openDeepLinkSpy`/`openExternalURLSpy`); the `$opened_push` event track routes through
+    // `KlaviyoCommands.enqueueEvent` → the recording `QueueStore`.
 
-    func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() throws {
+    func testHandleBodyTap_WebUrlDispatchesOpenWebUrl() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
-        let eventDispatched = XCTestExpectation(description: "event action dispatched")
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
 
         let userInfo: [AnyHashable: Any] = [
@@ -817,10 +767,6 @@ class KlaviyoSDKTests: XCTestCase {
             "web_url": webURL.absoluteString
         ]
 
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { eventDispatched.fulfill() }
-            return nil
-        }
         let externalUrlInvoked = XCTestExpectation(description: "openExternalURL invoked")
         DeepLinkManager.openExternalURLSpy = { dispatchedUrl in
             XCTAssertEqual(dispatchedUrl, webURL)
@@ -828,17 +774,17 @@ class KlaviyoSDKTests: XCTestCase {
         }
 
         let response = try UNNotificationResponse.with(userInfo: userInfo)
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        wait(for: [callback, eventDispatched, externalUrlInvoked], timeout: 1.0)
+        await fulfillment(of: [callback, externalUrlInvoked], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
+        XCTAssertFalse(openedPushEvents().isEmpty, "body tap enqueues an opened-push event")
     }
 
-    func testHandleBodyTap_DeepLinkUnchangedWhenWebUrlAbsent() throws {
+    func testHandleBodyTap_DeepLinkUnchangedWhenWebUrlAbsent() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
-        let eventDispatched = XCTestExpectation(description: "event action dispatched")
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
 
         let userInfo: [AnyHashable: Any] = [
@@ -846,10 +792,6 @@ class KlaviyoSDKTests: XCTestCase {
             "url": deepURL.absoluteString
         ]
 
-        klaviyoSwiftEnvironment.send = { action in
-            if case .enqueueEvent = action { eventDispatched.fulfill() }
-            return nil
-        }
         let deepLinkInvoked = XCTestExpectation(description: "openDeepLink invoked")
         DeepLinkManager.openDeepLinkSpy = { dispatchedUrl in
             XCTAssertEqual(dispatchedUrl, deepURL)
@@ -857,17 +799,16 @@ class KlaviyoSDKTests: XCTestCase {
         }
 
         let response = try UNNotificationResponse.with(userInfo: userInfo)
-        _ = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
+        _ = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        wait(for: [callback, eventDispatched, deepLinkInvoked], timeout: 1.0)
+        await fulfillment(of: [callback, deepLinkInvoked], timeout: 1.0)
+        try await waitForOpenedPush()
+        XCTAssertFalse(openedPushEvents().isEmpty, "body tap enqueues an opened-push event")
     }
 
     func testHandleBodyTap_DeepLinkTakesPrecedenceOverWebUrl() throws {
         // Defensive: if backend ever ships both web_url and url, the deep link wins so
-        // the user stays in the host app. The composer UI enforces a single action type
-        // at creation, so this only fires via direct-API or test-tooling sends.
+        // the user stays in the host app.
         let callback = XCTestExpectation(description: "callback is made")
         let webURL = try XCTUnwrap(URL(string: "https://example.com/sale"))
         let deepURL = try XCTUnwrap(URL(string: "myapp://path"))
@@ -888,15 +829,14 @@ class KlaviyoSDKTests: XCTestCase {
         DeepLinkManager.openExternalURLSpy = { _ in externalUrlNotInvoked.fulfill() }
 
         let response = try UNNotificationResponse.with(userInfo: userInfo)
-        _ = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
+        _ = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
         wait(for: [callback, deepLinkInvoked], timeout: 1.0)
         wait(for: [externalUrlNotInvoked], timeout: 0.3)
     }
 
-    func testHandleActionButtonTap_OpenUrlButton() throws {
+    func testHandleActionButtonTap_OpenUrlButton() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
         let actionURL = try XCTUnwrap(URL(string: "https://example.com/promo"))
         let actionId = "com.klaviyo.test.web"
@@ -906,55 +846,31 @@ class KlaviyoSDKTests: XCTestCase {
             "body": [
                 "_k": "test_open_url_button",
                 "action_buttons": [
-                    [
-                        "id": actionId,
-                        "label": buttonLabel,
-                        "action": "open_url",
-                        "url": actionURL.absoluteString
-                    ]
+                    ["id": actionId, "label": buttonLabel, "action": "open_url", "url": actionURL.absoluteString]
                 ]
             ]
         ]
 
-        var capturedActions: [KlaviyoAction] = []
-        let eventDispatched = XCTestExpectation(description: "event action dispatched")
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            if case .enqueueEvent = action { eventDispatched.fulfill() }
-            return nil
-        }
         let externalUrlInvoked = XCTestExpectation(description: "openExternalURL invoked")
         DeepLinkManager.openExternalURLSpy = { dispatchedUrl in
             XCTAssertEqual(dispatchedUrl, actionURL)
             externalUrlInvoked.fulfill()
         }
 
-        let response = try UNNotificationResponse.with(
-            userInfo: userInfo,
-            actionIdentifier: actionId
-        )
+        let response = try UNNotificationResponse.with(userInfo: userInfo, actionIdentifier: actionId)
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback, eventDispatched, externalUrlInvoked], timeout: 1.0)
+        await fulfillment(of: [callback, externalUrlInvoked], timeout: 1.0)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
 
-        let eventAction = capturedActions.first { action in
-            if case let .enqueueEvent(event) = action {
-                return event.metric.name == ._openedPush
-            }
-            return false
-        }
-        XCTAssertNotNil(eventAction)
-        if case let .enqueueEvent(event) = try XCTUnwrap(eventAction) {
-            XCTAssertEqual(event.properties["Button Action"] as? String, "Open URL")
-            XCTAssertEqual(event.properties["Button Link"] as? String, actionURL.absoluteString)
-        }
+        let opened = try XCTUnwrap(openedPushEvents().first)
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Action"), "Open URL")
+        XCTAssertEqual(stringProperty(opened.attributes, "Button Link"), actionURL.absoluteString)
     }
 
-    func testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch() throws {
+    func testHandleActionButtonTap_OpenUrlButtonWithBlockedSchemeDoesNotDispatch() async throws {
+        seedInitializedRecording()
         let callback = XCTestExpectation(description: "callback is made")
         let actionURL = try XCTUnwrap(URL(string: "javascript:alert(1)"))
         let actionId = "com.klaviyo.test.blocked"
@@ -964,46 +880,46 @@ class KlaviyoSDKTests: XCTestCase {
             "body": [
                 "_k": "test_open_url_blocked",
                 "action_buttons": [
-                    [
-                        "id": actionId,
-                        "label": buttonLabel,
-                        "action": "open_url",
-                        "url": actionURL.absoluteString
-                    ]
+                    ["id": actionId, "label": buttonLabel, "action": "open_url", "url": actionURL.absoluteString]
                 ]
             ]
         ]
 
-        var capturedActions: [KlaviyoAction] = []
-        let eventDispatched = XCTestExpectation(description: "event action dispatched")
-        klaviyoSwiftEnvironment.send = { action in
-            capturedActions.append(action)
-            if case .enqueueEvent = action { eventDispatched.fulfill() }
-            return nil
-        }
         let externalUrlNotInvoked = XCTestExpectation(description: "openExternalURL must not be invoked for blocked scheme")
         externalUrlNotInvoked.isInverted = true
         DeepLinkManager.openExternalURLSpy = { _ in externalUrlNotInvoked.fulfill() }
 
-        let response = try UNNotificationResponse.with(
-            userInfo: userInfo,
-            actionIdentifier: actionId
-        )
+        let response = try UNNotificationResponse.with(userInfo: userInfo, actionIdentifier: actionId)
+        let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
-        let handled = klaviyo.handle(notificationResponse: response) {
-            callback.fulfill()
-        }
-
-        wait(for: [callback, eventDispatched], timeout: 1.0)
+        await fulfillment(of: [callback], timeout: 1.0)
         wait(for: [externalUrlNotInvoked], timeout: 0.3)
+        try await waitForOpenedPush()
         XCTAssertTrue(handled)
+        XCTAssertFalse(openedPushEvents().isEmpty, "tap is tracked even when the scheme is blocked")
+    }
 
-        let eventAction = capturedActions.first { action in
-            if case let .enqueueEvent(event) = action {
-                return event.metric.name == ._openedPush
+    // MARK: - Poll helpers
+
+    /// Polls `condition` until true or timeout (bridges the facade's main-queue hop +
+    /// orchestration's unstructured tasks). Fails loudly on timeout via the shared helper.
+    private func waitForCondition(
+        timeout: TimeInterval = 1.0,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ condition: @escaping () -> Bool
+    ) async throws {
+        try await waitForConditionOrFail(timeout: timeout, file: file, line: line) { condition() }
+    }
+
+    /// Fulfills `expectation` once `condition` holds, re-scheduling on the main queue.
+    private func pollOnMain(_ expectation: XCTestExpectation, _ condition: @escaping () -> Bool) {
+        if condition() {
+            expectation.fulfill()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { [weak self] in
+                self?.pollOnMain(expectation, condition)
             }
-            return false
         }
-        XCTAssertNotNil(eventAction, "Tap should still be tracked even when the scheme is blocked")
     }
 }

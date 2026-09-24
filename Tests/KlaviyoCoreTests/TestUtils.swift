@@ -14,14 +14,6 @@ enum FakeFileError: Error {
     case fake
 }
 
-let ARCHIVED_RETURNED_DATA = Data()
-let SAMPLE_DATA: NSMutableArray = [
-    [
-        "properties": [
-            "foo": "bar"
-        ]
-    ]
-]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
 
@@ -69,18 +61,10 @@ let SAMPLE_PROPERTIES = [
     ]
 ] as [String: Any]
 
-extension ArchiverClient {
-    static let test = ArchiverClient(
-        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
-}
-
 extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.test,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
@@ -106,7 +90,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
@@ -120,7 +103,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -152,7 +136,19 @@ extension NetworkSession {
 
 class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
     override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        AppLifeCycleEvents.test as! T
+        // This stub only ever vends `AppLifeCycleEvents.test`. Throw (rather than force-cast)
+        // when a caller asks for a different type: `loadPersisted`'s `try?` then degrades to
+        // `nil` instead of trapping. A force-cast here crashes the whole test process — an
+        // `as!` failure is a runtime trap that `try?` cannot catch — and surfaces as an
+        // order-dependent flake whenever an ambient `environment` lets a store's hydration
+        // reach this decoder (e.g. SDKConfigStore decoding `PersistedConfig`).
+        guard let value = AppLifeCycleEvents.test as? T else {
+            throw DecodingError.typeMismatch(T.self, DecodingError.Context(
+                codingPath: [],
+                debugDescription: "TestJSONDecoder only vends AppLifeCycleEvents.test; got \(T.self)"
+            ))
+        }
+        return value
     }
 }
 

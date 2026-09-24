@@ -6,10 +6,10 @@
 //
 
 @testable import KlaviyoCore
+@testable import KlaviyoSwift
 import Combine
 import CoreLocation
 import Foundation
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 // MARK: - Test Constants
 
@@ -21,7 +21,6 @@ private let TEST_URL = URL(string: "file:///test")!
 extension KlaviyoEnvironment {
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.production,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
@@ -47,7 +46,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { "klaviyo-swift-sdk" },
             SDKVersion: { "1.0.0" },
             formsDataEnvironment: { nil },
@@ -63,7 +61,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -98,25 +97,6 @@ extension KlaviyoAPI {
     static let test = { KlaviyoAPI(send: { _, _ in .success(TEST_RETURN_DATA) }) }
 }
 
-extension KlaviyoState {
-    static let test = KlaviyoState(
-        apiKey: "ABC123",
-        email: "test@test.com",
-        anonymousId: "test-anonymous-id",
-        phoneNumber: "1234567890",
-        externalId: "test-external-id",
-        pushTokenData: nil,
-        queue: [],
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: false,
-        flushInterval: 30.0,
-        retryState: .retry(1),
-        pendingRequests: [],
-        pendingProfile: nil
-    )
-}
-
 // MARK: - Test Data Helpers
 
 enum KlaviyoLocationTestUtils {
@@ -149,23 +129,10 @@ enum KlaviyoLocationTestUtils {
         return jsonString.data(using: .utf8)!
     }
 
-    /// Creates a test KlaviyoState with a specific API key
-    static func createTestState(apiKey: String) -> KlaviyoState {
-        var testState = KlaviyoState.test
-        testState.apiKey = apiKey
-        return testState
-    }
-
-    /// Sets up the test environment with a mocked API key
+    /// Sets up the test environment with a mocked API key. The migrated location observers read the
+    /// API key from KlaviyoCore's `SDKConfigStore`, so seeding that store is all that's required.
     static func setupTestEnvironment(apiKey: String) {
         environment = KlaviyoEnvironment.test()
-        // The migrated observers read the API key from KlaviyoCore's SDKConfigStore, so seed it here.
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-
-        let testState = createTestState(apiKey: apiKey)
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
     }
 }

@@ -28,9 +28,9 @@ class EventBufferTests: XCTestCase {
     // MARK: - Helpers
 
     /// A buffer whose clock the test controls, so age-based behavior is deterministic
-    /// without sleeping real time. `buffer(_:)` is an async barrier write, so callers
-    /// must `getRecentEvents()` (a synchronous, barrier-flushing read) to pin an event's
-    /// timestamp at the current `currentTime` before advancing the clock.
+    /// without sleeping real time. `buffer(_:)` mutates synchronously under the lock and
+    /// stamps the event with the current `currentTime` before returning, so tests can advance
+    /// the clock immediately afterward and rely on that pinned timestamp.
     private func makeClockedBuffer(
         maxBufferSize: Int = 5,
         maxBufferAge: TimeInterval = 2.0,
@@ -53,8 +53,8 @@ class EventBufferTests: XCTestCase {
         // Given
         let event = Event(name: .customEvent("test_event"))
 
-        // When — getRecentEvents() is a synchronous, barrier-flushing read, so it observes
-        // the preceding async buffer() write deterministically (no sleep needed).
+        // When — buffer() applies the write synchronously under the lock, so the following
+        // getRecentEvents() observes it deterministically (no sleep needed).
         eventBuffer.buffer(event)
         let events = eventBuffer.getRecentEvents()
 
@@ -191,9 +191,9 @@ class EventBufferTests: XCTestCase {
     }
 
     func testConcurrentReadingAndWriting() {
-        // Stress the reader/writer lock from many real threads: even iterations issue
-        // barrier writes, odd iterations issue reads. `concurrentPerform` fully joins
-        // all iterations before returning, so no work outlives the test.
+        // Stress the buffer's lock from many real threads: even iterations issue writes,
+        // odd iterations issue reads. `concurrentPerform` fully joins all iterations before
+        // returning, so no work outlives the test.
         DispatchQueue.concurrentPerform(iterations: 100) { index in
             if index.isMultiple(of: 2) {
                 eventBuffer.buffer(Event(name: .customEvent("event_\(index)")))
@@ -202,9 +202,9 @@ class EventBufferTests: XCTestCase {
             }
         }
 
-        // The 50 writes all landed and the size limit held. This final read is a
-        // barrier-flushing `queue.sync`, so it observes every enqueued write; with a
-        // frozen clock (nothing ages out) the buffer settles at exactly maxBufferSize.
+        // The 50 writes all landed and the size limit held. `buffer` mutates synchronously
+        // under the lock, so by the time `concurrentPerform` returns every write is applied;
+        // with a frozen clock (nothing ages out) the buffer settles at exactly maxBufferSize.
         let events = eventBuffer.getRecentEvents()
         XCTAssertEqual(events.count, 5, "50 concurrent writes should fill the buffer to its max size")
     }
