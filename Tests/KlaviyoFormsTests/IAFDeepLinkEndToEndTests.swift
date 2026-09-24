@@ -105,8 +105,10 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
         viewController.loadViewIfNeeded()
         viewModel.delegate?.preloadUrl()
 
-        // Then - the URL arrives at the host app's handler, query parameters intact
-        await fulfillment(of: [handlerCalled], timeout: 10.0)
+        // Then - the URL arrives at the host app's handler, query parameters intact.
+        // Generous timeout: a cold CI runner can spend seconds launching the WebKit GPU
+        // process before the page runs at all. The per-test allowance is 120s (see Makefile).
+        await fulfillment(of: [handlerCalled], timeout: 60.0)
         XCTAssertEqual(receivedURL, expectedURL)
     }
 }
