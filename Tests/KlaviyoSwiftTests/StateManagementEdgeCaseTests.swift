@@ -886,6 +886,34 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
+    func testIdentityChangeInvalidatesAuthWithoutFormsDelegate() async throws {
+        let token = try makeAuthJWT(subject: "identified")
+        await AuthTokenManager.shared.registerProvider { token }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "existing@email.com",
+            anonymousId: environment.uuid().uuidString,
+            queue: [],
+            requestsInFlight: [],
+            initalizationState: .initialized
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.enqueueProfile(Profile()))
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
+
+        let updates = await AuthTokenManager.shared.tokenUpdates()
+        var iterator = updates.makeAsyncIterator()
+        let update = await iterator.next()
+        XCTAssertEqual(update, .cleared)
+
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
+    @MainActor
     func testResetProfileStillClobbersAllState() async throws {
         // resetProfile() should always clobber all state, regardless of identifiers.
         let initialState = KlaviyoState(

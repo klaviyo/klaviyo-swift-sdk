@@ -7,6 +7,7 @@
 
 @testable import KlaviyoForms
 @testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 import WebKit
 import XCTest
@@ -23,6 +24,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Properties
 
     var viewModel: IAFWebViewModel!
+    var initialProfileData: ProfileData!
 
     // MARK: - Setup
 
@@ -60,6 +62,7 @@ final class IAFWebViewModelTests: XCTestCase {
         // Now fetch profile data with clean state
         let apiKey = try await KlaviyoInternal.fetchAPIKey()
         let profileData = try await KlaviyoInternal.fetchProfileData()
+        initialProfileData = profileData
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
@@ -67,6 +70,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
     override func tearDown() {
         viewModel = nil
+        initialProfileData = nil
         super.tearDown()
     }
 
@@ -197,6 +201,21 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertNil(authTokenScript, "Auth token script should not be injected when authToken is nil")
+    }
+
+    @MainActor
+    func testInitialProfileUsesOrderedDocumentStartScript() async throws {
+        let profile = ProfileData(email: "initial@example.com", anonymousId: "anon")
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profile)
+
+        let scripts: [WKUserScript] = try XCTUnwrap(model.loadScripts)
+        let profileScript = try XCTUnwrap(scripts.first { $0.source.contains("data-klaviyo-profile") })
+        let profileIndex = try XCTUnwrap(scripts.firstIndex(of: profileScript))
+        let klaviyoIndex = try XCTUnwrap(scripts.firstIndex { $0.source.contains("klaviyoJS") })
+
+        XCTAssertEqual(profileScript.injectionTime, .atDocumentStart)
+        XCTAssertLessThan(profileIndex, klaviyoIndex)
     }
 
     // MARK: - Klaviyo JS Tests
@@ -397,6 +416,8 @@ final class IAFWebViewModelTests: XCTestCase {
     func testPushAuthTokenUpdatesWebView() async throws {
         // Given — a view model with a wired-up delegate
         let (viewModel, delegate) = try makeTokenViewModel()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
 
         // When — a refreshed token is pushed (driven by the presentation
         // manager's refresh subscription in production)
@@ -412,6 +433,8 @@ final class IAFWebViewModelTests: XCTestCase {
     func testPushAuthTokenAppliesUpdatesInOrder() async throws {
         // Given
         let (viewModel, delegate) = try makeTokenViewModel()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
 
         // When — two tokens are pushed sequentially
         let firstToken = "header.first.signature"
@@ -427,13 +450,266 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testClearAuthTokenRemovesJWTFromWebView() async throws {
+    func testClearQueuedDuringSuspendedTokenEvaluationWins() async throws {
         let (viewModel, delegate) = try makeTokenViewModel()
+        let token = "header.pending.signature"
+        let evaluationStarted = FormsTestGate()
+        let releaseEvaluation = FormsTestGate()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        delegate.onEvaluateJavaScriptAsync = { script in
+            guard script.contains(token) else { return }
+            await evaluationStarted.open()
+            await releaseEvaluation.wait()
+        }
+
+        let pushTask = Task { await viewModel.pushAuthToken(token) }
+        await evaluationStarted.wait()
+        let clearTask = Task { await viewModel.clearAuthToken() }
+        await Task.yield()
+        await releaseEvaluation.open()
+        await pushTask.value
+        await clearTask.value
+
+        XCTAssertNil(delegate.documentAuthToken)
+    }
+
+    @MainActor
+    func testClearAuthTokenRemovesJWTFromWebView() async throws {
+        let token = "header.initial.signature"
+        let (viewModel, delegate) = try makeTokenViewModel(authToken: token)
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+
+        XCTAssertEqual(delegate.documentAuthToken, token)
 
         await viewModel.clearAuthToken()
 
-        let script = try XCTUnwrap(tokenScripts(delegate).first)
-        XCTAssertEqual(script, "document.head.removeAttribute('data-klaviyo-jwt');")
+        XCTAssertNil(delegate.documentAuthToken)
+    }
+
+    @MainActor
+    func testAuthTokenAcquiredBeforeDocumentReadyIsAppliedAfterLoadScripts() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+        let token = "header.initial.signature"
+
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        await viewModel.pushAuthToken(token)
+
+        XCTAssertNil(delegate.documentAuthToken)
+
+        let tokenApplied = expectation(description: "token applied after commit")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(token) {
+                tokenApplied.fulfill()
+            }
+        }
+        delegate.finishNavigation()
+
+        await fulfillment(of: [tokenApplied], timeout: 1)
+        XCTAssertEqual(delegate.documentAuthToken, token)
+    }
+
+    @MainActor
+    func testCachedTokenIsReconciledAfterDocumentEndScripts() async throws {
+        let cachedToken = "header.cached.signature"
+        let replacementToken = "header.replacement.signature"
+        let (viewModel, delegate) = try makeTokenViewModel(authToken: cachedToken)
+
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        await viewModel.pushAuthToken(replacementToken)
+        let tokenApplied = expectation(description: "replacement token applied")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(replacementToken) {
+                tokenApplied.fulfill()
+            }
+        }
+        delegate.finishNavigation()
+
+        await fulfillment(of: [tokenApplied], timeout: 1)
+        XCTAssertEqual(delegate.documentAuthToken, replacementToken)
+    }
+
+    @MainActor
+    func testCachedTokenClearedBeforeCommitIsRemovedAfterDocumentEndScripts() async throws {
+        let cachedToken = "header.cached.signature"
+        let (viewModel, delegate) = try makeTokenViewModel(authToken: cachedToken)
+
+        delegate.startNavigation()
+        await viewModel.clearAuthToken()
+        delegate.commitNavigation()
+        let tokenCleared = expectation(description: "cached token cleared")
+        delegate.onEvaluateJavaScript = { script in
+            if script == "document.head.removeAttribute('data-klaviyo-jwt');" {
+                tokenCleared.fulfill()
+            }
+        }
+        delegate.finishNavigation()
+
+        await fulfillment(of: [tokenCleared], timeout: 1)
+        XCTAssertNil(delegate.documentAuthToken)
+    }
+
+    @MainActor
+    func testTokenBufferedDuringFailedNavigationIsAppliedToSurvivingDocument() async throws {
+        let initialToken = "header.initial.signature"
+        let replacementToken = "header.replacement.signature"
+        let (viewModel, delegate) = try makeTokenViewModel(authToken: initialToken)
+
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        XCTAssertEqual(delegate.documentAuthToken, initialToken)
+
+        delegate.startNavigation()
+        await viewModel.pushAuthToken(replacementToken)
+        XCTAssertEqual(delegate.documentAuthToken, initialToken)
+
+        let tokenApplied = expectation(description: "replacement token applied to surviving document")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(replacementToken) {
+                tokenApplied.fulfill()
+            }
+        }
+        delegate.failProvisionalNavigation()
+
+        await fulfillment(of: [tokenApplied], timeout: 1)
+        XCTAssertEqual(delegate.documentAuthToken, replacementToken)
+    }
+
+    @MainActor
+    func testAuthTokenDeliveredToPreviousDocumentIsRedeliveredAfterDocumentReady() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+        let token = "header.same.signature"
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        await viewModel.pushAuthToken(token)
+
+        let tokenApplied = expectation(description: "token applied to new document")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(token) {
+                tokenApplied.fulfill()
+            }
+        }
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+
+        await fulfillment(of: [tokenApplied], timeout: 1)
+        XCTAssertEqual(delegate.documentAuthToken, token)
+    }
+
+    @MainActor
+    func testProfileChangeAppliesProfileBeforeReplacementToken() async throws {
+        let tokenA = try makeFormsJWT(subject: "profile-A")
+        let tokenB = try makeFormsJWT(subject: "profile-B")
+        let tokenSource = FormsTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        await tokenSource.set(tokenB)
+
+        let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-b")
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileA.email,
+                anonymousId: profileA.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profileA)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        let replacementApplied = expectation(description: "replacement token applied")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(tokenB) {
+                replacementApplied.fulfill()
+            }
+        }
+
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        stateSubject.send(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileB.email,
+                anonymousId: profileB.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        await fulfillment(of: [replacementApplied], timeout: 5)
+
+        let profileIndex = try XCTUnwrap(
+            delegate.evaluatedScripts.firstIndex { $0.contains("b@example.com") }
+        )
+        let tokenIndex = try XCTUnwrap(
+            delegate.evaluatedScripts.firstIndex { $0.contains(tokenB) }
+        )
+        XCTAssertLessThan(profileIndex, tokenIndex)
+
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
+    @MainActor
+    func testProfileChangeToAnonymousClearsAuthWithoutRefetching() async throws {
+        let token = try makeFormsJWT(subject: "identified")
+        let tokenSource = FormsTokenSource(token)
+        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+
+        let profile = ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profile.email,
+                anonymousId: profile.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(
+            url: fileURL,
+            apiKey: "abc123",
+            profileData: profile,
+            authToken: token
+        )
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        let authCleared = expectation(description: "auth cleared")
+        delegate.onEvaluateJavaScript = { script in
+            if script == "document.head.removeAttribute('data-klaviyo-jwt');" {
+                authCleared.fulfill()
+            }
+        }
+
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        stateSubject.send(
+            KlaviyoState(
+                apiKey: "abc123",
+                anonymousId: "anon-b",
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        await fulfillment(of: [authCleared], timeout: 1)
+
+        await AuthTokenManager.shared.unregisterProvider()
     }
 }
 
@@ -461,9 +737,16 @@ extension IAFWebViewModelTests {
     /// Builds a view model with a wired-up mock delegate, so `pushAuthToken`
     /// tests can observe the resulting `evaluateJavaScript` calls.
     @MainActor
-    private func makeTokenViewModel() throws -> (IAFWebViewModel, MockIAFWebViewDelegate) {
+    private func makeTokenViewModel(
+        authToken: String? = nil
+    ) throws -> (IAFWebViewModel, MockIAFWebViewDelegate) {
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: "abc123", profileData: nil)
+        let viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: initialProfileData,
+            authToken: authToken
+        )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
         return (viewModel, delegate)

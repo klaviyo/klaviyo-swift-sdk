@@ -35,17 +35,33 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 
     var url: URL
     weak var delegate: KlaviyoWebViewDelegate?
-    var loadScripts: Set<WKUserScript>?
+    var loadScripts: [WKUserScript]?
+    var navigationEvents: [KlaviyoForms.WKNavigationEvent] = []
 
     init(url: URL) {
         self.url = url
     }
 
-    func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {}
+    func handleNavigationEvent(_ event: KlaviyoForms.WKNavigationEvent) {
+        navigationEvents.append(event)
+    }
+
     func handleScriptMessage(_ message: WKScriptMessage) {}
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    @MainActor
+    func testDidCommitNavigationIsForwardedToViewModel() throws {
+        let url = try XCTUnwrap(URL(string: "https://example.com"))
+        let viewModel = MockIAFWebViewModel(url: url)
+        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let viewController = KlaviyoWebViewController(viewModel: viewModel) { webView }
+
+        viewController.webView(webView, didCommit: nil)
+
+        XCTAssertEqual(viewModel.navigationEvents, [.didCommitNavigation])
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor

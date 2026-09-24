@@ -36,6 +36,7 @@ class IAFPresentationManager {
 
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
+    private var initialTokenTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
 
     lazy var indexHtmlFileUrl: URL? = {
@@ -126,31 +127,14 @@ class IAFPresentationManager {
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
+        initialTokenTask?.cancel()
+        initialTokenTask = Task {
+            _ = try? await AuthTokenManager.shared.currentToken()
+        }
         let profileData = try await KlaviyoInternal.fetchProfileData()
-        let authToken = await fetchAuthTokenBestEffort()
+        let authToken = await AuthTokenManager.shared.cachedTokenIfValid()
         createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
         setupFormLifecycleListener()
-    }
-
-    /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
-    /// injection. Returns `nil` on any failure — the form proceeds without a token
-    /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort() async -> String? {
-        // `currentToken()` defaults to `.interactive` mode, which applies the
-        // 500ms latency budget appropriate for form display. No external timeout
-        // is needed here.
-        do {
-            let token = try await AuthTokenManager.shared.currentToken()
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token injected at load")
-            }
-            return token
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token unavailable at load — proceeding without token")
-            }
-            return nil
-        }
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
@@ -503,6 +487,8 @@ class IAFPresentationManager {
         // still running, so gating the cancel on `viewController` would leak it.
         tokenRefreshTask?.cancel()
         tokenRefreshTask = nil
+        initialTokenTask?.cancel()
+        initialTokenTask = nil
 
         guard let viewController else { return }
 
