@@ -65,8 +65,24 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
 
     /// End-to-end: a CTA tap in a real web view reaches the host app's deep link handler.
     /// Before the MAGE-1070 fix the `canOpenURL` gate dropped this silently.
+    ///
+    /// Local-only by design. This is the one test in the suite that starts a real WebKit
+    /// content and GPU process, and `WKWebView` teardown is asynchronous, so on a shared CI
+    /// runner it starves the tightly-timed mocked tests that run after it
+    /// (`IAFWebViewModelPreloadingTests` allows a mocked handshake only 5s). The deterministic
+    /// regression guard for MAGE-1070 lives in `IAFWebViewModelTests`; this test is the
+    /// full-path proof, run on demand:
+    ///
+    ///     xcodebuild test -scheme klaviyo-swift-sdk-Package \
+    ///       -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
+    ///       -only-testing:KlaviyoFormsTests/IAFDeepLinkEndToEndTests
     @MainActor
     func testFormDeepLinkReachesRegisteredHandlerThroughRealWebView() async throws {
+        try XCTSkipIf(
+            ProcessInfo.processInfo.environment["GITHUB_CI"] == "true",
+            "Real-WebKit end-to-end test; skipped on CI runners to keep timing-sensitive tests stable"
+        )
+
         let expectedURL = try XCTUnwrap(
             URL(
                 string: "holafly://notifications?utm_source=push_flow&utm_medium=push_notification&utm_campaign=test_inapp"
