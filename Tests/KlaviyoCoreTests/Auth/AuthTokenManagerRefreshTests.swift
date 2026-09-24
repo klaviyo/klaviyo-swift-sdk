@@ -881,6 +881,121 @@ struct AuthTokenManagerRefreshTests {
     }
 
     @Test
+    func subscriberAfterCacheExpiresReceivesClearedThenFetchesReplacement() async throws {
+        let expiringToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "expiring"]
+        )
+        let replacementToken = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "replacement"]
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let counter = CallCounter()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            return invocation == 1 ? expiringToken : replacementToken
+        }
+        _ = try await manager.currentToken(mode: .background)
+        clock.set(referenceDate.addingTimeInterval(11))
+
+        let updates = await manager.tokenUpdates()
+        let initialUpdate = await firstUpdate(of: updates)
+        let replacement = try await manager.currentToken(mode: .background)
+        let invocations = await counter.value
+
+        #expect(initialUpdate == .cleared)
+        #expect(replacement == replacementToken)
+        #expect(invocations == 2)
+    }
+
+    @Test
+    func initialAcquisitionCompletingAfterInteractiveTimeoutPublishesOnce() async throws {
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let providerEntered = Latch()
+        let releaseProvider = Latch()
+        await manager.registerProvider {
+            await providerEntered.open()
+            await releaseProvider.wait()
+            return token
+        }
+        await providerEntered.wait()
+
+        let collector = TokenUpdateCollector()
+        let consumer = Task {
+            for await update in await manager.tokenUpdates() {
+                if case .token = update {
+                    await collector.append(update)
+                }
+            }
+        }
+
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+        await releaseProvider.open()
+        await collector.waitFor(atLeast: 1)
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        consumer.cancel()
+        let received = await collector.received
+        #expect(received == [.token(token)])
+    }
+
+    @Test
+    func invalidatedTimedOutAcquisitionDoesNotPublishToken() async throws {
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let providerEntered = Latch()
+        let releaseProvider = Latch()
+        await manager.registerProvider {
+            await providerEntered.open()
+            await releaseProvider.wait()
+            return token
+        }
+        await providerEntered.wait()
+
+        let collector = TokenUpdateCollector()
+        let consumer = Task {
+            for await update in await manager.tokenUpdates() {
+                if case .token = update {
+                    await collector.append(update)
+                }
+            }
+        }
+
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+        await manager.clearTokenState()
+        await releaseProvider.open()
+        for _ in 0..<200 {
+            await Task.yield()
+        }
+
+        consumer.cancel()
+        let received = await collector.received
+        #expect(received.isEmpty)
+    }
+
+    @Test
     func clearTokenStateCancelsScheduledRefresh() async throws {
         // Acquire a short-lived token whose refresh would fire at ref+10, then
         // immediately clear token state. Drive virtual time past where the

@@ -135,6 +135,29 @@ actor TokenCollector {
     }
 }
 
+actor TokenUpdateCollector {
+    private(set) var received: [AuthTokenUpdate] = []
+    private var waiters: [(Int, CheckedContinuation<Void, Never>)] = []
+
+    func append(_ update: AuthTokenUpdate) {
+        received.append(update)
+        waiters = waiters.compactMap { threshold, continuation in
+            if received.count >= threshold {
+                continuation.resume()
+                return nil
+            }
+            return (threshold, continuation)
+        }
+    }
+
+    func waitFor(atLeast count: Int) async {
+        if received.count >= count { return }
+        await withCheckedContinuation { continuation in
+            waiters.append((count, continuation))
+        }
+    }
+}
+
 enum ProviderTestError: Error, Equatable {
     case network
 }
