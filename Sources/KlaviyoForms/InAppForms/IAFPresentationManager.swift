@@ -240,6 +240,25 @@ class IAFPresentationManager {
         }
     }
 
+    /// Reserved event property keys recognized by the Klaviyo APIs.
+    enum ReservedPropertyKey {
+        static let valueCurrency = "$value_currency"
+    }
+
+    /// The properties object passed to KlaviyoJS for a native event.
+    ///
+    /// The onsite `dispatchProfileEvent(metric, uniqueId, time, value, properties)` signature has no
+    /// currency parameter, so an event's currency is carried inside `properties` under the reserved
+    /// `$value_currency` key. An existing `$value_currency` property is left as-is.
+    static func outboundProperties(for event: Event) -> [String: Any] {
+        guard let valueCurrency = event.valueCurrency else { return event.properties }
+        var properties = event.properties
+        if properties[ReservedPropertyKey.valueCurrency] == nil {
+            properties[ReservedPropertyKey.valueCurrency] = valueCurrency
+        }
+        return properties
+    }
+
     func handleProfileEventCreated(_ event: Event) async throws {
         guard let viewController = viewController else {
             if #available(iOS 14.0, *) {
@@ -267,7 +286,7 @@ class IAFPresentationManager {
 
             // Convert properties to JSON string to ensure proper object serialization, default to empty dict if serialization fails
             var propertiesJSON = "{}"
-            if let propertiesData = try? JSONSerialization.data(withJSONObject: event.properties) {
+            if let propertiesData = try? JSONSerialization.data(withJSONObject: Self.outboundProperties(for: event)) {
                 propertiesJSON = String(data: propertiesData, encoding: .utf8) ?? propertiesJSON
             }
 
