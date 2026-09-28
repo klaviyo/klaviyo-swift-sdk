@@ -431,7 +431,7 @@ final class IAFWebViewModelTests: XCTestCase {
         )
     }
 
-    /// MAGE-1070 regression. A custom scheme absent from the test bundle's `CFBundleURLTypes`
+    /// Regression: a custom scheme absent from the test bundle's `CFBundleURLTypes`
     /// makes `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
     /// dispatch lane, because the destination is the host app's in-process handler rather than
     /// LaunchServices. Before the fix, this silently dropped the navigation.

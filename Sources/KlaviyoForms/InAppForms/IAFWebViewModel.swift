@@ -375,7 +375,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 // LaunchServices. `canOpenURL` is false for any custom scheme the host app does
                 // not declare in its own `CFBundleURLTypes`, which gated out apps that route deep
                 // links through `registerDeepLinkHandler(_:)` before their handler was ever
-                // consulted (MAGE-1070). `DeepLinkHandler` logs its own failures downstream.
+                // consulted. `DeepLinkHandler` logs its own failures downstream.
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }

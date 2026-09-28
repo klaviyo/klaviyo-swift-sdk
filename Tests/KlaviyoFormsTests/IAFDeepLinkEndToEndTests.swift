@@ -2,7 +2,7 @@
 //  IAFDeepLinkEndToEndTests.swift
 //  klaviyo-swift-sdk
 //
-//  MAGE-1070. Drives the full in-app forms deep link path in a real `WKWebView` on a
+//  Drives the full in-app forms deep link path in a real `WKWebView` on a
 //  simulator: page JS posts the `openDeepLink` bridge message, the SDK decodes it,
 //  dispatches through `EventDispatcher` and `DeepLinkManager`, and the host app's
 //  registered deep link handler receives the URL.
@@ -33,12 +33,12 @@ private class TestWebViewController: KlaviyoWebViewController {
     }
 }
 
+@MainActor
 final class IAFDeepLinkEndToEndTests: XCTestCase {
     private var viewModel: IAFWebViewModel!
     private var viewController: TestWebViewController!
     private var window: UIWindow!
 
-    @MainActor
     override func setUp() async throws {
         try await super.setUp()
 
@@ -48,11 +48,12 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
         // Route deep links through the production path rather than a spy left by another suite.
         DeepLinkManager.resetToProduction()
 
-        // Instantiating the SDK registers `KlaviyoEventDispatcher` as the inbound dispatch target.
-        _ = KlaviyoSDK()
+        // Register the inbound dispatch target explicitly. `KlaviyoSDK()` only registers it once
+        // per process via a `static let`, and sibling suites call `EventDispatcher.shared.reset()`,
+        // so relying on the initializer here leaves the target nil depending on test order.
+        EventDispatcher.shared.register(KlaviyoEventDispatcher())
     }
 
-    @MainActor
     override func tearDown() async throws {
         KlaviyoSDK().unregisterDeepLinkHandler()
         DeepLinkManager.resetToProduction()
@@ -64,19 +65,18 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
     }
 
     /// End-to-end: a CTA tap in a real web view reaches the host app's deep link handler.
-    /// Before the MAGE-1070 fix the `canOpenURL` gate dropped this silently.
+    /// Before the `canOpenURL` gate was removed, this was dropped silently.
     ///
     /// Local-only by design. This is the one test in the suite that starts a real WebKit
     /// content and GPU process, and `WKWebView` teardown is asynchronous, so on a shared CI
     /// runner it starves the tightly-timed mocked tests that run after it
     /// (`IAFWebViewModelPreloadingTests` allows a mocked handshake only 5s). The deterministic
-    /// regression guard for MAGE-1070 lives in `IAFWebViewModelTests`; this test is the
+    /// deterministic regression guard lives in `IAFWebViewModelTests`; this test is the
     /// full-path proof, run on demand:
     ///
     ///     xcodebuild test -scheme klaviyo-swift-sdk-Package \
     ///       -destination "platform=iOS Simulator,name=iPhone 17 Pro" \
     ///       -only-testing:KlaviyoFormsTests/IAFDeepLinkEndToEndTests
-    @MainActor
     func testFormDeepLinkReachesRegisteredHandlerThroughRealWebView() async throws {
         try XCTSkipIf(
             ProcessInfo.processInfo.environment["GITHUB_CI"] == "true",
