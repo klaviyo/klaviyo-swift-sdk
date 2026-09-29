@@ -12,56 +12,26 @@ import OSLog
 
 @MainActor
 enum DeepLinkManager {
-    /// Transient reentrancy guard — `true` while a deep link is being opened.
-    /// Not persisted; reconstructed on launch.
-    static var isProcessingDeepLink = false
-
-    /// Opens `url` via the shared environment link handler, guarding against
-    /// overlapping opens. If a deep link is already being processed this is a
-    /// no-op (matching the reducer's "already processing" guard).
-    ///
-    /// The guard and its `true` assignment run synchronously before the
-    /// `await`, so on the main actor overlapping calls are reliably skipped.
-    ///
-    /// The `defer` releases the guard on every exit path out of the guarded
-    /// region, so an early return added here later cannot leak it.
-    ///
-    /// Known ceiling: `defer` runs while a call unwinds, and nothing unwinds
-    /// when a call never completes. A host handler that never returns therefore
-    /// latches the guard until the process restarts, and every later deep link
-    /// is skipped. Nothing here can recover that: the handler runs on the main
-    /// actor, so a handler that hangs also starves any code that would release
-    /// the guard on its behalf.
-    ///
-    /// The guard is process-wide: an open triggered from any entry point (push
-    /// body tap, action button, tracking-link resolution, or the event
-    /// dispatcher) suppresses a concurrent open from another.
+    /// Opens `url` via the shared environment link handler, routing to the host
+    /// app's registered deep link handler when one exists. Like
+    /// ``openExternalURL(_:)``, this has no reentrancy guard: `DeepLinkManager`
+    /// is main-actor isolated, so there is no data race to prevent, and
+    /// delivering two deep links in a row is harmless. Hosts already have to
+    /// tolerate that, because iOS itself redelivers universal links through
+    /// paths this SDK does not sit on.
     static func openDeepLink(_ url: URL) async {
         if let spy = openDeepLinkSpy {
             spy(url)
             return
         }
-        guard !isProcessingDeepLink else {
-            if #available(iOS 14.0, *) {
-                Logger.navigation.log("Already processing a deep link; skipping.")
-            }
-            return
-        }
-        isProcessingDeepLink = true
-        // ponytail: a host handler that never returns still latches this guard
-        // for the process lifetime. A watchdog that unlatched it on a timeout was
-        // tried and reverted: it let a merely slow handler clear a later open's
-        // guard, which is a likelier failure than the one it prevented. Revisit
-        // only with an ownership token per open, and only if it is worth it.
-        defer { isProcessingDeepLink = false }
         await environment.linkHandler.openURL(url)
     }
 
     /// Opens an external web/system URL via the shared environment link handler,
     /// bypassing any registered custom deep link handler. Used by the `open_url`
     /// push action where the customer explicitly chose to open a URL in the
-    /// system browser rather than route into the app. Unlike `openDeepLink`,
-    /// this has no reentrancy guard — concurrent external opens are harmless.
+    /// system browser rather than route into the app. Concurrent external opens
+    /// are harmless, so there is no reentrancy guard.
     static func openExternalURL(_ url: URL) async {
         if let spy = openExternalURLSpy {
             spy(url)
@@ -84,11 +54,10 @@ extension DeepLinkManager {
     /// Reset to nil after each test via `resetToProduction()`.
     static var openExternalURLSpy: ((URL) -> Void)?
 
-    /// Resets the spies and the transient processing flag.
+    /// Resets the spies.
     /// Call this in `setUp` and `tearDown` of any test that installs a spy.
     static func resetToProduction() {
         openDeepLinkSpy = nil
         openExternalURLSpy = nil
-        isProcessingDeepLink = false
     }
 }
