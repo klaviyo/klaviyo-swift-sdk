@@ -5,7 +5,22 @@
 //  Created by Andrew Balmer on 2026-05-14.
 //
 
+import Foundation
 import KlaviyoCore
+
+private enum AuthTokenProviderSequencer {
+    static var tail: Task<Void, Never>?
+
+    static func enqueue(_ operation: @escaping @Sendable () async -> Void) {
+        DispatchQueue.main.async {
+            let previous = tail
+            tail = Task {
+                await previous?.value
+                await operation()
+            }
+        }
+    }
+}
 
 /// Re-exports ``KlaviyoCore/AuthTokenProvider`` so host code that imports only
 /// `KlaviyoSwift` can reference the closure type without a second import.
@@ -26,7 +41,7 @@ extension KlaviyoSDK {
     ///
     /// - Parameter provider: an `@Sendable` async closure that returns a JWT.
     public func registerAuthTokenProvider(_ provider: @escaping AuthTokenProvider) {
-        Task {
+        AuthTokenProviderSequencer.enqueue {
             await AuthTokenManager.shared.registerProvider(provider)
         }
     }
@@ -40,7 +55,7 @@ extension KlaviyoSDK {
     /// have no token available until a new provider is registered via
     /// ``registerAuthTokenProvider(_:)``.
     public func unregisterAuthTokenProvider() {
-        Task {
+        AuthTokenProviderSequencer.enqueue {
             await AuthTokenManager.shared.unregisterProvider()
         }
     }
