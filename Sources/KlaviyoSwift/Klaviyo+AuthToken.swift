@@ -8,11 +8,12 @@
 import Foundation
 import KlaviyoCore
 
+@MainActor
 private enum AuthTokenProviderSequencer {
     static var tail: Task<Void, Never>?
 
-    static func enqueue(_ operation: @escaping @Sendable () async -> Void) {
-        DispatchQueue.main.async {
+    nonisolated static func enqueue(_ operation: @escaping @Sendable () async -> Void) {
+        DispatchQueue.main.async { @MainActor in
             let previous = tail
             tail = Task {
                 await previous?.value
