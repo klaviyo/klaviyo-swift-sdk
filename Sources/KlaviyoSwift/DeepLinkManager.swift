@@ -16,13 +16,6 @@ enum DeepLinkManager {
     /// Not persisted; reconstructed on launch.
     static var isProcessingDeepLink = false
 
-    private static let defaultProcessingGuardTimeout: TimeInterval = 5
-
-    /// Upper bound, in seconds, on how long ``isProcessingDeepLink`` stays
-    /// latched while waiting on the host application's deep link handler.
-    /// Overridden by tests; reset by ``resetToProduction()``.
-    static var processingGuardTimeout: TimeInterval = defaultProcessingGuardTimeout
-
     /// Opens `url` via the shared environment link handler, guarding against
     /// overlapping opens. If a deep link is already being processed this is a
     /// no-op (matching the reducer's "already processing" guard).
@@ -30,9 +23,15 @@ enum DeepLinkManager {
     /// The guard and its `true` assignment run synchronously before the
     /// `await`, so on the main actor overlapping calls are reliably skipped.
     ///
-    /// The guard is released when the open finishes or after
-    /// ``processingGuardTimeout``, whichever comes first, so a host handler that
-    /// never returns cannot block every later deep link.
+    /// The `defer` releases the guard on every exit path out of the guarded
+    /// region, so an early return added here later cannot leak it.
+    ///
+    /// Known ceiling: `defer` runs while a call unwinds, and nothing unwinds
+    /// when a call never completes. A host handler that never returns therefore
+    /// latches the guard until the process restarts, and every later deep link
+    /// is skipped. Nothing here can recover that: the handler runs on the main
+    /// actor, so a handler that hangs also starves any code that would release
+    /// the guard on its behalf.
     ///
     /// The guard is process-wide: an open triggered from any entry point (push
     /// body tap, action button, tracking-link resolution, or the event
@@ -49,30 +48,12 @@ enum DeepLinkManager {
             return
         }
         isProcessingDeepLink = true
-
-        // A host handler that never returns must not latch the guard for the rest
-        // of the process, which would silently drop every later deep link. `defer`
-        // cannot cover that case on its own, because nothing unwinds when a call
-        // simply never completes. The watchdog releases the guard instead.
-        // ponytail: fixed window, and it cannot recover a handler that blocks the
-        // main actor outright. Make the window injectable if a customer needs more.
-        let watchdog = Task { @MainActor in
-            let nanoseconds = UInt64(processingGuardTimeout * 1_000_000_000)
-            try? await Task.sleep(nanoseconds: nanoseconds)
-            guard !Task.isCancelled else { return }
-            if #available(iOS 14.0, *) {
-                Logger.navigation.error("""
-                Deep link handler did not return in time; releasing the processing \
-                guard so that later deep links are not dropped.
-                """)
-            }
-            isProcessingDeepLink = false
-        }
-        defer {
-            watchdog.cancel()
-            isProcessingDeepLink = false
-        }
-
+        // ponytail: a host handler that never returns still latches this guard
+        // for the process lifetime. A watchdog that unlatched it on a timeout was
+        // tried and reverted: it let a merely slow handler clear a later open's
+        // guard, which is a likelier failure than the one it prevented. Revisit
+        // only with an ownership token per open, and only if it is worth it.
+        defer { isProcessingDeepLink = false }
         await environment.linkHandler.openURL(url)
     }
 
@@ -109,6 +90,5 @@ extension DeepLinkManager {
         openDeepLinkSpy = nil
         openExternalURLSpy = nil
         isProcessingDeepLink = false
-        processingGuardTimeout = defaultProcessingGuardTimeout
     }
 }
