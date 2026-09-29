@@ -8,9 +8,7 @@
 import AnyCodable
 import Foundation
 
-/**
- Internal structure which has details not needed by the API.
- */
+/// Internal structure which has details not needed by the API.
 public struct ProfilePayload: Equatable, Codable {
     var type = "profile"
     public struct Attributes: Equatable, Codable {
@@ -25,6 +23,7 @@ public struct ProfilePayload: Equatable, Codable {
         public var image: String?
         public var location: Location?
         public var properties: AnyCodable
+        public var subscriptions: SubscriptionChannels?
         enum CodingKeys: String, CodingKey {
             case email
             case phoneNumber = "phone_number"
@@ -37,19 +36,23 @@ public struct ProfilePayload: Equatable, Codable {
             case image
             case location
             case properties
+            case subscriptions
         }
 
-        public init(email: String? = nil,
-                    phoneNumber: String? = nil,
-                    externalId: String? = nil,
-                    firstName: String? = nil,
-                    lastName: String? = nil,
-                    organization: String? = nil,
-                    title: String? = nil,
-                    image: String? = nil,
-                    location: Location? = nil,
-                    properties: [String: Any]? = nil,
-                    anonymousId: String) {
+        public init(
+            email: String? = nil,
+            phoneNumber: String? = nil,
+            externalId: String? = nil,
+            firstName: String? = nil,
+            lastName: String? = nil,
+            organization: String? = nil,
+            title: String? = nil,
+            image: String? = nil,
+            location: Location? = nil,
+            properties: [String: Any]? = nil,
+            subscriptions: SubscriptionChannels? = nil,
+            anonymousId: String
+        ) {
             self.email = email
             self.phoneNumber = phoneNumber
             self.externalId = externalId
@@ -60,6 +63,7 @@ public struct ProfilePayload: Equatable, Codable {
             self.image = image
             self.location = location
             self.properties = AnyCodable(properties ?? [:])
+            self.subscriptions = subscriptions
             self.anonymousId = anonymousId
         }
 
@@ -73,15 +77,17 @@ public struct ProfilePayload: Equatable, Codable {
             public var region: String?
             public var zip: String?
             public var timezone: String?
-            public init(address1: String? = nil,
-                        address2: String? = nil,
-                        city: String? = nil,
-                        country: String? = nil,
-                        latitude: Double? = nil,
-                        longitude: Double? = nil,
-                        region: String? = nil,
-                        zip: String? = nil,
-                        timezone: String? = nil) {
+            public init(
+                address1: String? = nil,
+                address2: String? = nil,
+                city: String? = nil,
+                country: String? = nil,
+                latitude: Double? = nil,
+                longitude: Double? = nil,
+                region: String? = nil,
+                zip: String? = nil,
+                timezone: String? = nil
+            ) {
                 self.address1 = address1
                 self.address2 = address2
                 self.city = city
@@ -97,17 +103,20 @@ public struct ProfilePayload: Equatable, Codable {
 
     public var attributes: Attributes
 
-    public init(email: String? = nil,
-                phoneNumber: String? = nil,
-                externalId: String? = nil,
-                firstName: String? = nil,
-                lastName: String? = nil,
-                organization: String? = nil,
-                title: String? = nil,
-                image: String? = nil,
-                location: Attributes.Location? = nil,
-                properties: [String: Any]? = nil,
-                anonymousId: String) {
+    public init(
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        firstName: String? = nil,
+        lastName: String? = nil,
+        organization: String? = nil,
+        title: String? = nil,
+        image: String? = nil,
+        location: Attributes.Location? = nil,
+        properties: [String: Any]? = nil,
+        subscriptions: SubscriptionChannels? = nil,
+        anonymousId: String
+    ) {
         attributes = Attributes(
             email: email,
             phoneNumber: phoneNumber,
@@ -119,6 +128,7 @@ public struct ProfilePayload: Equatable, Codable {
             image: image,
             location: location,
             properties: properties,
+            subscriptions: subscriptions,
             anonymousId: anonymousId
         )
     }
