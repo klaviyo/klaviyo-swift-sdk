@@ -8,6 +8,15 @@
 import Foundation
 import XCTest
 
+/// Stands in for a host application whose deep link handler never returns.
+/// `openURL` suspends on a continuation that is never resumed, so every
+/// statement after the `await` in `openDeepLink(_:)` is unreachable.
+private final class NeverReturningLinkHandler: DeepLinkHandler {
+    override func openURL(_: URL) async {
+        await withUnsafeContinuation { (_: UnsafeContinuation<Void, Never>) in }
+    }
+}
+
 @MainActor
 final class DeepLinkManagerTests: XCTestCase {
     override func setUp() {
@@ -37,6 +46,29 @@ final class DeepLinkManagerTests: XCTestCase {
 
         await fulfillment(of: [called], timeout: 1.0)
         XCTAssertFalse(DeepLinkManager.isProcessingDeepLink, "processing flag should reset after opening")
+    }
+
+    func testOpenDeepLink_handlerThatNeverReturns_releasesTheGuard() async {
+        DeepLinkManager.processingGuardTimeout = 0.1
+        environment.linkHandler = NeverReturningLinkHandler()
+
+        // Deliberately not awaited: this open never completes, which is the bug.
+        Task { await DeepLinkManager.openDeepLink(URL(string: "https://example.com/stuck")!) }
+        try? await Task.sleep(nanoseconds: 500_000_000)
+
+        XCTAssertFalse(
+            DeepLinkManager.isProcessingDeepLink,
+            "a handler that never returns must not latch the guard for the process lifetime"
+        )
+
+        // The regression that users actually see: every later deep link is dropped.
+        let recovered = expectation(description: "a later deep link still routes")
+        environment.linkHandler = DeepLinkHandler()
+        environment.linkHandler.registerCustomHandler { _ in recovered.fulfill() }
+
+        await DeepLinkManager.openDeepLink(URL(string: "https://example.com/next")!)
+
+        await fulfillment(of: [recovered], timeout: 1.0)
     }
 
     func testOpenDeepLink_skippedWhenAlreadyProcessing() async {
