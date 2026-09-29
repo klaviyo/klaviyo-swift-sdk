@@ -715,8 +715,9 @@ final class KlaviyoInternalTests: XCTestCase {
     // MARK: - Geofence Event Tests
 
     @MainActor
-    func testCreateGeofenceEventDoesNotRetargetCompanyChange() async {
+    func testCreateGeofenceEventDoesNotRetargetCompanyChange() async throws {
         var state = INITIALIZED_TEST_STATE()
+        let oldAPIKey = try XCTUnwrap(state.apiKey)
         state.initalizationState = .changingCompany("new-company")
         klaviyoSwiftEnvironment.state = { state }
         klaviyoSwiftEnvironment.statePublisher = { Just(state).eraseToAnyPublisher() }
@@ -727,7 +728,7 @@ final class KlaviyoInternalTests: XCTestCase {
         }
         let event = Event(name: .locationEvent(.geofenceEnter))
 
-        await KlaviyoInternal.createGeofenceEvent(event: event, for: "old-company")
+        await KlaviyoInternal.createGeofenceEvent(event: event, for: oldAPIKey)
 
         XCTAssertTrue(actions.isEmpty)
     }
