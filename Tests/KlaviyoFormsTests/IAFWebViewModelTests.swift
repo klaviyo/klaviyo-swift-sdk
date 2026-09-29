@@ -471,18 +471,25 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "holafly://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'holafly' must not be declared in the test bundle for this to regress"
+        )
+
         // When
         viewModel.handleScriptMessage(makeDeepLinkMessage())
 
         // Then
-        guard case let .formCtaClicked(formId, formName, buttonLabel, url) = receivedEvent else {
+        guard case let .formCtaClicked(formId, formName, buttonLabel, deepLinkUrl) = receivedEvent else {
             XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
             return
         }
         XCTAssertEqual(formId, "form123")
         XCTAssertEqual(formName, "Newsletter")
         XCTAssertEqual(buttonLabel, "Go")
-        XCTAssertEqual(url, URL(string: "holafly://notifications?utm_source=push_flow"))
+        XCTAssertEqual(deepLinkUrl, url)
     }
 
     @MainActor

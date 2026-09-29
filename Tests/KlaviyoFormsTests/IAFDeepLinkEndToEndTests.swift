@@ -71,7 +71,7 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
     /// content and GPU process, and `WKWebView` teardown is asynchronous, so on a shared CI
     /// runner it starves the tightly-timed mocked tests that run after it
     /// (`IAFWebViewModelPreloadingTests` allows a mocked handshake only 5s). The deterministic
-    /// deterministic regression guard lives in `IAFWebViewModelTests`; this test is the
+    /// regression guard lives in `IAFWebViewModelTests`; this test is the
     /// full-path proof, run on demand:
     ///
     ///     xcodebuild test -scheme klaviyo-swift-sdk-Package \
