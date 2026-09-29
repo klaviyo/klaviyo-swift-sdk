@@ -26,6 +26,7 @@ import OSLog
 ///
 /// The token cache is in-memory only — never persisted to disk or Keychain.
 package actor AuthTokenManager {
+    private static let companyChangePollNanoseconds: UInt64 = 10_000_000
     /// Latency budget for callers awaiting a token, expressed as a named policy
     /// rather than a free `TimeInterval` so the two budgets stay
     /// single-source-of-truth and can be tuned together based on production
@@ -48,6 +49,7 @@ package actor AuthTokenManager {
     /// Most recently validated token, if any. Cleared whenever
     /// ``registerProvider(_:)`` runs.
     private var cachedToken: ValidatedToken?
+    private var companyChangeInProgress = false
 
     /// Host-supplied closure that returns a fresh JWT on each invocation.
     /// Starts `nil`; set by ``registerProvider(_:)``.
@@ -260,6 +262,17 @@ package actor AuthTokenManager {
     ///   provider throws; ``AuthTokenError/validationFailed(_:)`` when the
     ///   returned token fails ``JWTParser`` validation.
     package func currentToken(mode: FetchMode = .interactive) async throws -> String {
+        let timeoutAt = ProcessInfo.processInfo.systemUptime + mode.rawValue
+        while companyChangeInProgress {
+            try Task.checkCancellation()
+            let remaining = timeoutAt - ProcessInfo.processInfo.systemUptime
+            guard remaining > 0 else { throw AuthTokenError.timedOut }
+            let sleepNanoseconds = min(UInt64(remaining * 1_000_000_000), Self.companyChangePollNanoseconds)
+            try await Task.sleep(nanoseconds: sleepNanoseconds)
+        }
+        try Task.checkCancellation()
+        let remaining = timeoutAt - ProcessInfo.processInfo.systemUptime
+        guard remaining > 0 else { throw AuthTokenError.timedOut }
         if let cachedToken, isCachedTokenValid(cachedToken) {
             return cachedToken.rawToken
         }
@@ -269,7 +282,7 @@ package actor AuthTokenManager {
         }
 
         let task = inFlight?.task ?? startFetch()
-        return try await race(fetch: task, timeoutSeconds: mode.rawValue)
+        return try await race(fetch: task, timeoutSeconds: remaining)
     }
 
     /// Returns a stream of token strings produced by *proactive* refreshes.
@@ -321,6 +334,15 @@ package actor AuthTokenManager {
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: token state cleared")
         }
+    }
+
+    package func beginCompanyChange() {
+        companyChangeInProgress = true
+        cancelInFlightWorkAndClearCache()
+    }
+
+    package func completeCompanyChange() {
+        companyChangeInProgress = false
     }
 
     /// Cancels the in-flight fetch and scheduled refresh, then drops the cached

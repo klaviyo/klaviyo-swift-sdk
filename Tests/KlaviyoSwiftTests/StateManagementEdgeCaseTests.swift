@@ -49,36 +49,59 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testInitializeAfterInitialized() async throws {
-        var initialState = INITIALIZED_TEST_STATE()
-        let originalKey = try XCTUnwrap(initialState.apiKey)
-        let anonymousId = try XCTUnwrap(initialState.anonymousId)
-        let tokenData = try XCTUnwrap(initialState.pushTokenData)
-        let unregisterRequest = initialState.buildUnregisterRequest(
-            apiKey: originalKey,
-            anonymousId: anonymousId,
-            pushToken: tokenData.pushToken
+    func testCompanySwitchKeepsPushTokenButUsesFreshAnonymousId() async throws {
+        let newAnonymousId = try XCTUnwrap(UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB"))
+        environment.uuid = { newAnonymousId }
+        let initialState = KlaviyoState(
+            apiKey: "old-api-key",
+            anonymousId: "anonymous-A",
+            pushTokenData: .init(
+                pushToken: "push-token",
+                pushEnablement: .authorized,
+                pushBackground: .available,
+                deviceData: .init(context: environment.appContextInfo())
+            ),
+            queue: [],
+            initalizationState: .initialized
         )
-        let newApiKey = "new-api-key"
-        let registerRequest = initialState.buildTokenRequest(
-            apiKey: newApiKey,
-            anonymousId: anonymousId,
-            pushToken: tokenData.pushToken,
-            enablement: tokenData.pushEnablement
+        let persistedState = KlaviyoState(
+            apiKey: "new-api-key",
+            email: "stale-b@example.com",
+            anonymousId: "persisted-B",
+            queue: []
         )
+        environment.fileClient.fileExists = { _ in true }
+        environment.dataFromUrl = { _ in try JSONEncoder().encode(persistedState) }
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         store.exhaustivity = .off
 
-        _ = await store.send(.initialize(originalKey))
-
-        _ = await store.send(.initialize(newApiKey)) {
+        _ = await store.send(.initialize("new-api-key")) {
             $0.initalizationState = .initializing
-            $0.pendingCompanyApiKey = newApiKey
+            $0.pendingCompanyApiKey = "new-api-key"
         }
         await store.receive(.completeCompanyAuthClear)
 
-        XCTAssertEqual(store.state.apiKey, newApiKey)
-        XCTAssertEqual(store.state.queue.map(\.endpoint), [unregisterRequest.endpoint, registerRequest.endpoint])
+        XCTAssertEqual(store.state.apiKey, "new-api-key")
+        XCTAssertEqual(store.state.anonymousId, newAnonymousId.uuidString)
+        XCTAssertNil(store.state.email)
+        XCTAssertEqual(store.state.pushTokenData?.pushToken, "push-token")
+        XCTAssertEqual(store.state.queue.count, 2)
+        if case let .unregisterPushToken(companyId, payload) = store.state.queue[0].endpoint {
+            XCTAssertEqual(companyId, "old-api-key")
+            XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anonymous-A")
+        } else {
+            XCTFail("Expected outgoing push unregister request")
+        }
+        if case let .registerPushToken(companyId, payload) = store.state.queue[1].endpoint {
+            XCTAssertEqual(companyId, "new-api-key")
+            XCTAssertEqual(
+                payload.data.attributes.profile.data.attributes.anonymousId,
+                newAnonymousId.uuidString
+            )
+            XCTAssertNil(payload.data.attributes.profile.data.attributes.email)
+        } else {
+            XCTFail("Expected incoming push registration request")
+        }
     }
 
     // MARK: - Send Request

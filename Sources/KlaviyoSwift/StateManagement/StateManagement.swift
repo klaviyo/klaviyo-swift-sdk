@@ -168,8 +168,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.initalizationState = .initializing
                 state.pendingCompanyApiKey = apiKey
                 return .run { send in
-                    await AuthTokenManager.shared.clearTokenState()
+                    await AuthTokenManager.shared.beginCompanyChange()
                     await send(.completeCompanyAuthClear)
+                    await AuthTokenManager.shared.completeCompanyChange()
                 }
             }
             if case .initializing = state.initalizationState,
@@ -192,6 +193,13 @@ struct KlaviyoReducer: ReducerProtocol {
                   let apiKey = state.pendingCompanyApiKey else {
                 return .none
             }
+            if apiKey == state.apiKey {
+                state.initalizationState = .initialized
+                state.pendingCompanyApiKey = nil
+                let pendingRequests = state.pendingRequests
+                state.pendingRequests = []
+                return replayPendingRequests(pendingRequests)
+            }
             if let previousKey = state.apiKey,
                let anonymousId = state.anonymousId,
                let tokenData = state.pushTokenData {
@@ -203,7 +211,7 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.enqueueRequest(request: request)
             }
             state.apiKey = apiKey
-            state.reset()
+            state.reset(resetAnonymousId: true)
             state.initalizationState = .initialized
             state.pendingCompanyApiKey = nil
             let pendingRequests = state.pendingRequests

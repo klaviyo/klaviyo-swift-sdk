@@ -100,6 +100,79 @@ final class CompanyChangeAuthTests: XCTestCase {
     }
 
     @MainActor
+    func testCompanyChangeBackToCurrentKeyKeepsCurrentProfile() async {
+        let initialState = KlaviyoState(
+            apiKey: "A",
+            email: "a@example.com",
+            anonymousId: "anonymous-A",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let store = Store(initialState: initialState, reducer: KlaviyoReducer())
+        let remainedOnA = expectation(description: "company A remains initialized")
+        remainedOnA.assertForOverFulfill = false
+        subscription = store.state.dropFirst().sink { state in
+            if state.apiKey == "A", state.initalizationState == .initialized {
+                remainedOnA.fulfill()
+            }
+        }
+
+        _ = store.send(.initialize("B"))
+        _ = store.send(.initialize("A"))
+        await fulfillment(of: [remainedOnA], timeout: 3)
+
+        XCTAssertEqual(store.state.value.apiKey, "A")
+        XCTAssertEqual(store.state.value.email, "a@example.com")
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+        XCTAssertTrue(store.state.value.queue.isEmpty)
+    }
+
+    @MainActor
+    func testCompanyChangeWaitsForNewCompanyBeforeFetchingToken() async throws {
+        let tokenA = try makeToken(subject: "A")
+        let tokenB = try makeToken(subject: "B")
+        let source = CompanyTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await source.fetch() }
+        let initialToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(initialToken, tokenA)
+
+        await AuthTokenManager.shared.beginCompanyChange()
+        await source.setToken(tokenB)
+        do {
+            _ = try await AuthTokenManager.shared.currentToken(mode: .interactive)
+            XCTFail("Token request should time out while the company change is pending")
+        } catch let error as AuthTokenError {
+            XCTAssertEqual(error, .timedOut)
+        }
+        await AuthTokenManager.shared.completeCompanyChange()
+
+        let switchedToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(switchedToken, tokenB)
+    }
+
+    @MainActor
+    func testCompanyChangeWaitStopsWhenCallerIsCancelled() async {
+        await AuthTokenManager.shared.beginCompanyChange()
+        let request = Task {
+            try await AuthTokenManager.shared.currentToken(mode: .background)
+        }
+        await Task.yield()
+        request.cancel()
+
+        var cancellationObserved = false
+        do {
+            _ = try await request.value
+            XCTFail("Cancelled token request should not keep waiting")
+        } catch is CancellationError {
+            cancellationObserved = true
+        } catch {
+            XCTFail("Expected cancellation, received \(error)")
+        }
+        await AuthTokenManager.shared.completeCompanyChange()
+        XCTAssertTrue(cancellationObserved)
+    }
+
+    @MainActor
     func testRapidCompanyChangesUseLatestKeyAndReplayPendingRequest() async throws {
         let tokenA = try makeToken(subject: "A")
         let tokenC = try makeToken(subject: "C")

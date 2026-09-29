@@ -325,8 +325,11 @@ struct KlaviyoState: Equatable, Codable {
         email != nil || externalId != nil || phoneNumber != nil
     }
 
-    mutating func reset(preserveTokenData: Bool = true) {
-        if isIdentified {
+    mutating func reset(
+        preserveTokenData: Bool = true,
+        resetAnonymousId: Bool = false
+    ) {
+        if isIdentified || resetAnonymousId {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
             anonymousId = environment.uuid().uuidString
         }
