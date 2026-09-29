@@ -144,14 +144,15 @@ final class KlaviyoInternalTests: XCTestCase {
         state.initalizationState = .resettingProfile
         states.send(state)
 
-        XCTAssertEqual(profileResults.count, 1)
+        XCTAssertEqual(profileResults.count, 2)
+        XCTAssertEqual(profileResults.last, .failure(.notInitialized))
         XCTAssertEqual(apiKeyResults.count, 1)
 
         state.email = nil
         state.initalizationState = .initialized
         states.send(state)
 
-        XCTAssertEqual(profileResults.count, 2)
+        XCTAssertEqual(profileResults.count, 3)
         XCTAssertEqual(apiKeyResults.count, 1)
         XCTAssertEqual(profileResults.last, .success(ProfileData(
             email: nil,

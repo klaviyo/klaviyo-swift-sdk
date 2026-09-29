@@ -31,7 +31,7 @@ struct KlaviyoState: Equatable, Codable {
         case setPhoneNumber(String)
         case setProfileProperty(Profile.ProfileKey, AnyEncodable)
         case resetProfile
-        case resetProfileWithQueuedAuthClear
+        case resetProfileWithQueuedAuthClear(AuthProfileResetTransition)
     }
 
     struct PushTokenData: Equatable, Codable {
@@ -66,6 +66,9 @@ struct KlaviyoState: Equatable, Codable {
     var flushInterval = StateManagementConstants.wifiFlushInterval
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
+    var activeProfileResetTransition: AuthProfileResetTransition?
+    var pendingCompanyAPIKey: String?
+    var pendingCompanyUnregisterRequest: KlaviyoRequest?
     var pendingProfile: [Profile.ProfileKey: AnyEncodable]?
     var isProcessingDeepLink = false
 
@@ -230,7 +233,7 @@ struct KlaviyoState: Equatable, Codable {
         email != nil || externalId != nil || phoneNumber != nil
     }
 
-    mutating func reset(preserveTokenData: Bool = true) {
+    mutating func reset(preserveTokenData: Bool = true, enqueuePushTokenRequest: Bool = true) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.
             anonymousId = environment.uuid().uuidString
@@ -243,7 +246,8 @@ struct KlaviyoState: Equatable, Codable {
         pushTokenData = nil
         if preserveTokenData {
             pushTokenData = previousPushTokenData
-            if let apiKey = apiKey,
+            if enqueuePushTokenRequest,
+               let apiKey = apiKey,
                let anonymousId = anonymousId,
                let tokenData = previousPushTokenData {
                 let payload = PushTokenPayload(

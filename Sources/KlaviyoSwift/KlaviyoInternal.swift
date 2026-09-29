@@ -120,7 +120,7 @@ package enum KlaviyoInternal {
         guard profileDataCancellable == nil else { return }
 
         profileDataCancellable = klaviyoSwiftEnvironment.statePublisher()
-            .compactMap { profileDataResult(for: $0) }
+            .map { profileDataResult(for: $0) ?? .failure(.notInitialized) }
             .removeDuplicates()
             .subscribe(profileDataSubject)
     }

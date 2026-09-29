@@ -236,7 +236,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] result in
-                guard case .success = result else { return }
+                if case .failure = result {
+                    Task { @MainActor [weak self] in
+                        guard KlaviyoInternal.currentProfileData == nil else { return }
+                        await self?.clearProfileData()
+                    }
+                    return
+                }
                 Task { @MainActor [weak self] in
                     while true {
                         guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { continue }
@@ -284,6 +290,22 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
                 }
+            }
+        }
+    }
+
+    @MainActor
+    private func clearProfileData() async {
+        guard profileData != nil else { return }
+        profileData = nil
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
+        guard profileData == nil else { return }
+        do {
+            _ = try await delegate?.evaluateJavaScript("document.head.removeAttribute('data-klaviyo-profile');")
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error clearing In-App Forms profile data: \(error)")
             }
         }
     }

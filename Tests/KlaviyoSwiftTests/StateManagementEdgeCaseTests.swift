@@ -230,7 +230,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testResetProfileDuringRetargetedCompanyChangeClearsBufferedIdentity() throws {
+    func testResetProfileDuringRetargetedCompanyChangeClearsBufferedIdentity() async throws {
         var state = INITIALIZED_TEST_STATE()
         let originalAPIKey = try XCTUnwrap(state.apiKey)
         state.initalizationState = .changingCompany("new-api-key")
@@ -241,7 +241,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
         state.initalizationState = .changingCompany(originalAPIKey)
         _ = reducer.reduce(into: &state, action: .completeCompanyChange(originalAPIKey))
         XCTAssertEqual(state.initalizationState, .resettingProfile)
+        let transition = try XCTUnwrap(state.activeProfileResetTransition)
         _ = reducer.reduce(into: &state, action: .completeProfileReset)
+        await transition.completeProfileReset()
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
 
         XCTAssertNil(state.email)
         XCTAssertEqual(state.apiKey, originalAPIKey)
@@ -1055,11 +1058,13 @@ class StateManagementEdgeCaseTests: XCTestCase {
         )
 
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
 
         await store.send(.resetProfile) {
             $0.initalizationState = .resettingProfile
             $0.flushing = false
         }
+        XCTAssertNotNil(store.state.activeProfileResetTransition)
         await store.receive(.completeProfileReset) {
             // reset(preserveTokenData: true) is the default for resetProfile
             $0.email = nil
@@ -1084,6 +1089,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
             )
             $0.queue = [request]
         }
+        XCTAssertNil(store.state.activeProfileResetTransition)
     }
 
     @MainActor
@@ -1125,7 +1131,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
-    func testBufferedResetKeepsCompanyCompletionInTransition() {
+    func testBufferedResetKeepsCompanyCompletionInTransition() async throws {
         var state = INITIALIZED_TEST_STATE()
         state.initalizationState = .changingCompany("new-api-key")
         state.isRunning = true
@@ -1137,6 +1143,10 @@ class StateManagementEdgeCaseTests: XCTestCase {
         XCTAssertEqual(state.initalizationState, .resettingProfile)
         XCTAssertTrue(state.isRunning)
         XCTAssertFalse(state.flushing)
+        let transition = try XCTUnwrap(state.activeProfileResetTransition)
+        _ = reducer.reduce(into: &state, action: .completeProfileReset)
+        await transition.completeProfileReset()
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
     }
 
     @MainActor

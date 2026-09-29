@@ -161,11 +161,12 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         let bootstrapEntered = expectation(description: "bootstrap entered pending-command wait")
         klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
         klaviyoSwiftEnvironment.send = { action in
-            guard action == .resetProfileWithQueuedAuthClear else { return nil }
+            guard case let .resetProfileWithQueuedAuthClear(transition) = action else { return nil }
             return Task { @MainActor in
                 resetEntered.fulfill()
                 await releaseReset.wait()
                 subject.send(stateB)
+                await transition.completeProfileReset()
             }
         }
         KlaviyoInternal.resetProfileDataSubject()

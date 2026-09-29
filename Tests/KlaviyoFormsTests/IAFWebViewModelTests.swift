@@ -557,6 +557,40 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertNotNil(viewModel.findScript(containing: "b@example.com"))
         XCTAssertNil(viewModel.findScript(containing: "a@example.com"))
     }
+
+    @MainActor
+    func testProfileResetRemovesRetainedIdentityFromLiveAndNextNavigation() async throws {
+        let stateA = KlaviyoState(
+            apiKey: "abc123",
+            email: "a@example.com",
+            anonymousId: "anon-a",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(stateA)
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        )
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        XCTAssertNotNil(model.findScript(containing: "a@example.com"))
+
+        let cleared = expectation(description: "profile script cleared")
+        delegate.onRefreshLoadScripts = { cleared.fulfill() }
+        var resetting = stateA
+        resetting.initalizationState = .resettingProfile
+        stateSubject.send(resetting)
+        await fulfillment(of: [cleared], timeout: 2)
+
+        XCTAssertNil(model.profileData)
+        XCTAssertNil(model.findScript(containing: "a@example.com"))
+        XCTAssertTrue(delegate.evaluatedScripts.contains { $0.contains("removeAttribute('data-klaviyo-profile')") })
+    }
 }
 
 extension IAFWebViewModel {

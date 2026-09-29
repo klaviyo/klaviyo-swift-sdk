@@ -1,4 +1,5 @@
 ▿ KlaviyoState
+  - activeProfileResetTransition: Optional<AuthProfileResetTransition>.none
   ▿ anonymousId: Optional<String>
     - some: "00000000-0000-0000-0000-000000000001"
   ▿ apiKey: Optional<String>
@@ -12,6 +13,8 @@
   - initalizationState: InitializationState.initialized
   - isProcessingDeepLink: false
   - isRunning: false
+  - pendingCompanyAPIKey: Optional<String>.none
+  - pendingCompanyUnregisterRequest: Optional<KlaviyoRequest>.none
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   - pendingStartAfterCompanyChange: false
