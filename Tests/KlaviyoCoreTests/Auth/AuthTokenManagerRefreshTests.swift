@@ -840,14 +840,17 @@ struct AuthTokenManagerRefreshTests {
             expiresAt: refSeconds + 3600,
             extraClaims: ["sub": "current"]
         )
-        await manager.registerProvider { token }
-        let current = try await manager.currentToken(mode: .background)
-        #expect(current == token)
-
         let updates = await manager.tokenUpdates()
         var iterator = updates.makeAsyncIterator()
         let snapshot = await iterator.next()
-        #expect(snapshot == .token(token))
+        #expect(snapshot == .cleared)
+
+        await manager.registerProvider { token }
+        var warmed: AuthTokenUpdate?
+        repeat {
+            warmed = await iterator.next()
+        } while warmed == .cleared
+        #expect(warmed == .token(token))
 
         await manager.clearTokenState()
 

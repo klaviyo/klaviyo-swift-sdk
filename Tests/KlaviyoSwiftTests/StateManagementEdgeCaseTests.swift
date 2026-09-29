@@ -240,6 +240,8 @@ class StateManagementEdgeCaseTests: XCTestCase {
         _ = reducer.reduce(into: &state, action: .resetProfile)
         state.initalizationState = .changingCompany(originalAPIKey)
         _ = reducer.reduce(into: &state, action: .completeCompanyChange(originalAPIKey))
+        XCTAssertEqual(state.initalizationState, .resettingProfile)
+        _ = reducer.reduce(into: &state, action: .completeProfileReset)
 
         XCTAssertNil(state.email)
         XCTAssertEqual(state.apiKey, originalAPIKey)
