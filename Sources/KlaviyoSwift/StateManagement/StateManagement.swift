@@ -176,22 +176,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 guard apiKey != state.apiKey else {
                     return .none
                 }
-                state.initalizationState = .changingCompany(apiKey)
-                return .run { send in
-                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-                    await command.value
-                    await send(.completeCompanyChange(apiKey))
-                }
+                return beginCompanyChange(to: apiKey, state: &state)
             case let .changingCompany(targetAPIKey):
                 guard apiKey != targetAPIKey else {
                     return .none
                 }
-                state.initalizationState = .changingCompany(apiKey)
-                return .run { send in
-                    let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-                    await command.value
-                    await send(.completeCompanyChange(apiKey))
-                }
+                return beginCompanyChange(to: apiKey, state: &state)
             case .initializing:
                 return .none
             case .uninitialized:
@@ -225,7 +215,12 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.reset()
             }
             state.initalizationState = .initialized
-            return replayPendingRequests(pendingRequests, into: &state)
+            let replay = replayPendingRequests(pendingRequests, into: &state)
+            guard state.isRunning else { return replay }
+            let restart = replay.merge(with: startEffects(flushInterval: state.flushInterval))
+            return state.flushInterval.isFinite
+                ? restart.merge(with: .task { .flushQueue })
+                : restart
 
         case var .completeInitialization(initialState):
             guard case .initializing = state.initalizationState else {
@@ -267,6 +262,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.setExternalId(externalId))
                     case let .setPhoneNumber(phoneNumber):
                         await send(.setPhoneNumber(phoneNumber))
+                    case let .setProfileProperty(key, value):
+                        await send(.setProfileProperty(key, value))
                     }
                 }
                 await send(.start)
@@ -356,38 +353,28 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
         case .stop:
+            state.isRunning = false
             guard case .initialized = state.initalizationState else {
+                if case .changingCompany = state.initalizationState {
+                    state.pauseSendingRequests()
+                }
                 return .none
             }
+            state.pauseSendingRequests()
             return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
                 .concatenate(with: .run(operation: { send in
-                    await send(.cancelInFlightRequests)
                     await send(KlaviyoAction.syncBadgeCount)
                 }))
 
         case .start:
             guard case .initialized = state.initalizationState else {
+                if case .changingCompany = state.initalizationState {
+                    state.isRunning = true
+                }
                 return .none
             }
-
-            return .merge([
-                .run { send in
-                    let settings = await environment.getNotificationSettings()
-                    await send(KlaviyoAction.setPushEnablement(settings))
-                    let autoclearing = await environment.getBadgeAutoClearingSetting()
-                    if autoclearing {
-                        await send(KlaviyoAction.setBadgeCount(0))
-                    } else {
-                        await send(KlaviyoAction.syncBadgeCount)
-                    }
-                },
-                environment.timer(state.flushInterval)
-                    .map { _ in
-                        KlaviyoAction.flushQueue
-                    }
-                    .eraseToEffect()
-                    .cancellable(id: FlushTimer.self, cancelInFlight: true)
-            ])
+            state.isRunning = true
+            return startEffects(flushInterval: state.flushInterval)
 
         case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(_, payload) = completedRequest.endpoint {
@@ -456,26 +443,24 @@ struct KlaviyoReducer: ReducerProtocol {
             }.cancellable(id: RequestId.self)
 
         case .cancelInFlightRequests:
-            state.flushing = false
-            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
-            state.requestsInFlight = []
+            state.pauseSendingRequests()
             return .none
 
         case let .networkConnectivityChanged(networkStatus):
-            guard case .initialized = state.initalizationState else {
-                return .none
-            }
+            if case .uninitialized = state.initalizationState { return .none }
             switch networkStatus {
             case .notReachable:
                 state.flushInterval = Double.infinity
+                guard case .initialized = state.initalizationState else { return .none }
+                state.pauseSendingRequests()
                 return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                    .concatenate(with: .run { send in
-                        await send(.cancelInFlightRequests)
-                    })
             case .reachableViaWiFi:
                 state.flushInterval = StateManagementConstants.wifiFlushInterval
             case .reachableViaWWAN:
                 state.flushInterval = StateManagementConstants.cellularFlushInterval
+            }
+            guard case .initialized = state.initalizationState, state.isRunning else {
+                return .none
             }
             return environment.timer(state.flushInterval)
                 .map { _ in
@@ -498,9 +483,7 @@ struct KlaviyoReducer: ReducerProtocol {
                     request.id == inflightRequest.id
                 }
             }
-            state.flushing = false
-            state.queue.insert(contentsOf: state.requestsInFlight, at: 0)
-            state.requestsInFlight = []
+            state.pauseSendingRequests()
             return .none
 
         case var .enqueueEvent(event):
@@ -662,6 +645,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case let .setProfileProperty(key, value):
+            guard case .initialized = state.initalizationState else {
+                state.pendingRequests.append(.setProfileProperty(key, value))
+                return .none
+            }
             guard var pendingProfile = state.pendingProfile else {
                 state.pendingProfile = [key: value]
                 return .none
@@ -775,6 +762,39 @@ struct KlaviyoReducer: ReducerProtocol {
         }
     }
 
+    private func beginCompanyChange(
+        to apiKey: String,
+        state: inout KlaviyoState
+    ) -> EffectTask<KlaviyoAction> {
+        state.initalizationState = .changingCompany(apiKey)
+        state.pauseSendingRequests()
+        let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+            .concatenate(with: .run { send in
+                await command.value
+                await send(.completeCompanyChange(apiKey))
+            })
+    }
+
+    private func startEffects(flushInterval: TimeInterval) -> EffectTask<KlaviyoAction> {
+        .merge([
+            .run { send in
+                let settings = await environment.getNotificationSettings()
+                await send(.setPushEnablement(settings))
+                let autoclearing = await environment.getBadgeAutoClearingSetting()
+                if autoclearing {
+                    await send(.setBadgeCount(0))
+                } else {
+                    await send(.syncBadgeCount)
+                }
+            },
+            environment.timer(flushInterval)
+                .map { _ in .flushQueue }
+                .eraseToEffect()
+                .cancellable(id: FlushTimer.self, cancelInFlight: true)
+        ])
+    }
+
     private func replayPendingRequests(
         _ pendingRequests: [KlaviyoState.PendingRequest],
         into state: inout KlaviyoState
@@ -797,6 +817,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 action = .setExternalId(externalId)
             case let .setPhoneNumber(phoneNumber):
                 action = .setPhoneNumber(phoneNumber)
+            case let .setProfileProperty(key, value):
+                action = .setProfileProperty(key, value)
             }
             effects.append(reduce(into: &state, action: action))
         }
