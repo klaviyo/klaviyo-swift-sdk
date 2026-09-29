@@ -76,6 +76,29 @@ final class AuthTokenFacadeTests: XCTestCase {
         XCTAssertEqual(currentToken, tokenB)
     }
 
+    func testGenericDispatchDoesNotWaitForLongLivedEffect() async {
+        let originalSend = klaviyoSwiftEnvironment.send
+        let effect = Task {
+            _ = try? await Task.sleep(nanoseconds: 1_000_000_000)
+        }
+        defer {
+            effect.cancel()
+            klaviyoSwiftEnvironment.send = originalSend
+        }
+        klaviyoSwiftEnvironment.send = { action in
+            guard action == .start else { return nil }
+            return effect
+        }
+
+        let completion = expectation(description: "dispatch completes after reducer send")
+        let dispatch = dispatchOnMainThread(action: .start)
+        Task {
+            await dispatch.value
+            completion.fulfill()
+        }
+        await fulfillment(of: [completion], timeout: 0.3)
+    }
+
     private func makeJWT(subject: String) throws -> String {
         let timestamp = environment.date().timeIntervalSince1970
         let payload = try JSONSerialization.data(withJSONObject: [

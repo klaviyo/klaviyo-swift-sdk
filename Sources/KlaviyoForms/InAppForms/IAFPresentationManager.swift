@@ -11,7 +11,7 @@ import KlaviyoSwift
 import OSLog
 import UIKit
 
-private final class BootstrapDeadlineResult<Value>: @unchecked Sendable {
+private final class BootstrapDeadlineResult<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Value?, Never>?
 
@@ -168,9 +168,9 @@ class IAFPresentationManager {
         setupFormLifecycleListener()
     }
 
-    private func awaitBeforeDeadline<Value>(
+    private func awaitBeforeDeadline<Value: Sendable>(
         _ deadline: TimeInterval,
-        operation: @escaping () async -> Value?
+        operation: @escaping @Sendable () async -> Value?
     ) async -> Value? {
         let remaining = deadline - ProcessInfo.processInfo.systemUptime
         guard remaining > 0 else { return nil }

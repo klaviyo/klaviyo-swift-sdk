@@ -143,10 +143,12 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         )
         let subject = CurrentValueSubject<KlaviyoState, Never>(stateA)
         let releaseReset = FormsTestGate()
+        let resetEntered = FormsTestGate()
         klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
         klaviyoSwiftEnvironment.send = { action in
             guard action == .resetProfileWithQueuedAuthClear else { return nil }
             return Task { @MainActor in
+                await resetEntered.open()
                 await releaseReset.wait()
                 subject.send(stateB)
             }
@@ -155,11 +157,11 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
 
         let sdk = KlaviyoSDK()
         sdk.resetProfile()
+        await resetEntered.wait()
         sdk.registerAuthTokenProvider { tokenB }
         let bootstrap = Task {
             try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
         }
-        try await Task.sleep(nanoseconds: 50_000_000)
         await releaseReset.open()
         try await bootstrap.value
 
@@ -189,12 +191,16 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
             initalizationState: .initialized
         )
         let stateSubject = CurrentValueSubject<KlaviyoState, Never>(stateA)
-        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        let profileFetchObserved = FormsTestGate()
+        klaviyoSwiftEnvironment.statePublisher = {
+            Task { await profileFetchObserved.open() }
+            return stateSubject.eraseToAnyPublisher()
+        }
         KlaviyoInternal.resetProfileDataSubject()
         let bootstrap = Task {
             try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
         }
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await profileFetchObserved.wait()
 
         stateSubject.send(KlaviyoState(
             apiKey: "abc123",
