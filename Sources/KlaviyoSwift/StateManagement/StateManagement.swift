@@ -265,6 +265,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.setPhoneNumber(phoneNumber))
                     case let .setProfileProperty(key, value):
                         await send(.setProfileProperty(key, value))
+                    case .resetProfile:
+                        await send(.resetProfile)
                     }
                 }
                 await send(.start)
@@ -633,8 +635,10 @@ struct KlaviyoReducer: ReducerProtocol {
             return .none
 
         case .resetProfile, .resetProfileWithQueuedAuthClear:
-            guard case .initialized = state.initalizationState
-            else {
+            guard case .initialized = state.initalizationState else {
+                if case .changingCompany = state.initalizationState {
+                    state.pendingRequests.append(action == .resetProfile ? .resetProfile : .resetProfileWithQueuedAuthClear)
+                }
                 return .none
             }
             state.reset()
@@ -826,6 +830,10 @@ struct KlaviyoReducer: ReducerProtocol {
                 action = .setPhoneNumber(phoneNumber)
             case let .setProfileProperty(key, value):
                 action = .setProfileProperty(key, value)
+            case .resetProfile:
+                action = .resetProfile
+            case .resetProfileWithQueuedAuthClear:
+                action = .resetProfileWithQueuedAuthClear
             }
             effects.append(reduce(into: &state, action: action))
         }
