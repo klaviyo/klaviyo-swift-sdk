@@ -208,8 +208,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 guard let self else { throw ObjectStateError.objectDeallocated }
                 await self.handshakeStream.first { _ in true }
             }
-            if let authToken {
-                await pushAuthToken(authToken)
+            if let authToken,
+               let authRevision,
+               authRevision == AuthTokenCommandQueue.shared.revision,
+               await AuthTokenManager.shared.cachedTokenIfValid() == authToken {
+                await pushAuthToken(authToken, revision: authRevision)
             } else {
                 await clearAuthToken()
             }
@@ -233,14 +236,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileUpdatesCancellable = KlaviyoInternal.profileChangePublisher()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] result in
-                guard let self else { return }
-                guard case let .success(newProfileData) = result else { return }
-
-                if newProfileData != self.profileData {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+                guard case .success = result else { return }
+                Task { @MainActor [weak self] in
+                    while true {
+                        guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { continue }
+                        guard let newProfileData = KlaviyoInternal.currentProfileData else { return }
+                        guard AuthTokenCommandQueue.shared.revision == revision else { continue }
+                        guard let self, newProfileData != self.profileData else { return }
+                        if #available(iOS 14.0, *) {
+                            Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
+                        }
+                        self.handleProfileDataChange(newProfileData)
+                        return
                     }
-                    self.handleProfileDataChange(newProfileData)
                 }
             }
     }
@@ -292,6 +300,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// The token value is never logged — only the success/failure of the update.
     @MainActor
     func pushAuthToken(_ token: String, revision: UInt64? = nil) async {
+        if let revision, revision != AuthTokenCommandQueue.shared.revision {
+            invalidateAuthTokenIfRevisionChanged()
+            return
+        }
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }

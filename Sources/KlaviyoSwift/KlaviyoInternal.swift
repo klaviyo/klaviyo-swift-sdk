@@ -149,6 +149,11 @@ package enum KlaviyoInternal {
         return profileDataSubject.eraseToAnyPublisher()
     }
 
+    package static var currentProfileData: ProfileData? {
+        guard case let .success(profileData) = profileDataSubject.value else { return nil }
+        return profileData
+    }
+
     /// Resets the profile data subject to its initial state.
     package static func resetProfileDataSubject() {
         profileDataCancellable?.cancel()

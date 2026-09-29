@@ -54,6 +54,34 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 2.0)
     }
 
+    @MainActor
+    func testHandshakeCannotRestoreTokenClearedWhileLoading() async throws {
+        let token = try makeFormsJWT(subject: "outgoing")
+        await AuthTokenManager.shared.registerProvider { token }
+        addTeardownBlock {
+            await AuthTokenManager.shared.unregisterProvider()
+        }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        viewModel = IAFWebViewModel(
+            url: URL(string: "https://example.com")!,
+            apiKey: "abc123",
+            profileData: nil,
+            authToken: token
+        )
+        delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+        delegate.handshakeResult = .handshakeEstablished(delay: 0.1)
+
+        let handshake = Task { try await viewModel.establishHandshake(timeout: 2) }
+        try await Task.sleep(nanoseconds: 20_000_000)
+        let clear = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        await clear.value
+        try await handshake.value
+
+        XCTAssertNil(viewModel.authToken)
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(token) })
+    }
+
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
     @MainActor
     func testPreloadWebsiteTimeout() async {

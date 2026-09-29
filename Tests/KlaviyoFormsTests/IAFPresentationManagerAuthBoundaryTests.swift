@@ -83,6 +83,48 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         }
     }
 
+    func testPendingResetPastDeadlineStartsWithoutOutgoingProfile() async throws {
+        let stateA = KlaviyoState(
+            apiKey: "abc123",
+            email: "a@example.com",
+            anonymousId: "anon-a",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateB = KlaviyoState(
+            apiKey: "abc123",
+            email: "b@example.com",
+            anonymousId: "anon-b",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let subject = CurrentValueSubject<KlaviyoState, Never>(stateA)
+        klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+        let releaseReset = FormsTestGate()
+        let reset = Task { @MainActor in
+            await releaseReset.wait()
+            subject.send(stateB)
+        }
+        let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenStateAfter(reset))
+
+        let started = ProcessInfo.processInfo.systemUptime
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
+        XCTAssertLessThan(elapsed, 0.8)
+        XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("a@example.com") })
+        XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("b@example.com") })
+
+        await releaseReset.open()
+        await command.value
+        try await withTimeout(seconds: 2) {
+            while try !self.installedUserScripts().contains(where: { $0.source.contains("b@example.com") }) {
+                await Task.yield()
+            }
+        }
+        XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("a@example.com") })
+    }
+
     func testPublicResetWaitsForProfileResetBeforePairingNewToken() async throws {
         let tokenB = try makeFormsJWT(subject: "B")
         let stateA = KlaviyoState(
