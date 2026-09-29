@@ -887,7 +887,8 @@ struct AuthTokenManagerRefreshTests {
 
         let updates = await manager.tokenUpdates()
 
-        let update = await firstUpdate(of: updates)
+        var iterator = updates.makeAsyncIterator()
+        let update = await iterator.next()
         #expect(update == .token(token))
     }
 

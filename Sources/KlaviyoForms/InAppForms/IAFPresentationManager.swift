@@ -132,10 +132,27 @@ class IAFPresentationManager {
             await AuthTokenCommandQueue.shared.waitForPendingCommands()
             _ = try? await AuthTokenManager.shared.currentToken()
         }
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        let authToken = await AuthTokenManager.shared.cachedTokenIfValid()
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
-        setupFormLifecycleListener()
+        while true {
+            let authRevision = AuthTokenCommandQueue.shared.revision
+            let profileData = try await KlaviyoInternal.fetchProfileData()
+            await AuthTokenCommandQueue.shared.waitForPendingCommands()
+            let authToken = await AuthTokenManager.shared.cachedTokenIfValid()
+            if AuthTokenCommandQueue.shared.revision == authRevision {
+                createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+                setupFormLifecycleListener()
+                if authToken == nil {
+                    initialTokenTask?.cancel()
+                    initialTokenTask = Task {
+                        _ = try? await AuthTokenManager.shared.currentToken()
+                    }
+                }
+                return
+            }
+            initialTokenTask?.cancel()
+            initialTokenTask = Task {
+                _ = try? await AuthTokenManager.shared.currentToken()
+            }
+        }
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
@@ -183,6 +200,11 @@ class IAFPresentationManager {
                 case .cleared:
                     await self.viewModel?.clearAuthToken()
                 case let .token(token):
+                    let authRevision = AuthTokenCommandQueue.shared.revision
+                    await AuthTokenCommandQueue.shared.waitForPendingCommands()
+                    let cachedToken = await AuthTokenManager.shared.cachedTokenIfValid()
+                    guard AuthTokenCommandQueue.shared.revision == authRevision,
+                          cachedToken == token else { continue }
                     await self.viewModel?.pushAuthToken(token)
                 }
             }

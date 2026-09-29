@@ -536,6 +536,40 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testNavigationDuringSuspendedTokenEvaluationReconcilesNewDocument() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+        let token = "header.navigation.signature"
+        let evaluationStarted = FormsTestGate()
+        let releaseEvaluation = FormsTestGate()
+        var tokenEvaluations = 0
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        delegate.onEvaluateJavaScriptAsync = { script in
+            guard script.contains(token) else { return }
+            tokenEvaluations += 1
+            if tokenEvaluations == 1 {
+                await evaluationStarted.open()
+                await releaseEvaluation.wait()
+            }
+        }
+
+        let push = Task { await viewModel.pushAuthToken(token) }
+        await evaluationStarted.wait()
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        await releaseEvaluation.open()
+        await push.value
+
+        try await withTimeout(seconds: 1) {
+            while tokenEvaluations < 2 {
+                await Task.yield()
+            }
+        }
+        XCTAssertEqual(delegate.documentAuthToken, token)
+    }
+
+    @MainActor
     func testClearAuthTokenRemovesJWTFromWebView() async throws {
         let token = "header.initial.signature"
         let (viewModel, delegate) = try makeTokenViewModel(authToken: token)
@@ -611,6 +645,27 @@ final class IAFWebViewModelTests: XCTestCase {
 
         await fulfillment(of: [tokenCleared], timeout: 1)
         XCTAssertNil(delegate.documentAuthToken)
+    }
+
+    @MainActor
+    func testRestoredTokenAfterNavigationStartsIsAppliedToNewDocument() async throws {
+        let token = "header.restored.signature"
+        let (viewModel, delegate) = try makeTokenViewModel(authToken: token)
+
+        await viewModel.clearAuthToken()
+        delegate.startNavigation()
+        await viewModel.pushAuthToken(token)
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+
+        let tokenApplied = expectation(description: "restored token applied")
+        delegate.onEvaluateJavaScript = { script in
+            if script.contains(token) {
+                tokenApplied.fulfill()
+            }
+        }
+        await fulfillment(of: [tokenApplied], timeout: 1)
+        XCTAssertEqual(delegate.documentAuthToken, token)
     }
 
     @MainActor
@@ -717,6 +772,75 @@ final class IAFWebViewModelTests: XCTestCase {
             delegate.evaluatedScripts.firstIndex { $0.contains(tokenB) }
         )
         XCTAssertLessThan(profileIndex, tokenIndex)
+
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
+    @MainActor
+    func testProfileScriptFailureStillFetchesReplacementToken() async throws {
+        let tokenA = try makeFormsJWT(subject: "profile-A")
+        let tokenB = try makeFormsJWT(subject: "profile-B")
+        let tokenSource = FormsTokenSource(tokenA)
+        let replacementFetched = FormsTestGate()
+        await AuthTokenManager.shared.registerProvider {
+            let token = await tokenSource.value
+            if token == tokenB {
+                await replacementFetched.open()
+            }
+            return token
+        }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        await tokenSource.set(tokenB)
+
+        let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-b")
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileA.email,
+                anonymousId: profileA.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profileA, authToken: tokenA)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        delegate.onEvaluateJavaScriptAsync = { script in
+            if script.contains("b@example.com") {
+                throw NSError(domain: "ProfileEvaluationFailed", code: 1)
+            }
+        }
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        stateSubject.send(
+            KlaviyoState(
+                apiKey: "abc123",
+                email: profileB.email,
+                anonymousId: profileB.anonymousId,
+                queue: [],
+                initalizationState: .initialized
+            )
+        )
+        try await withTimeout(seconds: 5) {
+            await replacementFetched.wait()
+        }
+        try await withTimeout(seconds: 5) {
+            while model.authToken != tokenB {
+                await Task.yield()
+            }
+        }
+        XCTAssertNil(delegate.documentAuthToken)
+
+        delegate.startNavigation()
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        XCTAssertEqual(delegate.documentAuthToken, tokenB)
 
         await AuthTokenManager.shared.unregisterProvider()
     }

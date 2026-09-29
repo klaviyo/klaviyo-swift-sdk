@@ -32,6 +32,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     var onEvaluateJavaScriptAsync: ((String) async throws -> Void)?
     private(set) var documentAuthToken: String?
     private var isDocumentReady = false
+    private var navigationScripts: [String]?
     var evaluateJavaScriptCalled: Bool {
         !evaluatedScripts.isEmpty
     }
@@ -73,17 +74,22 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     func refreshLoadScripts() {}
 
     func startNavigation() {
+        navigationScripts = viewModel.loadScripts?.map(\.source)
         viewModel.handleNavigationEvent(.didStartProvisionalNavigation)
     }
 
     func commitNavigation() {
+        if navigationScripts == nil {
+            navigationScripts = viewModel.loadScripts?.map(\.source)
+        }
         documentAuthToken = nil
         isDocumentReady = false
         viewModel.handleNavigationEvent(.didCommitNavigation)
     }
 
     func finishNavigation() {
-        viewModel.loadScripts?.forEach { applyAuthScript($0.source) }
+        navigationScripts?.forEach { applyAuthScript($0) }
+        navigationScripts = nil
         isDocumentReady = true
         viewModel.handleNavigationEvent(.didFinishNavigation)
     }

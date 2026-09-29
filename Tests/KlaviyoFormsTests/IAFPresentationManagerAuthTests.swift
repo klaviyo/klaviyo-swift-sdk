@@ -10,8 +10,8 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
+@MainActor
 final class IAFPresentationManagerAuthTests: XCTestCase {
-    @MainActor
     override func setUp() async throws {
         environment = KlaviyoEnvironment.test()
         KlaviyoInternal.resetAPIKeySubject()
@@ -26,17 +26,18 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
     }
 
-    @MainActor
     override func tearDown() async throws {
         IAFPresentationManager.shared.destroyWebviewAndListeners()
         await AuthTokenManager.shared.unregisterProvider()
     }
 
-    @MainActor
-    func testWebViewCreationDoesNotWaitForInteractiveTokenTimeout() async throws {
+    func testBootstrapDoesNotWaitForInteractiveTokenTimeout() async throws {
         let token = try makeFormsJWT(subject: "initial")
         let providerEntered = FormsTestGate()
         let releaseProvider = FormsTestGate()
+        let templateURL = IAFPresentationManager.shared.indexHtmlFileUrl
+        IAFPresentationManager.shared.indexHtmlFileUrl = nil
+        defer { IAFPresentationManager.shared.indexHtmlFileUrl = templateURL }
         await AuthTokenManager.shared.registerProvider {
             await providerEntered.open()
             await releaseProvider.wait()
@@ -53,11 +54,10 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             throw error
         }
 
-        XCTAssertNotNil(IAFPresentationManager.shared.viewController)
+        XCTAssertNil(IAFPresentationManager.shared.viewController)
         await releaseProvider.open()
     }
 
-    @MainActor
     func testCachedTokenIsInstalledAsLoadScriptBeforeNavigation() async throws {
         let token = try makeFormsJWT(subject: "cached")
         await AuthTokenManager.shared.registerProvider { token }
@@ -77,11 +77,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         XCTAssertLessThan(tokenIndex, klaviyoIndex)
     }
 
-    @MainActor
     func testFastProviderCanPopulateLoadScriptDuringWebViewCreation() async throws {
         let token = try makeFormsJWT(subject: "cold-fast")
         let invocationCounter = FormsInvocationCounter()
-        let cachePopulated = FormsBlockingGate()
+        let cachePopulated = FormsTestGate()
+        let profileSubscribed = FormsTestGate()
         await AuthTokenManager.shared.registerProvider {
             let invocation = await invocationCounter.next()
             if invocation == 2 {
@@ -89,27 +89,82 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
                     while await AuthTokenManager.shared.cachedTokenIfValid() != token {
                         await Task.yield()
                     }
-                    cachePopulated.open()
+                    await cachePopulated.open()
                 }
             }
             return token
         }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
         await AuthTokenManager.shared.clearTokenState()
-        let statePublisher = klaviyoSwiftEnvironment.statePublisher
+        let state = KlaviyoState(
+            apiKey: "abc123",
+            anonymousId: "anon",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateSubject = PassthroughSubject<KlaviyoState, Never>()
         klaviyoSwiftEnvironment.statePublisher = {
-            XCTAssertTrue(cachePopulated.wait(timeout: 1))
-            return statePublisher()
+            stateSubject
+                .handleEvents(receiveSubscription: { _ in
+                    Task { await profileSubscribed.open() }
+                })
+                .eraseToAnyPublisher()
         }
         KlaviyoInternal.resetProfileDataSubject()
+
+        let bootstrap = Task {
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        }
+        try await withTimeout(seconds: 5) {
+            await profileSubscribed.wait()
+        }
+        try await withTimeout(seconds: 5) {
+            await cachePopulated.wait()
+        }
+        stateSubject.send(state)
+        try await bootstrap.value
+
+        let cachedToken = await AuthTokenManager.shared.cachedTokenIfValid()
+        XCTAssertEqual(cachedToken, token)
+        let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
+        viewController.loadViewIfNeeded()
+        let webView = try XCTUnwrap(viewController.view.subviews.compactMap { $0 as? WKWebView }.first)
+        XCTAssertTrue(
+            webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) },
+            "Installed scripts: \(webView.configuration.userContentController.userScripts.map(\.source))"
+        )
+    }
+
+    func testPendingIdentityClearCannotPairNewProfileWithPreviousToken() async throws {
+        let previousToken = try makeFormsJWT(subject: "previous")
+        let currentToken = try makeFormsJWT(subject: "current")
+        let tokenSource = FormsTokenSource(previousToken)
+        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        await tokenSource.set(currentToken)
+
+        let state = KlaviyoState(
+            apiKey: "abc123",
+            email: "current@example.com",
+            anonymousId: "anon-current",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(state)
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let previousRevision = AuthTokenCommandQueue.shared.revision
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        XCTAssertGreaterThan(AuthTokenCommandQueue.shared.revision, previousRevision)
 
         try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
 
         let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
         viewController.loadViewIfNeeded()
         let webView = try XCTUnwrap(viewController.view.subviews.compactMap { $0 as? WKWebView }.first)
-        XCTAssertTrue(
-            webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
-        )
+        let scripts = webView.configuration.userContentController.userScripts.map(\.source)
+        XCTAssertFalse(scripts.contains { $0.contains(previousToken) })
+        XCTAssertTrue(scripts.contains { $0.contains("current@example.com") })
     }
 }

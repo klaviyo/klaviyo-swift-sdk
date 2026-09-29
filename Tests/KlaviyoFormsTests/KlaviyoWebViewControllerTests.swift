@@ -49,8 +49,8 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     func handleScriptMessage(_ message: WKScriptMessage) {}
 }
 
+@MainActor
 final class KlaviyoWebViewControllerTests: XCTestCase {
-    @MainActor
     func testDidCommitNavigationIsForwardedToViewModel() throws {
         let url = try XCTUnwrap(URL(string: "https://example.com"))
         let viewModel = MockIAFWebViewModel(url: url)
@@ -64,7 +64,6 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
 
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
-    @MainActor
     func testScriptMessageHandlersAreRemovedOnDeallocation() async throws {
         // Given
         let config = WKWebViewConfiguration()

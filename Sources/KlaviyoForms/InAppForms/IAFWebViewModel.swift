@@ -36,7 +36,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let apiKey: String
     private(set) var profileData: ProfileData?
     private(set) var authToken: String?
-    private let loadAuthToken: String?
     private let assetSource: String?
 
     private var nextDocumentGeneration = 0
@@ -154,7 +153,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.apiKey = apiKey
         self.profileData = profileData
         self.authToken = authToken
-        loadAuthToken = authToken
         self.assetSource = assetSource
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
@@ -254,7 +252,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                         Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
                     }
                     self.profileData = newProfileData
+                    self.authToken = nil
                     self.initializeLoadScripts()
+                    self.delegate?.refreshLoadScripts()
+                    self.enqueueAuthTokenReconciliation()
                     self.enqueueProfileDataChange(newProfileData)
                 }
             }
@@ -284,32 +285,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func applyProfileDataChange(_ newProfileData: ProfileData) async {
-        if #available(iOS 14.0, *) {
-            Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
-        }
-        guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
-
-        do {
-            let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
-            }
-            return
-        }
-
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
+        guard profileData == newProfileData else { return }
         guard newProfileData.email != nil ||
             newProfileData.phoneNumber != nil ||
             newProfileData.externalId != nil else {
-            await clearAuthToken()
             return
         }
 
         if let token = try? await AuthTokenManager.shared.currentToken() {
+            guard profileData == newProfileData else { return }
             await pushAuthToken(token)
         }
     }
@@ -344,9 +329,33 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func reconcileReadyDocument() async {
         guard pendingDocumentGeneration == nil,
               let generation = readyDocumentGeneration else { return }
+        if authToken == nil, !isAuthStateDelivered(nil, to: generation) {
+            guard await removeAuthToken(from: generation) else { return }
+        }
+        guard await applyCurrentProfile(to: generation) else { return }
+        guard pendingDocumentGeneration == nil,
+              readyDocumentGeneration == generation else { return }
         let token = authToken
         guard !isAuthStateDelivered(token, to: generation) else { return }
         await reconcileAuthState(token, to: generation)
+    }
+
+    @MainActor
+    private func applyCurrentProfile(to generation: Int) async -> Bool {
+        guard let profileData else { return true }
+        guard let script = createProfileAttributesScript(from: profileData),
+              let delegate else { return false }
+        do {
+            _ = try await delegate.evaluateJavaScript(script)
+            return readyDocumentGeneration == generation &&
+                pendingDocumentGeneration == nil &&
+                self.profileData == profileData
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
+            }
+            return false
+        }
     }
 
     @MainActor
@@ -355,7 +364,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         if let token {
             await applyAuthToken(token, to: generation)
         } else {
-            await removeAuthToken(from: generation)
+            _ = await removeAuthToken(from: generation)
         }
     }
 
@@ -368,7 +377,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         let authTokenScript = createAuthTokenScript(from: token)
         do {
             _ = try await delegate.evaluateJavaScript(authTokenScript)
-            deliveredAuthState = DocumentAuthState(generation: generation, token: token)
+            if readyDocumentGeneration == generation, pendingDocumentGeneration == nil {
+                deliveredAuthState = DocumentAuthState(generation: generation, token: token)
+            }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successfully updated In-App Forms HTML with refreshed auth token")
             }
@@ -380,13 +391,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
-    private func removeAuthToken(from generation: Int) async {
-        guard let delegate else { return }
+    private func removeAuthToken(from generation: Int) async -> Bool {
+        guard let delegate else { return false }
         do {
             _ = try await delegate.evaluateJavaScript(
                 "document.head.removeAttribute('\(Self.authTokenAttributeName)');"
             )
-            deliveredAuthState = DocumentAuthState(generation: generation, token: nil)
+            if readyDocumentGeneration == generation, pendingDocumentGeneration == nil {
+                deliveredAuthState = DocumentAuthState(generation: generation, token: nil)
+                return true
+            }
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning(
@@ -394,6 +408,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 )
             }
         }
+        return false
     }
 
     // MARK: - handle WKWebView events
@@ -429,9 +444,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             guard let generation = committedDocumentGeneration else { return }
             readyDocumentGeneration = generation
             if pendingDocumentGeneration == nil {
-                enqueueAuthTokenReconciliation(
-                    loadState: DocumentAuthState(generation: generation, token: loadAuthToken)
-                )
+                enqueueAuthTokenReconciliation()
             }
         case .didReceiveServerRedirectForProvisionalNavigation,
              .didFailNavigation:
@@ -441,17 +454,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     @discardableResult
-    private func enqueueAuthTokenReconciliation(
-        loadState: DocumentAuthState? = nil
-    ) -> Task<Void, Never> {
+    private func enqueueAuthTokenReconciliation() -> Task<Void, Never> {
         let previous = authTokenReconciliationTask
         let task = Task { @MainActor [weak self] in
             await previous?.value
             guard let self else { return }
-            if let loadState {
-                guard self.readyDocumentGeneration == loadState.generation else { return }
-                self.deliveredAuthState = loadState
-            }
             await self.reconcileReadyDocument()
         }
         authTokenReconciliationTask = task
