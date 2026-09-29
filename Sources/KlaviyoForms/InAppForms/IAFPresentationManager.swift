@@ -36,7 +36,7 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
-    private var webViewBuildGeneration: UInt = 0
+    private(set) var webViewBuildGeneration: UInt = 0
 
     lazy var indexHtmlFileUrl: URL? = {
         do {

@@ -26,6 +26,8 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         }
     }
 
+    private let gate = Gate()
+
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
@@ -34,16 +36,20 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         IAFPresentationManager.shared.destroyWebviewAndListeners()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
+        await gate.open()
+        await AuthTokenManager.shared.unregisterProvider()
+        await AuthTokenManager.shared.clearTokenState()
         IAFPresentationManager.shared.destroyWebviewAndListeners()
         IdentityStore.shared.reset()
         SDKConfigStore.shared.reset()
-        super.tearDown()
+        try await super.tearDown()
     }
 
     func testOverlappingCreateCallsOnlyLatestInstallsWebView() async throws {
         let manager = IAFPresentationManager.shared
-        let gate = Gate()
+        let startGeneration = manager.webViewBuildGeneration
+        let gate = gate
         let counter = InvocationCounter()
         let token = try makeTestJWT()
         await AuthTokenManager.shared.registerProvider {
@@ -54,8 +60,9 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
         let first = Task { try await manager.createFormWebViewAndListen(apiKey: "first-key") }
         await counter.waitFor(atLeast: 1)
+        while manager.webViewBuildGeneration < startGeneration + 1 { await Task.yield() }
         let second = Task { try await manager.createFormWebViewAndListen(apiKey: "second-key") }
-        for _ in 0..<10 { await Task.yield() }
+        while manager.webViewBuildGeneration < startGeneration + 2 { await Task.yield() }
         XCTAssertNil(manager.viewModel, "Nothing should be built while the token fetch is pending")
 
         await gate.open()
@@ -66,7 +73,5 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         XCTAssertTrue(secondCreated)
         XCTAssertEqual(manager.viewModel?.apiKey, "second-key")
         XCTAssertNotNil(manager.viewController)
-
-        await AuthTokenManager.shared.unregisterProvider()
     }
 }
