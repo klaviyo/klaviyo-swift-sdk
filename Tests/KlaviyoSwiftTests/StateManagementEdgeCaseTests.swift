@@ -230,6 +230,22 @@ class StateManagementEdgeCaseTests: XCTestCase {
     }
 
     @MainActor
+    func testResetProfileDuringRetargetedCompanyChangeClearsBufferedIdentity() throws {
+        var state = INITIALIZED_TEST_STATE()
+        let originalAPIKey = try XCTUnwrap(state.apiKey)
+        state.initalizationState = .changingCompany("new-api-key")
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .setEmail("before-reset@example.com"))
+        _ = reducer.reduce(into: &state, action: .resetProfile)
+        state.initalizationState = .changingCompany(originalAPIKey)
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange(originalAPIKey))
+
+        XCTAssertNil(state.email)
+        XCTAssertEqual(state.apiKey, originalAPIKey)
+    }
+
+    @MainActor
     func testCompanyChangeKeepsLatestConnectivityAndStopState() {
         var state = INITIALIZED_TEST_STATE()
         state.initalizationState = .changingCompany("new-api-key")

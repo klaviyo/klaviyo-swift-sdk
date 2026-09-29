@@ -29,6 +29,7 @@ struct KlaviyoState: Equatable, Codable {
         case setExternalId(String)
         case setPhoneNumber(String)
         case setProfileProperty(Profile.ProfileKey, AnyEncodable)
+        case resetProfile
     }
 
     struct PushTokenData: Equatable, Codable {
