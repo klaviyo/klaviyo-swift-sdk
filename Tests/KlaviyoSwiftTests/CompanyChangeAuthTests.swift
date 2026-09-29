@@ -50,6 +50,58 @@ final class CompanyChangeAuthTests: XCTestCase {
     }
 
     @MainActor
+    func testProfileResetClearsCachedTokenBeforePublishingResetAndRetainsProvider() async throws {
+        let tokenA = try makeToken(subject: "A")
+        let tokenB = try makeToken(subject: "B")
+        let source = CompanyTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await source.fetch() }
+        let initialToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(initialToken, tokenA)
+
+        let resetPublished = expectation(description: "reset action published")
+        klaviyoSwiftEnvironment.send = { action in
+            if case .resetProfile = action { resetPublished.fulfill() }
+            return nil
+        }
+        await source.setToken(tokenB)
+        KlaviyoSDK().resetProfile()
+        await fulfillment(of: [resetPublished], timeout: 3)
+
+        let nextToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        let fetchCount = await source.invocations
+        XCTAssertEqual(nextToken, tokenB)
+        XCTAssertEqual(fetchCount, 2)
+    }
+
+    @MainActor
+    func testLateOutgoingTokenCannotReturnAfterProfileReset() async throws {
+        let tokenA = try makeToken(subject: "A")
+        let tokenB = try makeToken(subject: "B")
+        let source = CompanyTokenSource(tokenA, holdFirstFetch: true)
+        await AuthTokenManager.shared.registerProvider { await source.fetch() }
+        await source.waitForFirstFetch()
+        let heldRequest = Task { try await AuthTokenManager.shared.currentToken(mode: .background) }
+
+        let resetPublished = expectation(description: "reset action published")
+        klaviyoSwiftEnvironment.send = { action in
+            if case .resetProfile = action { resetPublished.fulfill() }
+            return nil
+        }
+        await source.setToken(tokenB)
+        KlaviyoSDK().resetProfile()
+        await fulfillment(of: [resetPublished], timeout: 3)
+        await source.releaseFirstFetch()
+
+        if case let .success(token) = await heldRequest.result {
+            XCTAssertNotEqual(token, tokenA)
+        }
+        let nextToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        let fetchCount = await source.invocations
+        XCTAssertEqual(nextToken, tokenB)
+        XCTAssertEqual(fetchCount, 2)
+    }
+
+    @MainActor
     func testLateCompanyATokenCannotBecomeCompanyBToken() async throws {
         let tokenA = try makeToken(subject: "A")
         let tokenB = try makeToken(subject: "B")

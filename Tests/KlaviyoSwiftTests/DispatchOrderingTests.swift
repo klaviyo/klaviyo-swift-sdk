@@ -96,6 +96,57 @@ final class DispatchOrderingTests: XCTestCase {
         lock.unlock()
         XCTAssertEqual(result, ["initialize", "setEmail"], "setEmail must not reduce before initialize")
     }
+
+    func testSetEmailAfterResetDoesNotReachReducerFirst() async {
+        let bothReduced = expectation(description: "reset and email reduced")
+        var observed: [String] = []
+        klaviyoSwiftEnvironment.send = { action in
+            switch action {
+            case .resetProfile: observed.append("resetProfile")
+            case .setEmail: observed.append("setEmail")
+            default: break
+            }
+            if observed.count == 2 { bothReduced.fulfill() }
+            return nil
+        }
+
+        KlaviyoSDK().resetProfile()
+        KlaviyoSDK().set(email: "next@example.com")
+        await fulfillment(of: [bothReduced], timeout: 2)
+
+        XCTAssertEqual(observed, ["resetProfile", "setEmail"])
+    }
+
+    func testFacadeActionsPreserveOrderAcrossResets() async {
+        let allReduced = expectation(description: "facade actions reduced")
+        var observed: [String] = []
+        klaviyoSwiftEnvironment.send = { action in
+            switch action {
+            case .resetProfile: observed.append("resetProfile")
+            case .setEmail: observed.append("setEmail")
+            case .enqueueEvent: observed.append("enqueueEvent")
+            case .setPhoneNumber: observed.append("setPhoneNumber")
+            case .initialize: observed.append("initialize")
+            default: break
+            }
+            if observed.count == 6 { allReduced.fulfill() }
+            return nil
+        }
+
+        let sdk = KlaviyoSDK()
+        sdk.resetProfile()
+        sdk.set(email: "next@example.com")
+        sdk.create(event: Event(name: .customEvent("after-reset")))
+        sdk.resetProfile()
+        sdk.set(phoneNumber: "+15005550006")
+        sdk.initialize(with: "next-key")
+        await fulfillment(of: [allReduced], timeout: 2)
+
+        XCTAssertEqual(
+            observed,
+            ["resetProfile", "setEmail", "enqueueEvent", "resetProfile", "setPhoneNumber", "initialize"]
+        )
+    }
 }
 
 extension KlaviyoAction {

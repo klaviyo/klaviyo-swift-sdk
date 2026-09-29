@@ -636,6 +636,28 @@ struct AuthTokenManagerRefreshTests {
     // MARK: - clearTokenState
 
     @Test
+    func updatesReplayCurrentTokenAndPublishRemoval() async throws {
+        let manager = AuthTokenManager(currentDate: Date.init)
+        let token = try makeJWT()
+        await manager.registerProvider { token }
+        _ = try await manager.currentToken(mode: .background)
+        let updates = await manager.updates()
+        var iterator = updates.makeAsyncIterator()
+
+        await manager.clearTokenState()
+
+        guard case let .token(replayed) = await iterator.next() else {
+            Issue.record("The current token must be replayed when a form subscribes")
+            return
+        }
+        #expect(replayed == token)
+        guard case .cleared = await iterator.next() else {
+            Issue.record("A retained form must receive the auth-clear update")
+            return
+        }
+    }
+
+    @Test
     func clearTokenStateDropsCachedTokenButRetainsProvider() async throws {
         // Warm the cache, then clear. The next fetch must re-invoke the
         // (retained) provider rather than serve a stale cache — observable by

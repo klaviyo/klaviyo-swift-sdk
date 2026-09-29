@@ -659,13 +659,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.reset()
-
-            // Clear the auth-token cache and cancel any scheduled refresh tied
-            // to the outgoing profile. The provider is retained — see
-            // ``AuthTokenManager/clearTokenState()``.
-            Task {
-                await AuthTokenManager.shared.clearTokenState()
-            }
             return .none
 
         case let .setProfileProperty(key, value):

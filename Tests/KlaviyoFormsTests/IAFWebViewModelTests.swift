@@ -504,6 +504,68 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertTrue(scripts[0].contains(firstToken))
         XCTAssertTrue(scripts[1].contains(secondToken))
     }
+
+    @MainActor
+    func testClearAuthTokenRemovesLiveAttributeAndNextNavigationScript() async throws {
+        let token = "header.outgoing.signature"
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileUrl, apiKey: "abc123", profileData: nil, authToken: token)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        XCTAssertNotNil(model.findScript(containing: token))
+
+        await model.clearAuthToken()
+
+        XCTAssertNil(model.findScript(containing: token))
+        XCTAssertTrue(tokenScripts(delegate).contains("document.head.removeAttribute('data-klaviyo-jwt');"))
+    }
+
+    @MainActor
+    func testClearAuthTokenRemovesJWTFromLiveDOMAndNextNavigation() async throws {
+        let token = "header.outgoing.signature"
+        let pageURL = try XCTUnwrap(URL(string: "about:blank"))
+        let model = IAFWebViewModel(url: pageURL, apiKey: "abc123", profileData: nil, authToken: token)
+        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+        let controller = TestKlaviyoWebViewController(viewModel: model) { webView }
+        let jwtAttribute = "document.head.getAttribute('data-klaviyo-jwt')"
+        controller.preloadUrl()
+        try await waitForDOMValue(token, script: jwtAttribute, in: controller)
+        let initialJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        XCTAssertEqual(initialJWT, token)
+
+        await model.clearAuthToken()
+        let clearedJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        XCTAssertNil(clearedJWT)
+        XCTAssertFalse(
+            webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
+        )
+
+        webView.loadHTMLString(
+            "<html><head><meta name='test-navigation' content='second'></head><body></body></html>",
+            baseURL: nil
+        )
+        try await waitForDOMValue(
+            "second",
+            script: "document.head.querySelector('meta[name=\"test-navigation\"]')?.content",
+            in: controller
+        )
+        let nextJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        XCTAssertNil(nextJWT)
+    }
+
+    @MainActor
+    private func waitForDOMValue(
+        _ expected: String,
+        script: String,
+        in controller: KlaviyoWebViewController
+    ) async throws {
+        for _ in 0..<60 {
+            let value = try? await controller.evaluateJavaScript(script) as? String
+            if value == expected { return }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        XCTFail("Timed out waiting for DOM value: \(expected)")
+    }
 }
 
 extension IAFWebViewModel {

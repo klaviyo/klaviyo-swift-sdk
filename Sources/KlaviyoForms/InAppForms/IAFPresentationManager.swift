@@ -169,33 +169,23 @@ class IAFPresentationManager {
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
 
-        startTokenRefreshObservation()
+        startTokenUpdateObservation()
     }
 
-    /// Subscribes to ``AuthTokenManager``'s proactive-refresh stream for the
-    /// lifetime of the WebView, pushing each refreshed token into the live page
-    /// via ``IAFWebViewModel/pushAuthToken(_:)`` so onsite always has a fresh
-    /// token — whether or not a form is currently on screen.
-    ///
-    /// Bound to the WebView's lifetime, not a single form display: started on
-    /// WebView creation and cancelled in ``destroyWebView()``. `self` (the shared
-    /// manager) is captured weakly and re-acquired inside the loop, matching the
-    /// other observer tasks.
-    ///
-    /// Cancels any existing task before replacing it: `viewController` can be
-    /// cleared without going through ``destroyWebView()`` (e.g. a failed
-    /// presentation in ``presentFormAsModal(viewController:)``), after which a
-    /// reinit can call this again — without this cancel the prior task's handle
-    /// would be overwritten and its `refreshes()` loop would leak (the shared
-    /// manager never deallocates, so the `[weak self]` guard never trips),
-    /// double-pushing every future token.
-    private func startTokenRefreshObservation() {
+    /// Applies token refresh and clear updates to the retained WebView.
+    private func startTokenUpdateObservation() {
         tokenRefreshTask?.cancel()
-        tokenRefreshTask = Task { [weak self] in
-            let stream = await AuthTokenManager.shared.refreshes()
-            for await token in stream {
-                guard let self else { return }
-                await self.viewModel?.pushAuthToken(token)
+        guard let viewModel else { return }
+        tokenRefreshTask = Task { [weak viewModel] in
+            let stream = await AuthTokenManager.shared.updates()
+            for await update in stream {
+                guard let viewModel else { return }
+                switch update {
+                case .cleared:
+                    await viewModel.clearAuthToken()
+                case let .token(token):
+                    await viewModel.pushAuthToken(token)
+                }
             }
         }
     }

@@ -151,6 +151,12 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         #endif
     }
 
+    @MainActor
+    func refreshLoadScripts() {
+        webView.configuration.userContentController.removeAllUserScripts()
+        configureLoadScripts()
+    }
+
     #if DEBUG
     private func injectConsoleLoggingScript() {
         guard let consoleHandlerScript = try? ResourceLoader.getResourceContents(path: "consoleHandler", type: "js") else {

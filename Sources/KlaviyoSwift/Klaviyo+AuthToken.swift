@@ -9,16 +9,42 @@ import Foundation
 import KlaviyoCore
 
 @MainActor
-private enum AuthTokenProviderSequencer {
+enum AuthTokenProviderSequencer {
     static var tail: Task<Void, Never>?
+    private static var sequence: UInt64 = 0
+    private static var resetBarrierActive = false
+
+    private static func append(_ operation: @escaping @MainActor () async -> Void) {
+        let previous = tail
+        sequence &+= 1
+        let currentSequence = sequence
+        tail = Task {
+            await previous?.value
+            await operation()
+            if sequence == currentSequence {
+                resetBarrierActive = false
+            }
+        }
+    }
 
     nonisolated static func enqueue(_ operation: @escaping @Sendable () async -> Void) {
         DispatchQueue.main.async { @MainActor in
-            let previous = tail
-            tail = Task {
-                await previous?.value
-                await operation()
-            }
+            append { await operation() }
+        }
+    }
+
+    nonisolated static func enqueueReset(_ operation: @escaping @MainActor () async -> Void) {
+        DispatchQueue.main.async { @MainActor in
+            resetBarrierActive = true
+            append(operation)
+        }
+    }
+
+    static func dispatch(_ action: KlaviyoAction) {
+        if resetBarrierActive {
+            append { _ = klaviyoSwiftEnvironment.send(action) }
+        } else {
+            _ = klaviyoSwiftEnvironment.send(action)
         }
     }
 }

@@ -27,7 +27,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let apiKey: String
     let profileData: ProfileData?
-    let authToken: String?
+    private(set) var authToken: String?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -150,6 +150,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     func initializeLoadScripts() {
         guard let klaviyoJsWKScript else { return }
+        loadScripts?.removeAll()
         loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
@@ -266,19 +267,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     // MARK: - Handle token refreshes
 
-    /// Pushes a refreshed auth token into the live page, updating the
-    /// `data-klaviyo-jwt` head attribute so onsite re-reads the new token without
-    /// a reload. Driven by ``IAFPresentationManager``'s refresh subscription,
-    /// which owns the `AuthTokenManager.refreshes()` stream for the WebView's
-    /// lifetime; this method is the per-token push, mirroring ``pushDeviceInfo()``.
-    ///
-    /// `async` so the caller can await it and apply refreshes in arrival order.
-    /// The token value is never logged — only the success/failure of the update.
+    /// Updates the live page and next-navigation script with a refreshed auth token.
     @MainActor
     func pushAuthToken(_ token: String) async {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
+        authToken = token
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
         let authTokenScript = createAuthTokenScript(from: token)
         do {
             _ = try await delegate?.evaluateJavaScript(authTokenScript)
@@ -288,6 +285,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error updating In-App Forms HTML with refreshed auth token; error: \(error)")
+            }
+        }
+    }
+
+    @MainActor
+    func clearAuthToken() async {
+        authToken = nil
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
+        do {
+            _ = try await delegate?.evaluateJavaScript("document.head.removeAttribute('data-klaviyo-jwt');")
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error clearing In-App Forms auth token: \(error)")
             }
         }
     }
