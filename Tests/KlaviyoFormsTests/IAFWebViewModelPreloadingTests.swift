@@ -37,21 +37,25 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
     /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
     @MainActor
-    func testPreloadWebsiteSuccess() async throws {
+    func testPreloadWebsiteSuccess() async {
         // Given
         delegate.handshakeResult = .handshakeEstablished(delay: 0)
-        let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
-        // When
+        // When / Then - the handshake is awaited directly, so no separate
+        // expectation/fulfillment is needed.
+        //
+        // The budget below is not the behavior under test. The handshake is mocked with
+        // zero delay, so it completes in under a millisecond, and the budget only bounds
+        // a hang. It is generous because scheduling stalls dominate on loaded runners:
+        // in CI run 36046520520 this test failed at 5.0s while a sibling test in this
+        // same file whose budget is 0.1s still took 7.054 seconds of wall clock. The two
+        // timeout tests below keep 0.1s, so a real regression in the timeout path fails
+        // fast.
         do {
-            try await viewModel.establishHandshake(timeout: 5.0)
-            expectation.fulfill()
+            try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
             XCTFail("Expected success, but got error: \(error)")
         }
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 2.0)
     }
 
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
