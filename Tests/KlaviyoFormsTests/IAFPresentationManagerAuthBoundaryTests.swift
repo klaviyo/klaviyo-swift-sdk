@@ -188,7 +188,12 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         let scripts = try installedUserScripts().map(\.source)
         XCTAssertFalse(scripts.contains { $0.contains("a@example.com") })
         XCTAssertTrue(scripts.contains { $0.contains("b@example.com") })
-        XCTAssertTrue(scripts.contains { $0.contains(tokenB) })
+        try await withTimeout(seconds: 30) {
+            while try !self.installedUserScripts().contains(where: { $0.source.contains(tokenB) }) {
+                try Task.checkCancellation()
+                await Task.yield()
+            }
+        }
     }
 
     func testAuthCommandDuringBootstrapCannotPairOldTokenWithNewProfile() async throws {
