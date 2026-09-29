@@ -127,11 +127,7 @@ class IAFPresentationManager {
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        initialTokenTask?.cancel()
-        initialTokenTask = Task {
-            await AuthTokenCommandQueue.shared.waitForPendingCommands()
-            _ = try? await AuthTokenManager.shared.currentToken()
-        }
+        restartInitialTokenRequest()
         while true {
             let authRevision = AuthTokenCommandQueue.shared.revision
             let profileData = try await KlaviyoInternal.fetchProfileData()
@@ -141,17 +137,19 @@ class IAFPresentationManager {
                 createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
                 setupFormLifecycleListener()
                 if authToken == nil {
-                    initialTokenTask?.cancel()
-                    initialTokenTask = Task {
-                        _ = try? await AuthTokenManager.shared.currentToken()
-                    }
+                    restartInitialTokenRequest()
                 }
                 return
             }
-            initialTokenTask?.cancel()
-            initialTokenTask = Task {
-                _ = try? await AuthTokenManager.shared.currentToken()
-            }
+            restartInitialTokenRequest()
+        }
+    }
+
+    private func restartInitialTokenRequest() {
+        initialTokenTask?.cancel()
+        initialTokenTask = Task {
+            await AuthTokenCommandQueue.shared.waitForPendingCommands()
+            _ = try? await AuthTokenManager.shared.currentToken()
         }
     }
 

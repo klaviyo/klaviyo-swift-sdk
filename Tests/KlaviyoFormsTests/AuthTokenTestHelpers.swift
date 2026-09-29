@@ -7,11 +7,11 @@ import Foundation
 import KlaviyoCore
 
 func makeFormsJWT(subject: String) throws -> String {
-    let now = environment.date().timeIntervalSince1970
+    let nowSeconds = environment.date().timeIntervalSince1970
     let payload = try JSONSerialization.data(withJSONObject: [
         "sub": subject,
-        "iat": now - 60,
-        "exp": now + 3600
+        "iat": nowSeconds - 60,
+        "exp": nowSeconds + 3600
     ])
     return [Data("{}".utf8), payload, Data(subject.utf8)]
         .map { data in

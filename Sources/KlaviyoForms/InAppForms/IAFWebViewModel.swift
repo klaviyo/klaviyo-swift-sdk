@@ -110,7 +110,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private var profileAttributesWKScript: WKUserScript? {
         guard let profileData else { return nil }
         guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
-        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
@@ -120,23 +120,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: authTokenScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
-    /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
-    /// inline `<script>` in the template runs. Injected at `.atDocumentStart` so that
-    /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
-    /// HTML parse phase — this is what distinguishes it from the other `.atDocumentEnd`
-    /// attribute injections in this file.
-    ///
-    /// Note on staleness: this is a computed property re-evaluated each time
-    /// `setupLoadScripts` assembles the script set, so each navigation captures a fresh
-    /// snapshot. Any device-state change between `loadScripts` assembly and the document
-    /// parse is corrected at runtime by `pushDeviceInfo()` via `evaluateJavaScript` on
-    /// `viewWillTransition` / `viewSafeAreaInsetsDidChange`, so onsite's first runtime
-    /// read sees the up-to-date value. IAF view models are 1:1 with a form presentation,
-    /// so the parse-time staleness window is small and acceptable.
+    /// Publishes a snapshot of the current `DeviceInfo` onto `document.head`
+    /// before the Klaviyo JavaScript loader runs.
     @MainActor
     private var deviceInfoWKScript: WKUserScript {
         let script = DeviceInfo.current().asAttributeAssignmentScript()
-        return WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        return WKUserScript(source: script, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     // MARK: - Initializer

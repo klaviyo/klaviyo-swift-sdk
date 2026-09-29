@@ -65,10 +65,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
 
-        let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
-        viewController.loadViewIfNeeded()
-        let webView = try XCTUnwrap(viewController.view.subviews.compactMap { $0 as? WKWebView }.first)
-        let scripts = webView.configuration.userContentController.userScripts
+        let scripts = try installedUserScripts()
         let tokenScript = try XCTUnwrap(scripts.first { $0.source.contains(token) })
         let tokenIndex = try XCTUnwrap(scripts.firstIndex(of: tokenScript))
         let klaviyoIndex = try XCTUnwrap(scripts.firstIndex { $0.source.contains("klaviyoJS") })
@@ -126,12 +123,10 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         let cachedToken = await AuthTokenManager.shared.cachedTokenIfValid()
         XCTAssertEqual(cachedToken, token)
-        let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
-        viewController.loadViewIfNeeded()
-        let webView = try XCTUnwrap(viewController.view.subviews.compactMap { $0 as? WKWebView }.first)
+        let scripts = try installedUserScripts()
         XCTAssertTrue(
-            webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) },
-            "Installed scripts: \(webView.configuration.userContentController.userScripts.map(\.source))"
+            scripts.contains { $0.source.contains(token) },
+            "Installed scripts: \(scripts.map(\.source))"
         )
     }
 
@@ -160,11 +155,15 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
 
+        let scripts = try installedUserScripts().map(\.source)
+        XCTAssertFalse(scripts.contains { $0.contains(previousToken) })
+        XCTAssertTrue(scripts.contains { $0.contains("current@example.com") })
+    }
+
+    private func installedUserScripts() throws -> [WKUserScript] {
         let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
         viewController.loadViewIfNeeded()
         let webView = try XCTUnwrap(viewController.view.subviews.compactMap { $0 as? WKWebView }.first)
-        let scripts = webView.configuration.userContentController.userScripts.map(\.source)
-        XCTAssertFalse(scripts.contains { $0.contains(previousToken) })
-        XCTAssertTrue(scripts.contains { $0.contains("current@example.com") })
+        return webView.configuration.userContentController.userScripts
     }
 }

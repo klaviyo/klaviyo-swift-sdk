@@ -248,7 +248,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInitialProfileUsesOrderedDocumentStartScript() async throws {
+    func testInitialProfileAndDeviceRunBeforeKlaviyoJSAtDocumentEnd() async throws {
         let profile = ProfileData(email: "initial@example.com", anonymousId: "anon")
         let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profile)
@@ -256,10 +256,14 @@ final class IAFWebViewModelTests: XCTestCase {
         let scripts: [WKUserScript] = try XCTUnwrap(model.loadScripts)
         let profileScript = try XCTUnwrap(scripts.first { $0.source.contains("data-klaviyo-profile") })
         let profileIndex = try XCTUnwrap(scripts.firstIndex(of: profileScript))
+        let deviceScript = try XCTUnwrap(scripts.first { $0.source.contains("data-klaviyo-device") })
+        let deviceIndex = try XCTUnwrap(scripts.firstIndex(of: deviceScript))
         let klaviyoIndex = try XCTUnwrap(scripts.firstIndex { $0.source.contains("klaviyoJS") })
 
-        XCTAssertEqual(profileScript.injectionTime, .atDocumentStart)
+        XCTAssertEqual(profileScript.injectionTime, .atDocumentEnd)
+        XCTAssertEqual(deviceScript.injectionTime, .atDocumentEnd)
         XCTAssertLessThan(profileIndex, klaviyoIndex)
+        XCTAssertLessThan(deviceIndex, klaviyoIndex)
     }
 
     // MARK: - Klaviyo JS Tests
@@ -723,29 +727,14 @@ final class IAFWebViewModelTests: XCTestCase {
         let tokenB = try makeFormsJWT(subject: "profile-B")
         let tokenSource = FormsTokenSource(tokenA)
         await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        addTeardownBlock { await AuthTokenManager.shared.unregisterProvider() }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
         await tokenSource.set(tokenB)
 
         let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-a")
         let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-b")
-        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
-            KlaviyoState(
-                apiKey: "abc123",
-                email: profileA.email,
-                anonymousId: profileA.anonymousId,
-                queue: [],
-                initalizationState: .initialized
-            )
-        )
-        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
-        KlaviyoInternal.resetProfileDataSubject()
-
-        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profileA)
-        let delegate = MockIAFWebViewDelegate(viewModel: model)
-        model.delegate = delegate
-        delegate.commitNavigation()
-        delegate.finishNavigation()
+        let stateSubject = installProfileState(profileA)
+        let (_, delegate) = try makeReadyProfileModel(profileA)
         let replacementApplied = expectation(description: "replacement token applied")
         delegate.onEvaluateJavaScript = { script in
             if script.contains(tokenB) {
@@ -754,15 +743,7 @@ final class IAFWebViewModelTests: XCTestCase {
         }
 
         AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-        stateSubject.send(
-            KlaviyoState(
-                apiKey: "abc123",
-                email: profileB.email,
-                anonymousId: profileB.anonymousId,
-                queue: [],
-                initalizationState: .initialized
-            )
-        )
+        stateSubject.send(makeProfileState(profileB))
         await fulfillment(of: [replacementApplied], timeout: 5)
 
         let profileIndex = try XCTUnwrap(
@@ -772,8 +753,6 @@ final class IAFWebViewModelTests: XCTestCase {
             delegate.evaluatedScripts.firstIndex { $0.contains(tokenB) }
         )
         XCTAssertLessThan(profileIndex, tokenIndex)
-
-        await AuthTokenManager.shared.unregisterProvider()
     }
 
     @MainActor
@@ -789,44 +768,21 @@ final class IAFWebViewModelTests: XCTestCase {
             }
             return token
         }
+        addTeardownBlock { await AuthTokenManager.shared.unregisterProvider() }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
         await tokenSource.set(tokenB)
 
         let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-a")
         let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-b")
-        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
-            KlaviyoState(
-                apiKey: "abc123",
-                email: profileA.email,
-                anonymousId: profileA.anonymousId,
-                queue: [],
-                initalizationState: .initialized
-            )
-        )
-        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
-        KlaviyoInternal.resetProfileDataSubject()
-
-        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profileA, authToken: tokenA)
-        let delegate = MockIAFWebViewDelegate(viewModel: model)
-        model.delegate = delegate
-        delegate.commitNavigation()
-        delegate.finishNavigation()
+        let stateSubject = installProfileState(profileA)
+        let (model, delegate) = try makeReadyProfileModel(profileA, authToken: tokenA)
         delegate.onEvaluateJavaScriptAsync = { script in
             if script.contains("b@example.com") {
                 throw NSError(domain: "ProfileEvaluationFailed", code: 1)
             }
         }
         AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-        stateSubject.send(
-            KlaviyoState(
-                apiKey: "abc123",
-                email: profileB.email,
-                anonymousId: profileB.anonymousId,
-                queue: [],
-                initalizationState: .initialized
-            )
-        )
+        stateSubject.send(makeProfileState(profileB))
         try await withTimeout(seconds: 5) {
             await replacementFetched.wait()
         }
@@ -841,8 +797,6 @@ final class IAFWebViewModelTests: XCTestCase {
         delegate.commitNavigation()
         delegate.finishNavigation()
         XCTAssertEqual(delegate.documentAuthToken, tokenB)
-
-        await AuthTokenManager.shared.unregisterProvider()
     }
 
     @MainActor
@@ -850,32 +804,12 @@ final class IAFWebViewModelTests: XCTestCase {
         let token = try makeFormsJWT(subject: "identified")
         let tokenSource = FormsTokenSource(token)
         await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        addTeardownBlock { await AuthTokenManager.shared.unregisterProvider() }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
 
         let profile = ProfileData(email: "a@example.com", anonymousId: "anon-a")
-        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(
-            KlaviyoState(
-                apiKey: "abc123",
-                email: profile.email,
-                anonymousId: profile.anonymousId,
-                queue: [],
-                initalizationState: .initialized
-            )
-        )
-        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
-        KlaviyoInternal.resetProfileDataSubject()
-
-        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let model = IAFWebViewModel(
-            url: fileURL,
-            apiKey: "abc123",
-            profileData: profile,
-            authToken: token
-        )
-        let delegate = MockIAFWebViewDelegate(viewModel: model)
-        model.delegate = delegate
-        delegate.commitNavigation()
-        delegate.finishNavigation()
+        let stateSubject = installProfileState(profile)
+        let (_, delegate) = try makeReadyProfileModel(profile, authToken: token)
         let authCleared = expectation(description: "auth cleared")
         delegate.onEvaluateJavaScript = { script in
             if script == "document.head.removeAttribute('data-klaviyo-jwt');" {
@@ -893,8 +827,6 @@ final class IAFWebViewModelTests: XCTestCase {
             )
         )
         await fulfillment(of: [authCleared], timeout: 1)
-
-        await AuthTokenManager.shared.unregisterProvider()
     }
 }
 
@@ -919,6 +851,39 @@ extension IAFWebViewModel {
 // MARK: - Token refresh test helpers
 
 extension IAFWebViewModelTests {
+    @MainActor
+    private func makeProfileState(_ profile: ProfileData) -> KlaviyoState {
+        KlaviyoState(
+            apiKey: "abc123",
+            email: profile.email,
+            anonymousId: profile.anonymousId,
+            queue: [],
+            initalizationState: .initialized
+        )
+    }
+
+    @MainActor
+    private func installProfileState(_ profile: ProfileData) -> CurrentValueSubject<KlaviyoState, Never> {
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(makeProfileState(profile))
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+        return stateSubject
+    }
+
+    @MainActor
+    private func makeReadyProfileModel(
+        _ profile: ProfileData,
+        authToken: String? = nil
+    ) throws -> (IAFWebViewModel, MockIAFWebViewDelegate) {
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: profile, authToken: authToken)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        delegate.commitNavigation()
+        delegate.finishNavigation()
+        return (model, delegate)
+    }
+
     /// Builds a view model with a wired-up mock delegate, so `pushAuthToken`
     /// tests can observe the resulting `evaluateJavaScript` calls.
     @MainActor
