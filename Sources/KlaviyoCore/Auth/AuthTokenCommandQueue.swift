@@ -8,6 +8,7 @@ import Foundation
 package final class AuthTokenCommandQueue: @unchecked Sendable {
     package enum Command: Sendable {
         case clearTokenState
+        case clearTokenStateAfter(Task<Void, Never>)
         case register(AuthTokenProvider)
         case unregister
     }
@@ -40,6 +41,9 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
             await previous?.value
             switch command {
             case .clearTokenState:
+                await manager.clearTokenState()
+            case let .clearTokenStateAfter(profileReset):
+                await profileReset.value
                 await manager.clearTokenState()
             case let .register(provider):
                 await manager.registerProvider(provider)

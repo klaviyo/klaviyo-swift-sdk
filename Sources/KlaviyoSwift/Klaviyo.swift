@@ -11,11 +11,13 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
-func dispatchOnMainThread(action: KlaviyoAction) {
+@discardableResult
+func dispatchOnMainThread(action: KlaviyoAction) -> Task<Void, Never> {
     Task {
-        await MainActor.run {
+        let effect = await MainActor.run {
             klaviyoSwiftEnvironment.send(action)
         }
+        await effect?.value
     }
 }
 
@@ -81,8 +83,8 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-        dispatchOnMainThread(action: .resetProfileAfterAuthClear)
+        let profileReset = dispatchOnMainThread(action: .resetProfileWithQueuedAuthClear)
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenStateAfter(profileReset))
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count

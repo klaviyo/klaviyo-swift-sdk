@@ -57,6 +57,76 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
     }
 
+    func testBootstrapDeadlineIncludesPriorCommandAndLateTokenArrives() async throws {
+        let profileReset = Task {
+            _ = try? await Task.sleep(nanoseconds: 400_000_000)
+        }
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenStateAfter(profileReset))
+        let token = try makeFormsJWT(subject: "late")
+        let releaseProvider = FormsTestGate()
+        await AuthTokenManager.shared.registerProvider {
+            await releaseProvider.wait()
+            return token
+        }
+
+        let started = ProcessInfo.processInfo.systemUptime
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        let elapsed = ProcessInfo.processInfo.systemUptime - started
+        XCTAssertLessThan(elapsed, 0.8)
+        XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
+
+        await releaseProvider.open()
+        try await withTimeout(seconds: 2) {
+            while try !self.installedUserScripts().contains(where: { $0.source.contains(token) }) {
+                await Task.yield()
+            }
+        }
+    }
+
+    func testPublicResetWaitsForProfileResetBeforePairingNewToken() async throws {
+        let tokenB = try makeFormsJWT(subject: "B")
+        let stateA = KlaviyoState(
+            apiKey: "abc123",
+            email: "a@example.com",
+            anonymousId: "anon-a",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateB = KlaviyoState(
+            apiKey: "abc123",
+            email: "b@example.com",
+            anonymousId: "anon-b",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let subject = CurrentValueSubject<KlaviyoState, Never>(stateA)
+        let releaseReset = FormsTestGate()
+        klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
+        klaviyoSwiftEnvironment.send = { action in
+            guard action == .resetProfileWithQueuedAuthClear else { return nil }
+            return Task { @MainActor in
+                await releaseReset.wait()
+                subject.send(stateB)
+            }
+        }
+        KlaviyoInternal.resetProfileDataSubject()
+
+        let sdk = KlaviyoSDK()
+        sdk.resetProfile()
+        sdk.registerAuthTokenProvider { tokenB }
+        let bootstrap = Task {
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        }
+        try await Task.sleep(nanoseconds: 50_000_000)
+        await releaseReset.open()
+        try await bootstrap.value
+
+        let scripts = try installedUserScripts().map(\.source)
+        XCTAssertFalse(scripts.contains { $0.contains("a@example.com") })
+        XCTAssertTrue(scripts.contains { $0.contains("b@example.com") })
+        XCTAssertTrue(scripts.contains { $0.contains(tokenB) })
+    }
+
     func testAuthCommandDuringBootstrapCannotPairOldTokenWithNewProfile() async throws {
         let tokenA = try makeFormsJWT(subject: "A")
         let tokenB = try makeFormsJWT(subject: "B")

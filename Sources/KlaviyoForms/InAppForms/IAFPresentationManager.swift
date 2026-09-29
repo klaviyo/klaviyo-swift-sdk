@@ -11,6 +11,23 @@ import KlaviyoSwift
 import OSLog
 import UIKit
 
+private final class AuthTokenDeadlineResult: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<String?, Never>?
+
+    init(_ continuation: CheckedContinuation<String?, Never>) {
+        self.continuation = continuation
+    }
+
+    func complete(_ token: String?) {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume(returning: token)
+    }
+}
+
 @MainActor
 class IAFPresentationManager {
     // MARK: - Properties & Initializer
@@ -129,12 +146,12 @@ class IAFPresentationManager {
         let deadline = ProcessInfo.processInfo.systemUptime + 0.5
         while true {
             let authRevision = AuthTokenCommandQueue.shared.revision
-            let profileData = try await KlaviyoInternal.fetchProfileData()
             guard let completedRevision = await AuthTokenCommandQueue.shared.waitForPendingCommands(),
                   completedRevision == authRevision else {
                 if ProcessInfo.processInfo.systemUptime >= deadline { break }
                 continue
             }
+            let profileData = try await KlaviyoInternal.fetchProfileData()
             let remaining = deadline - ProcessInfo.processInfo.systemUptime
             let authToken = remaining > 0 ? await fetchAuthTokenBestEffort(timeout: remaining) : nil
             guard AuthTokenCommandQueue.shared.revision == completedRevision else {
@@ -154,20 +171,27 @@ class IAFPresentationManager {
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
     private func fetchAuthTokenBestEffort(timeout: TimeInterval) async -> String? {
-        do {
-            let token = try await withTimeout(seconds: timeout) {
-                try await AuthTokenManager.shared.currentToken()
+        let token = await withCheckedContinuation { continuation in
+            let result = AuthTokenDeadlineResult(continuation)
+            Task {
+                let currentToken = try? await AuthTokenManager.shared.currentToken()
+                result.complete(currentToken)
             }
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                result.complete(nil)
+            }
+        }
+        if token != nil {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Auth token injected at load")
             }
-            return token
-        } catch {
+        } else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Auth token unavailable at load — proceeding without token")
             }
-            return nil
         }
+        return token
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms

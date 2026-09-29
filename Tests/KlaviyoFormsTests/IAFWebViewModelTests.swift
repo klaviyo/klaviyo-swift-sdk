@@ -7,6 +7,7 @@
 
 @testable import KlaviyoForms
 @testable import KlaviyoSwift
+import Combine
 import KlaviyoCore
 import WebKit
 import XCTest
@@ -427,6 +428,21 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testPushAuthTokenDoesNotEvaluateInvalidatedToken() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+        let oldToken = "header.old.signature"
+        delegate.onRefreshLoadScripts = {
+            AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+            viewModel.invalidateAuthTokenIfRevisionChanged()
+        }
+
+        await viewModel.pushAuthToken(oldToken)
+
+        XCTAssertFalse(tokenScripts(delegate).contains { $0.contains(oldToken) })
+        XCTAssertNil(viewModel.authToken)
+    }
+
+    @MainActor
     func testAuthCommandBeforeScriptConfigurationExcludesOldToken() async throws {
         let (viewModel, _) = try makeTokenViewModel()
         let oldToken = "header.old.signature"
@@ -456,6 +472,41 @@ final class IAFWebViewModelTests: XCTestCase {
 
         XCTAssertFalse(webView.configuration.userContentController.userScripts.contains { $0.source.contains(oldToken) })
         await command.value
+    }
+
+    @MainActor
+    func testProfileUpdateReplacesNextNavigationScript() async throws {
+        let stateA = KlaviyoState(
+            apiKey: "abc123",
+            email: "a@example.com",
+            anonymousId: "anon-a",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let stateSubject = CurrentValueSubject<KlaviyoState, Never>(stateA)
+        klaviyoSwiftEnvironment.statePublisher = { stateSubject.eraseToAnyPublisher() }
+        KlaviyoInternal.resetProfileDataSubject()
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: ProfileData(email: "a@example.com", anonymousId: "anon-a")
+        )
+        stateSubject.send(KlaviyoState(
+            apiKey: "abc123",
+            email: "b@example.com",
+            anonymousId: "anon-b",
+            queue: [],
+            initalizationState: .initialized
+        ))
+        try await withTimeout(seconds: 2) {
+            while viewModel.profileData?.email != "b@example.com" {
+                await Task.yield()
+            }
+        }
+
+        XCTAssertNotNil(viewModel.findScript(containing: "b@example.com"))
+        XCTAssertNil(viewModel.findScript(containing: "a@example.com"))
     }
 }
 

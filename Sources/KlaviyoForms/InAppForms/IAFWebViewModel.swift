@@ -29,7 +29,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     let apiKey: String
-    let profileData: ProfileData?
+    private(set) var profileData: ProfileData?
     private(set) var authToken: String?
     private var authRevision: UInt64?
     private let assetSource: String?
@@ -261,6 +261,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
         }
+        profileData = newProfileData
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
         guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
 
         Task { @MainActor in
@@ -297,6 +300,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         authRevision = revision ?? AuthTokenCommandQueue.shared.revision
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
+        guard authToken == token, authRevision == AuthTokenCommandQueue.shared.revision else { return }
         do {
             _ = try await delegate?.evaluateJavaScript(authTokenScript)
             if #available(iOS 14.0, *) {
