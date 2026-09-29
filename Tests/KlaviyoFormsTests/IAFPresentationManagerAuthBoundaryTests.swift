@@ -86,6 +86,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         await releaseProvider.open()
         try await withTimeout(seconds: 30) {
             while try !self.installedUserScripts().contains(where: { $0.source.contains(token) }) {
+                try Task.checkCancellation()
                 await Task.yield()
             }
         }
@@ -131,6 +132,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         await command.value
         try await withTimeout(seconds: 30) {
             while try !self.installedUserScripts().contains(where: { $0.source.contains("b@example.com") }) {
+                try Task.checkCancellation()
                 await Task.yield()
             }
         }
