@@ -32,13 +32,14 @@ extension KlaviyoSDK {
 
     /// Detaches a previously registered auth token provider.
     ///
-    /// Clears the provider reference and tears down all associated token state:
+    /// Enqueues removal of the provider and all associated token state:
     /// the cached token is discarded and any scheduled proactive refresh or
-    /// in-flight fetch is cancelled. After this call, personalized in-app forms
-    /// have no token available until a new provider is registered via
-    /// ``registerAuthTokenProvider(_:)``. Hosts that register on login and
-    /// unregister on logout can use this as a full teardown; a long-lived
-    /// provider registered once during application setup is preferred.
+    /// in-flight fetch is cancelled when the queued command runs. This method
+    /// returns before removal may complete. New in-app forms wait for pending
+    /// provider commands before requesting a token. Once removal completes,
+    /// forms have no token available until a new provider is registered via
+    /// ``registerAuthTokenProvider(_:)``. A long-lived provider registered once
+    /// during application setup is preferred.
     public func unregisterAuthTokenProvider() {
         AuthTokenCommandQueue.shared.enqueue(.unregister)
     }

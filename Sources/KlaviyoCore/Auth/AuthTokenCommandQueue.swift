@@ -42,9 +42,13 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
     }
 
     package func waitForPendingCommands() async {
-        lock.lock()
-        let pending = tail
-        lock.unlock()
+        let pending = pendingCommand()
         await pending?.value
+    }
+
+    private func pendingCommand() -> Task<Void, Never>? {
+        lock.lock()
+        defer { lock.unlock() }
+        return tail
     }
 }

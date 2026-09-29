@@ -136,6 +136,7 @@ class IAFPresentationManager {
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
     private func fetchAuthTokenBestEffort() async -> String? {
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
         // `currentToken()` defaults to `.interactive` mode, which applies the
         // 500ms latency budget appropriate for form display. No external timeout
         // is needed here.

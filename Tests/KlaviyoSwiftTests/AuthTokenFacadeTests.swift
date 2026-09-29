@@ -9,17 +9,17 @@ import KlaviyoCore
 import XCTest
 
 final class AuthTokenFacadeTests: XCTestCase {
-    private let sdk = KlaviyoSDK()
+    private let klaviyoSDK = KlaviyoSDK()
 
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
-        sdk.unregisterAuthTokenProvider()
+        klaviyoSDK.unregisterAuthTokenProvider()
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
     }
 
     override func tearDown() async throws {
-        sdk.unregisterAuthTokenProvider()
+        klaviyoSDK.unregisterAuthTokenProvider()
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
         try await super.tearDown()
     }
@@ -27,8 +27,8 @@ final class AuthTokenFacadeTests: XCTestCase {
     func testRegisterThenUnregisterUsesLastPublicIntent() async throws {
         let tokenA = try makeJWT(subject: "A")
 
-        sdk.registerAuthTokenProvider { tokenA }
-        sdk.unregisterAuthTokenProvider()
+        klaviyoSDK.registerAuthTokenProvider { tokenA }
+        klaviyoSDK.unregisterAuthTokenProvider()
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
 
         do {
@@ -42,11 +42,11 @@ final class AuthTokenFacadeTests: XCTestCase {
     func testUnregisterThenRegisterUsesLastPublicIntent() async throws {
         let tokenB = try makeJWT(subject: "B")
 
-        sdk.unregisterAuthTokenProvider()
-        sdk.registerAuthTokenProvider { tokenB }
+        klaviyoSDK.unregisterAuthTokenProvider()
+        klaviyoSDK.registerAuthTokenProvider { tokenB }
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
 
-        let currentToken = try await AuthTokenManager.shared.currentToken()
+        let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
         XCTAssertEqual(currentToken, tokenB)
     }
 
@@ -54,21 +54,21 @@ final class AuthTokenFacadeTests: XCTestCase {
         let tokenA = try makeJWT(subject: "A")
         let tokenB = try makeJWT(subject: "B")
 
-        sdk.registerAuthTokenProvider { tokenA }
-        sdk.unregisterAuthTokenProvider()
-        sdk.registerAuthTokenProvider { tokenB }
+        klaviyoSDK.registerAuthTokenProvider { tokenA }
+        klaviyoSDK.unregisterAuthTokenProvider()
+        klaviyoSDK.registerAuthTokenProvider { tokenB }
         await AuthTokenCommandQueue.shared.waitForPendingCommands()
 
-        let currentToken = try await AuthTokenManager.shared.currentToken()
+        let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
         XCTAssertEqual(currentToken, tokenB)
     }
 
     private func makeJWT(subject: String) throws -> String {
-        let now = environment.date().timeIntervalSince1970
+        let timestamp = environment.date().timeIntervalSince1970
         let payload = try JSONSerialization.data(withJSONObject: [
             "sub": subject,
-            "iat": now - 60,
-            "exp": now + 3600
+            "iat": timestamp - 60,
+            "exp": timestamp + 3600
         ])
         return [Data("{}".utf8), payload, Data(subject.utf8)]
             .map(base64URLEncode)
