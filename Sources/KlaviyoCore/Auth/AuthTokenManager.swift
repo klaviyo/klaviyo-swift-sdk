@@ -516,6 +516,13 @@ package actor AuthTokenManager {
         return max(lowerBound, min(ideal, upperBound))
     }
 
+    static func sleepNanoseconds(for remaining: TimeInterval) -> UInt64 {
+        guard remaining > 0 else { return 0 }
+        let maxSafeSeconds = Double(UInt64.max / 1_000_000_000)
+        guard remaining.isFinite, remaining < maxSafeSeconds else { return UInt64.max }
+        return UInt64(remaining * 1_000_000_000)
+    }
+
     /// Schedules a proactive refresh for `token`. Cancels any prior
     /// ``refreshTask`` so chained refreshes (success → schedule next) and
     /// provider swaps don't leak overlapping schedules.
@@ -556,7 +563,7 @@ package actor AuthTokenManager {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
             if remaining <= 0 { break }
-            await sleeper(UInt64(remaining * 1_000_000_000))
+            await sleeper(Self.sleepNanoseconds(for: remaining))
         }
         guard !Task.isCancelled else { return }
         await performScheduledRefresh()
@@ -870,7 +877,7 @@ package actor AuthTokenManager {
         while !Task.isCancelled {
             let remaining = boundary.timeIntervalSince(currentDate())
             if remaining <= 0 { break }
-            await expirySleeper(UInt64(remaining * 1_000_000_000))
+            await expirySleeper(Self.sleepNanoseconds(for: remaining))
         }
         guard !Task.isCancelled, cachedToken?.rawToken == token.rawToken else { return }
         discardStaleCachedToken()

@@ -21,6 +21,33 @@ struct AuthTokenManagerRefreshTests {
     /// host is. This is what makes the real-time paths below deterministic on CI.
     private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
 
+    @Test
+    func farFutureExpirySaturatesScheduledSleeps() async throws {
+        #expect(AuthTokenManager.sleepNanoseconds(for: 1_000_000_000_000) == UInt64.max)
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 1_000_000_000_000
+        )
+        let clock = TestClock(referenceDate)
+        let refreshGate = SleepGate()
+        let expiryGate = SleepGate()
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(),
+            clock: clock,
+            gate: refreshGate,
+            expiryGate: expiryGate
+        )
+
+        await manager.registerProvider { token }
+        await refreshGate.waitUntilSleeping()
+        await expiryGate.waitUntilSleeping()
+        let current = try await manager.currentToken(mode: .background)
+        #expect(current == token)
+        await manager.unregisterProvider()
+        await refreshGate.release()
+        await expiryGate.release()
+    }
+
     // MARK: - Scheduling formula (pure-function tests, no real time)
 
     @Test
