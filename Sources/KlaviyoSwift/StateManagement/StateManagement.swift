@@ -216,9 +216,14 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.reset()
             }
             state.initalizationState = .initialized
+            let pendingStart = state.pendingStartAfterCompanyChange
+            state.pendingStartAfterCompanyChange = false
             let replay = replayPendingRequests(pendingRequests, into: &state)
             guard state.isRunning else { return replay }
-            let restart = replay.merge(with: flushTimerEffect(flushInterval: state.flushInterval))
+            let timer = pendingStart
+                ? startEffects(flushInterval: state.flushInterval)
+                : flushTimerEffect(flushInterval: state.flushInterval)
+            let restart = replay.merge(with: timer)
             return state.flushInterval.isFinite
                 ? restart.merge(with: .task { .flushQueue })
                 : restart
@@ -267,6 +272,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.setProfileProperty(key, value))
                     case .resetProfile:
                         await send(.resetProfile)
+                    case .resetProfileWithQueuedAuthClear:
+                        await send(.resetProfileWithQueuedAuthClear)
                     }
                 }
                 await send(.start)
@@ -357,6 +364,7 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case .stop:
             state.isRunning = false
+            state.pendingStartAfterCompanyChange = false
             guard case .initialized = state.initalizationState else {
                 if case .changingCompany = state.initalizationState {
                     state.pauseSendingRequests()
@@ -373,6 +381,7 @@ struct KlaviyoReducer: ReducerProtocol {
             guard case .initialized = state.initalizationState else {
                 if case .changingCompany = state.initalizationState {
                     state.isRunning = true
+                    state.pendingStartAfterCompanyChange = true
                 }
                 return .none
             }
