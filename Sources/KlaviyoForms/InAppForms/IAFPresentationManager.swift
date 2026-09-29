@@ -431,6 +431,7 @@ class IAFPresentationManager {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.info("✅ Webview already exists with same API key, skipping reinit")
                     }
+                    await refreshAuthTokenForExistingWebView(apiKey: apiKey)
                     return
                 } else {
                     await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
@@ -443,6 +444,15 @@ class IAFPresentationManager {
                 startLifecycleObservation()
             }
         }
+    }
+
+    func refreshAuthTokenForExistingWebView(apiKey: String) async {
+        guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands(),
+              KlaviyoInternal.isCurrentCompany(apiKey: apiKey),
+              viewModel?.apiKey == apiKey,
+              let token = try? await AuthTokenManager.shared.currentToken(mode: .background),
+              AuthTokenCommandQueue.shared.revision == revision else { return }
+        await applyTokenUpdate(.token(token))
     }
 
     /// Dismisses and re-initializes the In-App Form when the public API key changes.

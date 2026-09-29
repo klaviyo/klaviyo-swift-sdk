@@ -12,6 +12,7 @@
   - isRunning: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
+  - pendingStartAfterCompanyChange: false
   - phoneNumber: Optional<String>.none
   - pushTokenData: Optional<PushTokenData>.none
   - queue: 0 elements
