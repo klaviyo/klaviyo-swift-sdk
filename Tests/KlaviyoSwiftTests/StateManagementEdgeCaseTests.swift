@@ -296,6 +296,37 @@ class StateManagementEdgeCaseTests: XCTestCase {
         XCTAssertEqual(reads, 0)
     }
 
+    @MainActor
+    func testCompanyChangeReplaysForegroundStartEffects() async {
+        let badgeSettingsReads = AsyncCallCounter()
+        environment.getBadgeAutoClearingSetting = {
+            await badgeSettingsReads.increment()
+            return true
+        }
+        environment.timer = { _ in Empty<Date, Never>().eraseToAnyPublisher() }
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData = nil
+        initialState.initalizationState = .changingCompany("new-api-key")
+        initialState.isRunning = false
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.start) {
+            $0.isRunning = true
+            $0.pendingStartAfterCompanyChange = true
+        }
+        await store.send(.completeCompanyChange("new-api-key")) {
+            $0.pendingStartAfterCompanyChange = false
+            $0.apiKey = "new-api-key"
+            $0.initalizationState = .initialized
+        }
+        await store.receive(.flushQueue)
+        await store.finish()
+
+        let reads = await badgeSettingsReads.value()
+        XCTAssertEqual(reads, 1)
+    }
+
     // MARK: - Send Request
 
     @MainActor
