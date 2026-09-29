@@ -39,7 +39,7 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         // Consume the eager warm-up fetch, then confirm the cache is actually
         // serving that token without invoking the provider again.
         await counter.waitFor(atLeast: 1)
-        _ = try await AuthTokenManager.shared.currentToken()
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
         let baseline = await counter.value
         XCTAssertEqual(baseline, 1, "Expected the cached token to be served without a new fetch")
 
