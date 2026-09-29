@@ -128,6 +128,61 @@ final class KlaviyoInternalTests: XCTestCase {
     }
 
     @MainActor
+    func testProfileResetKeepsPublishersInitialized() {
+        var state = KlaviyoState.test
+        let states = CurrentValueSubject<KlaviyoState, Never>(state)
+        klaviyoSwiftEnvironment.statePublisher = { states.eraseToAnyPublisher() }
+        var profileResults: [KlaviyoInternal.ProfileDataResult] = []
+        var apiKeyResults: [KlaviyoInternal.APIKeyResult] = []
+        KlaviyoInternal.profileChangePublisher()
+            .sink { profileResults.append($0) }
+            .store(in: &cancellables)
+        KlaviyoInternal.apiKeyPublisher()
+            .sink { apiKeyResults.append($0) }
+            .store(in: &cancellables)
+
+        state.initalizationState = .resettingProfile
+        states.send(state)
+
+        XCTAssertEqual(profileResults.count, 1)
+        XCTAssertEqual(apiKeyResults.count, 1)
+
+        state.email = nil
+        state.initalizationState = .initialized
+        states.send(state)
+
+        XCTAssertEqual(profileResults.count, 2)
+        XCTAssertEqual(apiKeyResults.count, 1)
+        XCTAssertEqual(profileResults.last, .success(ProfileData(
+            email: nil,
+            anonymousId: state.anonymousId,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId
+        )))
+    }
+
+    @MainActor
+    func testFetchProfileDataWaitsForProfileResetToComplete() async throws {
+        var state = KlaviyoState.test
+        state.initalizationState = .resettingProfile
+        let states = CurrentValueSubject<KlaviyoState, Never>(state)
+        let subscribed = expectation(description: "Profile fetch subscribes to state")
+        klaviyoSwiftEnvironment.statePublisher = {
+            states.handleEvents(receiveSubscription: { _ in subscribed.fulfill() })
+                .eraseToAnyPublisher()
+        }
+        let fetch = Task { try await KlaviyoInternal.fetchProfileData() }
+        await fulfillment(of: [subscribed], timeout: 1)
+
+        state.email = nil
+        state.initalizationState = .initialized
+        states.send(state)
+
+        let profileData = try await fetch.value
+        XCTAssertNil(profileData.email)
+    }
+
+    @MainActor
     func testResetProfileDataSubject() {
         let expectation = XCTestExpectation(description: "Profile data subject is reset")
         var receivedError: SDKError?

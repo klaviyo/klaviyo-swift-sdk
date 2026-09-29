@@ -189,6 +189,32 @@ final class IAFWebViewModelScriptTests: XCTestCase {
     }
 
     @MainActor
+    func testClearingAuthRemovesInitialJWTFromFutureLoads() async throws {
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: nil,
+            authToken: "previous-profile-token"
+        )
+        let viewController = createWebViewController()
+
+        XCTAssertTrue(config.userContentController.userScripts.contains {
+            $0.source.contains("previous-profile-token")
+        })
+
+        await viewModel.clearAuthToken()
+
+        XCTAssertFalse(config.userContentController.userScripts.contains {
+            $0.source.contains("previous-profile-token")
+        })
+        XCTAssertTrue(config.userContentController.userScripts.contains {
+            $0.source.contains("klaviyoJS")
+        })
+        _ = viewController
+    }
+
+    @MainActor
     func testDataEnvironmentScriptIsAddedToWebView() async throws {
         // Given
         environment.formsDataEnvironment = { .web }

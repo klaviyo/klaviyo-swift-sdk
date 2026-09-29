@@ -19,6 +19,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     let viewModel: IAFWebViewModel
 
     var handshakeResult: HandshakeResult?
+    var javaScriptEvaluationError: Error?
 
     /// Records every script passed to ``evaluateJavaScript(_:)``, in call order,
     /// so tests can assert both that an update fired and what it contained.
@@ -69,6 +70,9 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     }
 
     func evaluateJavaScript(_ script: String) async throws -> Any? {
+        if let javaScriptEvaluationError {
+            throw javaScriptEvaluationError
+        }
         evaluatedScripts.append(script)
         return true
     }
