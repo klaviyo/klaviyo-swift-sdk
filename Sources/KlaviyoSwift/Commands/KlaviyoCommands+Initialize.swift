@@ -44,7 +44,7 @@ extension KlaviyoCommands {
                     ),
                     pushToken: tokenData.pushToken
                 )
-                QueueStore.shared.enqueue(request)
+                QueueStore.shared.enqueue(request, persist: .synchronous)
             }
 
             // Switch the config to the new company.
@@ -80,7 +80,7 @@ extension KlaviyoCommands {
                     background: tokenData.pushBackground.rawValue,
                     profile: profile
                 )
-                QueueStore.shared.enqueue(request)
+                QueueStore.shared.enqueue(request, persist: .synchronous)
             }
 
             // Prompt an immediate flush so the unregister drains promptly.
@@ -137,7 +137,7 @@ extension KlaviyoCommands {
                     background: tokenData.pushBackground.rawValue,
                     profile: profile
                 )
-                QueueStore.shared.enqueue(request)
+                QueueStore.shared.enqueue(request, persist: .synchronous)
             }
         }
 
@@ -167,6 +167,11 @@ extension KlaviyoCommands {
         guard LifecycleState.shared.current == .initializing else { return }
         RequestEnqueuer.drainBuffer(apiKey: apiKey)
         guard LifecycleState.shared.completeInitialization() else { return }
+        // Queued high-priority requests (push-opens) skipped the `.initialized`-gated flush; send now
+        // instead of waiting a full interval for the run loop's first tick.
+        if QueueStore.shared.requests.contains(where: { $0.priority == .high }) {
+            await klaviyoSwiftEnvironment.requestQueue.flushNow()
+        }
         await runLifecycle()
     }
 

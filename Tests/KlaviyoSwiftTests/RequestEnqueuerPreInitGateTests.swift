@@ -61,6 +61,44 @@ final class RequestEnqueuerPreInitGateTests: KlaviyoBaseTestCase {
         }
     }
 
+    /// A pre-init push token is held in the in-memory buffer, not dropped (5.4.1 behavior; see
+    /// `RequestEnqueuer.route`).
+    @MainActor
+    func testParityPreInitPushTokenHeldInMemoryOnly() {
+        featureFlags.enablePreInitDiskCapture = false
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+
+        RequestEnqueuer.enqueuePushToken("device-token-abc", enablement: .authorized)
+
+        XCTAssertTrue(UnattributedBuffer.shared.drainSnapshot().requests.isEmpty,
+                      "parity: pre-init token must not be persisted to disk")
+        let memory = PreInitMemoryBuffer.shared.drain()
+        XCTAssertEqual(memory.count, 1,
+                       "parity: pre-init token must be held in the memory buffer, not dropped")
+        guard case let .pushToken(payload) = memory.first else {
+            return XCTFail("expected .pushToken in memory buffer, got \(memory.first as Any)")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "device-token-abc")
+    }
+
+    /// Repeated pre-init token fires coalesce to the latest (one register at drain, not one per call).
+    @MainActor
+    func testParityPreInitPushTokenCoalescesToLatest() {
+        featureFlags.enablePreInitDiskCapture = false
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-pre"))
+
+        RequestEnqueuer.enqueuePushToken("token-1", enablement: .authorized)
+        RequestEnqueuer.enqueuePushToken("token-2", enablement: .authorized)
+        RequestEnqueuer.enqueuePushToken("token-3", enablement: .authorized)
+
+        let memory = PreInitMemoryBuffer.shared.drain()
+        XCTAssertEqual(memory.count, 1, "repeated pre-init tokens must coalesce to a single entry")
+        guard case let .pushToken(payload) = memory.first else {
+            return XCTFail("expected .pushToken in memory buffer, got \(memory.first as Any)")
+        }
+        XCTAssertEqual(payload.data.attributes.token, "token-3", "only the latest token survives")
+    }
+
     /// Full-profile token entry: post-init enqueues a registerPushToken whose nested profile carries
     /// the passed identifiers (proves the fold path carries a full profile, not identifiers-only).
     @MainActor
