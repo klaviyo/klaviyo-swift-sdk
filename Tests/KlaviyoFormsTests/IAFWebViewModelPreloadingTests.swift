@@ -52,7 +52,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         //
         // Do not raise it much further. XCTest kills a test at its 120s
         // executionTimeAllowance, and a stall that long is an environment problem that
-        // no budget in this file can fix. See MAGE-1319.
+        // no budget in this file can fix.
         do {
             try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
