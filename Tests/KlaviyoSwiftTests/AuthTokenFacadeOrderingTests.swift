@@ -4,14 +4,18 @@ import KlaviyoCore
 import XCTest
 
 final class AuthTokenFacadeOrderingTests: XCTestCase {
+    private var savedCoreEnvironment: KlaviyoEnvironment!
+
     override func setUp() async throws {
         try await super.setUp()
+        savedCoreEnvironment = environment
         environment = KlaviyoEnvironment.test()
         await AuthTokenManager.shared.unregisterProvider()
     }
 
     override func tearDown() async throws {
         await AuthTokenManager.shared.unregisterProvider()
+        environment = savedCoreEnvironment
         try await super.tearDown()
     }
 
