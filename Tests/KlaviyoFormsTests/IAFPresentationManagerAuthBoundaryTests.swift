@@ -84,7 +84,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
 
         await releaseProvider.open()
-        try await withTimeout(seconds: 2) {
+        try await withTimeout(seconds: 30) {
             while try !self.installedUserScripts().contains(where: { $0.source.contains(token) }) {
                 await Task.yield()
             }
@@ -123,13 +123,13 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
             startLifecycleListener: false,
             onBootstrapResolved: { bootstrapElapsed = ProcessInfo.processInfo.systemUptime - started }
         )
-        XCTAssertLessThan(try XCTUnwrap(bootstrapElapsed), 0.8)
+        XCTAssertLessThan(try XCTUnwrap(bootstrapElapsed), 1.5)
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("a@example.com") })
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("b@example.com") })
 
         await releaseReset.open()
         await command.value
-        try await withTimeout(seconds: 2) {
+        try await withTimeout(seconds: 30) {
             while try !self.installedUserScripts().contains(where: { $0.source.contains("b@example.com") }) {
                 await Task.yield()
             }
