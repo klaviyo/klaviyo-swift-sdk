@@ -9,6 +9,7 @@
   - flushing: false
   - initalizationState: InitializationState.uninitialized
   - isProcessingDeepLink: false
+  - isRunning: false
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   - phoneNumber: Optional<String>.none

@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoSwift
+import AnyCodable
 import Foundation
 import KlaviyoCore
 import XCTest
@@ -54,6 +55,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
         // Using a new key should update the key and generate two requests
         await store.send(.initialize(newApiKey)) {
             $0.initalizationState = .changingCompany(newApiKey)
+            $0.flushing = false
         }
         await store.receive(.completeCompanyChange(newApiKey)) {
             $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
@@ -78,6 +80,11 @@ class StateManagementEdgeCaseTests: XCTestCase {
         let register = AuthTokenCommandQueue.shared.enqueue(.register {
             await tokenSource.token()
         })
+        addTeardownBlock {
+            await releaseFirstCall.open()
+            AuthTokenCommandQueue.shared.enqueue(.unregister)
+            await AuthTokenCommandQueue.shared.waitForPendingCommands()
+        }
         await firstCallEntered.wait()
 
         let initialState = INITIALIZED_TEST_STATE()
@@ -86,6 +93,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         await store.send(.initialize(newAPIKey)) {
             $0.initalizationState = .changingCompany(newAPIKey)
+            $0.flushing = false
         }
         XCTAssertEqual(store.state.apiKey, initialState.apiKey)
 
@@ -114,9 +122,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
         await register.value
         let tokenAfterLateCompletion = try await AuthTokenManager.shared.currentToken()
         XCTAssertEqual(tokenAfterLateCompletion, tokenB)
-
-        AuthTokenCommandQueue.shared.enqueue(.unregister)
-        await AuthTokenCommandQueue.shared.waitForPendingCommands()
     }
 
     @MainActor
@@ -185,6 +190,72 @@ class StateManagementEdgeCaseTests: XCTestCase {
         XCTAssertEqual(store.state.apiKey, apiKeyC)
     }
 
+    @MainActor
+    func testCompanyChangePausesActiveFlushAndRestartsWhenRunning() throws {
+        var state = INITIALIZED_TEST_STATE()
+        let request = try state.buildProfileRequest(
+            apiKey: XCTUnwrap(state.apiKey),
+            anonymousId: XCTUnwrap(state.anonymousId)
+        )
+        state.requestsInFlight = [request]
+        state.flushing = true
+        state.isRunning = true
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .initialize("new-api-key"))
+        XCTAssertEqual(state.initalizationState, .changingCompany("new-api-key"))
+        XCTAssertFalse(state.flushing)
+        XCTAssertTrue(state.requestsInFlight.isEmpty)
+        XCTAssertEqual(state.queue.first?.id, request.id)
+
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("new-api-key"))
+        XCTAssertEqual(state.initalizationState, .initialized)
+        XCTAssertTrue(state.isRunning)
+        XCTAssertEqual(state.queue.first?.id, request.id)
+    }
+
+    @MainActor
+    func testCompanyChangeBuffersProfileProperties() {
+        var state = INITIALIZED_TEST_STATE()
+        state.initalizationState = .changingCompany("new-api-key")
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .setProfileProperty(.firstName, AnyEncodable("New")))
+        XCTAssertNil(state.pendingProfile)
+        XCTAssertEqual(state.pendingRequests.count, 1)
+
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("new-api-key"))
+        XCTAssertNotNil(state.pendingProfile)
+    }
+
+    @MainActor
+    func testCompanyChangeKeepsLatestConnectivityAndStopState() {
+        var state = INITIALIZED_TEST_STATE()
+        state.initalizationState = .changingCompany("new-api-key")
+        state.isRunning = true
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .networkConnectivityChanged(.notReachable))
+        _ = reducer.reduce(into: &state, action: .stop)
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("new-api-key"))
+
+        XCTAssertEqual(state.flushInterval, .infinity)
+        XCTAssertFalse(state.isRunning)
+        XCTAssertEqual(state.initalizationState, .initialized)
+    }
+
+    @MainActor
+    func testCompanyChangeRestartsQueuedFlushWhenRunning() async {
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.initalizationState = .changingCompany("new-api-key")
+        initialState.isRunning = true
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.completeCompanyChange("new-api-key"))
+        await store.receive(.flushQueue)
+    }
+
     // MARK: - Send Request
 
     @MainActor
@@ -237,7 +308,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
+        await store.receive(.start) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
         await store.receive(.setBadgeCount(0))
@@ -536,7 +609,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
+        await store.receive(.start) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
         await store.receive(.setBadgeCount(0))
@@ -570,7 +645,9 @@ class StateManagementEdgeCaseTests: XCTestCase {
             $0.initalizationState = .initialized
             $0.anonymousId = "foo"
         }
-        await store.receive(.start)
+        await store.receive(.start) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
         await store.receive(.syncBadgeCount)

@@ -244,15 +244,20 @@ package enum KlaviyoInternal {
     ///   - event: The geofence event to be sent
     @MainActor
     package static func createGeofenceEvent(event: Event, for apiKey: String) async {
-        if let storedApiKey = try? await fetchAPIKey() {
-            guard storedApiKey == apiKey else {
-                return
-            }
-            dispatchOnMainThread(action: .enqueueEvent(event))
-        } else {
+        let state = klaviyoSwiftEnvironment.state()
+        if case .uninitialized = state.initalizationState {
             dispatchOnMainThread(action: .initialize(apiKey))
             dispatchOnMainThread(action: .enqueueEvent(event))
+            return
         }
+        let currentAPIKey: String?
+        if case let .changingCompany(targetAPIKey) = state.initalizationState {
+            currentAPIKey = targetAPIKey
+        } else {
+            currentAPIKey = state.apiKey
+        }
+        guard currentAPIKey == apiKey else { return }
+        dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
     // MARK: - Deep link handling
