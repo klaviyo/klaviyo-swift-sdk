@@ -471,6 +471,21 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testTokenArrivingBeforeHandshakeIsAppliedAfterHandshake() async throws {
+        let (viewModel, delegate) = try makeTokenViewModel()
+        let token = "header.late.signature"
+        delegate.javaScriptEvaluationError = NSError(domain: "PageUnavailable", code: 1)
+
+        await viewModel.pushAuthToken(token)
+
+        delegate.javaScriptEvaluationError = nil
+        delegate.handshakeResult = .handshakeEstablished(delay: 0)
+        try await viewModel.establishHandshake(timeout: 1)
+
+        XCTAssertTrue(tokenScripts(delegate).contains { $0.contains(token) })
+    }
+
+    @MainActor
     func testClearAuthTokenRemovesJWTFromWebView() async throws {
         let (viewModel, delegate) = try makeTokenViewModel()
 

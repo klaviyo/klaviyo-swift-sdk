@@ -148,10 +148,16 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile,
+             .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId,
+             .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .completeProfileReset, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization,
+             .completeProfileReset, .deQueueCompletedResults, .flushQueue, .initialize,
+             .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop,
+             .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved,
+             .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -228,7 +234,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.initalizationState = .initialized
             let replay = replayPendingRequests(pendingRequests, into: &state)
-            guard state.isRunning else { return replay }
+            guard case .initialized = state.initalizationState, state.isRunning else { return replay }
             let restart = replay.merge(with: flushTimerEffect(flushInterval: state.flushInterval))
             return state.flushInterval.isFinite
                 ? restart.merge(with: .task { .flushQueue })
@@ -276,10 +282,8 @@ struct KlaviyoReducer: ReducerProtocol {
                         await send(.setExternalId(externalId))
                     case let .setPhoneNumber(phoneNumber):
                         await send(.setPhoneNumber(phoneNumber))
-                    case let .setProfileProperty(key, value):
-                        await send(.setProfileProperty(key, value))
-                    case .resetProfile:
-                        await send(.resetProfile)
+                    case let .setProfileProperty(profileKey, value):
+                        await send(.setProfileProperty(profileKey, value))
                     }
                 }
                 await send(.start)
@@ -370,27 +374,31 @@ struct KlaviyoReducer: ReducerProtocol {
 
         case .stop:
             state.isRunning = false
-            guard case .initialized = state.initalizationState else {
-                if case .changingCompany = state.initalizationState {
-                    state.pauseSendingRequests()
-                }
+            switch state.initalizationState {
+            case .initialized:
+                state.pauseSendingRequests()
+                return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+                    .concatenate(with: .run { send in
+                        await send(.syncBadgeCount)
+                    })
+            case .changingCompany, .resettingProfile:
+                state.pauseSendingRequests()
+                return .none
+            case .initializing, .uninitialized:
                 return .none
             }
-            state.pauseSendingRequests()
-            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
-                .concatenate(with: .run(operation: { send in
-                    await send(KlaviyoAction.syncBadgeCount)
-                }))
 
         case .start:
-            guard case .initialized = state.initalizationState else {
-                if case .changingCompany = state.initalizationState {
-                    state.isRunning = true
-                }
+            switch state.initalizationState {
+            case .initialized:
+                state.isRunning = true
+                return startEffects(flushInterval: state.flushInterval)
+            case .changingCompany, .resettingProfile:
+                state.isRunning = true
+                return .none
+            case .initializing, .uninitialized:
                 return .none
             }
-            state.isRunning = true
-            return startEffects(flushInterval: state.flushInterval)
 
         case let .deQueueCompletedResults(completedRequest):
             if case let .registerPushToken(_, payload) = completedRequest.endpoint {
@@ -656,11 +664,13 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.initalizationState = .resettingProfile
-            return .run { send in
-                let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-                await command.value
-                await send(.completeProfileReset)
-            }
+            state.pauseSendingRequests()
+            let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+            return EffectPublisher.cancel(ids: [RequestId.self, FlushTimer.self])
+                .concatenate(with: .run { send in
+                    await command.value
+                    await send(.completeProfileReset)
+                })
 
         case .completeProfileReset:
             guard case .resettingProfile = state.initalizationState else {
@@ -670,18 +680,23 @@ struct KlaviyoReducer: ReducerProtocol {
             state.pendingRequests = []
             state.reset()
             state.initalizationState = .initialized
-            return replayPendingRequests(pendingRequests, into: &state)
+            let replay = replayPendingRequests(pendingRequests, into: &state)
+            guard case .initialized = state.initalizationState, state.isRunning else { return replay }
+            let restart = replay.merge(with: flushTimerEffect(flushInterval: state.flushInterval))
+            return state.flushInterval.isFinite
+                ? restart.merge(with: .task { .flushQueue })
+                : restart
 
-        case let .setProfileProperty(key, value):
+        case let .setProfileProperty(profileKey, value):
             guard case .initialized = state.initalizationState else {
-                state.pendingRequests.append(.setProfileProperty(key, value))
+                state.pendingRequests.append(.setProfileProperty(profileKey, value))
                 return .none
             }
             guard var pendingProfile = state.pendingProfile else {
-                state.pendingProfile = [key: value]
+                state.pendingProfile = [profileKey: value]
                 return .none
             }
-            pendingProfile[key] = value
+            pendingProfile[profileKey] = value
             state.pendingProfile = pendingProfile
             return .none
 
@@ -851,10 +866,8 @@ struct KlaviyoReducer: ReducerProtocol {
                 action = .setExternalId(externalId)
             case let .setPhoneNumber(phoneNumber):
                 action = .setPhoneNumber(phoneNumber)
-            case let .setProfileProperty(key, value):
-                action = .setProfileProperty(key, value)
-            case .resetProfile:
-                action = .resetProfile
+            case let .setProfileProperty(profileKey, value):
+                action = .setProfileProperty(profileKey, value)
             }
             effects.append(reduce(into: &state, action: action))
         }

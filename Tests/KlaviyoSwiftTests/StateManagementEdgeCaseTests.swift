@@ -1025,6 +1025,7 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         await store.send(.resetProfile) {
             $0.initalizationState = .resettingProfile
+            $0.flushing = false
         }
         await store.receive(.completeProfileReset) {
             // reset(preserveTokenData: true) is the default for resetProfile
@@ -1088,6 +1089,90 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         _ = reducer.reduce(into: &state, action: .enqueueProfile(newerProfile))
         XCTAssertEqual(state.email, newerProfile.email)
+    }
+
+    @MainActor
+    func testBufferedResetKeepsCompanyCompletionInTransition() {
+        var state = INITIALIZED_TEST_STATE()
+        state.initalizationState = .changingCompany("new-api-key")
+        state.isRunning = true
+        state.pendingRequests = [.resetProfile]
+        let reducer = KlaviyoReducer()
+
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("new-api-key"))
+
+        XCTAssertEqual(state.initalizationState, .resettingProfile)
+        XCTAssertTrue(state.isRunning)
+        XCTAssertFalse(state.flushing)
+    }
+
+    @MainActor
+    func testProfileResetDoesNotRepeatForegroundBadgeHandling() async {
+        let badgeSettingsReads = AsyncCallCounter()
+        environment.getBadgeAutoClearingSetting = {
+            await badgeSettingsReads.increment()
+            return true
+        }
+        environment.timer = { _ in Empty<Date, Never>().eraseToAnyPublisher() }
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData = nil
+        initialState.initalizationState = .resettingProfile
+        initialState.isRunning = true
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.completeProfileReset)
+        await store.receive(.flushQueue)
+        await store.finish()
+
+        let reads = await badgeSettingsReads.value()
+        XCTAssertEqual(reads, 0)
+    }
+
+    @MainActor
+    func testStartDuringProfileResetRestartsAfterCompletion() async {
+        let ticks = PassthroughSubject<Date, Never>()
+        environment.timer = { _ in ticks.eraseToAnyPublisher() }
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.initalizationState = .resettingProfile
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.start) {
+            $0.isRunning = true
+        }
+        await store.send(.completeProfileReset) {
+            $0.initalizationState = .initialized
+        }
+        ticks.send(Date())
+        await store.receive(.flushQueue)
+    }
+
+    @MainActor
+    func testProfileResetResumesAnActiveFlush() async throws {
+        var initialState = INITIALIZED_TEST_STATE()
+        let apiKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let request = initialState.buildProfileRequest(
+            apiKey: apiKey,
+            anonymousId: anonymousId
+        )
+        initialState.requestsInFlight = [request]
+        initialState.flushing = true
+        initialState.isRunning = true
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.resetProfile) {
+            $0.initalizationState = .resettingProfile
+            $0.flushing = false
+            $0.queue = [request]
+            $0.requestsInFlight = []
+        }
+        await store.receive(.completeProfileReset) {
+            $0.initalizationState = .initialized
+        }
+        await store.receive(.flushQueue)
     }
 }
 

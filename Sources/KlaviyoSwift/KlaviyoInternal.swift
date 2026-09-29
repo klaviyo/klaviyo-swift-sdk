@@ -42,7 +42,8 @@ package enum KlaviyoInternal {
 
         apiKeyCancellable = klaviyoSwiftEnvironment.statePublisher()
             .map { state -> APIKeyResult in
-                guard state.initalizationState == .initialized else {
+                guard state.initalizationState == .initialized ||
+                    state.initalizationState == .resettingProfile else {
                     return .failure(.notInitialized)
                 }
 
@@ -98,24 +99,28 @@ package enum KlaviyoInternal {
 
     // MARK: - Profile Data methods
 
+    private static func profileDataResult(for state: KlaviyoState) -> ProfileDataResult? {
+        if state.initalizationState == .resettingProfile {
+            return nil
+        }
+        guard state.initalizationState == .initialized else {
+            return .failure(.notInitialized)
+        }
+        return .success(ProfileData(
+            email: state.email,
+            anonymousId: state.anonymousId,
+            phoneNumber: state.phoneNumber,
+            externalId: state.externalId
+        ))
+    }
+
     // Setup the profile data subject to receive updates from the state publisher
     private static func setupProfileDataSubject() {
         // Only set up the subscription if it hasn't already been set up
         guard profileDataCancellable == nil else { return }
 
         profileDataCancellable = klaviyoSwiftEnvironment.statePublisher()
-            .map { state -> ProfileDataResult in
-                if state.initalizationState != .initialized {
-                    return .failure(.notInitialized)
-                }
-
-                return .success(ProfileData(
-                    email: state.email,
-                    anonymousId: state.anonymousId,
-                    phoneNumber: state.phoneNumber,
-                    externalId: state.externalId
-                ))
-            }
+            .compactMap { profileDataResult(for: $0) }
             .removeDuplicates()
             .subscribe(profileDataSubject)
     }
@@ -125,11 +130,10 @@ package enum KlaviyoInternal {
     /// - Returns: The current profile data, if available.
     /// - Throws: `SDKError.notInitialized` if the SDK is not initialized.
     package static func fetchProfileData() async throws -> ProfileData {
-        setupProfileDataSubject()
-
-        return try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { continuation in
             var cancellable: AnyCancellable?
-            cancellable = profileDataSubject
+            cancellable = klaviyoSwiftEnvironment.statePublisher()
+                .compactMap { profileDataResult(for: $0) }
                 .first()
                 .sink { result in
                     switch result {

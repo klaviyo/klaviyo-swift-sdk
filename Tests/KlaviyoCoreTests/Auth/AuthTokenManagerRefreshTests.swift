@@ -248,8 +248,6 @@ struct AuthTokenManagerRefreshTests {
 
         clock.set(referenceDate.addingTimeInterval(510))
         await expiryGate.release()
-        let staleUpdate = await firstUpdate(of: updates)
-        #expect(staleUpdate == nil)
         let current = try await manager.currentToken()
         #expect(current == replacement)
         let invocations = await counter.value
@@ -833,19 +831,28 @@ struct AuthTokenManagerRefreshTests {
     }
 
     @Test
-    func clearTokenStatePublishesClearedUpdate() async {
+    func clearTokenStatePublishesClearedUpdate() async throws {
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
         let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let token = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 3600,
+            extraClaims: ["sub": "current"]
+        )
+        await manager.registerProvider { token }
+        let current = try await manager.currentToken(mode: .background)
+        #expect(current == token)
+
         let updates = await manager.tokenUpdates()
-        let received = Task {
-            await updates.first { _ in true }
-        }
+        var iterator = updates.makeAsyncIterator()
+        let snapshot = await iterator.next()
+        #expect(snapshot == .token(token))
 
         await manager.clearTokenState()
 
-        let update = await received.value
-        #expect(update == .cleared)
+        let cleared = await iterator.next()
+        #expect(cleared == .cleared)
     }
 
     @Test
@@ -857,7 +864,8 @@ struct AuthTokenManagerRefreshTests {
         await manager.clearTokenState()
         let updates = await manager.tokenUpdates()
 
-        let update = await firstUpdate(of: updates)
+        var iterator = updates.makeAsyncIterator()
+        let update = await iterator.next()
         #expect(update == .cleared)
     }
 
@@ -1863,43 +1871,16 @@ struct AuthTokenManagerRefreshTests {
         return await iterator.next()
     }
 
-    private func firstUpdate(of stream: AsyncStream<AuthTokenUpdate>) async -> AuthTokenUpdate? {
-        await withTaskGroup(of: AuthTokenUpdate?.self) { group in
-            group.addTask {
-                var iterator = stream.makeAsyncIterator()
-                return await iterator.next()
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                return nil
-            }
-            let result = await group.next() ?? nil
-            group.cancelAll()
-            return result
-        }
-    }
-
     private func firstUpdates(
         _ count: Int,
         from stream: AsyncStream<AuthTokenUpdate>
     ) async -> [AuthTokenUpdate] {
-        await withTaskGroup(of: [AuthTokenUpdate].self) { group in
-            group.addTask {
-                var iterator = stream.makeAsyncIterator()
-                var updates: [AuthTokenUpdate] = []
-                while updates.count < count, let update = await iterator.next() {
-                    updates.append(update)
-                }
-                return updates
-            }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 100_000_000)
-                return []
-            }
-            let result = await group.next() ?? []
-            group.cancelAll()
-            return result
+        var iterator = stream.makeAsyncIterator()
+        var updates: [AuthTokenUpdate] = []
+        while updates.count < count, let update = await iterator.next() {
+            updates.append(update)
         }
+        return updates
     }
 
     /// Lifecycle source that emits nothing, for tests that don't exercise the

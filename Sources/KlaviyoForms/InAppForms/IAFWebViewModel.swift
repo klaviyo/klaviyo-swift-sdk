@@ -14,6 +14,8 @@ import WebKit
 
 // swiftlint:disable:next type_body_length
 class IAFWebViewModel: KlaviyoWebViewModeling {
+    private static let authTokenAttributeName = "data-klaviyo-jwt"
+
     private enum MessageHandler: String, CaseIterable {
         case klaviyoNativeBridge = "KlaviyoNativeBridge"
     }
@@ -28,7 +30,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     let apiKey: String
     let profileData: ProfileData?
-    let authToken: String?
+    private(set) var authToken: String?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -151,6 +153,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     func initializeLoadScripts() {
         guard let klaviyoJsWKScript else { return }
+        loadScripts = []
         loadScripts?.insert(klaviyoJsWKScript)
         loadScripts?.insert(sdkNameWKScript)
         loadScripts?.insert(sdkVersionWKScript)
@@ -202,6 +205,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 guard let self else { throw ObjectStateError.objectDeallocated }
                 await self.handshakeStream.first { _ in true }
             }
+            if let authToken {
+                await pushAuthToken(authToken)
+            } else {
+                await clearAuthToken()
+            }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Handshake loading time exceeded specified timeout of \(timeout, format: .fixed(precision: 1)) seconds.")
@@ -242,7 +250,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func createAuthTokenScript(from token: String) -> String {
-        "document.head.setAttribute('data-klaviyo-jwt', '\(token)');"
+        "document.head.setAttribute('\(Self.authTokenAttributeName)', '\(token)');"
     }
 
     @MainActor
@@ -282,6 +290,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
         let authTokenScript = createAuthTokenScript(from: token)
+        authToken = token
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
         do {
             _ = try await delegate?.evaluateJavaScript(authTokenScript)
             if #available(iOS 14.0, *) {
@@ -296,9 +307,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     func clearAuthToken() async {
+        authToken = nil
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
         do {
             _ = try await delegate?.evaluateJavaScript(
-                "document.head.removeAttribute('data-klaviyo-jwt');"
+                "document.head.removeAttribute('\(Self.authTokenAttributeName)');"
             )
         } catch {
             if #available(iOS 14.0, *) {
