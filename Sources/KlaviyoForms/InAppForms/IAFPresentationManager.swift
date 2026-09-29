@@ -28,7 +28,7 @@ class IAFPresentationManager {
     private var profileEventsTask: Task<Void, Error>?
 
     var viewController: KlaviyoWebViewController?
-    private var viewModel: IAFWebViewModel?
+    private(set) var viewModel: IAFWebViewModel?
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
@@ -36,6 +36,7 @@ class IAFPresentationManager {
     private var formEventTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
+    private var webViewBuildGeneration: UInt = 0
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -126,11 +127,24 @@ class IAFPresentationManager {
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = IdentityStore.shared.current
+    /// Builds the webview and starts listening for form events. If a newer call begins while
+    /// this one is fetching the auth token, this call is dropped.
+    /// - Returns: `true` if the webview was created, `false` if a newer call superseded this one.
+    @discardableResult
+    func createFormWebViewAndListen(apiKey: String) async throws -> Bool {
+        webViewBuildGeneration &+= 1
+        let generation = webViewBuildGeneration
         let authToken = await fetchAuthTokenBestEffort()
+        guard generation == webViewBuildGeneration else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Superseded by a newer webview build; skipping")
+            }
+            return false
+        }
+        let profileData = IdentityStore.shared.current
         createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
         setupFormLifecycleListener()
+        return true
     }
 
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
@@ -364,8 +378,9 @@ class IAFPresentationManager {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
                 }
-                try await self.createFormWebViewAndListen(apiKey: apiKey)
-                startLifecycleObservation()
+                if try await self.createFormWebViewAndListen(apiKey: apiKey) {
+                    startLifecycleObservation()
+                }
             }
         }
     }
@@ -382,8 +397,9 @@ class IAFPresentationManager {
         profileEventsTask = nil
 
         do {
-            try await createFormWebViewAndListen(apiKey: apiKey)
-            startLifecycleObservation()
+            if try await createFormWebViewAndListen(apiKey: apiKey) {
+                startLifecycleObservation()
+            }
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
