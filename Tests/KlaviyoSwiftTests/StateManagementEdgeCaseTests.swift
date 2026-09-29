@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import AnyCodable
+import Combine
 import Foundation
 import KlaviyoCore
 import XCTest
@@ -254,6 +255,29 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
         await store.send(.completeCompanyChange("new-api-key"))
         await store.receive(.flushQueue)
+    }
+
+    @MainActor
+    func testCompanyChangeDoesNotRepeatForegroundBadgeHandling() async {
+        let badgeSettingsReads = AsyncCallCounter()
+        environment.getBadgeAutoClearingSetting = {
+            await badgeSettingsReads.increment()
+            return true
+        }
+        environment.timer = { _ in Empty<Date, Never>().eraseToAnyPublisher() }
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.pushTokenData = nil
+        initialState.initalizationState = .changingCompany("new-api-key")
+        initialState.isRunning = true
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        await store.send(.completeCompanyChange("new-api-key"))
+        await store.receive(.flushQueue)
+        await store.finish()
+
+        let reads = await badgeSettingsReads.value()
+        XCTAssertEqual(reads, 0)
     }
 
     // MARK: - Send Request
@@ -1012,5 +1036,17 @@ class StateManagementEdgeCaseTests: XCTestCase {
 extension Event.EventName: CaseIterable {
     public static var allCases: [KlaviyoSwift.Event.EventName] {
         [._openedPush, .openedAppMetric, .viewedProductMetric, .addedToCartMetric, .startedCheckoutMetric, .customEvent("someEvent")]
+    }
+}
+
+private actor AsyncCallCounter {
+    private var count = 0
+
+    func increment() {
+        count += 1
+    }
+
+    func value() -> Int {
+        count
     }
 }
