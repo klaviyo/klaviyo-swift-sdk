@@ -13,6 +13,7 @@
     ▿ phoneNumber: Optional<String>
       - some: "phoneNumber"
   - initalizationState: InitializationState.initialized
+  - pendingCompanyApiKey: Optional<String>.none
   - pendingProfile: Optional<Dictionary<ProfileKey, AnyEncodable>>.none
   - pendingRequests: 0 elements
   ▿ pushTokenData: Optional<PushTokenData>

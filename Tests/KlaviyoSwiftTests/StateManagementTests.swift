@@ -61,16 +61,22 @@ class StateManagementTests: XCTestCase {
     func testInitializeSubscribesToAppropriatePublishers() async throws {
         let lifecycleExpectation = XCTestExpectation(description: "lifecycle is subscribed")
         let stateChangeIsSubscribed = XCTestExpectation(description: "state change is subscribed")
+        lifecycleExpectation.assertForOverFulfill = false
+        stateChangeIsSubscribed.assertForOverFulfill = false
         let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        var lifecycleSubscriptions = 0
         environment.appLifeCycle.lifeCycleEvents = {
             lifecycleSubject.handleEvents(receiveSubscription: { _ in
+                lifecycleSubscriptions += 1
                 lifecycleExpectation.fulfill()
             })
             .eraseToAnyPublisher()
         }
         let stateChangeSubject = PassthroughSubject<KlaviyoAction, Never>()
+        var stateChangeSubscriptions = 0
         klaviyoSwiftEnvironment.stateChangePublisher = {
             stateChangeSubject.handleEvents(receiveSubscription: { _ in
+                stateChangeSubscriptions += 1
                 stateChangeIsSubscribed.fulfill()
             })
             .eraseToAnyPublisher()
@@ -86,6 +92,13 @@ class StateManagementTests: XCTestCase {
         lifecycleSubject.send(completion: .finished)
 
         await fulfillment(of: [stateChangeIsSubscribed, lifecycleExpectation])
+        let lifecycleCountBeforeSwitch = lifecycleSubscriptions
+        let stateChangeCountBeforeSwitch = stateChangeSubscriptions
+
+        _ = await store.send(.initialize("other-key"))
+        await store.receive(.completeCompanyAuthClear)
+        XCTAssertEqual(lifecycleSubscriptions, lifecycleCountBeforeSwitch)
+        XCTAssertEqual(stateChangeSubscriptions, stateChangeCountBeforeSwitch)
     }
 
     // MARK: - Set Email

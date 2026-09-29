@@ -54,6 +54,8 @@ enum KlaviyoAction: Equatable {
     /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
     case completeInitialization(KlaviyoState)
 
+    case completeCompanyAuthClear
+
     /// if initialized, set the email else queue it up
     case setEmail(String)
 
@@ -137,7 +139,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .enqueueSubscription, .resetProfile, .resetStateAndDequeue, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
+        case .cancelInFlightRequests, .completeCompanyAuthClear, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .setAutomaticPushToken, .start, .stop, .trackingLinkReceived, .trackingLinkResolutionFailed:
             return false
         }
     }
@@ -163,19 +165,17 @@ struct KlaviyoReducer: ReducerProtocol {
                 guard apiKey != state.apiKey else {
                     return .none
                 }
-                // Since we are moving the token to a new company lets remove the token from the old company first.
-                if let apiKey = state.apiKey,
-                   let anonymousId = state.anonymousId,
-                   let tokenData = state.pushTokenData {
-                    let request = state.buildUnregisterRequest(
-                        apiKey: apiKey,
-                        anonymousId: anonymousId,
-                        pushToken: tokenData.pushToken
-                    )
-                    state.enqueueRequest(request: request)
+                state.initalizationState = .initializing
+                state.pendingCompanyApiKey = apiKey
+                return .run { send in
+                    await AuthTokenManager.shared.clearTokenState()
+                    await send(.completeCompanyAuthClear)
                 }
-                state.apiKey = apiKey
-                state.reset()
+            }
+            if case .initializing = state.initalizationState,
+               state.pendingCompanyApiKey != nil {
+                state.pendingCompanyApiKey = apiKey
+                return .none
             }
             guard case .uninitialized = state.initalizationState else {
                 return .none
@@ -186,6 +186,29 @@ struct KlaviyoReducer: ReducerProtocol {
                 let initialState = loadKlaviyoStateFromDisk(apiKey: apiKey)
                 await send(.completeInitialization(initialState))
             }
+
+        case .completeCompanyAuthClear:
+            guard case .initializing = state.initalizationState,
+                  let apiKey = state.pendingCompanyApiKey else {
+                return .none
+            }
+            if let previousKey = state.apiKey,
+               let anonymousId = state.anonymousId,
+               let tokenData = state.pushTokenData {
+                let request = state.buildUnregisterRequest(
+                    apiKey: previousKey,
+                    anonymousId: anonymousId,
+                    pushToken: tokenData.pushToken
+                )
+                state.enqueueRequest(request: request)
+            }
+            state.apiKey = apiKey
+            state.reset()
+            state.initalizationState = .initialized
+            state.pendingCompanyApiKey = nil
+            let pendingRequests = state.pendingRequests
+            state.pendingRequests = []
+            return replayPendingRequests(pendingRequests)
 
         case var .completeInitialization(initialState):
             guard case .initializing = state.initalizationState else {
@@ -210,33 +233,10 @@ struct KlaviyoReducer: ReducerProtocol {
 
             state.pendingRequests = []
 
-            return .run { send in
-                for request in pendingRequests {
-                    switch request {
-                    case let .event(event):
-                        await send(.enqueueEvent(event))
-                    case let .aggregateEvent(payload):
-                        await send(.enqueueAggregateEvent(payload))
-                    case let .profile(profile):
-                        await send(.enqueueProfile(profile))
-                    case let .pushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .automaticPushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .setEmail(email):
-                        await send(.setEmail(email))
-                    case let .setExternalId(externalId):
-                        await send(.setExternalId(externalId))
-                    case let .setPhoneNumber(phoneNumber):
-                        await send(.setPhoneNumber(phoneNumber))
-                    case let .subscription(subscription):
-                        await send(.enqueueSubscription(subscription))
-                    }
-                }
-                await send(.start)
-            }
-            .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
-            .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
+            return replayPendingRequests(pendingRequests)
+                .concatenate(with: .task { .start })
+                .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
+                .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
@@ -733,6 +733,33 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+        }
+    }
+
+    private func replayPendingRequests(_ pendingRequests: [KlaviyoState.PendingRequest]) -> EffectTask<KlaviyoAction> {
+        .run { send in
+            for request in pendingRequests {
+                switch request {
+                case let .event(event):
+                    await send(.enqueueEvent(event))
+                case let .aggregateEvent(payload):
+                    await send(.enqueueAggregateEvent(payload))
+                case let .profile(profile):
+                    await send(.enqueueProfile(profile))
+                case let .pushToken(token, enablement):
+                    await send(.setPushToken(token, enablement))
+                case let .automaticPushToken(token, enablement):
+                    await send(.setPushToken(token, enablement))
+                case let .setEmail(email):
+                    await send(.setEmail(email))
+                case let .setExternalId(externalId):
+                    await send(.setExternalId(externalId))
+                case let .setPhoneNumber(phoneNumber):
+                    await send(.setPhoneNumber(phoneNumber))
+                case let .subscription(subscription):
+                    await send(.enqueueSubscription(subscription))
+                }
+            }
         }
     }
 }

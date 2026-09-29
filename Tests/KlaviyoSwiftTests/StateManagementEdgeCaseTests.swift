@@ -50,19 +50,35 @@ class StateManagementEdgeCaseTests: XCTestCase {
 
     @MainActor
     func testInitializeAfterInitialized() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
-        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
-
-        // Using the same key shouldn't do much
-        _ = await store.send(.initialize(initialState.apiKey!))
-
+        var initialState = INITIALIZED_TEST_STATE()
+        let originalKey = try XCTUnwrap(initialState.apiKey)
+        let anonymousId = try XCTUnwrap(initialState.anonymousId)
+        let tokenData = try XCTUnwrap(initialState.pushTokenData)
+        let unregisterRequest = initialState.buildUnregisterRequest(
+            apiKey: originalKey,
+            anonymousId: anonymousId,
+            pushToken: tokenData.pushToken
+        )
         let newApiKey = "new-api-key"
-        // Using a new key should update the key and generate two requests
+        let registerRequest = initialState.buildTokenRequest(
+            apiKey: newApiKey,
+            anonymousId: anonymousId,
+            pushToken: tokenData.pushToken,
+            enablement: tokenData.pushEnablement
+        )
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+        store.exhaustivity = .off
+
+        _ = await store.send(.initialize(originalKey))
+
         _ = await store.send(.initialize(newApiKey)) {
-            $0.queue = [$0.buildUnregisterRequest(apiKey: $0.apiKey!, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken),
-                        $0.buildTokenRequest(apiKey: newApiKey, anonymousId: $0.anonymousId!, pushToken: $0.pushTokenData!.pushToken, enablement: $0.pushTokenData!.pushEnablement)]
-            $0.apiKey = newApiKey
+            $0.initalizationState = .initializing
+            $0.pendingCompanyApiKey = newApiKey
         }
+        await store.receive(.completeCompanyAuthClear)
+
+        XCTAssertEqual(store.state.apiKey, newApiKey)
+        XCTAssertEqual(store.state.queue.map(\.endpoint), [unregisterRequest.endpoint, registerRequest.endpoint])
     }
 
     // MARK: - Send Request
