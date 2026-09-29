@@ -57,8 +57,9 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
     }
 
     @discardableResult
-    package func waitForPendingCommands() async -> UInt64? {
+    package func waitForPendingCommands(onSnapshot: @Sendable () -> Void = {}) async -> UInt64? {
         let (pending, snapshotRevision) = pendingCommand()
+        onSnapshot()
         await pending?.value
         return revision == snapshotRevision ? snapshotRevision : nil
     }

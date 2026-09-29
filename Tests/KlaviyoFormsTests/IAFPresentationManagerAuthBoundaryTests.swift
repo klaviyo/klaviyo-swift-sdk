@@ -162,8 +162,9 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         sdk.registerAuthTokenProvider { tokenB }
         let bootstrap = Task {
             try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123") {
-                bootstrapEntered.fulfill()
-                return await AuthTokenCommandQueue.shared.waitForPendingCommands()
+                await AuthTokenCommandQueue.shared.waitForPendingCommands {
+                    bootstrapEntered.fulfill()
+                }
             }
         }
         await fulfillment(of: [bootstrapEntered], timeout: 2)

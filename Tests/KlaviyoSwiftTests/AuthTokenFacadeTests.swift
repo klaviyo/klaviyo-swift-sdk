@@ -78,8 +78,9 @@ final class AuthTokenFacadeTests: XCTestCase {
 
     func testGenericDispatchDoesNotWaitForLongLivedEffect() async {
         let originalSend = klaviyoSwiftEnvironment.send
+        let effectGate = DispatchEffectGate()
         let effect = Task {
-            _ = try? await Task.sleep(nanoseconds: 1_000_000_000)
+            await effectGate.wait()
         }
         defer {
             effect.cancel()
@@ -98,7 +99,9 @@ final class AuthTokenFacadeTests: XCTestCase {
             await dispatch.value
             completion.fulfill()
         }
-        await fulfillment(of: [sendObserved, completion], timeout: 0.3)
+        await fulfillment(of: [sendObserved, completion], timeout: 2)
+        await effectGate.open()
+        await effect.value
     }
 
     private func makeJWT(subject: String) throws -> String {
@@ -118,6 +121,22 @@ final class AuthTokenFacadeTests: XCTestCase {
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+private actor DispatchEffectGate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
     }
 }
 
