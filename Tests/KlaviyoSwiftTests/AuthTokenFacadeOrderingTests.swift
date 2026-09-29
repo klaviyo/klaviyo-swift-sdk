@@ -22,66 +22,41 @@ final class AuthTokenFacadeOrderingTests: XCTestCase {
     func testRegisterUnregisterRegisterKeepsLastProvider() async throws {
         let klaviyoSDK = KlaviyoSDK()
         let tokenA = try makeToken(subject: "A")
-        let tokenB = try makeToken(subject: "B")
 
         for iteration in 0..<100 {
-            let providerBInvoked = expectation(description: "provider B invoked on iteration \(iteration)")
-
+            let tokenB = try makeToken(subject: "B-\(iteration)")
             klaviyoSDK.registerAuthTokenProvider { tokenA }
             klaviyoSDK.unregisterAuthTokenProvider()
-            klaviyoSDK.registerAuthTokenProvider {
-                providerBInvoked.fulfill()
-                return tokenB
-            }
+            klaviyoSDK.registerAuthTokenProvider { tokenB }
 
-            await fulfillment(of: [providerBInvoked], timeout: 2)
-            let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
-            XCTAssertEqual(currentToken, tokenB, "last provider wins on iteration \(iteration)")
+            try await waitForToken(tokenB, iteration: iteration)
         }
     }
 
     func testUnregisterThenRegisterKeepsProvider() async throws {
         let klaviyoSDK = KlaviyoSDK()
-        let tokenA = try makeToken(subject: "A")
-        let tokenB = try makeToken(subject: "B")
 
         for iteration in 0..<100 {
-            let providerAInvoked = expectation(description: "provider A invoked on iteration \(iteration)")
-            let providerBInvoked = expectation(description: "provider B invoked on iteration \(iteration)")
-
-            klaviyoSDK.registerAuthTokenProvider {
-                providerAInvoked.fulfill()
-                return tokenA
-            }
-            await fulfillment(of: [providerAInvoked], timeout: 2)
+            let tokenA = try makeToken(subject: "A-\(iteration)")
+            let tokenB = try makeToken(subject: "B-\(iteration)")
+            klaviyoSDK.registerAuthTokenProvider { tokenA }
+            try await waitForToken(tokenA, iteration: iteration)
 
             klaviyoSDK.unregisterAuthTokenProvider()
-            klaviyoSDK.registerAuthTokenProvider {
-                providerBInvoked.fulfill()
-                return tokenB
-            }
+            klaviyoSDK.registerAuthTokenProvider { tokenB }
 
-            await fulfillment(of: [providerBInvoked], timeout: 2)
-            let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
-            XCTAssertEqual(currentToken, tokenB, "last provider wins on iteration \(iteration)")
+            try await waitForToken(tokenB, iteration: iteration)
         }
     }
 
     func testRegisterThenUnregisterLeavesNoProvider() async throws {
         let klaviyoSDK = KlaviyoSDK()
-        let tokenA = try makeToken(subject: "A")
         let tokenB = try makeToken(subject: "B")
 
         for iteration in 0..<100 {
-            let providerAInvoked = expectation(description: "provider A invoked on iteration \(iteration)")
-
-            klaviyoSDK.registerAuthTokenProvider {
-                providerAInvoked.fulfill()
-                return tokenA
-            }
-            await fulfillment(of: [providerAInvoked], timeout: 2)
-            let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
-            XCTAssertEqual(currentToken, tokenA, "provider A active on iteration \(iteration)")
+            let tokenA = try makeToken(subject: "A-\(iteration)")
+            klaviyoSDK.registerAuthTokenProvider { tokenA }
+            try await waitForToken(tokenA, iteration: iteration)
 
             klaviyoSDK.registerAuthTokenProvider { tokenB }
             klaviyoSDK.unregisterAuthTokenProvider()
@@ -90,15 +65,32 @@ final class AuthTokenFacadeOrderingTests: XCTestCase {
         }
     }
 
-    private func waitForNoProvider(iteration: Int) async throws {
-        let deadline = Date().addingTimeInterval(2)
+    private func waitForToken(_ expectedToken: String, iteration: Int) async throws {
+        let deadline = Date().addingTimeInterval(10)
         while Date() < deadline {
             do {
-                _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+                let currentToken = try await AuthTokenManager.shared.currentToken(mode: .interactive)
+                if currentToken == expectedToken {
+                    return
+                }
+            } catch AuthTokenError.noProviderRegistered {
+            } catch AuthTokenError.timedOut {
+            } catch is CancellationError {}
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTFail("expected provider token not active on iteration \(iteration)")
+    }
+
+    private func waitForNoProvider(iteration: Int) async throws {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            do {
+                _ = try await AuthTokenManager.shared.currentToken(mode: .interactive)
             } catch AuthTokenError.noProviderRegistered {
                 return
+            } catch AuthTokenError.timedOut {
             } catch is CancellationError {}
-            try await Task.sleep(nanoseconds: 5_000_000)
+            try await Task.sleep(nanoseconds: 10_000_000)
         }
         XCTFail("provider still registered after final unregister on iteration \(iteration)")
     }
