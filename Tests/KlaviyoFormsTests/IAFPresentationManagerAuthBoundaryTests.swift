@@ -44,16 +44,20 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         await providerEntered.wait()
 
         let started = ProcessInfo.processInfo.systemUptime
+        var bootstrapElapsed: TimeInterval?
         do {
-            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(
+                apiKey: "abc123",
+                startLifecycleListener: false,
+                onBootstrapResolved: { bootstrapElapsed = ProcessInfo.processInfo.systemUptime - started }
+            )
         } catch {
             await releaseProvider.open()
             throw error
         }
-        let elapsed = ProcessInfo.processInfo.systemUptime - started
         await releaseProvider.open()
 
-        XCTAssertLessThan(elapsed, 1.2)
+        XCTAssertLessThan(try XCTUnwrap(bootstrapElapsed), 1.2)
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
     }
 
@@ -70,9 +74,13 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         }
 
         let started = ProcessInfo.processInfo.systemUptime
-        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
-        let elapsed = ProcessInfo.processInfo.systemUptime - started
-        XCTAssertLessThan(elapsed, 0.8)
+        var bootstrapElapsed: TimeInterval?
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(
+            apiKey: "abc123",
+            startLifecycleListener: false,
+            onBootstrapResolved: { bootstrapElapsed = ProcessInfo.processInfo.systemUptime - started }
+        )
+        XCTAssertLessThan(try XCTUnwrap(bootstrapElapsed), 0.8)
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
 
         await releaseProvider.open()
@@ -109,9 +117,13 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenStateAfter(reset))
 
         let started = ProcessInfo.processInfo.systemUptime
-        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
-        let elapsed = ProcessInfo.processInfo.systemUptime - started
-        XCTAssertLessThan(elapsed, 0.8)
+        var bootstrapElapsed: TimeInterval?
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(
+            apiKey: "abc123",
+            startLifecycleListener: false,
+            onBootstrapResolved: { bootstrapElapsed = ProcessInfo.processInfo.systemUptime - started }
+        )
+        XCTAssertLessThan(try XCTUnwrap(bootstrapElapsed), 0.8)
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("a@example.com") })
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains("b@example.com") })
 
@@ -161,7 +173,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         await fulfillment(of: [resetEntered], timeout: 2)
         sdk.registerAuthTokenProvider { tokenB }
         let bootstrap = Task {
-            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123") {
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false) {
                 await AuthTokenCommandQueue.shared.waitForPendingCommands {
                     bootstrapEntered.fulfill()
                 }
@@ -205,7 +217,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         }
         KlaviyoInternal.resetProfileDataSubject()
         let bootstrap = Task {
-            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false)
         }
         await fulfillment(of: [profileFetchObserved], timeout: 2)
 
@@ -230,7 +242,7 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         let token = try makeFormsJWT(subject: "old")
         await AuthTokenManager.shared.registerProvider { token }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
-        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false)
         let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
         await command.value
 

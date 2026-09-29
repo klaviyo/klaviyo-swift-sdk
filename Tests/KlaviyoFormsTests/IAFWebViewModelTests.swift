@@ -492,6 +492,15 @@ final class IAFWebViewModelTests: XCTestCase {
             apiKey: "abc123",
             profileData: ProfileData(email: "a@example.com", anonymousId: "anon-a")
         )
+        let profileUpdated = expectation(description: "profile load script updated")
+        profileUpdated.assertForOverFulfill = false
+        let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        delegate.onRefreshLoadScripts = {
+            if viewModel.profileData?.email == "b@example.com" {
+                profileUpdated.fulfill()
+            }
+        }
+        viewModel.delegate = delegate
         stateSubject.send(KlaviyoState(
             apiKey: "abc123",
             email: "b@example.com",
@@ -499,11 +508,7 @@ final class IAFWebViewModelTests: XCTestCase {
             queue: [],
             initalizationState: .initialized
         ))
-        try await withTimeout(seconds: 2) {
-            while viewModel.profileData?.email != "b@example.com" {
-                await Task.yield()
-            }
-        }
+        await fulfillment(of: [profileUpdated], timeout: 10)
 
         XCTAssertNotNil(viewModel.findScript(containing: "b@example.com"))
         XCTAssertNil(viewModel.findScript(containing: "a@example.com"))

@@ -144,6 +144,8 @@ class IAFPresentationManager {
 
     func createFormWebViewAndListen(
         apiKey: String,
+        startLifecycleListener: Bool = true,
+        onBootstrapResolved: @MainActor () -> Void = {},
         waitForPendingCommands: @escaping @Sendable () async -> UInt64? = {
             await AuthTokenCommandQueue.shared.waitForPendingCommands()
         }
@@ -165,12 +167,14 @@ class IAFPresentationManager {
                 if ProcessInfo.processInfo.systemUptime >= deadline { break }
                 continue
             }
+            onBootstrapResolved()
             createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken, authRevision: completedRevision)
-            setupFormLifecycleListener()
+            if startLifecycleListener { setupFormLifecycleListener() }
             return
         }
+        onBootstrapResolved()
         createFormWebView(apiKey: apiKey, profileData: nil, authToken: nil)
-        setupFormLifecycleListener()
+        if startLifecycleListener { setupFormLifecycleListener() }
     }
 
     private func awaitBeforeDeadline<Value: Sendable>(
