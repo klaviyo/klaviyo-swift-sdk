@@ -34,6 +34,11 @@ extension KlaviyoSDK {
     /// warm the cache. Calling again later replaces the previously registered
     /// provider.
     ///
+    /// Register and unregister calls are applied in the order they are made,
+    /// so the last call always determines the provider in effect. Ordering is
+    /// guaranteed for calls made from the same thread, or otherwise ordered by
+    /// the caller. Calls take effect asynchronously, shortly after they return.
+    ///
     /// The SDK does not surface acquisition errors to the host — failures are
     /// observable only via OSLog (subsystem
     /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`, and only
@@ -54,6 +59,11 @@ extension KlaviyoSDK {
     /// in-flight fetch is cancelled. After this call, personalized in-app forms
     /// have no token available until a new provider is registered via
     /// ``registerAuthTokenProvider(_:)``.
+    ///
+    /// Applied in call order relative to ``registerAuthTokenProvider(_:)``, so
+    /// unregistering and then registering again leaves the new provider active.
+    /// Unlike Android, where these calls apply synchronously, iOS applies them
+    /// asynchronously in call order.
     public func unregisterAuthTokenProvider() {
         AuthTokenProviderSequencer.enqueue {
             await AuthTokenManager.shared.unregisterProvider()
