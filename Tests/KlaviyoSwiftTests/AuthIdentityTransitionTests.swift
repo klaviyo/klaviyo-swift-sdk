@@ -42,4 +42,36 @@ final class AuthIdentityTransitionTests: XCTestCase {
             await AuthTokenCommandQueue.shared.waitForPendingCommands()
         }
     }
+
+    @MainActor
+    func testDirectIdentifierSettersUseTheSameAuthContinuityRule() async {
+        environment = KlaviyoEnvironment.test()
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
+
+        let transitions: [(String, String?, String?, KlaviyoAction, Bool)] = [
+            ("identify anonymous profile", nil, nil, .setEmail("a@example.com"), true),
+            ("replace email", "a@example.com", nil, .setEmail("b@example.com"), true),
+            ("add external ID with matching email", "a@example.com", nil, .setExternalId("external-a"), false),
+            ("replace external ID despite matching email", "a@example.com", "external-a", .setExternalId("external-b"), true),
+            ("keep same email", "a@example.com", nil, .setEmail("a@example.com"), false),
+            ("ignore blank identifier", "a@example.com", nil, .setPhoneNumber("  "), false)
+        ]
+
+        for (name, email, externalId, action, shouldInvalidate) in transitions {
+            var state = KlaviyoState(
+                apiKey: "company",
+                email: email,
+                anonymousId: "anonymous",
+                externalId: externalId,
+                queue: [],
+                initalizationState: .initialized
+            )
+            let revision = AuthTokenCommandQueue.shared.revision
+
+            _ = KlaviyoReducer().reduce(into: &state, action: action)
+
+            XCTAssertEqual(AuthTokenCommandQueue.shared.revision - revision, shouldInvalidate ? 1 : 0, name)
+            await AuthTokenCommandQueue.shared.waitForPendingCommands()
+        }
+    }
 }

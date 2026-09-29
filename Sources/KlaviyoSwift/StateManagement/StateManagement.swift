@@ -307,7 +307,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setEmail(email))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updateEmail(email: email)
+            invalidateAuthIfIdentityChanged(from: previousIdentity, to: identity(in: state))
             return .none
 
         case let .setPhoneNumber(phoneNumber):
@@ -315,7 +317,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setPhoneNumber(phoneNumber))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updatePhoneNumber(phoneNumber: phoneNumber)
+            invalidateAuthIfIdentityChanged(from: previousIdentity, to: identity(in: state))
             return .none
 
         case let .setExternalId(externalId):
@@ -323,7 +327,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setExternalId(externalId))
                 return .none
             }
+            let previousIdentity = identity(in: state)
             state.updateExternalId(externalId: externalId)
+            invalidateAuthIfIdentityChanged(from: previousIdentity, to: identity(in: state))
             return .none
 
         case let .setPushToken(pushToken, enablement):
@@ -595,7 +601,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let pushTokenData = state.pushTokenData
-            let currentIds = [state.email, state.phoneNumber, state.externalId]
+            let currentIds = identity(in: state)
             let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
                 // Normalize with the same trimming used by updateStateWithProfile
                 // so whitespace-padded inputs match their stored counterparts.
@@ -603,16 +609,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let identifiersChanged = currentIds != incomingIds
-            let identifierPairs = Array(zip(currentIds, incomingIds))
-            let hasMatchingIdentifier = identifierPairs.contains { current, incoming in
-                current != nil && current == incoming
-            }
-            let hasConflictingIdentifier = identifierPairs.contains { current, incoming in
-                current != nil && incoming != nil && current != incoming
-            }
-            if identifiersChanged, !hasMatchingIdentifier || hasConflictingIdentifier {
-                AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
-            }
+            invalidateAuthIfIdentityChanged(from: currentIds, to: incomingIds)
 
             // Only reset if the incoming profile has different identifiers.
             // Anonymous ID is the lowest-order identifier, so there's no reason
@@ -934,6 +931,24 @@ struct KlaviyoReducer: ReducerProtocol {
                 await transition.waitForAuthClear()
                 await send(.completeProfileReset)
             })
+    }
+
+    private func identity(in state: KlaviyoState) -> [String?] {
+        [state.email, state.phoneNumber, state.externalId]
+    }
+
+    private func invalidateAuthIfIdentityChanged(from current: [String?], to incoming: [String?]) {
+        guard current != incoming else { return }
+        let pairs = Array(zip(current, incoming))
+        let hasMatchingIdentifier = pairs.contains { previous, next in
+            previous != nil && previous == next
+        }
+        let hasConflictingIdentifier = pairs.contains { previous, next in
+            previous != nil && next != nil && previous != next
+        }
+        if !hasMatchingIdentifier || hasConflictingIdentifier {
+            AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        }
     }
 }
 
