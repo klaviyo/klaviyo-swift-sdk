@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwift
 import Foundation
+import KlaviyoCore
 import XCTest
 
 class KlaviyoModelsTest: XCTestCase {
@@ -30,7 +31,7 @@ class KlaviyoModelsTest: XCTestCase {
             properties: ["order amount": "a lot of money"]
         )
         let anonymousId = "C10H15N"
-        let apiProfile = profile.toAPIModel(anonymousId: anonymousId)
+        let apiProfile = ProfilePayload(profile, anonymousId: anonymousId)
 
         XCTAssertEqual(apiProfile.attributes.email, profile.email)
         XCTAssertEqual(apiProfile.attributes.phoneNumber, profile.phoneNumber)
@@ -59,7 +60,8 @@ class KlaviyoModelsTest: XCTestCase {
             lastName: "White"
         )
         let anonymousId = "C10H15N"
-        let apiProfile = profile.toAPIModel(
+        let apiProfile = ProfilePayload(
+            profile,
             email: "walter.white@breakingbad.com",
             phoneNumber: "1800-better-call-saul",
             externalId: "999",
@@ -85,8 +87,10 @@ class KlaviyoModelsTest: XCTestCase {
             lastName: "White"
         )
         let anonymousId = "C10H15N"
-        let apiProfile = profile.toAPIModel(
-            anonymousId: anonymousId)
+        let apiProfile = ProfilePayload(
+            profile,
+            anonymousId: anonymousId
+        )
 
         XCTAssertNil(apiProfile.attributes.email)
         XCTAssertNil(apiProfile.attributes.phoneNumber)
@@ -105,7 +109,8 @@ class KlaviyoModelsTest: XCTestCase {
             lastName: "White"
         )
         let anonymousId = "C10H15N"
-        let apiProfile = profile.toAPIModel(
+        let apiProfile = ProfilePayload(
+            profile,
             email: "test@blob.com    ",
             phoneNumber: "+12345678901    ",
             externalId: "a       ",

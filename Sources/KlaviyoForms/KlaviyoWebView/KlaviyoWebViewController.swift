@@ -328,8 +328,6 @@ private class ScriptDelegateWrapper: NSObject, WKScriptMessageHandler {
 
 #if DEBUG
 
-@testable import KlaviyoSwift
-
 func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewController {
     let viewController = KlaviyoWebViewController(viewModel: viewModel)
 
@@ -356,7 +354,9 @@ func createKlaviyoWebPreview(viewModel: KlaviyoWebViewModeling) -> UIViewControl
 @available(iOS 17.0, *)
 #Preview("Klaviyo Form") {
     let apiKey = "" // ⬅️ use a company ID that has a live form
-    _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
+    // Seed the canonical Core config store directly instead of booting the KlaviyoSwift
+    // analytics engine — keeps KlaviyoForms free of a KlaviyoSwift import.
+    SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
     let indexHtmlFileUrl = try! ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
     let viewModel = IAFWebViewModel(url: indexHtmlFileUrl, apiKey: apiKey, profileData: nil)
     return createKlaviyoWebPreview(viewModel: viewModel)

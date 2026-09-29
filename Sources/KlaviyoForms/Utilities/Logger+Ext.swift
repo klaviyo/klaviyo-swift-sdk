@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 1/28/25.
 //
 
+import KlaviyoCore
 import OSLog
 
 @available(iOS 14.0, *)
@@ -21,13 +22,19 @@ extension Logger {
 @available(iOS 14.0, *)
 extension Logger {
     /// Logger for Javascript console log messages from a WKWebView relayed to the native layer.
-    static let webViewConsoleLogger = Logger(category: "WKWebView Console Log Relay")
+    static var webViewConsoleLogger: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "WKWebView Console Log Relay") : Logger(OSLog.disabled)
+    }
 
     /// Logger for WKWebView related events.
     ///
     /// - Note: Javascript console logs relayed to the native layer should be handled by the ``webViewConsoleLogger``.
-    static let webViewLogger = Logger(category: "WKWebView Event Handling")
+    static var webViewLogger: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "WKWebView Event Handling") : Logger(OSLog.disabled)
+    }
 
     /// Logger for filesystem operations.
-    static let filesystem = Logger(category: "Filesystem")
+    static var filesystem: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Filesystem") : Logger(OSLog.disabled)
+    }
 }

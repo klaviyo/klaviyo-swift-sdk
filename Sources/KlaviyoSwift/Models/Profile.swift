@@ -125,3 +125,86 @@ public struct Profile: Equatable, Codable {
         _properties = AnyCodable(properties ?? [:])
     }
 }
+
+extension Profile {
+    static func updateProfileWithProperties(
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        externalId: String? = nil,
+        dict: [Profile.ProfileKey: AnyEncodable]
+    ) -> Self {
+        var firstName: String?
+        var lastName: String?
+        var address1: String?
+        var address2: String?
+        var title: String?
+        var organization: String?
+        var city: String?
+        var region: String?
+        var country: String?
+        var zip: String?
+        var image: String?
+        var latitude: Double?
+        var longitude: Double?
+        var customProperties: [String: Any] = [:]
+
+        for (key, value) in dict {
+            switch key {
+            case .firstName:
+                firstName = value.value as? String
+            case .lastName:
+                lastName = value.value as? String
+            case .address1:
+                address1 = value.value as? String
+            case .address2:
+                address2 = value.value as? String
+            case .title:
+                title = value.value as? String
+            case .organization:
+                organization = value.value as? String
+            case .city:
+                city = value.value as? String
+            case .region:
+                region = value.value as? String
+            case .country:
+                country = value.value as? String
+            case .zip:
+                zip = value.value as? String
+            case .image:
+                image = value.value as? String
+            case .latitude:
+                latitude = value.value as? Double
+            case .longitude:
+                longitude = value.value as? Double
+            case let .custom(customKey: customKey):
+                customProperties[customKey] = value.value
+            }
+        }
+
+        let location = Profile.Location(
+            address1: address1,
+            address2: address2,
+            city: city,
+            country: country,
+            latitude: latitude,
+            longitude: longitude,
+            region: region,
+            zip: zip
+        )
+
+        let profile = Profile(
+            email: email,
+            phoneNumber: phoneNumber,
+            externalId: externalId,
+            firstName: firstName,
+            lastName: lastName,
+            organization: organization,
+            title: title,
+            image: image,
+            location: location,
+            properties: customProperties
+        )
+
+        return profile
+    }
+}

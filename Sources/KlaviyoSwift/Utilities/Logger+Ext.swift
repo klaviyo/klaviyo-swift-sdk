@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 5/27/25.
 //
 
+import KlaviyoCore
 import OSLog
 
 @available(iOS 14.0, *)
@@ -21,14 +22,22 @@ extension Logger {
 @available(iOS 14.0, *)
 extension Logger {
     /// Logger for ``Codable`` events (JSON encoding & decoding)
-    static let codableLogger = Logger(category: "Encoding/Decoding Logger")
+    static var codableLogger: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Encoding/Decoding Logger") : Logger(OSLog.disabled)
+    }
 
     /// Logger for state events that run through the reducer
-    static let stateLogger = Logger(category: "State logger")
+    static var stateLogger: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "State logger") : Logger(OSLog.disabled)
+    }
 
     /// Logger for notification events.
-    static let notifications = Logger(category: "Notifications logger")
+    static var notifications: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Notifications logger") : Logger(OSLog.disabled)
+    }
 
     /// Logger for app navigation and deep linking events
-    static let navigation = Logger(category: "Linking and Navigation")
+    static var navigation: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Linking and Navigation") : Logger(OSLog.disabled)
+    }
 }

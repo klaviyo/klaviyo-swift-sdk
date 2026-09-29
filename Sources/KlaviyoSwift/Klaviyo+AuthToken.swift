@@ -21,8 +21,8 @@ extension KlaviyoSDK {
     ///
     /// The SDK does not surface acquisition errors to the host — failures are
     /// observable only via OSLog (subsystem
-    /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`) and via
-    /// form-display behavior.
+    /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`, and only
+    /// when SDK logging is enabled) and via form-display behavior.
     ///
     /// - Parameter provider: an `@Sendable` async closure that returns a JWT.
     public func registerAuthTokenProvider(_ provider: @escaping AuthTokenProvider) {

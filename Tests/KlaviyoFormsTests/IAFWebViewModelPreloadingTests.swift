@@ -57,42 +57,36 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
     @MainActor
     func testPreloadWebsiteTimeout() async {
-        // Given
+        // Given - the handshake arrives later than the timeout allows
         delegate.handshakeResult = .handshakeEstablished(delay: 1.0)
-        let expectation = XCTestExpectation(description: "Preloading website times out")
 
-        // When
+        // When / Then - establishHandshake must surface a timeout. The throw is
+        // awaited directly, so no separate expectation/fulfillment is needed.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch TimeoutError.timeout {
-            expectation.fulfill()
+            // expected
         } catch {
             XCTFail("Expected timeout error, but got: \(error)")
         }
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 10.0)
     }
 
     /// Tests scenario in which the delegate does nothing and emits no events after `preloadUrl()` is called.
     @MainActor
     func testPreloadWebsiteNoActionTimeout() async {
-        // Given
+        // Given - the delegate emits no events after preloadUrl()
         delegate.handshakeResult = MockIAFWebViewDelegate.HandshakeResult.none
-        let expectation = XCTestExpectation(description: "Preloading website times out")
 
-        // When
+        // When / Then - establishHandshake must surface a timeout rather than hang.
+        // The throw is awaited directly, so no separate expectation/fulfillment is needed.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
         } catch TimeoutError.timeout {
-            expectation.fulfill()
+            // expected
         } catch {
             XCTFail("Expected timeout error, but got: \(error)")
         }
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 2.0)
     }
 }
