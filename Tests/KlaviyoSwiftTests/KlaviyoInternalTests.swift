@@ -734,6 +734,57 @@ final class KlaviyoInternalTests: XCTestCase {
     }
 
     @MainActor
+    func testGeofenceEventForAbandonedCompanyIsNotReplayedUnderRetargetedCompany() async {
+        var state = KlaviyoState(
+            apiKey: "company-A",
+            anonymousId: "anonymous-A",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let reducer = KlaviyoReducer()
+        _ = reducer.reduce(into: &state, action: .initialize("company-B"))
+        klaviyoSwiftEnvironment.state = { state }
+        let eventDispatched = expectation(description: "company-B geofence event dispatched")
+        klaviyoSwiftEnvironment.send = { action in
+            _ = reducer.reduce(into: &state, action: action)
+            eventDispatched.fulfill()
+            return nil
+        }
+        let event = Event(name: .locationEvent(.geofenceEnter))
+
+        await KlaviyoInternal.createGeofenceEvent(event: event, for: "company-B")
+        await fulfillment(of: [eventDispatched], timeout: 2)
+        _ = reducer.reduce(into: &state, action: .initialize("company-A"))
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("company-A"))
+
+        XCTAssertTrue(state.queue.isEmpty)
+        XCTAssertTrue(state.pendingRequests.isEmpty)
+    }
+
+    @MainActor
+    func testGeofenceEventForCommittedCompanyReplaysWithItsOriginalAPIKey() {
+        var state = KlaviyoState(
+            apiKey: "company-A",
+            anonymousId: "anonymous-A",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let reducer = KlaviyoReducer()
+        let event = Event(name: .locationEvent(.geofenceEnter))
+
+        _ = reducer.reduce(into: &state, action: .initialize("company-B"))
+        _ = reducer.reduce(into: &state, action: .enqueueCompanyEvent(event, "company-B"))
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("company-B"))
+
+        XCTAssertEqual(state.queue.count, 1)
+        if case let .createEvent(apiKey, _) = state.queue[0].endpoint {
+            XCTAssertEqual(apiKey, "company-B")
+        } else {
+            XCTFail("Expected a geofence event for company-B")
+        }
+    }
+
+    @MainActor
     func testCreateGeofenceEvent_initializesSDKAndSendsEventWhenUninitialized() async throws {
         // Given: SDK is uninitialized
         let initialState = KlaviyoState(queue: [], initalizationState: .uninitialized)

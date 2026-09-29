@@ -109,6 +109,7 @@ enum KlaviyoAction: Equatable {
 
     /// when there is an event to be sent to klaviyo it's added to the queue
     case enqueueEvent(Event)
+    case enqueueCompanyEvent(Event, String)
 
     /// when there is an aggregate event to be sent to klaviyo it's added to the queue
     case enqueueAggregateEvent(Data)
@@ -150,7 +151,7 @@ enum KlaviyoAction: Equatable {
         case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetProfileWithQueuedAuthClear, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
-        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
+        case .cancelInFlightRequests, .completeCompanyChange, .completeInitialization, .deQueueCompletedResults, .enqueueCompanyEvent, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
             return false
         }
     }
@@ -256,6 +257,8 @@ struct KlaviyoReducer: ReducerProtocol {
                     switch request {
                     case let .event(event):
                         await send(.enqueueEvent(event))
+                    case let .companyEvent(event, apiKey):
+                        await send(.enqueueCompanyEvent(event, apiKey))
                     case let .aggregateEvent(payload):
                         await send(.enqueueAggregateEvent(payload))
                     case let .profile(profile):
@@ -497,6 +500,24 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             state.pauseSendingRequests()
             return .none
+
+        case let .enqueueCompanyEvent(event, apiKey):
+            switch state.initalizationState {
+            case .uninitialized:
+                state.pendingRequests.append(.companyEvent(event, apiKey))
+                return .none
+            case let .changingCompany(targetAPIKey):
+                guard targetAPIKey == apiKey else { return .none }
+                state.pendingRequests.append(.companyEvent(event, apiKey))
+                return .none
+            case .initializing:
+                guard state.apiKey == apiKey else { return .none }
+                state.pendingRequests.append(.companyEvent(event, apiKey))
+                return .none
+            case .initialized:
+                guard state.apiKey == apiKey else { return .none }
+                return reduce(into: &state, action: .enqueueEvent(event))
+            }
 
         case var .enqueueEvent(event):
             guard case .initialized = state.initalizationState,
@@ -825,6 +846,8 @@ struct KlaviyoReducer: ReducerProtocol {
             switch request {
             case let .event(event):
                 action = .enqueueEvent(event)
+            case let .companyEvent(event, apiKey):
+                action = .enqueueCompanyEvent(event, apiKey)
             case let .aggregateEvent(payload):
                 action = .enqueueAggregateEvent(payload)
             case let .profile(profile):

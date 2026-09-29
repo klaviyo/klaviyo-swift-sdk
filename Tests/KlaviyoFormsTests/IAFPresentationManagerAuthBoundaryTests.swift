@@ -249,13 +249,41 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         let token = try makeFormsJWT(subject: "old")
         await AuthTokenManager.shared.registerProvider { token }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
-        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false)
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false, observeTokenUpdates: false)
         let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
         await command.value
 
         await IAFPresentationManager.shared.applyTokenUpdate(.cleared)
         await IAFPresentationManager.shared.applyTokenUpdate(.token(token))
 
+        XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
+    }
+
+    func testDelayedClearAfterFreshTokenDoesNotEraseCurrentFormAuth() async throws {
+        let token = try makeFormsJWT(subject: "current")
+        await AuthTokenManager.shared.registerProvider { token }
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false, observeTokenUpdates: false)
+
+        let clear = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        await clear.value
+        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        await IAFPresentationManager.shared.applyTokenUpdate(.token(token))
+        XCTAssertTrue(try installedUserScripts().contains { $0.source.contains(token) })
+
+        await IAFPresentationManager.shared.applyTokenUpdate(.cleared)
+
+        XCTAssertTrue(try installedUserScripts().contains { $0.source.contains(token) })
+    }
+
+    func testCompanyRefreshLeavesTokenDeliveryToOrderedStream() async throws {
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123", startLifecycleListener: false, observeTokenUpdates: false)
+        let token = try makeFormsJWT(subject: "company-A")
+        await AuthTokenManager.shared.registerProvider { token }
+
+        await IAFPresentationManager.shared.refreshAuthTokenForExistingWebView(apiKey: "abc123")
+
+        let cachedToken = await AuthTokenManager.shared.cachedTokenIfValid()
+        XCTAssertEqual(cachedToken, token)
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
     }
 

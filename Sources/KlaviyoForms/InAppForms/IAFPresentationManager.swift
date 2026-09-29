@@ -145,6 +145,7 @@ class IAFPresentationManager {
     func createFormWebViewAndListen(
         apiKey: String,
         startLifecycleListener: Bool = true,
+        observeTokenUpdates: Bool = true,
         onBootstrapResolved: @MainActor () -> Void = {},
         waitForPendingCommands: @escaping @Sendable () async -> UInt64? = {
             await AuthTokenCommandQueue.shared.waitForPendingCommands()
@@ -168,12 +169,12 @@ class IAFPresentationManager {
                 continue
             }
             onBootstrapResolved()
-            createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken, authRevision: completedRevision)
+            createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken, authRevision: completedRevision, observeTokenUpdates: observeTokenUpdates)
             if startLifecycleListener { setupFormLifecycleListener() }
             return
         }
         onBootstrapResolved()
-        createFormWebView(apiKey: apiKey, profileData: nil, authToken: nil)
+        createFormWebView(apiKey: apiKey, profileData: nil, authToken: nil, observeTokenUpdates: observeTokenUpdates)
         if startLifecycleListener { setupFormLifecycleListener() }
     }
 
@@ -216,7 +217,13 @@ class IAFPresentationManager {
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?, authToken: String?, authRevision: UInt64? = nil) {
+    private func createFormWebView(
+        apiKey: String,
+        profileData: ProfileData?,
+        authToken: String?,
+        authRevision: UInt64? = nil,
+        observeTokenUpdates: Bool = true
+    ) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(
@@ -231,7 +238,7 @@ class IAFPresentationManager {
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
 
-        startTokenRefreshObservation()
+        if observeTokenUpdates { startTokenRefreshObservation() }
     }
 
     /// Subscribes to ``AuthTokenManager``'s proactive-refresh stream for the
@@ -265,6 +272,7 @@ class IAFPresentationManager {
     func applyTokenUpdate(_ update: AuthTokenUpdate) async {
         switch update {
         case .cleared:
+            guard await AuthTokenManager.shared.cachedTokenIfValid() == nil else { return }
             await viewModel?.clearAuthToken()
         case let .token(token):
             guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { return }
@@ -447,12 +455,10 @@ class IAFPresentationManager {
     }
 
     func refreshAuthTokenForExistingWebView(apiKey: String) async {
-        guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands(),
+        guard await AuthTokenCommandQueue.shared.waitForPendingCommands() != nil,
               KlaviyoInternal.isCurrentCompany(apiKey: apiKey),
-              viewModel?.apiKey == apiKey,
-              let token = try? await AuthTokenManager.shared.currentToken(mode: .background),
-              AuthTokenCommandQueue.shared.revision == revision else { return }
-        await applyTokenUpdate(.token(token))
+              viewModel?.apiKey == apiKey else { return }
+        _ = try? await AuthTokenManager.shared.currentToken(mode: .background)
     }
 
     /// Dismisses and re-initializes the In-App Form when the public API key changes.

@@ -22,6 +22,7 @@ struct KlaviyoState: Equatable, Codable {
 
     enum PendingRequest: Equatable {
         case event(Event)
+        case companyEvent(Event, String)
         case aggregateEvent(Data)
         case profile(Profile)
         case pushToken(String, PushEnablement)

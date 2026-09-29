@@ -256,11 +256,11 @@ package enum KlaviyoInternal {
         let state = klaviyoSwiftEnvironment.state()
         if case .uninitialized = state.initalizationState {
             dispatchOnMainThread(action: .initialize(apiKey))
-            dispatchOnMainThread(action: .enqueueEvent(event))
+            dispatchOnMainThread(action: .enqueueCompanyEvent(event, apiKey))
             return
         }
         guard isCurrentCompany(apiKey: apiKey) else { return }
-        dispatchOnMainThread(action: .enqueueEvent(event))
+        dispatchOnMainThread(action: .enqueueCompanyEvent(event, apiKey))
     }
 
     // MARK: - Deep link handling
