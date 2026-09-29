@@ -218,7 +218,7 @@ struct KlaviyoReducer: ReducerProtocol {
             state.initalizationState = .initialized
             let replay = replayPendingRequests(pendingRequests, into: &state)
             guard state.isRunning else { return replay }
-            let restart = replay.merge(with: startEffects(flushInterval: state.flushInterval))
+            let restart = replay.merge(with: flushTimerEffect(flushInterval: state.flushInterval))
             return state.flushInterval.isFinite
                 ? restart.merge(with: .task { .flushQueue })
                 : restart
@@ -791,11 +791,15 @@ struct KlaviyoReducer: ReducerProtocol {
                     await send(.syncBadgeCount)
                 }
             },
-            environment.timer(flushInterval)
-                .map { _ in .flushQueue }
-                .eraseToEffect()
-                .cancellable(id: FlushTimer.self, cancelInFlight: true)
+            flushTimerEffect(flushInterval: flushInterval)
         ])
+    }
+
+    private func flushTimerEffect(flushInterval: TimeInterval) -> EffectTask<KlaviyoAction> {
+        environment.timer(flushInterval)
+            .map { _ in .flushQueue }
+            .eraseToEffect()
+            .cancellable(id: FlushTimer.self, cancelInFlight: true)
     }
 
     private func replayPendingRequests(
