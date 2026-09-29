@@ -437,11 +437,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             }
         case let .trackProfileEvent(data):
+            guard KlaviyoInternal.isCurrentCompany(apiKey: apiKey) else { return }
             if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
                let metricName = jsonEventData["metric"] as? String {
                 KlaviyoSDK().create(event: Event(name: .customEvent(metricName), properties: jsonEventData))
             }
         case let .trackAggregateEvent(data):
+            guard KlaviyoInternal.isCurrentCompany(apiKey: apiKey) else { return }
             KlaviyoInternal.create(aggregateEvent: data)
         case let .openDeepLink(url, formId, formName, buttonLabel):
             if #available(iOS 14.0, *) {

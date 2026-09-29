@@ -233,6 +233,15 @@ package enum KlaviyoInternal {
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
+    @MainActor
+    package static func isCurrentCompany(apiKey: String) -> Bool {
+        let state = klaviyoSwiftEnvironment.state()
+        if case let .changingCompany(targetAPIKey) = state.initalizationState {
+            return targetAPIKey == apiKey
+        }
+        return state.apiKey == apiKey
+    }
+
     // MARK: - Geofence Event
 
     /// Send a geofence event to Klaviyo.
@@ -250,13 +259,7 @@ package enum KlaviyoInternal {
             dispatchOnMainThread(action: .enqueueEvent(event))
             return
         }
-        let currentAPIKey: String?
-        if case let .changingCompany(targetAPIKey) = state.initalizationState {
-            currentAPIKey = targetAPIKey
-        } else {
-            currentAPIKey = state.apiKey
-        }
-        guard currentAPIKey == apiKey else { return }
+        guard isCurrentCompany(apiKey: apiKey) else { return }
         dispatchOnMainThread(action: .enqueueEvent(event))
     }
 
