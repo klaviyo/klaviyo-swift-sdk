@@ -37,8 +37,6 @@ public enum RequestEnqueuer {
     /// - Pre-init + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
     /// - Pre-init + `enablePreInitDiskCapture` OFF → hold a high-priority event (push-open) OR a push
     ///   token in the non-durable `PreInitMemoryBuffer`; drop everything else with a developer warning.
-    ///   Buffering the token restores iOS 5.4.1 and intentionally diverges from Android (drops it);
-    ///   see PR #712 cleanup spec finding #5 (cross-platform sign-off pending).
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest

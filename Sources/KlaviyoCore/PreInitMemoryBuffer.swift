@@ -11,10 +11,6 @@ import Foundation
 /// high-priority events (push-opens) and the latest push token. Held only until `initialize()`
 /// drains it, lost on process death. Used only when `featureFlags.enablePreInitDiskCapture` is false.
 /// Not persisted — no disk I/O.
-///
-/// Push-opens mirror Android's in-memory `preInitQueue`. The push **token** does NOT: Android drops
-/// pre-init tokens; holding one here is an intentional iOS-only divergence that restores 5.4.1's
-/// buffer-and-register-at-init behavior (see `RequestEnqueuer.route`).
 final class PreInitMemoryBuffer {
     static let shared = PreInitMemoryBuffer()
     static let maxBufferSize = 200
