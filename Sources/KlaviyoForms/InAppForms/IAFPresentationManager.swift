@@ -142,12 +142,17 @@ class IAFPresentationManager {
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    func createFormWebViewAndListen(apiKey: String) async throws {
+    func createFormWebViewAndListen(
+        apiKey: String,
+        waitForPendingCommands: @escaping @Sendable () async -> UInt64? = {
+            await AuthTokenCommandQueue.shared.waitForPendingCommands()
+        }
+    ) async throws {
         let deadline = ProcessInfo.processInfo.systemUptime + 0.5
         while true {
             let authRevision = AuthTokenCommandQueue.shared.revision
             guard let completedRevision = await awaitBeforeDeadline(deadline, operation: {
-                await AuthTokenCommandQueue.shared.waitForPendingCommands()
+                await waitForPendingCommands()
             }),
                 completedRevision == authRevision else {
                 if ProcessInfo.processInfo.systemUptime >= deadline { break }

@@ -85,8 +85,10 @@ final class AuthTokenFacadeTests: XCTestCase {
             effect.cancel()
             klaviyoSwiftEnvironment.send = originalSend
         }
+        let sendObserved = expectation(description: "reducer send observed")
         klaviyoSwiftEnvironment.send = { action in
             guard action == .start else { return nil }
+            sendObserved.fulfill()
             return effect
         }
 
@@ -96,7 +98,7 @@ final class AuthTokenFacadeTests: XCTestCase {
             await dispatch.value
             completion.fulfill()
         }
-        await fulfillment(of: [completion], timeout: 0.3)
+        await fulfillment(of: [sendObserved, completion], timeout: 0.3)
     }
 
     private func makeJWT(subject: String) throws -> String {

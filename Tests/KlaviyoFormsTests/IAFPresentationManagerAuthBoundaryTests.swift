@@ -143,12 +143,13 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         )
         let subject = CurrentValueSubject<KlaviyoState, Never>(stateA)
         let releaseReset = FormsTestGate()
-        let resetEntered = FormsTestGate()
+        let resetEntered = expectation(description: "reset reducer action observed")
+        let bootstrapEntered = expectation(description: "bootstrap entered pending-command wait")
         klaviyoSwiftEnvironment.statePublisher = { subject.eraseToAnyPublisher() }
         klaviyoSwiftEnvironment.send = { action in
             guard action == .resetProfileWithQueuedAuthClear else { return nil }
             return Task { @MainActor in
-                await resetEntered.open()
+                resetEntered.fulfill()
                 await releaseReset.wait()
                 subject.send(stateB)
             }
@@ -157,11 +158,15 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
 
         let sdk = KlaviyoSDK()
         sdk.resetProfile()
-        await resetEntered.wait()
+        await fulfillment(of: [resetEntered], timeout: 2)
         sdk.registerAuthTokenProvider { tokenB }
         let bootstrap = Task {
-            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+            try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123") {
+                bootstrapEntered.fulfill()
+                return await AuthTokenCommandQueue.shared.waitForPendingCommands()
+            }
         }
+        await fulfillment(of: [bootstrapEntered], timeout: 2)
         await releaseReset.open()
         try await bootstrap.value
 
@@ -191,16 +196,17 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
             initalizationState: .initialized
         )
         let stateSubject = CurrentValueSubject<KlaviyoState, Never>(stateA)
-        let profileFetchObserved = FormsTestGate()
+        let profileFetchObserved = expectation(description: "profile fetch subscribed")
+        profileFetchObserved.assertForOverFulfill = false
         klaviyoSwiftEnvironment.statePublisher = {
-            Task { await profileFetchObserved.open() }
+            profileFetchObserved.fulfill()
             return stateSubject.eraseToAnyPublisher()
         }
         KlaviyoInternal.resetProfileDataSubject()
         let bootstrap = Task {
             try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
         }
-        await profileFetchObserved.wait()
+        await fulfillment(of: [profileFetchObserved], timeout: 2)
 
         stateSubject.send(KlaviyoState(
             apiKey: "abc123",
