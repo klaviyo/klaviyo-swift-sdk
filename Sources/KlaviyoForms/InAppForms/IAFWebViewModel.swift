@@ -282,7 +282,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             return
         }
 
-        if let token = try? await AuthTokenManager.shared.currentToken() {
+        if let token = try? await AuthTokenManager.shared.currentToken(mode: .background) {
             guard profileData == newProfileData else { return }
             await pushAuthToken(token)
         }

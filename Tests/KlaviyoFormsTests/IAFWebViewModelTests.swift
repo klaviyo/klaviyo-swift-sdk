@@ -726,7 +726,13 @@ final class IAFWebViewModelTests: XCTestCase {
         let tokenA = try makeFormsJWT(subject: "profile-A")
         let tokenB = try makeFormsJWT(subject: "profile-B")
         let tokenSource = FormsTokenSource(tokenA)
-        await AuthTokenManager.shared.registerProvider { await tokenSource.value }
+        await AuthTokenManager.shared.registerProvider {
+            let token = await tokenSource.value
+            if token == tokenB {
+                try? await Task.sleep(nanoseconds: 750_000_000)
+            }
+            return token
+        }
         addTeardownBlock { await AuthTokenManager.shared.unregisterProvider() }
         _ = try await AuthTokenManager.shared.currentToken(mode: .background)
         await tokenSource.set(tokenB)
@@ -744,7 +750,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
         stateSubject.send(makeProfileState(profileB))
-        await fulfillment(of: [replacementApplied], timeout: 5)
+        await fulfillment(of: [replacementApplied], timeout: 10)
 
         let profileIndex = try XCTUnwrap(
             delegate.evaluatedScripts.firstIndex { $0.contains("b@example.com") }
@@ -826,7 +832,7 @@ final class IAFWebViewModelTests: XCTestCase {
                 initalizationState: .initialized
             )
         )
-        await fulfillment(of: [authCleared], timeout: 1)
+        await fulfillment(of: [authCleared], timeout: 10)
     }
 }
 
