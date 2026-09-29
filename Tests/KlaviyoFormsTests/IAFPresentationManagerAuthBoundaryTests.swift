@@ -254,6 +254,42 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         XCTAssertFalse(try installedUserScripts().contains { $0.source.contains(token) })
     }
 
+    func testRetargetingBackToExistingCompanyRestoresFreshToken() async throws {
+        let token = try makeFormsJWT(subject: "company-A")
+        await AuthTokenManager.shared.registerProvider { token }
+        try await IAFPresentationManager.shared.createFormWebViewAndListen(apiKey: "abc123")
+        XCTAssertTrue(try installedUserScripts().contains { $0.source.contains(token) })
+
+        var state = KlaviyoState(
+            apiKey: "abc123",
+            email: "a@example.com",
+            anonymousId: "anon-a",
+            queue: [],
+            initalizationState: .initialized
+        )
+        let reducer = KlaviyoReducer()
+        _ = reducer.reduce(into: &state, action: .initialize("company-B"))
+        _ = reducer.reduce(into: &state, action: .initialize("abc123"))
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
+        _ = reducer.reduce(into: &state, action: .completeCompanyChange("abc123"))
+        let currentState = state
+        let previousState = klaviyoSwiftEnvironment.state
+        klaviyoSwiftEnvironment.state = { currentState }
+        defer { klaviyoSwiftEnvironment.state = previousState }
+
+        try await withTimeout(seconds: 2) {
+            while try self.installedUserScripts().contains(where: { $0.source.contains(token) }) {
+                await Task.yield()
+            }
+        }
+        await IAFPresentationManager.shared.refreshAuthTokenForExistingWebView(apiKey: "abc123")
+        try await withTimeout(seconds: 2) {
+            while try !self.installedUserScripts().contains(where: { $0.source.contains(token) }) {
+                await Task.yield()
+            }
+        }
+    }
+
     private func installedUserScripts() throws -> [WKUserScript] {
         let viewController = try XCTUnwrap(IAFPresentationManager.shared.viewController)
         viewController.loadViewIfNeeded()
