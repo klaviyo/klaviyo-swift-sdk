@@ -70,6 +70,50 @@ final class IAFWebViewModelTests: XCTestCase {
         super.tearDown()
     }
 
+    @MainActor
+    func testOldFormEventsAreDroppedWhileNewCompanyHostEventsAreBuffered() async {
+        var state = KlaviyoState(apiKey: "company-A", queue: [], requestsInFlight: [], initalizationState: .changingCompany("company-B"))
+        let previousState = klaviyoSwiftEnvironment.state
+        let previousSend = klaviyoSwiftEnvironment.send
+        defer {
+            klaviyoSwiftEnvironment.state = previousState
+            klaviyoSwiftEnvironment.send = previousSend
+        }
+        klaviyoSwiftEnvironment.state = { state }
+
+        let hostEventSent = expectation(description: "host event sent")
+        var actions: [KlaviyoAction] = []
+        klaviyoSwiftEnvironment.send = { action in
+            actions.append(action)
+            if case .enqueueEvent = action {
+                hostEventSent.fulfill()
+            }
+            return nil
+        }
+
+        viewModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {"type":"trackProfileEvent","data":{"metric":"Old form event"}}
+            """
+        ))
+        viewModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {"type":"trackAggregateEvent","data":{"metric_group":"signup-forms","events":[]}}
+            """
+        ))
+        KlaviyoSDK().create(event: Event(name: .customEvent("Host event")))
+
+        await fulfillment(of: [hostEventSent], timeout: 5)
+        XCTAssertEqual(actions.count, 1)
+        if case let .enqueueEvent(event) = actions[0] {
+            XCTAssertEqual(event.metric.name.value, "Host event")
+        } else {
+            XCTFail("Expected host event")
+        }
+    }
+
     // MARK: - SDK Attribute Tests
 
     @MainActor
