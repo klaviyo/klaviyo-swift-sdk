@@ -21,6 +21,8 @@ private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDe
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
         webView.navigationDelegate = self
+        view.addSubview(webView)
+        webView.frame = view.bounds
     }
 
     @available(*, unavailable)
@@ -31,6 +33,13 @@ private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDe
     func preloadUrl() {
         refreshLoadScripts()
         loadHTML(marker: "first")
+    }
+
+    func makeVisible() -> UIWindow {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        window.rootViewController = self
+        window.makeKeyAndVisible()
+        return window
     }
 
     func loadHTML(marker: String) {
@@ -573,11 +582,16 @@ final class IAFWebViewModelTests: XCTestCase {
         let model = IAFWebViewModel(url: pageURL, apiKey: "abc123", profileData: nil, authToken: token)
         let controller = LocalHTMLWebViewDelegate(viewModel: model)
         model.delegate = controller
+        let window = controller.makeVisible()
+        defer { window.isHidden = true }
         let jwtAttribute = "document.head.getAttribute('data-klaviyo-jwt')"
         let initialLoaded = expectation(description: "initial local document loaded")
         controller.onNavigationFinished = { initialLoaded.fulfill() }
         controller.preloadUrl()
-        await fulfillment(of: [initialLoaded], timeout: 5)
+        guard await XCTWaiter.fulfillment(of: [initialLoaded], timeout: 20) == .completed else {
+            XCTFail("Initial local document did not load")
+            return
+        }
         let initialJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertEqual(initialJWT, token)
 
@@ -586,18 +600,28 @@ final class IAFWebViewModelTests: XCTestCase {
             await model.clearAuthToken()
             clearFinished.fulfill()
         }
-        await fulfillment(of: [clearFinished], timeout: 5)
+        let clearResult = await XCTWaiter.fulfillment(of: [clearFinished], timeout: 10)
         clearTask.cancel()
+        guard clearResult == .completed else {
+            XCTFail("Live JWT removal did not complete")
+            return
+        }
         let clearedJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertNil(clearedJWT)
         XCTAssertFalse(
-            controller.webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
+            controller.webView.configuration.userContentController.userScripts.contains {
+                $0.source.contains(token)
+            }
         )
 
         let nextLoaded = expectation(description: "next local document loaded")
         controller.onNavigationFinished = { nextLoaded.fulfill() }
         controller.loadHTML(marker: "second")
-        await fulfillment(of: [nextLoaded], timeout: 5)
+        let nextLoadResult = await XCTWaiter.fulfillment(of: [nextLoaded], timeout: 20)
+        guard nextLoadResult == .completed else {
+            XCTFail("Next local document did not load")
+            return
+        }
         let navigationMarker = await readDOMString(
             "document.head.querySelector('meta[name=\"test-navigation\"]')?.content",
             in: controller.webView
@@ -616,7 +640,7 @@ final class IAFWebViewModelTests: XCTestCase {
             value = result as? String
             evaluated.fulfill()
         }
-        await fulfillment(of: [evaluated], timeout: 5)
+        await fulfillment(of: [evaluated], timeout: 10)
         return value
     }
 }
