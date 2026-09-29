@@ -127,10 +127,15 @@ class IAFPresentationManager {
 
     func createFormWebViewAndListen(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
-        let authRevision = AuthTokenCommandQueue.shared.revision
-        let authToken = await fetchAuthTokenBestEffort()
-        let currentToken = AuthTokenCommandQueue.shared.revision == authRevision ? authToken : nil
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: currentToken)
+        for _ in 0..<3 {
+            guard let authRevision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { continue }
+            let authToken = await fetchAuthTokenBestEffort()
+            guard AuthTokenCommandQueue.shared.revision == authRevision else { continue }
+            createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+            setupFormLifecycleListener()
+            return
+        }
+        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: nil)
         setupFormLifecycleListener()
     }
 
@@ -138,7 +143,6 @@ class IAFPresentationManager {
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
     private func fetchAuthTokenBestEffort() async -> String? {
-        await AuthTokenCommandQueue.shared.waitForPendingCommands()
         // `currentToken()` defaults to `.interactive` mode, which applies the
         // 500ms latency budget appropriate for form display. No external timeout
         // is needed here.

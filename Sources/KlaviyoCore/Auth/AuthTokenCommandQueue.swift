@@ -52,14 +52,16 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
         return task
     }
 
-    package func waitForPendingCommands() async {
-        let pending = pendingCommand()
+    @discardableResult
+    package func waitForPendingCommands() async -> UInt64? {
+        let (pending, snapshotRevision) = pendingCommand()
         await pending?.value
+        return revision == snapshotRevision ? snapshotRevision : nil
     }
 
-    private func pendingCommand() -> Task<Void, Never>? {
+    private func pendingCommand() -> (Task<Void, Never>?, UInt64) {
         lock.lock()
         defer { lock.unlock() }
-        return tail
+        return (tail, sequence)
     }
 }

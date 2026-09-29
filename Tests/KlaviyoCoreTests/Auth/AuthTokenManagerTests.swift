@@ -22,6 +22,8 @@ struct AuthTokenManagerTests {
 
         #expect(queue.revision != initialRevision)
         await command.value
+        let completedRevision = await queue.waitForPendingCommands()
+        #expect(completedRevision == queue.revision)
     }
 
     // MARK: - currentToken: provider absence
