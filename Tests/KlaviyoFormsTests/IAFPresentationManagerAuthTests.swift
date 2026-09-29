@@ -91,7 +91,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             }
             return token
         }
-        _ = try await AuthTokenManager.shared.currentToken(mode: .background)
+        try await withTimeout(seconds: 10) {
+            while await AuthTokenManager.shared.cachedTokenIfValid() != token {
+                await Task.yield()
+            }
+        }
         await AuthTokenManager.shared.clearTokenState()
         let state = KlaviyoState(
             apiKey: "abc123",
