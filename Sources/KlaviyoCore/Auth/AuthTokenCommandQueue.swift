@@ -17,6 +17,13 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
     private let manager: AuthTokenManager
     private let lock = NSLock()
     private var tail: Task<Void, Never>?
+    private var sequence: UInt64 = 0
+
+    package var revision: UInt64 {
+        lock.lock()
+        defer { lock.unlock() }
+        return sequence
+    }
 
     package init(manager: AuthTokenManager) {
         self.manager = manager
@@ -41,6 +48,7 @@ package final class AuthTokenCommandQueue: @unchecked Sendable {
             }
         }
         tail = task
+        sequence &+= 1
         return task
     }
 

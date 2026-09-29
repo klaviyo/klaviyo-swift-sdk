@@ -13,6 +13,17 @@ import Testing
 
 @Suite
 struct AuthTokenManagerTests {
+    @Test
+    func commandRevisionChangesWhenInvalidationIsEnqueued() async {
+        let queue = AuthTokenCommandQueue(manager: AuthTokenManager())
+        let initialRevision = queue.revision
+
+        let command = queue.enqueue(.unregister)
+
+        #expect(queue.revision != initialRevision)
+        await command.value
+    }
+
     // MARK: - currentToken: provider absence
 
     @Test

@@ -127,8 +127,10 @@ class IAFPresentationManager {
 
     func createFormWebViewAndListen(apiKey: String) async throws {
         let profileData = try await KlaviyoInternal.fetchProfileData()
+        let authRevision = AuthTokenCommandQueue.shared.revision
         let authToken = await fetchAuthTokenBestEffort()
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+        let currentToken = AuthTokenCommandQueue.shared.revision == authRevision ? authToken : nil
+        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: currentToken)
         setupFormLifecycleListener()
     }
 
