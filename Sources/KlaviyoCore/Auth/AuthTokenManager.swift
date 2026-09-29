@@ -105,6 +105,10 @@ package actor AuthTokenManager {
         isAwaitingConnectivityRetry
     }
 
+    var inFlightFetchForTesting: Task<String, Error>? {
+        inFlight?.task
+    }
+
     /// Long-lived Combine subscription that dispatches foreground transitions to
     /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
     /// ``init`` and survives ``registerProvider(_:)``).

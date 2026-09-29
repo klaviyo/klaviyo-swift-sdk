@@ -111,12 +111,12 @@ actor TokenBox {
 /// lets a test *suspend* until an expected emission lands rather than spinning on
 /// `Task.yield()`: spinning keeps the waiting task runnable and can starve the
 /// consumer draining the stream, dropping the very emission under test.
-actor TokenCollector {
-    private(set) var received: [String] = []
+actor EventCollector<Element: Sendable> {
+    private(set) var received: [Element] = []
     private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
-    func append(_ token: String) {
-        received.append(token)
+    func append(_ element: Element) {
+        received.append(element)
         waiters = waiters.compactMap { waiter in
             if received.count >= waiter.threshold {
                 waiter.continuation.resume()
@@ -135,28 +135,8 @@ actor TokenCollector {
     }
 }
 
-actor TokenUpdateCollector {
-    private(set) var received: [AuthTokenUpdate] = []
-    private var waiters: [(Int, CheckedContinuation<Void, Never>)] = []
-
-    func append(_ update: AuthTokenUpdate) {
-        received.append(update)
-        waiters = waiters.compactMap { threshold, continuation in
-            if received.count >= threshold {
-                continuation.resume()
-                return nil
-            }
-            return (threshold, continuation)
-        }
-    }
-
-    func waitFor(atLeast count: Int) async {
-        if received.count >= count { return }
-        await withCheckedContinuation { continuation in
-            waiters.append((count, continuation))
-        }
-    }
-}
+typealias TokenCollector = EventCollector<String>
+typealias TokenUpdateCollector = EventCollector<AuthTokenUpdate>
 
 enum ProviderTestError: Error, Equatable {
     case network

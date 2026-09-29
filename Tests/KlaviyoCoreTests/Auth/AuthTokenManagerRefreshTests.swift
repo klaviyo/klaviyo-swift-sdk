@@ -913,10 +913,12 @@ struct AuthTokenManagerRefreshTests {
             return invocation == 1 ? expiringToken : replacementToken
         }
         _ = try await manager.currentToken(mode: .background)
+        await gate.waitUntilSleeping()
         clock.set(referenceDate.addingTimeInterval(11))
 
         let updates = await manager.tokenUpdates()
-        let initialUpdate = await firstUpdate(of: updates)
+        var iterator = updates.makeAsyncIterator()
+        let initialUpdate = await iterator.next()
         let replacement = try await manager.currentToken(mode: .background)
         let invocations = await counter.value
 
@@ -942,28 +944,32 @@ struct AuthTokenManagerRefreshTests {
             return token
         }
         await providerEntered.wait()
+        guard let fetch = await manager.inFlightFetchForTesting else {
+            Issue.record("missing in-flight fetch")
+            return
+        }
 
+        let updates = await manager.tokenUpdates()
         let collector = TokenUpdateCollector()
         let consumer = Task {
-            for await update in await manager.tokenUpdates() {
-                if case .token = update {
-                    await collector.append(update)
-                }
+            for await update in updates {
+                await collector.append(update)
             }
         }
+        await collector.waitFor(atLeast: 1)
 
         await #expect(throws: AuthTokenError.timedOut) {
             _ = try await manager.currentToken(mode: .interactive)
         }
         await releaseProvider.open()
-        await collector.waitFor(atLeast: 1)
-        for _ in 0..<100 {
-            await Task.yield()
-        }
+        let fetched = try await fetch.value
+        await manager.clearTokenState()
+        await collector.waitFor(atLeast: 3)
 
         consumer.cancel()
         let received = await collector.received
-        #expect(received == [.token(token)])
+        #expect(fetched == token)
+        #expect(received == [.cleared, .token(token), .cleared])
     }
 
     @Test
@@ -983,28 +989,36 @@ struct AuthTokenManagerRefreshTests {
             return token
         }
         await providerEntered.wait()
+        guard let fetch = await manager.inFlightFetchForTesting else {
+            Issue.record("missing in-flight fetch")
+            return
+        }
 
+        let updates = await manager.tokenUpdates()
         let collector = TokenUpdateCollector()
         let consumer = Task {
-            for await update in await manager.tokenUpdates() {
-                if case .token = update {
-                    await collector.append(update)
-                }
+            for await update in updates {
+                await collector.append(update)
             }
         }
+        await collector.waitFor(atLeast: 1)
 
         await #expect(throws: AuthTokenError.timedOut) {
             _ = try await manager.currentToken(mode: .interactive)
         }
         await manager.clearTokenState()
         await releaseProvider.open()
-        for _ in 0..<200 {
-            await Task.yield()
+        await #expect(throws: CancellationError.self) {
+            _ = try await fetch.value
         }
+        let cached = await manager.cachedTokenIfValid()
+        await manager.clearTokenState()
+        await collector.waitFor(atLeast: 3)
 
         consumer.cancel()
         let received = await collector.received
-        #expect(received.isEmpty)
+        #expect(cached == nil)
+        #expect(received == [.cleared, .cleared, .cleared])
     }
 
     @Test
