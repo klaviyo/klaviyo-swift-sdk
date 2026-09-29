@@ -425,6 +425,38 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertTrue(scripts[0].contains(firstToken))
         XCTAssertTrue(scripts[1].contains(secondToken))
     }
+
+    @MainActor
+    func testAuthCommandBeforeScriptConfigurationExcludesOldToken() async throws {
+        let (viewModel, _) = try makeTokenViewModel()
+        let oldToken = "header.old.signature"
+        await viewModel.pushAuthToken(oldToken)
+        let webView = WKWebView()
+        let controller = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: { webView })
+        let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+
+        controller.refreshLoadScripts()
+
+        XCTAssertFalse(webView.configuration.userContentController.userScripts.contains { $0.source.contains(oldToken) })
+        await command.value
+    }
+
+    @MainActor
+    func testAuthCommandAfterConfigurationBeforeLoadExcludesOldToken() async throws {
+        let (viewModel, _) = try makeTokenViewModel()
+        let oldToken = "header.old.signature"
+        await viewModel.pushAuthToken(oldToken)
+        let webView = WKWebView()
+        let controller = KlaviyoWebViewController(viewModel: viewModel, webViewFactory: { webView })
+        controller.refreshLoadScripts()
+        XCTAssertTrue(webView.configuration.userContentController.userScripts.contains { $0.source.contains(oldToken) })
+        let command = AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+
+        controller.preloadUrl()
+
+        XCTAssertFalse(webView.configuration.userContentController.userScripts.contains { $0.source.contains(oldToken) })
+        await command.value
+    }
 }
 
 extension IAFWebViewModel {

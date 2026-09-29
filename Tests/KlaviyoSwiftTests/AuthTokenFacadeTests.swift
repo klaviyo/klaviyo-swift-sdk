@@ -63,6 +63,19 @@ final class AuthTokenFacadeTests: XCTestCase {
         XCTAssertEqual(currentToken, tokenB)
     }
 
+    func testResetQueuesClearBeforeLaterRegistration() async throws {
+        let tokenB = try makeJWT(subject: "B")
+        let revision = AuthTokenCommandQueue.shared.revision
+
+        klaviyoSDK.resetProfile()
+        XCTAssertGreaterThan(AuthTokenCommandQueue.shared.revision, revision)
+        klaviyoSDK.registerAuthTokenProvider { tokenB }
+        await AuthTokenCommandQueue.shared.waitForPendingCommands()
+
+        let currentToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(currentToken, tokenB)
+    }
+
     private func makeJWT(subject: String) throws -> String {
         let timestamp = environment.date().timeIntervalSince1970
         let payload = try JSONSerialization.data(withJSONObject: [

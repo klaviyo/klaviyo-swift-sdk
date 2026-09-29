@@ -132,10 +132,17 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         loadUrl()
     }
 
+    @MainActor
+    func refreshLoadScripts() {
+        configureLoadScripts()
+    }
+
     // MARK: - Scripts
 
     /// Configures the scripts to be injected into the website when the website loads.
     private func configureLoadScripts() {
+        (viewModel as? IAFWebViewModel)?.invalidateAuthTokenIfRevisionChanged()
+        webView.configuration.userContentController.removeAllUserScripts()
         viewModel.loadScripts?.forEach {
             webView.configuration.userContentController.addUserScript($0)
         }

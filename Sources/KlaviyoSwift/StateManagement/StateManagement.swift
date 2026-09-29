@@ -79,6 +79,7 @@ enum KlaviyoAction: Equatable {
 
     /// called when the user wants to reset the existing profile from state
     case resetProfile
+    case resetProfileAfterAuthClear
 
     /// dequeues requests that completed and contuinues to flush other requests if they exist.
     case deQueueCompletedResults(KlaviyoRequest)
@@ -144,7 +145,7 @@ enum KlaviyoAction: Equatable {
         case let .enqueueEvent(event) where event.metric.name == ._openedPush || event.metric.isGeofenceEvent:
             return false
 
-        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
+        case .enqueueAggregateEvent, .enqueueEvent, .enqueueProfile, .resetProfile, .resetProfileAfterAuthClear, .resetStateAndDequeue, .setBadgeCount, .setEmail, .setExternalId, .setPhoneNumber, .setProfileProperty, .setPushEnablement, .setPushToken:
             return true
 
         case .cancelInFlightRequests, .completeInitialization, .deQueueCompletedResults, .flushQueue, .initialize, .networkConnectivityChanged, .requestFailed, .sendRequest, .start, .stop, .syncBadgeCount, .trackingLinkReceived, .trackingLinkDestinationResolved, .trackingLinkResolutionFailed, .openDeepLink, .deepLinkProcessingCompleted:
@@ -618,7 +619,7 @@ struct KlaviyoReducer: ReducerProtocol {
             }
             return .none
 
-        case .resetProfile:
+        case .resetProfile, .resetProfileAfterAuthClear:
             guard case .initialized = state.initalizationState
             else {
                 return .none
@@ -628,7 +629,9 @@ struct KlaviyoReducer: ReducerProtocol {
             // Clear the auth-token cache and cancel any scheduled refresh tied
             // to the outgoing profile. The provider is retained — see
             // ``AuthTokenManager/clearTokenState()``.
-            AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+            if action == .resetProfile {
+                AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+            }
             return .none
 
         case let .setProfileProperty(key, value):

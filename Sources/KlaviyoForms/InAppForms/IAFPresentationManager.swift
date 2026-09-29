@@ -126,15 +126,26 @@ class IAFPresentationManager {
     }
 
     func createFormWebViewAndListen(apiKey: String) async throws {
-        let profileData = try await KlaviyoInternal.fetchProfileData()
-        for _ in 0..<3 {
-            guard let authRevision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { continue }
-            let authToken = await fetchAuthTokenBestEffort()
-            guard AuthTokenCommandQueue.shared.revision == authRevision else { continue }
-            createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+        let deadline = ProcessInfo.processInfo.systemUptime + 0.5
+        while true {
+            let authRevision = AuthTokenCommandQueue.shared.revision
+            let profileData = try await KlaviyoInternal.fetchProfileData()
+            guard let completedRevision = await AuthTokenCommandQueue.shared.waitForPendingCommands(),
+                  completedRevision == authRevision else {
+                if ProcessInfo.processInfo.systemUptime >= deadline { break }
+                continue
+            }
+            let remaining = deadline - ProcessInfo.processInfo.systemUptime
+            let authToken = remaining > 0 ? await fetchAuthTokenBestEffort(timeout: remaining) : nil
+            guard AuthTokenCommandQueue.shared.revision == completedRevision else {
+                if ProcessInfo.processInfo.systemUptime >= deadline { break }
+                continue
+            }
+            createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken, authRevision: completedRevision)
             setupFormLifecycleListener()
             return
         }
+        let profileData = try await KlaviyoInternal.fetchProfileData()
         createFormWebView(apiKey: apiKey, profileData: profileData, authToken: nil)
         setupFormLifecycleListener()
     }
@@ -142,12 +153,11 @@ class IAFPresentationManager {
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort() async -> String? {
-        // `currentToken()` defaults to `.interactive` mode, which applies the
-        // 500ms latency budget appropriate for form display. No external timeout
-        // is needed here.
+    private func fetchAuthTokenBestEffort(timeout: TimeInterval) async -> String? {
         do {
-            let token = try await AuthTokenManager.shared.currentToken()
+            let token = try await withTimeout(seconds: timeout) {
+                try await AuthTokenManager.shared.currentToken()
+            }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Auth token injected at load")
             }
@@ -161,7 +171,7 @@ class IAFPresentationManager {
     }
 
     /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?, authToken: String?) {
+    private func createFormWebView(apiKey: String, profileData: ProfileData?, authToken: String?, authRevision: UInt64? = nil) {
         guard let fileUrl = indexHtmlFileUrl else { return }
 
         let viewModel = IAFWebViewModel(
@@ -169,6 +179,7 @@ class IAFPresentationManager {
             apiKey: apiKey,
             profileData: profileData,
             authToken: authToken,
+            authRevision: authRevision,
             assetSource: assetSource
         )
         self.viewModel = viewModel
@@ -198,11 +209,24 @@ class IAFPresentationManager {
     private func startTokenRefreshObservation() {
         tokenRefreshTask?.cancel()
         tokenRefreshTask = Task { [weak self] in
-            let stream = await AuthTokenManager.shared.refreshes()
-            for await token in stream {
+            let stream = await AuthTokenManager.shared.tokenUpdates()
+            for await update in stream {
                 guard let self else { return }
-                await self.viewModel?.pushAuthToken(token)
+                await self.applyTokenUpdate(update)
             }
+        }
+    }
+
+    func applyTokenUpdate(_ update: AuthTokenUpdate) async {
+        switch update {
+        case .cleared:
+            await viewModel?.clearAuthToken()
+        case let .token(token):
+            guard let revision = await AuthTokenCommandQueue.shared.waitForPendingCommands() else { return }
+            let cachedToken = await AuthTokenManager.shared.cachedTokenIfValid()
+            guard AuthTokenCommandQueue.shared.revision == revision,
+                  cachedToken == token else { return }
+            await viewModel?.pushAuthToken(token, revision: revision)
         }
     }
 

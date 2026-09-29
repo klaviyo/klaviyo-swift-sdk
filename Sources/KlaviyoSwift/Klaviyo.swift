@@ -81,7 +81,8 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        AuthTokenCommandQueue.shared.enqueue(.clearTokenState)
+        dispatchOnMainThread(action: .resetProfileAfterAuthClear)
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
