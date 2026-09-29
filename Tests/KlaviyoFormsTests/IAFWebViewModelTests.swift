@@ -11,11 +11,57 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
-/// Test-specific subclass that overrides navigation policy to allow all navigation
-/// This is required to get these unit tests to pass
-private class TestKlaviyoWebViewController: KlaviyoWebViewController {
-    override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        .allow
+@MainActor
+private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDelegate, WKNavigationDelegate {
+    let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+    var onNavigationFinished: (() -> Void)?
+    private let viewModel: IAFWebViewModel
+
+    init(viewModel: IAFWebViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+        webView.navigationDelegate = self
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
+    func preloadUrl() {
+        refreshLoadScripts()
+        loadHTML(marker: "first")
+    }
+
+    func loadHTML(marker: String) {
+        webView.loadHTMLString(
+            "<html><head><meta name='test-navigation' content='\(marker)'></head><body></body></html>",
+            baseURL: nil
+        )
+    }
+
+    func refreshLoadScripts() {
+        let controller = webView.configuration.userContentController
+        controller.removeAllUserScripts()
+        viewModel.loadScripts?
+            .filter { !$0.source.contains("script.id = 'klaviyoJS'") }
+            .forEach(controller.addUserScript)
+    }
+
+    func evaluateJavaScript(_ script: String) async throws -> Any? {
+        try await withCheckedThrowingContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: result)
+                }
+            }
+        }
+    }
+
+    func webView(_: WKWebView, didFinish _: WKNavigation!) {
+        onNavigationFinished?()
     }
 }
 
@@ -525,46 +571,53 @@ final class IAFWebViewModelTests: XCTestCase {
         let token = "header.outgoing.signature"
         let pageURL = try XCTUnwrap(URL(string: "about:blank"))
         let model = IAFWebViewModel(url: pageURL, apiKey: "abc123", profileData: nil, authToken: token)
-        let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-        let controller = TestKlaviyoWebViewController(viewModel: model) { webView }
+        let controller = LocalHTMLWebViewDelegate(viewModel: model)
+        model.delegate = controller
         let jwtAttribute = "document.head.getAttribute('data-klaviyo-jwt')"
+        let initialLoaded = expectation(description: "initial local document loaded")
+        controller.onNavigationFinished = { initialLoaded.fulfill() }
         controller.preloadUrl()
-        try await waitForDOMValue(token, script: jwtAttribute, in: controller)
-        let initialJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        await fulfillment(of: [initialLoaded], timeout: 5)
+        let initialJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertEqual(initialJWT, token)
 
-        await model.clearAuthToken()
-        let clearedJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        let clearFinished = expectation(description: "live JWT removed")
+        let clearTask = Task {
+            await model.clearAuthToken()
+            clearFinished.fulfill()
+        }
+        await fulfillment(of: [clearFinished], timeout: 5)
+        clearTask.cancel()
+        let clearedJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertNil(clearedJWT)
         XCTAssertFalse(
-            webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
+            controller.webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
         )
 
-        webView.loadHTMLString(
-            "<html><head><meta name='test-navigation' content='second'></head><body></body></html>",
-            baseURL: nil
+        let nextLoaded = expectation(description: "next local document loaded")
+        controller.onNavigationFinished = { nextLoaded.fulfill() }
+        controller.loadHTML(marker: "second")
+        await fulfillment(of: [nextLoaded], timeout: 5)
+        let navigationMarker = await readDOMString(
+            "document.head.querySelector('meta[name=\"test-navigation\"]')?.content",
+            in: controller.webView
         )
-        try await waitForDOMValue(
-            "second",
-            script: "document.head.querySelector('meta[name=\"test-navigation\"]')?.content",
-            in: controller
-        )
-        let nextJWT = try await controller.evaluateJavaScript(jwtAttribute) as? String
+        XCTAssertEqual(navigationMarker, "second")
+        let nextJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertNil(nextJWT)
     }
 
     @MainActor
-    private func waitForDOMValue(
-        _ expected: String,
-        script: String,
-        in controller: KlaviyoWebViewController
-    ) async throws {
-        for _ in 0..<60 {
-            let value = try? await controller.evaluateJavaScript(script) as? String
-            if value == expected { return }
-            try await Task.sleep(nanoseconds: 50_000_000)
+    private func readDOMString(_ script: String, in webView: WKWebView) async -> String? {
+        let evaluated = expectation(description: "DOM evaluation completed")
+        var value: String?
+        webView.evaluateJavaScript(script) { result, error in
+            XCTAssertNil(error)
+            value = result as? String
+            evaluated.fulfill()
         }
-        XCTFail("Timed out waiting for DOM value: \(expected)")
+        await fulfillment(of: [evaluated], timeout: 5)
+        return value
     }
 }
 
