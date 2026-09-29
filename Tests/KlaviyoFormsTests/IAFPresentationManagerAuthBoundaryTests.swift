@@ -68,10 +68,10 @@ final class IAFPresentationManagerAuthBoundaryTests: XCTestCase {
         AuthTokenCommandQueue.shared.enqueue(.clearTokenStateAfter(profileReset))
         let token = try makeFormsJWT(subject: "late")
         let releaseProvider = FormsTestGate()
-        await AuthTokenManager.shared.registerProvider {
+        AuthTokenCommandQueue.shared.enqueue(.register {
             await releaseProvider.wait()
             return token
-        }
+        })
 
         let started = ProcessInfo.processInfo.systemUptime
         var bootstrapElapsed: TimeInterval?
