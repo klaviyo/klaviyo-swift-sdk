@@ -40,7 +40,9 @@ class StateManagementTests: XCTestCase {
             $0.queue = []
         }
 
-        await store.receive(.start)
+        await store.receive(.start) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue)
         await store.receive(.setPushEnablement(PushEnablement.authorized))
         await store.receive(.setBadgeCount(0))
@@ -397,13 +399,12 @@ class StateManagementTests: XCTestCase {
 
     @MainActor
     func testNetworkConnectivityChanges() async throws {
-        let initialState = INITIALIZED_TEST_STATE()
+        var initialState = INITIALIZED_TEST_STATE()
+        initialState.isRunning = true
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
         // Shouldn't really happen but getting more coverage...
         _ = await store.send(.networkConnectivityChanged(.notReachable)) {
             $0.flushInterval = Double.infinity
-        }
-        _ = await store.receive(.cancelInFlightRequests) {
             $0.flushing = false
         }
         _ = await store.send(.networkConnectivityChanged(.reachableViaWiFi)) {
@@ -429,9 +430,7 @@ class StateManagementTests: XCTestCase {
         initialState.requestsInFlight = [request, request2]
         let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
 
-        _ = await store.send(.stop)
-
-        await store.receive(.cancelInFlightRequests) {
+        _ = await store.send(.stop) {
             $0.flushing = false
             $0.queue = [request, request2]
             $0.requestsInFlight = []
@@ -659,7 +658,9 @@ class StateManagementTests: XCTestCase {
             )
         }
 
-        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setBadgeCount(0))
@@ -711,7 +712,9 @@ class StateManagementTests: XCTestCase {
             )
         }
 
-        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS)
+        await store.receive(.start, timeout: TIMEOUT_NANOSECONDS) {
+            $0.isRunning = true
+        }
         await store.receive(.flushQueue, timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setPushEnablement(PushEnablement.authorized), timeout: TIMEOUT_NANOSECONDS)
         await store.receive(.setBadgeCount(0))

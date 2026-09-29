@@ -28,6 +28,7 @@ struct KlaviyoState: Equatable, Codable {
         case setEmail(String)
         case setExternalId(String)
         case setPhoneNumber(String)
+        case setProfileProperty(Profile.ProfileKey, AnyEncodable)
     }
 
     struct PushTokenData: Equatable, Codable {
@@ -57,6 +58,7 @@ struct KlaviyoState: Equatable, Codable {
     var requestsInFlight: [KlaviyoRequest] = []
     var initalizationState = InitializationState.uninitialized
     var flushing = false
+    var isRunning = false
     var flushInterval = StateManagementConstants.wifiFlushInterval
     var retryState = RetryState.retry(StateManagementConstants.initialAttempt)
     var pendingRequests: [PendingRequest] = []
@@ -78,6 +80,12 @@ struct KlaviyoState: Equatable, Codable {
             return
         }
         queue.append(request)
+    }
+
+    mutating func pauseSendingRequests() {
+        flushing = false
+        queue.insert(contentsOf: requestsInFlight, at: 0)
+        requestsInFlight = []
     }
 
     mutating func updateEmail(email: String) {
