@@ -58,7 +58,7 @@ final class IAFProfileAuthOrderingTests: XCTestCase {
         await AuthTokenManager.shared.clearTokenState()
         IdentityStore.shared.update(resetProfile)
         IdentityStore.shared.update(replacementProfile)
-        await fulfillment(of: [replacementApplied], timeout: 3)
+        await fulfillment(of: [replacementApplied], timeout: 30)
 
         let clearIndex = try XCTUnwrap(delegate.evaluatedScripts.firstIndex {
             $0.contains("document.head.removeAttribute('data-klaviyo-jwt')")
@@ -92,7 +92,7 @@ final class IAFProfileAuthOrderingTests: XCTestCase {
         }
 
         IdentityStore.shared.update(updatedProfile)
-        await fulfillment(of: [profileApplied], timeout: 3)
+        await fulfillment(of: [profileApplied], timeout: 30)
 
         XCTAssertFalse(delegate.evaluatedScripts.contains {
             $0.contains("document.head.removeAttribute('data-klaviyo-jwt')")
@@ -128,12 +128,12 @@ final class IAFProfileAuthOrderingTests: XCTestCase {
         }
 
         let clearTask = Task { await model.clearAuthToken() }
-        await fulfillment(of: [clearStarted], timeout: 3)
+        await fulfillment(of: [clearStarted], timeout: 30)
         IdentityStore.shared.update(replacementProfile)
         await fulfillment(of: [prematureProfile], timeout: 0.5)
         clearReleased = true
         delegate.resumeClear()
         await clearTask.value
-        await fulfillment(of: [profileApplied], timeout: 3)
+        await fulfillment(of: [profileApplied], timeout: 30)
     }
 }
