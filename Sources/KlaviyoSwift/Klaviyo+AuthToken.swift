@@ -37,7 +37,7 @@ extension KlaviyoSDK {
     /// in-flight fetch is cancelled when the queued command runs. This method
     /// returns before removal may complete. New in-app forms wait for pending
     /// provider commands before requesting a token. Once removal completes,
-    /// forms have no token available until a new provider is registered via
+    /// newly created forms have no token available until a new provider is registered via
     /// ``registerAuthTokenProvider(_:)``. A long-lived provider registered once
     /// during application setup is preferred.
     public func unregisterAuthTokenProvider() {
