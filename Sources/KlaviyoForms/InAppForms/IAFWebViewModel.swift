@@ -28,6 +28,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let apiKey: String
     let profileData: ProfileData?
     private(set) var authToken: String?
+    private var pendingAuthTokenEvaluation = false
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -270,35 +271,40 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// Updates the live page and next-navigation script with a refreshed auth token.
     @MainActor
     func pushAuthToken(_ token: String) async {
+        guard authToken != token else { return }
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
         authToken = token
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
-        let authTokenScript = createAuthTokenScript(from: token)
-        do {
-            _ = try await delegate?.evaluateJavaScript(authTokenScript)
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully updated In-App Forms HTML with refreshed auth token")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error updating In-App Forms HTML with refreshed auth token; error: \(error)")
-            }
-        }
+        await applyAuthTokenToLiveDOM()
     }
 
     @MainActor
     func clearAuthToken() async {
+        guard authToken != nil else { return }
         authToken = nil
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
+        await applyAuthTokenToLiveDOM()
+    }
+
+    @MainActor
+    private func applyAuthTokenToLiveDOM() async {
+        guard let delegate else { return }
+        if (delegate as? KlaviyoWebViewController)?.shouldDeferAuthTokenEvaluation == true {
+            pendingAuthTokenEvaluation = true
+            return
+        }
+        pendingAuthTokenEvaluation = false
+        let script = authToken.map(createAuthTokenScript(from:))
+            ?? "document.head.removeAttribute('data-klaviyo-jwt');"
         do {
-            _ = try await delegate?.evaluateJavaScript("document.head.removeAttribute('data-klaviyo-jwt');")
+            _ = try await delegate.evaluateJavaScript(script)
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error clearing In-App Forms auth token: \(error)")
+                Logger.webViewLogger.warning("Error updating In-App Forms auth token: \(error)")
             }
         }
     }
@@ -309,6 +315,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     func handleNavigationEvent(_ event: WKNavigationEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
+        }
+        if event == .didFinishNavigation, pendingAuthTokenEvaluation {
+            Task { @MainActor [weak self] in
+                await self?.applyAuthTokenToLiveDOM()
+            }
         }
     }
 

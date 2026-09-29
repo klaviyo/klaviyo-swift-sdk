@@ -12,15 +12,17 @@ import WebKit
 import XCTest
 
 @MainActor
-private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDelegate, WKNavigationDelegate {
-    let webView = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
-    var onNavigationFinished: (() -> Void)?
+private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
+    let webView: WKWebView
     private let viewModel: IAFWebViewModel
 
     init(viewModel: IAFWebViewModel) {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.processPool = WKProcessPool()
+        webView = WKWebView(frame: .zero, configuration: configuration)
         self.viewModel = viewModel
         super.init(nibName: nil, bundle: nil)
-        webView.navigationDelegate = self
         view.addSubview(webView)
         webView.frame = view.bounds
     }
@@ -67,10 +69,6 @@ private final class LocalHTMLWebViewDelegate: UIViewController, KlaviyoWebViewDe
                 }
             }
         }
-    }
-
-    func webView(_: WKWebView, didFinish _: WKNavigation!) {
-        onNavigationFinished?()
     }
 }
 
@@ -585,10 +583,9 @@ final class IAFWebViewModelTests: XCTestCase {
         let window = controller.makeVisible()
         defer { window.isHidden = true }
         let jwtAttribute = "document.head.getAttribute('data-klaviyo-jwt')"
-        let initialLoaded = expectation(description: "initial local document loaded")
-        controller.onNavigationFinished = { initialLoaded.fulfill() }
+        let navigationMarker = "document.readyState === 'complete' ? document.head.querySelector('meta[name=\"test-navigation\"]')?.content : null"
         controller.preloadUrl()
-        guard await XCTWaiter.fulfillment(of: [initialLoaded], timeout: 20) == .completed else {
+        guard await waitForDOMString(navigationMarker, equals: "first", in: controller.webView) else {
             XCTFail("Initial local document did not load")
             return
         }
@@ -614,33 +611,43 @@ final class IAFWebViewModelTests: XCTestCase {
             }
         )
 
-        let nextLoaded = expectation(description: "next local document loaded")
-        controller.onNavigationFinished = { nextLoaded.fulfill() }
         controller.loadHTML(marker: "second")
-        let nextLoadResult = await XCTWaiter.fulfillment(of: [nextLoaded], timeout: 20)
-        guard nextLoadResult == .completed else {
+        guard await waitForDOMString(navigationMarker, equals: "second", in: controller.webView) else {
             XCTFail("Next local document did not load")
             return
         }
-        let navigationMarker = await readDOMString(
-            "document.head.querySelector('meta[name=\"test-navigation\"]')?.content",
-            in: controller.webView
-        )
-        XCTAssertEqual(navigationMarker, "second")
         let nextJWT = await readDOMString(jwtAttribute, in: controller.webView)
         XCTAssertNil(nextJWT)
     }
 
     @MainActor
-    private func readDOMString(_ script: String, in webView: WKWebView) async -> String? {
+    private func waitForDOMString(_ script: String, equals expected: String, in webView: WKWebView) async -> Bool {
+        let deadline = Date().addingTimeInterval(35)
+        while Date() < deadline {
+            if await readDOMString(script, in: webView, timeout: 2, assertErrors: false) == expected {
+                return true
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        return false
+    }
+
+    @MainActor
+    private func readDOMString(
+        _ script: String,
+        in webView: WKWebView,
+        timeout: TimeInterval = 8,
+        assertErrors: Bool = true
+    ) async -> String? {
         let evaluated = expectation(description: "DOM evaluation completed")
         var value: String?
         webView.evaluateJavaScript(script) { result, error in
-            XCTAssertNil(error)
+            if assertErrors { XCTAssertNil(error) }
             value = result as? String
             evaluated.fulfill()
         }
-        await fulfillment(of: [evaluated], timeout: 10)
+        let waitResult = await XCTWaiter.fulfillment(of: [evaluated], timeout: timeout)
+        if waitResult != .completed, assertErrors { XCTFail("DOM evaluation did not complete") }
         return value
     }
 }

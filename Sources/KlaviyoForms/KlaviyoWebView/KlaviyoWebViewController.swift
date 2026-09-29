@@ -42,9 +42,13 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     private let webView: WKWebView
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
     private var addedMessageHandlers: Set<String> = []
+    private var hasStartedLoad = false
+    private var installedAuthToken: String?
+    private var pendingScriptRefresh = false
 
     private var viewModel: KlaviyoWebViewModeling
     var onSizeTransition: (@MainActor (CGSize, UIViewControllerTransitionCoordinator) -> Void)?
+    var shouldDeferAuthTokenEvaluation: Bool { !hasStartedLoad || webView.isLoading }
 
     // MARK: - Initializers
 
@@ -124,6 +128,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     private func loadUrl() {
         configureLoadScripts()
         let request = URLRequest(url: viewModel.url)
+        hasStartedLoad = true
         webView.load(request)
     }
 
@@ -136,9 +141,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     /// Configures the scripts to be injected into the website when the website loads.
     private func configureLoadScripts() {
+        webView.configuration.userContentController.removeAllUserScripts()
         viewModel.loadScripts?.forEach {
             webView.configuration.userContentController.addUserScript($0)
         }
+        installedAuthToken = (viewModel as? IAFWebViewModel)?.authToken
 
         viewModel.messageHandlers?.forEach {
             dedupeInsertMessageHandler($0)
@@ -153,7 +160,25 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func refreshLoadScripts() {
-        webView.configuration.userContentController.removeAllUserScripts()
+        guard hasStartedLoad else { return }
+        if webView.isLoading {
+            let currentAuthToken = (viewModel as? IAFWebViewModel)?.authToken
+            if installedAuthToken != nil, currentAuthToken == nil {
+                webView.stopLoading()
+                pendingScriptRefresh = false
+                loadUrl()
+            } else {
+                pendingScriptRefresh = true
+            }
+            return
+        }
+        configureLoadScripts()
+    }
+
+    @MainActor
+    private func applyPendingScriptRefresh() {
+        guard pendingScriptRefresh, !webView.isLoading else { return }
+        pendingScriptRefresh = false
         configureLoadScripts()
     }
 
@@ -221,14 +246,17 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        applyPendingScriptRefresh()
         viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        applyPendingScriptRefresh()
         viewModel.handleNavigationEvent(.didFinishNavigation)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        applyPendingScriptRefresh()
         viewModel.handleNavigationEvent(.didFailNavigation)
     }
 
