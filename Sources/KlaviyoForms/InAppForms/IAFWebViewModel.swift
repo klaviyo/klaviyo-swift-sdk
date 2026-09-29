@@ -29,9 +29,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let profileData: ProfileData?
     private(set) var authToken: String?
     private var pendingAuthTokenEvaluation = false
+    private var activeAuthClear: Task<Void, Never>?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
+    private var observedProfileData: ProfileData?
+    private var profileMutationTask: Task<Void, Never>?
+    private var profileMutationRevision = 0
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
@@ -137,6 +141,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.url = url
         self.apiKey = apiKey
         self.profileData = profileData
+        observedProfileData = profileData
         self.authToken = authToken
         self.assetSource = assetSource
 
@@ -225,11 +230,29 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             .sink { [weak self] newProfileData in
                 guard let self else { return }
 
-                if newProfileData != self.profileData {
+                if newProfileData != self.observedProfileData {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
                     }
-                    self.handleProfileDataChange(newProfileData)
+                    let previousProfileData = self.observedProfileData
+                    self.observedProfileData = newProfileData
+                    let previousTask = self.profileMutationTask
+                    self.profileMutationRevision += 1
+                    let revision = self.profileMutationRevision
+                    self.profileMutationTask = Task { @MainActor [weak self] in
+                        await previousTask?.value
+                        guard let self else { return }
+                        defer {
+                            if self.profileMutationRevision == revision {
+                                self.profileMutationTask = nil
+                            }
+                        }
+                        if previousProfileData?.anonymousId != newProfileData.anonymousId {
+                            await self.clearAuthToken()
+                        }
+                        guard IdentityStore.shared.current == newProfileData else { return }
+                        await self.handleProfileDataChange(newProfileData)
+                    }
                 }
             }
     }
@@ -246,22 +269,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     @MainActor
-    private func handleProfileDataChange(_ newProfileData: ProfileData) {
+    private func handleProfileDataChange(_ newProfileData: ProfileData) async {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
         }
         guard let profileAttributesScript = createProfileAttributesScript(from: newProfileData) else { return }
 
-        Task { @MainActor in
-            do {
-                let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
-                }
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
-                }
+        do {
+            let result = try await delegate?.evaluateJavaScript(profileAttributesScript)
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
             }
         }
     }
@@ -271,6 +292,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// Updates the live page and next-navigation script with a refreshed auth token.
     @MainActor
     func pushAuthToken(_ token: String) async {
+        await activeAuthClear?.value
         guard authToken != token else { return }
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
@@ -283,11 +305,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     func clearAuthToken() async {
+        if let activeAuthClear {
+            await activeAuthClear.value
+            return
+        }
         guard authToken != nil else { return }
         authToken = nil
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
-        await applyAuthTokenToLiveDOM()
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.applyAuthTokenToLiveDOM()
+        }
+        activeAuthClear = task
+        await task.value
+        activeAuthClear = nil
     }
 
     @MainActor

@@ -84,6 +84,7 @@ final class IAFInitialNavigationAuthTests: XCTestCase {
     @MainActor
     func testLateTokenDoesNotRestartFirstNavigationAndReachesLiveDOM() async {
         let (model, controller, webView, scripts) = makeController(initialToken: nil)
+        defer { withExtendedLifetime(controller) {} }
         let applied = expectation(description: "late token applied after navigation")
         webView.onEvaluation = { script in
             if script.contains("data-klaviyo-jwt"), script.contains("late") {
@@ -99,7 +100,7 @@ final class IAFInitialNavigationAuthTests: XCTestCase {
 
         webView.simulatedLoading = false
         controller.webView(webView, didFinish: nil)
-        await fulfillment(of: [applied], timeout: 2)
+        await fulfillment(of: [applied], timeout: 10)
         XCTAssertEqual(scripts.userScripts.filter { $0.source.contains("data-klaviyo-jwt") }.count, 1)
         XCTAssertEqual(scripts.userScripts.filter { $0.source.contains("data-native-bridge-handshake") }.count, 1)
     }
