@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head data-klaviyo-message-handler-name="KlaviyoNativeBridge">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Klaviyo In-App Form Deep Link End-to-End Test</title>
+        <script>
+            // Mirrors what onsite sends for a "Go to app screen" CTA:
+            // fender `deepLinkToScreenAction.ts` emits the same URL under the `ios` and
+            // `android` keys, with no `openExternally` field.
+            document.addEventListener("DOMContentLoaded", function () {
+                window.webkit.messageHandlers.KlaviyoNativeBridge.postMessage(
+                    JSON.stringify({
+                        type: "handShook",
+                        data: {}
+                    })
+                );
+
+                window.webkit.messageHandlers.KlaviyoNativeBridge.postMessage(
+                    JSON.stringify({
+                        type: "openDeepLink",
+                        data: {
+                            ios: "holafly://notifications?utm_source=push_flow&utm_medium=push_notification&utm_campaign=test_inapp",
+                            android: "holafly://notifications?utm_source=push_flow&utm_medium=push_notification&utm_campaign=test_inapp",
+                            formId: "XTbZBu",
+                            formName: "MAGE-1070 Test Form",
+                            buttonLabel: "Go to app screen"
+                        }
+                    })
+                );
+            });
+        </script>
+    </head>
+    <body></body>
+</html>
