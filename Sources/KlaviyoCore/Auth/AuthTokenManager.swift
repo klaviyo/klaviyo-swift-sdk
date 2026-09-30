@@ -383,6 +383,15 @@ package actor AuthTokenManager {
         cachedToken = nil
     }
 
+    /// Drops the cached token and its scheduled proactive refresh, leaving any
+    /// in-flight fetch running.
+    private func discardCachedToken() {
+        cachedToken = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
+    }
+
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
     /// it. Must be called from actor-isolated context.
     private func startFetch() -> Task<String, Error> {
@@ -754,10 +763,7 @@ package actor AuthTokenManager {
     /// 3. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
         if let cached = cachedToken, !isCachedTokenValid(cached) {
-            cachedToken = nil
-            refreshTask?.cancel()
-            refreshTask = nil
-            refreshAtWallClock = nil
+            discardCachedToken()
             Task { [weak self] in
                 _ = try? await self?.currentToken(mode: .background)
             }
@@ -841,5 +847,57 @@ package actor AuthTokenManager {
     private func isCachedTokenValid(_ token: ValidatedToken) -> Bool {
         let expiresAtSeconds = token.expiresAt.timeIntervalSince1970
         return currentDate().timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
+    }
+}
+
+extension AuthTokenManager {
+    /// Discards the current token after the backend rejected it, asks the
+    /// provider for one replacement, and publishes it on ``updates()``.
+    ///
+    /// Joins a fetch that is already in flight instead of invoking the provider
+    /// again, so overlapping calls share one provider invocation. Does not retry.
+    /// Publishes nothing when no provider is registered, the provider fails, the
+    /// provider returns the rejected token again, or a reset, company change, or
+    /// provider change lands before the replacement arrives.
+    package func refreshRejectedToken() async {
+        guard !companyChangeInProgress else { return }
+        let rejectedToken = cachedToken?.rawToken
+        discardCachedToken()
+
+        guard provider != nil else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: rejected token discarded; no provider registered")
+            }
+            return
+        }
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: rejected token discarded; fetching replacement")
+        }
+
+        let task = inFlight?.task ?? startFetch()
+        let token: String
+        do {
+            token = try await task.value
+        } catch {
+            if #available(iOS 14.0, *) {
+                let reason = String(describing: error)
+                Logger.auth.warning(
+                    "AuthTokenManager: replacement fetch failed: \(reason, privacy: .public)"
+                )
+            }
+            return
+        }
+
+        guard token != rejectedToken else {
+            if cachedToken?.rawToken == token {
+                discardCachedToken()
+            }
+            if #available(iOS 14.0, *) {
+                Logger.auth.warning("AuthTokenManager: provider returned the rejected token; discarded")
+            }
+            return
+        }
+        guard cachedToken?.rawToken == token else { return }
+        updateSubject.send(.token(token))
     }
 }
