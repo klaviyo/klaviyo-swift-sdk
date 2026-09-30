@@ -1,20 +1,19 @@
 @testable import KlaviyoCore
 import Foundation
+#if canImport(Testing)
 import Testing
 
 @Suite(.serialized)
 struct AuthTokenManagerCompanyTests {
     @Test
     func companyChangeInvalidatesCachedTokenAndRetainsProvider() async throws {
-        let previousConfig = SDKConfigStore.shared.current
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "A"))
-        defer { SDKConfigStore.shared.update(previousConfig) }
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let tokenB = try makeJWT(extraClaims: ["sub": "B"])
         let providerToken = TokenBox(tokenA)
         let calls = CallCounter()
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
         await manager.registerProvider {
             _ = await calls.increment()
             return await providerToken.value
@@ -24,7 +23,7 @@ struct AuthTokenManagerCompanyTests {
         #expect(cachedA == tokenA)
 
         await providerToken.set(tokenB)
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "B"))
+        config.update(KlaviyoConfig(apiKey: "B"))
 
         let current = try await manager.currentToken(mode: .background)
         let callCount = await calls.value
@@ -35,15 +34,13 @@ struct AuthTokenManagerCompanyTests {
 
     @Test
     func sameCompanyUpdateKeepsCachedToken() async throws {
-        let previousConfig = SDKConfigStore.shared.current
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "A"))
-        defer { SDKConfigStore.shared.update(previousConfig) }
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let tokenB = try makeJWT(extraClaims: ["sub": "B"])
         let providerToken = TokenBox(tokenA)
         let calls = CallCounter()
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
         await manager.registerProvider {
             _ = await calls.increment()
             return await providerToken.value
@@ -52,7 +49,7 @@ struct AuthTokenManagerCompanyTests {
         #expect(cachedA == tokenA)
 
         await providerToken.set(tokenB)
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "A"))
+        config.update(KlaviyoConfig(apiKey: "A"))
 
         let current = try await manager.currentToken(mode: .background)
         let callCount = await calls.value
@@ -63,16 +60,14 @@ struct AuthTokenManagerCompanyTests {
 
     @Test
     func companyChangeCancelsInFlightToken() async throws {
-        let previousConfig = SDKConfigStore.shared.current
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "A"))
-        defer { SDKConfigStore.shared.update(previousConfig) }
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let tokenB = try makeJWT(extraClaims: ["sub": "B"])
         let releaseFirst = Latch()
         let (cancellations, cancellationContinuation) = AsyncStream.makeStream(of: Void.self)
         let calls = CallCounter()
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
         await manager.registerProvider {
             let invocation = await calls.increment()
             if invocation == 1 {
@@ -87,8 +82,8 @@ struct AuthTokenManagerCompanyTests {
         }
         try await calls.waitFor(atLeast: 1)
 
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "B"))
-        let cancellation = try await withTimeout(seconds: 2) {
+        config.update(KlaviyoConfig(apiKey: "B"))
+        let cancellation: Void? = try await withTimeout(seconds: 2) {
             await cancellations.first { _ in true }
         }
         #expect(cancellation != nil)
@@ -101,3 +96,4 @@ struct AuthTokenManagerCompanyTests {
         await manager.unregisterProvider()
     }
 }
+#endif

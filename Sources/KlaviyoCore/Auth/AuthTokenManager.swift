@@ -48,8 +48,9 @@ package actor AuthTokenManager {
     /// Most recently validated token, if any. Cleared whenever
     /// ``registerProvider(_:)`` runs.
     private var cachedToken: ValidatedToken?
-    private var observedCompanyID = SDKConfigStore.shared.current.apiKey
+    private var observedCompanyID: String?
     private var companyObserverTask: Task<Void, Never>?
+    private let config: ConfigReading
 
     /// Host-supplied closure that returns a fresh JWT on each invocation.
     /// Starts `nil`; set by ``registerProvider(_:)``.
@@ -157,6 +158,8 @@ package actor AuthTokenManager {
     ///   to `environment.appLifeCycle`.
     package init(lifeCycle: AppLifeCycleEvents = environment.appLifeCycle) {
         self.lifeCycle = lifeCycle
+        config = SDKConfigStore.shared
+        observedCompanyID = config.current.apiKey
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
         currentReachability = { environment.reachabilityStatus() }
@@ -189,9 +192,12 @@ package actor AuthTokenManager {
         sleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
             try? await Task.sleep(nanoseconds: nanoseconds)
         },
-        reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
+        reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
+        config: ConfigReading = SDKConfigStore.shared
     ) {
         self.lifeCycle = lifeCycle
+        self.config = config
+        observedCompanyID = config.current.apiKey
         self.currentDate = currentDate
         sleeper = sleep
         currentReachability = reachabilityStatus
@@ -344,15 +350,16 @@ package actor AuthTokenManager {
 
     private func startCompanyObserver() {
         guard companyObserverTask == nil else { return }
+        let stream = config.stream()
         companyObserverTask = Task { [weak self] in
-            for await _ in SDKConfigStore.shared.stream() {
+            for await _ in stream {
                 await self?.reconcileCompany()
             }
         }
     }
 
     private func reconcileCompany() async {
-        let companyID = SDKConfigStore.shared.current.apiKey
+        let companyID = config.current.apiKey
         guard observedCompanyID != companyID else { return }
         let previousCompanyID = observedCompanyID
         observedCompanyID = companyID
