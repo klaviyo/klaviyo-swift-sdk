@@ -49,7 +49,7 @@ package actor AuthTokenManager {
     /// ``registerProvider(_:)`` runs.
     private var cachedToken: ValidatedToken?
     private var observedCompanyID: String?
-    private var companyObserverTask: Task<Void, Never>?
+    private var companyCancellable: AnyCancellable?
     private let config: ConfigReading
 
     /// Host-supplied closure that returns a fresh JWT on each invocation.
@@ -207,10 +207,6 @@ package actor AuthTokenManager {
         }
     }
 
-    deinit {
-        companyObserverTask?.cancel()
-    }
-
     /// Registers a new provider, discards any cached token from a previous
     /// provider, cancels any in-flight fetch, and triggers an eager fetch to
     /// warm the cache.
@@ -349,13 +345,11 @@ package actor AuthTokenManager {
     }
 
     private func startCompanyObserver() {
-        guard companyObserverTask == nil else { return }
-        let stream = config.stream()
-        companyObserverTask = Task { [weak self] in
-            for await _ in stream {
-                await self?.reconcileCompany()
+        guard companyCancellable == nil else { return }
+        companyCancellable = config.publisher
+            .sink { [weak self] _ in
+                Task { [weak self] in await self?.reconcileCompany() }
             }
-        }
     }
 
     private func reconcileCompany() async {
