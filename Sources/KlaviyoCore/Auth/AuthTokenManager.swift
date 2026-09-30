@@ -48,6 +48,8 @@ package actor AuthTokenManager {
     /// Most recently validated token, if any. Cleared whenever
     /// ``registerProvider(_:)`` runs.
     private var cachedToken: ValidatedToken?
+    private var observedCompanyID = SDKConfigStore.shared.current.apiKey
+    private var companyObserverTask: Task<Void, Never>?
 
     /// Host-supplied closure that returns a fresh JWT on each invocation.
     /// Starts `nil`; set by ``registerProvider(_:)``.
@@ -158,7 +160,10 @@ package actor AuthTokenManager {
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
         currentReachability = { environment.reachabilityStatus() }
-        Task { await self.startLifecycleObserver() }
+        Task {
+            await self.startLifecycleObserver()
+            await self.startCompanyObserver()
+        }
     }
 
     /// Test-only initializer that injects the time sources the production path
@@ -190,7 +195,14 @@ package actor AuthTokenManager {
         self.currentDate = currentDate
         sleeper = sleep
         currentReachability = reachabilityStatus
-        Task { await self.startLifecycleObserver() }
+        Task {
+            await self.startLifecycleObserver()
+            await self.startCompanyObserver()
+        }
+    }
+
+    deinit {
+        companyObserverTask?.cancel()
     }
 
     /// Registers a new provider, discards any cached token from a previous
@@ -260,6 +272,7 @@ package actor AuthTokenManager {
     ///   provider throws; ``AuthTokenError/validationFailed(_:)`` when the
     ///   returned token fails ``JWTParser`` validation.
     package func currentToken(mode: FetchMode = .interactive) async throws -> String {
+        await reconcileCompany()
         if let cachedToken, isCachedTokenValid(cachedToken) {
             return cachedToken.rawToken
         }
@@ -269,7 +282,13 @@ package actor AuthTokenManager {
         }
 
         let task = inFlight?.task ?? startFetch()
-        return try await race(fetch: task, timeoutSeconds: mode.rawValue)
+        let companyID = observedCompanyID
+        let token = try await race(fetch: task, timeoutSeconds: mode.rawValue)
+        await reconcileCompany()
+        if let companyID, observedCompanyID != companyID {
+            throw CancellationError()
+        }
+        return token
     }
 
     /// Returns a stream of token strings produced by *proactive* refreshes.
@@ -320,6 +339,25 @@ package actor AuthTokenManager {
         cancelInFlightWorkAndClearCache()
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: token state cleared")
+        }
+    }
+
+    private func startCompanyObserver() {
+        guard companyObserverTask == nil else { return }
+        companyObserverTask = Task { [weak self] in
+            for await _ in SDKConfigStore.shared.stream() {
+                await self?.reconcileCompany()
+            }
+        }
+    }
+
+    private func reconcileCompany() async {
+        let companyID = SDKConfigStore.shared.current.apiKey
+        guard observedCompanyID != companyID else { return }
+        let previousCompanyID = observedCompanyID
+        observedCompanyID = companyID
+        if previousCompanyID != nil {
+            await clearTokenState()
         }
     }
 
