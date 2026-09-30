@@ -175,19 +175,7 @@ class IAFPresentationManager {
     /// Applies token refresh and clear updates to the retained WebView.
     private func startTokenUpdateObservation() {
         tokenRefreshTask?.cancel()
-        guard let viewModel else { return }
-        tokenRefreshTask = Task { [weak viewModel] in
-            let stream = await AuthTokenManager.shared.updates()
-            for await update in stream {
-                guard let viewModel else { return }
-                switch update {
-                case .cleared:
-                    await viewModel.clearAuthToken()
-                case let .token(token):
-                    await viewModel.pushAuthToken(token)
-                }
-            }
-        }
+        tokenRefreshTask = viewModel?.observeAuthTokenUpdates()
     }
 
     // MARK: - Form Lifecycle Listener Setup

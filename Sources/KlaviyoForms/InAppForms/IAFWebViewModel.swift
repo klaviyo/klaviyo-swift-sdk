@@ -30,6 +30,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private(set) var authToken: String?
     private var pendingAuthTokenEvaluation = false
     private var activeAuthClear: Task<Void, Never>?
+    private let authTokenManager: AuthTokenManager
+    private(set) var rejectedAuthTokenRefresh: Task<Void, Never>?
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -136,7 +138,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         apiKey: String,
         profileData: ProfileData?,
         authToken: String? = nil,
-        assetSource: String? = nil
+        assetSource: String? = nil,
+        authTokenManager: AuthTokenManager = .shared
     ) {
         self.url = url
         self.apiKey = apiKey
@@ -144,6 +147,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         observedProfileData = profileData
         self.authToken = authToken
         self.assetSource = assetSource
+        self.authTokenManager = authTokenManager
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
         formLifecycleStream = stream
@@ -288,6 +292,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     // MARK: - Handle token refreshes
+
+    /// Applies token updates and clears from the auth token manager to this
+    /// WebView until the returned task is cancelled or the view model is released.
+    @MainActor
+    func observeAuthTokenUpdates() -> Task<Void, Never> {
+        Task { @MainActor [weak self, authTokenManager] in
+            let stream = await authTokenManager.updates()
+            for await update in stream {
+                guard let self else { return }
+                switch update {
+                case .cleared:
+                    await self.clearAuthToken()
+                case let .token(token):
+                    await self.pushAuthToken(token)
+                }
+            }
+        }
+    }
 
     /// Updates the live page and next-navigation script with a refreshed auth token.
     @MainActor
@@ -527,28 +549,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .jwtMutation:
             ()
-        case .badJWT:
+        case .refreshJwt:
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("KlaviyoJS rejected the injected auth token (BadJWT)")
+                Logger.webViewLogger.info("Received 'refreshJwt' event from KlaviyoJS")
             }
-            handleBadJWT()
+            refreshRejectedAuthToken()
         }
     }
 
-    /// Responds to a `badJWT` rejection by dropping the now-known-bad cached
-    /// token, so it stops being handed back to every subsequent token
-    /// request for the rest of the session.
-    ///
-    /// `AuthTokenManager` only tracks a token's own `exp` claim — it has no
-    /// way to know the backend rejected a token that, by that claim, is
-    /// still unexpired. Without this, the same rejected token would keep
-    /// being served to every later WebView/form until it naturally expires
-    /// or the app restarts. This is deliberately passive: it does not
-    /// attempt to fetch or push a replacement for the currently-open form.
+    /// Asks the auth token manager to replace the rejected token. The replacement
+    /// reaches this WebView through ``observeAuthTokenUpdates()``. A signal that
+    /// arrives while a refresh is pending is dropped; the pending refresh answers it.
     @MainActor
-    private func handleBadJWT() {
-        Task {
-            await AuthTokenManager.shared.clearTokenState()
+    private func refreshRejectedAuthToken() {
+        guard rejectedAuthTokenRefresh == nil else { return }
+        rejectedAuthTokenRefresh = Task { @MainActor [weak self, authTokenManager] in
+            await authTokenManager.refreshRejectedToken()
+            self?.rejectedAuthTokenRefresh = nil
         }
     }
 
