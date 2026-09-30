@@ -855,12 +855,13 @@ extension AuthTokenManager {
     /// rejected it, then publishes the provider's next token on ``updates()``.
     ///
     /// Each call makes at most one provider call: it joins a fetch already in
-    /// flight, or starts one. It does not retry, except for the manager's
-    /// existing one-shot retry when connectivity returns after a fetch fails with
-    /// a connectivity error. The fetched token is trusted as newly issued (see
-    /// ``AuthTokenProvider``). Publishes nothing when no provider is registered,
-    /// the fetch fails, or a reset, company change, or provider change lands
-    /// before the fetch completes.
+    /// flight, or starts one. It does not retry on its own. A fetch that fails
+    /// with a connectivity error arms the manager's one-shot connectivity retry,
+    /// which makes one more provider call when connectivity returns and publishes
+    /// its token on ``updates()``. The fetched token is trusted as newly issued
+    /// (see ``AuthTokenProvider``). Publishes nothing when no provider is
+    /// registered, the fetch fails, or a reset, company change, or provider
+    /// change lands before the fetch completes.
     package func refreshRejectedToken() async {
         guard !companyChangeInProgress else { return }
         discardCachedToken()
