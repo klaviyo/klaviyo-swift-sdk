@@ -123,7 +123,7 @@ struct AuthTokenManagerRejectedTokenTests {
 
         await manager.refreshRejectedToken()
         let armed = await manager.isAwaitingConnectivityRetryForTesting
-        #expect(armed)
+        try #require(armed)
         let offlineInvocations = await counter.value
         #expect(offlineInvocations == 2)
 
