@@ -42,18 +42,103 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
-    func providerReturningRejectedTokenIsNeitherPublishedNorServedFromCache() async throws {
+    func currentTokenDuringReplacementJoinsFetchInsteadOfServingRejectedToken() async throws {
         let (rejected, replacement) = try tokens()
-        let (manager, counter) = await makeManager { $0 <= 2 ? rejected : replacement }
-        var updates = await subscribe(to: manager)
+        let entered = Latch()
+        let release = Latch()
+        let (manager, counter) = await makeManager { invocation in
+            guard invocation == 2 else { return rejected }
+            await entered.open()
+            await release.wait()
+            return replacement
+        }
 
-        await manager.refreshRejectedToken()
+        let refresh = Task { await manager.refreshRejectedToken() }
+        await entered.wait()
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+        await release.open()
+        await refresh.value
+
         let next = try await manager.currentToken(mode: .background)
+        #expect(next == replacement)
+        let invocations = await counter.value
+        #expect(invocations == 2)
+    }
+
+    @Test
+    func joinsFetchStartedBeforeSignalAndPublishesItsResult() async throws {
+        let (rejected, replacement) = try tokens()
+        let laterToken = try makeToken(subject: "later")
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let entered = Latch()
+        let release = Latch()
+        let (manager, counter) = await makeManager(clock: clock, gate: gate) { invocation in
+            switch invocation {
+            case 1: return rejected
+            case 2:
+                await entered.open()
+                await release.wait()
+                return replacement
+            default: return laterToken
+            }
+        }
+        await gate.waitUntilSleeping()
+        var updates = await subscribe(to: manager)
+        clock.advance(by: 3300)
+        await gate.release()
+        await entered.wait()
+
+        let refresh = Task { await manager.refreshRejectedToken() }
+        await awaitCachedTokenDiscarded(manager)
+        await release.open()
+        await refresh.value
         await manager.clearTokenState()
 
         let published = await publishedTokens(from: &updates)
-        #expect(published.isEmpty)
-        #expect(next == replacement)
+        #expect(!published.isEmpty)
+        #expect(published.allSatisfy { $0 == replacement })
+        let invocations = await counter.value
+        #expect(invocations == 2)
+    }
+
+    @Test
+    func offlineReplacementFailureRetriesOnceWhenConnectivityReturns() async throws {
+        let (rejected, replacement) = try tokens()
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let reachability = TestReachability(.notReachable)
+        let (manager, counter) = await makeManager(
+            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() }),
+            reachability: reachability
+        ) { invocation in
+            switch invocation {
+            case 1: return rejected
+            case 2: throw URLError(.notConnectedToInternet)
+            default: return replacement
+            }
+        }
+        var updates = await subscribe(to: manager)
+
+        await manager.refreshRejectedToken()
+        let armed = await manager.isAwaitingConnectivityRetryForTesting
+        #expect(armed)
+        let offlineInvocations = await counter.value
+        #expect(offlineInvocations == 2)
+
+        reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        let retried = await updates.next()
+        guard case let .token(retriedToken)? = retried else {
+            Issue.record("expected the retried token, got \(String(describing: retried))")
+            return
+        }
+        #expect(retriedToken == replacement)
+        await manager.clearTokenState()
+
+        let laterPublished = await publishedTokens(from: &updates)
+        #expect(laterPublished.isEmpty)
         let invocations = await counter.value
         #expect(invocations == 3)
     }
@@ -153,16 +238,22 @@ extension AuthTokenManagerRejectedTokenTests {
         )
     }
 
-    /// Builds a manager on a fixed clock whose scheduled refreshes never fire,
-    /// registers `token` as its provider, and waits for the first token to be cached.
+    /// Builds a manager whose scheduled refreshes fire only when `gate` releases
+    /// them, registers `token` as its provider, and waits for the first token to be
+    /// cached. `clock` defaults to a fixed ``referenceDate``.
     private func makeManager(
+        lifeCycle: AppLifeCycleEvents? = nil,
+        clock: TestClock? = nil,
+        gate: SleepGate = SleepGate(),
+        reachability: TestReachability = TestReachability(),
         token: @escaping @Sendable (_ invocation: Int) async throws -> String
     ) async -> (AuthTokenManager, CallCounter) {
-        let gate = SleepGate()
+        let clock = clock ?? TestClock(referenceDate)
         let manager = AuthTokenManager(
-            lifeCycle: noopLifecycle(),
-            currentDate: { [referenceDate] in referenceDate },
-            sleep: { await gate.sleep($0) }
+            lifeCycle: lifeCycle ?? noopLifecycle(),
+            currentDate: { clock.now() },
+            sleep: { await gate.sleep($0) },
+            reachabilityStatus: { reachability.status() }
         )
         let counter = CallCounter()
         await manager.registerProvider {
@@ -233,6 +324,19 @@ extension AuthTokenManagerRejectedTokenTests {
         #expect(next == refresh.laterToken)
         let invocations = await refresh.counter.value
         #expect(invocations == 3)
+    }
+
+    /// Waits until `manager` no longer replays a cached token.
+    private func awaitCachedTokenDiscarded(
+        _ manager: AuthTokenManager,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) async {
+        for _ in 0..<10_000 {
+            var replay = await manager.updates().makeAsyncIterator()
+            if case .cleared? = await replay.next() { return }
+            await Task.yield()
+        }
+        Issue.record("cached token was never discarded", sourceLocation: sourceLocation)
     }
 
     /// Collects tokens published before the `clears`-th clear, which tests send

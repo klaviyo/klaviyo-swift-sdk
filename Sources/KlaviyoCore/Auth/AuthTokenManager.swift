@@ -851,17 +851,18 @@ package actor AuthTokenManager {
 }
 
 extension AuthTokenManager {
-    /// Discards the current token after the backend rejected it, asks the
-    /// provider for one replacement, and publishes it on ``updates()``.
+    /// Discards the cached token and its scheduled refresh after the backend
+    /// rejected it, then publishes the provider's next token on ``updates()``.
     ///
-    /// Joins a fetch that is already in flight instead of invoking the provider
-    /// again, so overlapping calls share one provider invocation. Does not retry.
-    /// Publishes nothing when no provider is registered, the provider fails, the
-    /// provider returns the rejected token again, or a reset, company change, or
-    /// provider change lands before the replacement arrives.
+    /// Each call makes at most one provider call: it joins a fetch already in
+    /// flight, or starts one. It does not retry, except for the manager's
+    /// existing one-shot retry when connectivity returns after a fetch fails with
+    /// a connectivity error. The fetched token is trusted as newly issued (see
+    /// ``AuthTokenProvider``). Publishes nothing when no provider is registered,
+    /// the fetch fails, or a reset, company change, or provider change lands
+    /// before the fetch completes.
     package func refreshRejectedToken() async {
         guard !companyChangeInProgress else { return }
-        let rejectedToken = cachedToken?.rawToken
         discardCachedToken()
 
         guard provider != nil else {
@@ -875,25 +876,9 @@ extension AuthTokenManager {
         }
 
         let task = inFlight?.task ?? startFetch()
-        let token: String
-        do {
-            token = try await task.value
-        } catch {
+        guard let token = try? await task.value else {
             if #available(iOS 14.0, *) {
-                let reason = String(describing: error)
-                Logger.auth.warning(
-                    "AuthTokenManager: replacement fetch failed: \(reason, privacy: .public)"
-                )
-            }
-            return
-        }
-
-        guard token != rejectedToken else {
-            if cachedToken?.rawToken == token {
-                discardCachedToken()
-            }
-            if #available(iOS 14.0, *) {
-                Logger.auth.warning("AuthTokenManager: provider returned the rejected token; discarded")
+                Logger.auth.info("AuthTokenManager: replacement fetch did not produce a token")
             }
             return
         }
