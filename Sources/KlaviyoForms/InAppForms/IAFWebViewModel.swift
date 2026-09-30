@@ -557,13 +557,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
     }
 
-    /// Asks the auth token manager to replace the rejected token. The replacement
-    /// reaches this WebView through ``observeAuthTokenUpdates()``. A signal that
-    /// arrives while a refresh is pending is dropped; the pending refresh answers it.
+    /// Drops this WebView's copy of the rejected token, then asks the auth token
+    /// manager to replace it. The replacement reaches this WebView through
+    /// ``observeAuthTokenUpdates()``. A signal that arrives while a refresh is
+    /// pending is dropped; the pending refresh answers it.
     @MainActor
     private func refreshRejectedAuthToken() {
         guard rejectedAuthTokenRefresh == nil else { return }
         rejectedAuthTokenRefresh = Task { @MainActor [weak self, authTokenManager] in
+            await self?.clearAuthToken()
             await authTokenManager.refreshRejectedToken()
             self?.rejectedAuthTokenRefresh = nil
         }

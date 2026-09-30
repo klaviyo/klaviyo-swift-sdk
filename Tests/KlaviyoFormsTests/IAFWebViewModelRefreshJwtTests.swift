@@ -20,17 +20,20 @@ private final class RecordingWebViewDelegate: MockIAFWebViewDelegate {
     }
 
     func injectedTokens() -> [String] {
-        evaluatedScripts.compactMap { script in
+        authTokenWrites().compactMap { $0 }
+    }
+
+    /// Auth token writes to the page in order: the token set, or `nil` for a removal.
+    func authTokenWrites() -> [String?] {
+        evaluatedScripts.compactMap { script -> String?? in
+            if script == Self.removeTokenScript { return .some(nil) }
             guard script.hasPrefix(Self.setTokenPrefix) else { return nil }
             return String(script.dropFirst(Self.setTokenPrefix.count).dropLast(3))
         }
     }
 
-    func removedToken() -> Bool {
-        evaluatedScripts.contains("document.head.removeAttribute('data-klaviyo-jwt');")
-    }
-
     private static let setTokenPrefix = "document.head.setAttribute('data-klaviyo-jwt', '"
+    private static let removeTokenScript = "document.head.removeAttribute('data-klaviyo-jwt');"
 }
 
 @MainActor
@@ -76,24 +79,36 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         await fulfillment(of: [injected], timeout: 10)
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2)
-        XCTAssertEqual(delegate.injectedTokens(), [rejectedToken, replacementToken])
+        XCTAssertEqual(delegate.authTokenWrites(), [rejectedToken, nil, replacementToken])
         XCTAssertEqual(model.authToken, replacementToken)
-        XCTAssertFalse(delegate.removedToken())
     }
 
-    func testRefreshJwtNeverReinjectsRejectedToken() async throws {
-        try await registerProvider { [rejectedToken] _ in try XCTUnwrap(rejectedToken) }
+    func testRefreshJwtInjectsFreshTokenAndStopsServingRejectedToken() async throws {
+        let rejectedToken = try XCTUnwrap(rejectedToken)
+        let replacementToken = try XCTUnwrap(replacementToken)
+        try await registerProvider { invocation in invocation == 1 ? rejectedToken : replacementToken }
         let (delegate, observation) = try await makeLiveSession()
         let model = delegate.viewModel
         defer { observation.cancel() }
+        var updates = await manager.updates().makeAsyncIterator()
+        _ = await updates.next()
+        let injected = expectation(description: "replacement injected")
+        delegate.onEvaluation = { script in
+            if script.contains(replacementToken) { injected.fulfill() }
+        }
 
         sendRefreshJwt(to: model)
-        await model.rejectedAuthTokenRefresh?.value
-        await awaitSentinelClear(on: delegate)
+        await fulfillment(of: [injected], timeout: 10)
 
+        let served = try await manager.currentToken(mode: .background)
+        XCTAssertEqual(served, replacementToken)
+        XCTAssertFalse(loadScripts(of: model, contain: rejectedToken))
+        await awaitSentinelClear(on: delegate)
+        let published = await publishedTokens(from: &updates, untilClears: 1)
+        XCTAssertEqual(published, [replacementToken])
+        XCTAssertEqual(delegate.authTokenWrites(), [rejectedToken, nil, replacementToken, nil])
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2)
-        XCTAssertEqual(delegate.injectedTokens(), [rejectedToken])
     }
 
     func testRefreshJwtProviderFailureInjectsNothing() async throws {
@@ -104,14 +119,20 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         let (delegate, observation) = try await makeLiveSession()
         let model = delegate.viewModel
         defer { observation.cancel() }
+        var updates = await manager.updates().makeAsyncIterator()
+        _ = await updates.next()
 
         sendRefreshJwt(to: model)
         await model.rejectedAuthTokenRefresh?.value
-        await awaitSentinelClear(on: delegate)
+        await manager.clearTokenState()
 
+        let published = await publishedTokens(from: &updates, untilClears: 1)
+        XCTAssertEqual(published, [])
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2)
-        XCTAssertEqual(delegate.injectedTokens(), [rejectedToken])
+        XCTAssertEqual(delegate.authTokenWrites(), [rejectedToken, nil])
+        XCTAssertNil(model.authToken)
+        XCTAssertFalse(try loadScripts(of: model, contain: XCTUnwrap(rejectedToken)))
     }
 
     func testRefreshJwtWithoutProviderInjectsNothing() async {
@@ -132,7 +153,8 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
 
         let published = await publishedTokens(from: &updates, untilClears: 2)
         XCTAssertEqual(published, [])
-        XCTAssertTrue(delegate.evaluatedScripts.isEmpty)
+        XCTAssertEqual(delegate.authTokenWrites(), [nil])
+        XCTAssertNil(model.authToken)
     }
 
     func testOverlappingRefreshJwtSignalsShareOneProviderCall() async throws {
@@ -197,8 +219,8 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
 
         let published = await publishedTokens(from: &updates, untilClears: 1)
         XCTAssertEqual(published, [replacementToken])
-        XCTAssertEqual(delegate.injectedTokens(), [rejectedToken])
-        XCTAssertEqual(model.authToken, rejectedToken)
+        XCTAssertEqual(delegate.authTokenWrites(), [rejectedToken, nil])
+        XCTAssertNil(model.authToken)
     }
 }
 
@@ -261,6 +283,10 @@ extension IAFWebViewModelRefreshJwtTests {
             }
         }
         return tokens
+    }
+
+    private func loadScripts(of model: IAFWebViewModel, contain token: String) -> Bool {
+        model.loadScripts?.contains { $0.source.contains(token) } ?? false
     }
 
     private func sendRefreshJwt(to model: IAFWebViewModel) {
