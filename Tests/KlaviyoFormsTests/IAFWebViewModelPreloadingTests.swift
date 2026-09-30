@@ -37,21 +37,27 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
     /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
     @MainActor
-    func testPreloadWebsiteSuccess() async throws {
+    func testPreloadWebsiteSuccess() async {
         // Given
         delegate.handshakeResult = .handshakeEstablished(delay: 0)
-        let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
-        // When
+        // When / Then - the handshake is awaited directly, so no separate
+        // expectation/fulfillment is needed.
+        //
+        // The budget below is not the behavior under test. The handshake is mocked with
+        // zero delay, so a healthy run returns in under a millisecond and never waits on
+        // it. It is generous because scheduler stalls dominate on loaded runners: this
+        // test has failed at a 5.0s budget in CI while the 0.1s-budget test below still
+        // took 7.054 seconds of wall clock in the same job.
+        //
+        // Do not raise it much further. XCTest kills a test at its 120s
+        // executionTimeAllowance, and a stall that long is an environment problem that
+        // no budget in this file can fix.
         do {
-            try await viewModel.establishHandshake(timeout: 5.0)
-            expectation.fulfill()
+            try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
             XCTFail("Expected success, but got error: \(error)")
         }
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 2.0)
     }
 
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
@@ -62,6 +68,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When / Then - establishHandshake must surface a timeout. The throw is
         // awaited directly, so no separate expectation/fulfillment is needed.
+        //
+        // 0.1 must stay well under the 1.0 mock delay above. Raising it past that
+        // inverts the race and the test stops asserting anything.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
@@ -80,6 +89,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When / Then - establishHandshake must surface a timeout rather than hang.
         // The throw is awaited directly, so no separate expectation/fulfillment is needed.
+        //
+        // 0.1 stays small on purpose. Expiring is the expected result here, so a loaded
+        // runner cannot fail this test by being slow, and a broken timeout fails fast.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
