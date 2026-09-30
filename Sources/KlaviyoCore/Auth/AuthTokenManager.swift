@@ -287,12 +287,25 @@ package actor AuthTokenManager {
 
         let task = inFlight?.task ?? startFetch()
         let companyID = observedCompanyID
-        let token = try await race(fetch: task, timeoutSeconds: mode.rawValue)
+        let token: String
+        do {
+            token = try await race(fetch: task, timeoutSeconds: mode.rawValue)
+        } catch {
+            try await throwIfCompanyChanged(since: companyID)
+            throw error
+        }
+        try await throwIfCompanyChanged(since: companyID)
+        return token
+    }
+
+    /// Reconciles the current company, then throws ``AuthTokenError/companyChanged``
+    /// if it differs from `companyID`. A `nil` `companyID` (no company was set
+    /// when the caller started) never throws.
+    private func throwIfCompanyChanged(since companyID: String?) async throws {
         await reconcileCompany()
         if let companyID, observedCompanyID != companyID {
             throw AuthTokenError.companyChanged
         }
-        return token
     }
 
     /// Returns a stream of token strings produced by *proactive* refreshes.
@@ -354,7 +367,24 @@ package actor AuthTokenManager {
             }
     }
 
+    /// Number of completed ``reconcileCompany()`` passes.
+    private var reconcileCount = 0
+    private var reconcileWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    /// Test-only: suspends until at least `count` ``reconcileCompany()`` passes
+    /// have completed.
+    func waitForReconcileForTesting(count: Int) async {
+        if reconcileCount >= count { return }
+        await withCheckedContinuation { reconcileWaiters.append((count, $0)) }
+    }
+
     private func reconcileCompany() async {
+        defer {
+            reconcileCount += 1
+            let ready = reconcileWaiters.filter { reconcileCount >= $0.count }
+            reconcileWaiters.removeAll { reconcileCount >= $0.count }
+            ready.forEach { $0.continuation.resume() }
+        }
         let companyID = config.current.apiKey
         guard observedCompanyID != companyID else { return }
         let previousCompanyID = observedCompanyID

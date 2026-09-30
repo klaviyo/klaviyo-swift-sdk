@@ -4,33 +4,21 @@ import Foundation
 import Combine
 import Testing
 
-/// Config backed by a real `SDKConfigStore` that counts reads of `current`.
-/// With `publishes: false` the publisher never emits, so the manager observes
-/// company changes only when it reads `current` itself.
-private final class ReadCountingConfig: ConfigReading {
+/// Config whose `publisher` never emits, so the manager observes company
+/// changes only when it reads `current` itself.
+private final class SilentConfig: ConfigReading {
     private let store: SDKConfigStore
-    private let publishes: Bool
-    private let lock = NSLock()
-    private var count = 0
-    private var waiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
-    init(initialConfig: KlaviyoConfig, publishes: Bool = true) {
+    init(initialConfig: KlaviyoConfig) {
         store = SDKConfigStore(initialConfig: initialConfig)
-        self.publishes = publishes
     }
 
     var current: KlaviyoConfig {
-        lock.lock()
-        count += 1
-        let ready = waiters.filter { count >= $0.threshold }
-        waiters.removeAll { count >= $0.threshold }
-        lock.unlock()
-        ready.forEach { $0.continuation.resume() }
-        return store.current
+        store.current
     }
 
     var publisher: AnyPublisher<KlaviyoConfig, Never> {
-        publishes ? store.publisher : Empty(completeImmediately: false).eraseToAnyPublisher()
+        Empty(completeImmediately: false).eraseToAnyPublisher()
     }
 
     func stream() -> AsyncStream<KlaviyoConfig> {
@@ -39,19 +27,6 @@ private final class ReadCountingConfig: ConfigReading {
 
     func update(_ config: KlaviyoConfig) {
         store.update(config)
-    }
-
-    func waitForReads(atLeast threshold: Int) async {
-        await withCheckedContinuation { continuation in
-            lock.lock()
-            if count >= threshold {
-                lock.unlock()
-                continuation.resume()
-            } else {
-                waiters.append((threshold, continuation))
-                lock.unlock()
-            }
-        }
     }
 }
 
@@ -166,7 +141,7 @@ struct AuthTokenManagerCompanyTests {
 
     @Test
     func companyChangeDuringFetchThrowsCompanyChanged() async throws {
-        let config = ReadCountingConfig(initialConfig: KlaviyoConfig(apiKey: "A"), publishes: false)
+        let config = SilentConfig(initialConfig: KlaviyoConfig(apiKey: "A"))
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let releaseFetch = Latch()
@@ -175,7 +150,7 @@ struct AuthTokenManagerCompanyTests {
         try await calls.waitFor(atLeast: 1)
 
         let caller = Task { try await manager.currentToken(mode: .interactive) }
-        await config.waitForReads(atLeast: 3)
+        await manager.waitForReconcileForTesting(count: 2)
 
         config.update(KlaviyoConfig(apiKey: "B"))
         await releaseFetch.open()
@@ -187,8 +162,31 @@ struct AuthTokenManagerCompanyTests {
     }
 
     @Test
+    func companyChangeCancellingFetchThrowsCompanyChangedToWaitingCaller() async throws {
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
+
+        let tokenA = try makeJWT(extraClaims: ["sub": "A"])
+        let releaseFetch = Latch()
+        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let calls = await registerCountingProvider(on: manager, returning: tokenA, gate: releaseFetch)
+        try await calls.waitFor(atLeast: 1)
+
+        let caller = Task { try await manager.currentToken(mode: .interactive) }
+        await manager.waitForReconcileForTesting(count: 3)
+
+        config.update(KlaviyoConfig(apiKey: "B"))
+        await manager.waitForReconcileForTesting(count: 4)
+        await releaseFetch.open()
+
+        await #expect(throws: AuthTokenError.companyChanged) {
+            try await withTimeout(seconds: 2) { try await caller.value }
+        }
+        await manager.unregisterProvider()
+    }
+
+    @Test
     func firstCompanyKeyKeepsWarmUpToken() async throws {
-        let config = ReadCountingConfig(initialConfig: KlaviyoConfig(apiKey: nil))
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: nil))
 
         let warmUpToken = try makeJWT(extraClaims: ["sub": "warm-up"])
         let releaseWarmUp = Latch()
@@ -196,11 +194,10 @@ struct AuthTokenManagerCompanyTests {
         let calls = await registerCountingProvider(on: manager, returning: warmUpToken, gate: releaseWarmUp)
         try await calls.waitFor(atLeast: 1)
         await releaseWarmUp.open()
-        // Reads so far: init, warm-up request start, warm-up request end, sink's initial emission.
-        await config.waitForReads(atLeast: 4)
+        await manager.waitForReconcileForTesting(count: 3)
 
         config.update(KlaviyoConfig(apiKey: "A"))
-        await config.waitForReads(atLeast: 5)
+        await manager.waitForReconcileForTesting(count: 4)
 
         let current = try await manager.currentToken(mode: .background)
         let callCount = await calls.value
