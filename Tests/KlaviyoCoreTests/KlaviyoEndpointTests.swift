@@ -317,30 +317,6 @@ final class KlaviyoEndpointTests: XCTestCase {
         XCTAssertEqual(headerValue, "and(equals(lat,37.7749),equals(lng,-122.4194))")
     }
 
-    func testFetchGeofencesEndpointUrlRequestWithLatLon() throws {
-        // Given
-        let apiKey = "test_api_key"
-        let latitude = 42.33
-        let longitude = -71.05
-        let endpoint = KlaviyoEndpoint.fetchGeofences(apiKey, latitude: latitude, longitude: longitude)
-
-        // When
-        let request = try endpoint.urlRequest()
-
-        // Then
-        XCTAssertEqual(request.httpMethod, "GET")
-        XCTAssertEqual(request.url?.path, "/client/geofences")
-        let queryItems = request.url?.query?.components(separatedBy: "&").sorted() ?? []
-        XCTAssertTrue(queryItems.contains("company_id=test_api_key"))
-        XCTAssertTrue(queryItems.contains("page%5Bsize%5D=30"))
-        XCTAssertFalse(queryItems.contains { $0.contains("latitude") })
-        XCTAssertFalse(queryItems.contains { $0.contains("longitude") })
-
-        // Check header
-        let headerValue = request.allHTTPHeaderFields?["X-Klaviyo-API-Filters"]
-        XCTAssertEqual(headerValue, "and(equals(lat,42.33),equals(lng,-71.05))")
-    }
-
     func testFetchGeofencesEndpointUrlRequestWithNilCoordinates() throws {
         // Given
         let apiKey = "test_api_key"

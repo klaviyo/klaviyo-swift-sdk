@@ -2,10 +2,10 @@
 //  KlaviyoCategoryManager.swift
 //
 
-// NOTE: KlaviyoCore carries the authoritative copy of this class
-// (Sources/KlaviyoCore/KlaviyoCategoryManager.swift), which also includes
-// pruneCategory. This register-only copy exists because KlaviyoSwiftExtension
-// cannot depend on KlaviyoCore (NSE/share-extension sandbox restriction).
+// NOTE: KlaviyoSwift carries the authoritative copy of this class
+// (Sources/KlaviyoSwift/PushNotifications/KlaviyoCategoryManager.swift), which also
+// includes pruneCategory. This register-only copy exists because KlaviyoSwiftExtension
+// cannot depend on the main app (NSE/share-extension sandbox restriction).
 // The two copies are intentionally kept in sync. If you change registerCategory,
 // fetchExistingCategories, or mergeCategories here, mirror the changes there.
 

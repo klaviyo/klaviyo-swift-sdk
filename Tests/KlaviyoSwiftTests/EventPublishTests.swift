@@ -15,6 +15,7 @@ final class EventPublishTests: XCTestCase {
     override func setUp() {
         super.setUp()
         environment = KlaviyoEnvironment.test()
+        resetCanonicalCoreStores()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
         EventBus.shared.reset()
     }
@@ -32,9 +33,6 @@ final class EventPublishTests: XCTestCase {
         // Given
         let expectation = XCTestExpectation(description: "Enriched event is received")
         var receivedEvent: Event?
-
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
 
         // Subscribe to events
         EventBus.shared.eventPublisher()
@@ -81,9 +79,6 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Event received with preserved attributes")
         var receivedEvent: Event?
 
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
@@ -121,21 +116,46 @@ final class EventPublishTests: XCTestCase {
         XCTAssertNotNil(properties["Device ID"])
     }
 
+    func testPublishEvent_PreservesHighPriority() {
+        // Regression: enrichment rebuilds the Event, and must carry `priority` through so
+        // high-priority opened-push/geofence events are not silently downgraded to `.standard`
+        // on the EventBus copy.
+        let expectation = XCTestExpectation(description: "Enriched event preserves .high priority")
+        var receivedEvent: Event?
+
+        EventBus.shared.eventPublisher()
+            .sink { event in
+                receivedEvent = event
+                expectation.fulfill()
+            }
+            .store(in: &cancellables)
+
+        // When - publish a high-priority event (as opened-push/geofence producers do)
+        let originalEvent = Event(name: ._openedPush, priority: .high)
+        enrichAndPublishEvent(originalEvent)
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+
+        XCTAssertEqual(
+            receivedEvent?.priority,
+            .high,
+            "Enrichment must preserve high priority on the EventBus copy"
+        )
+    }
+
     func testPublishEvent_IncludesPushTokenWhenAvailable() {
         // Given
         let expectation = XCTestExpectation(description: "Event received with push token")
         var receivedEvent: Event?
 
-        // Set up state with push token
-        var testState = KlaviyoState.test
-        testState.pushTokenData = KlaviyoState.PushTokenData(
+        // Seed a push token on the canonical identity store.
+        IdentityStore.shared.updatePushToken(PushTokenData(
             pushToken: "test_push_token_abc123",
             pushEnablement: .authorized,
             pushBackground: .available,
             deviceData: DeviceMetadata(context: environment.appContextInfo())
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
+        ))
 
         EventBus.shared.eventPublisher()
             .sink { event in
@@ -163,12 +183,7 @@ final class EventPublishTests: XCTestCase {
         let expectation = XCTestExpectation(description: "Event received with empty push token")
         var receivedEvent: Event?
 
-        // Set up state without push token
-        var testState = KlaviyoState.test
-        testState.pushTokenData = nil
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
+        // No push token on the canonical identity store (reset in setUp).
         EventBus.shared.eventPublisher()
             .sink { event in
                 receivedEvent = event
@@ -190,9 +205,6 @@ final class EventPublishTests: XCTestCase {
 
     func testPublishEvent_BuffersEnrichedEvent() {
         // Given
-        let testStore = Store(initialState: .test, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { testStore.state.eraseToAnyPublisher() }
-
         // When - publish an event
         let originalEvent = Event(
             name: .customEvent("buffered_event"),

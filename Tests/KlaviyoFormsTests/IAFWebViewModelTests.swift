@@ -50,19 +50,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         seedCoreStores()
 
-        // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
-        let testState = KlaviyoState(
-            apiKey: "abc123",
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
-
-        // Read the seeded config/identity from the canonical Core stores
+        // Read the seeded config/identity from the canonical Core stores (the Forms view model
+        // observes IdentityStore / SDKConfigStore directly).
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = IdentityStore.shared.current
 
