@@ -1,7 +1,7 @@
 # 04 — Decide: batch events through `/client/event-bulk-create`
 Type: grilling
 Status: open
-Blocked by: 01, 02
+Blocked by: 01, ~~02~~ (resolved)
 
 ## Question
 

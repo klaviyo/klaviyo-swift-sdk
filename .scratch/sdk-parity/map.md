@@ -39,6 +39,8 @@ serves, and its public-API impact — with public-contract changes limited to *a
 
 <!-- one line per closed ticket: gist, then the link that holds the detail -->
 
+- [What the Klaviyo Client API already lets the SDK do](issues/02-research-klaviyo-client-api-capabilities.md) — `POST /client/event-bulk-create` is GA: one profile per request, ≤1000 events, per-event `unique_id` required to avoid all-or-nothing rejection, no `push_token` in the profile block, and a much lower rate limit (10/s, 150/m) than single events; gzip request bodies and partial-failure pointers are undocumented; no public forms-definition endpoint exists.
+
 ## Not yet specified
 
 - **Session model**: forms have a 1 h inactivity session (`InAppFormsConfig`); the event pipeline has

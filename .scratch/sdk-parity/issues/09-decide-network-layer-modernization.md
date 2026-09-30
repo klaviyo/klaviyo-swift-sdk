@@ -1,7 +1,7 @@
 # 09 — Decide: network layer — reachability, compression, session config
 Type: grilling
 Status: open
-Blocked by: 02, 05
+Blocked by: ~~02~~ (resolved), 05
 
 ## Question
 
