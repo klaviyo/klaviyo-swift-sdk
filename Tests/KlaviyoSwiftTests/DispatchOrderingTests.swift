@@ -96,6 +96,35 @@ final class DispatchOrderingTests: XCTestCase {
         lock.unlock()
         XCTAssertEqual(result, ["initialize", "setEmail"], "setEmail must not reduce before initialize")
     }
+
+    func testSetEmailAfterResetDoesNotReachReducerFirst() async {
+        let bothReduced = expectation(description: "reset and setEmail reduced")
+        let lock = NSLock()
+        var observed: [String] = []
+
+        klaviyoSwiftEnvironment.send = { action in
+            lock.lock()
+            switch action {
+            case .resetProfile: observed.append("resetProfile")
+            case .setEmail: observed.append("setEmail")
+            default: break
+            }
+            let complete = observed.count == 2
+            lock.unlock()
+            if complete { bothReduced.fulfill() }
+            return nil
+        }
+
+        let sdk = KlaviyoSDK()
+        sdk.resetProfile()
+        sdk.set(email: "after@example.com")
+
+        await fulfillment(of: [bothReduced], timeout: 2)
+        lock.lock()
+        let result = observed
+        lock.unlock()
+        XCTAssertEqual(result, ["resetProfile", "setEmail"])
+    }
 }
 
 extension KlaviyoAction {

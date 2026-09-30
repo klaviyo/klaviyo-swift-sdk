@@ -15,9 +15,7 @@ import OSLog
 import UIKit
 
 func dispatchOnMainThread(action: KlaviyoAction) {
-    DispatchQueue.main.async {
-        _ = klaviyoSwiftEnvironment.send(action)
-    }
+    enqueueSDKAction(action)
 }
 
 /// Orders automatic APNs callbacks across the short-lived `KlaviyoSDK` values created by the
@@ -115,10 +113,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        DispatchQueue.main.async {
-            SharedStoreMirror.setup()
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-        }
+        enqueueSDKInitialization(apiKey)
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
@@ -137,7 +132,7 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        enqueueAuthReset()
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
