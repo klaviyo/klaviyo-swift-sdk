@@ -272,7 +272,9 @@ package actor AuthTokenManager {
     ///   registered; ``AuthTokenError/timedOut`` when the caller's budget
     ///   elapses before the fetch completes; the provider's own error when the
     ///   provider throws; ``AuthTokenError/validationFailed(_:)`` when the
-    ///   returned token fails ``JWTParser`` validation.
+    ///   returned token fails ``JWTParser`` validation;
+    ///   ``AuthTokenError/companyChanged`` when the configured company changed
+    ///   while the caller was waiting on the fetch.
     package func currentToken(mode: FetchMode = .interactive) async throws -> String {
         await reconcileCompany()
         if let cachedToken, isCachedTokenValid(cachedToken) {
@@ -288,7 +290,7 @@ package actor AuthTokenManager {
         let token = try await race(fetch: task, timeoutSeconds: mode.rawValue)
         await reconcileCompany()
         if let companyID, observedCompanyID != companyID {
-            throw CancellationError()
+            throw AuthTokenError.companyChanged
         }
         return token
     }
