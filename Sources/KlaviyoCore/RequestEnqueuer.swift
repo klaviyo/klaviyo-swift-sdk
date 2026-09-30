@@ -35,8 +35,8 @@ public enum RequestEnqueuer {
     /// - Post-init → build a request and enqueue directly to `QueueStore` (`apiKey` is set by the time
     ///   the session is marked).
     /// - Pre-init + `enablePreInitDiskCapture` ON → append to the durable `UnattributedBuffer`.
-    /// - Pre-init + `enablePreInitDiskCapture` OFF → hold a high-priority event (push-open) in the
-    ///   non-durable `PreInitMemoryBuffer`; drop everything else with a developer warning.
+    /// - Pre-init + `enablePreInitDiskCapture` OFF → hold a high-priority event (push-open) OR a push
+    ///   token in the non-durable `PreInitMemoryBuffer`; drop everything else with a developer warning.
     private static func route(
         buffered: UnattributedRequest,
         build: (_ apiKey: String) -> KlaviyoRequest
@@ -45,9 +45,7 @@ public enum RequestEnqueuer {
             QueueStore.shared.enqueue(build(apiKey))
         } else if featureFlags.enablePreInitDiskCapture {
             UnattributedBuffer.shared.append(buffered)
-        } else if isHighPriorityEvent(buffered) {
-            // Android parity: hold pre-init push-opens in a non-durable in-memory buffer; drop the
-            // rest (Android drops all pre-init calls except in-memory push-opens).
+        } else if isHighPriorityEvent(buffered) || isPushToken(buffered) {
             PreInitMemoryBuffer.shared.append(buffered)
         } else {
             environment.emitDeveloperWarning(
@@ -55,11 +53,13 @@ public enum RequestEnqueuer {
         }
     }
 
-    /// A buffered request is a high-priority push-open iff it is a `.high`-priority event. On this
-    /// branch the only `.high` events are Klaviyo-prioritized events (`$opened_push`), mirroring
-    /// Android's `isKlaviyoMetric` high-priority lane.
     private static func isHighPriorityEvent(_ request: UnattributedRequest) -> Bool {
         if case let .event(_, priority) = request { return priority == .high }
+        return false
+    }
+
+    private static func isPushToken(_ request: UnattributedRequest) -> Bool {
+        if case .pushToken = request { return true }
         return false
     }
 

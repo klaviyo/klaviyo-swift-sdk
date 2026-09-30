@@ -98,6 +98,39 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.pushToken?.pushBackground, .available)
     }
 
+    /// The success write-through is guarded on a token match (symmetric with the failure-path
+    /// rollback): if a newer token was set (e.g. a later `setPushToken`) after an older register was
+    /// enqueued, that older register completing successfully must NOT revert the canonical token to
+    /// the stale value.
+    func testRegisterSuccessPreservesNewerToken() async {
+        QueueStore.register(makeQueueStore())
+        let oldPayload = PushTokenPayload(
+            pushToken: "tok-old",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        )
+        let newerToken = PushTokenData(PushTokenPayload(
+            pushToken: "tok-new",
+            enablement: PushEnablement.authorized.rawValue,
+            background: PushBackground.available.rawValue,
+            profile: ProfilePayload(anonymousId: "anon-1")
+        ))
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
+        IdentityStore.shared.updatePushToken(newerToken)
+        let spy = SendSpy(results: [.success(Data())])
+        QueueStore.shared.enqueue(
+            KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", oldPayload)),
+            persist: .synchronous
+        )
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(IdentityStore.shared.pushToken, newerToken,
+                       "a newer token set after the older register must survive that register succeeding")
+    }
+
     /// With no apiKey set, `flush()` is a no-op: `send` is never called.
     func testNoApiKeySkipsFlush() async {
         SDKConfigStore.shared.reset() // clear the apiKey seeded in setUp

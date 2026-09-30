@@ -166,7 +166,12 @@ public actor RequestQueue {
         switch outcome {
         case .success:
             if case let .registerPushToken(_, payload) = head.endpoint {
-                IdentityStore.shared.updatePushToken(PushTokenData(payload))
+                // Don't let an older in-flight register revert a newer token; only write when no token
+                // is set or the stored one matches (mirrors `clearOptimisticPushToken`).
+                let storedToken = IdentityStore.shared.pushToken?.pushToken
+                if storedToken == nil || storedToken == payload.data.attributes.token {
+                    IdentityStore.shared.updatePushToken(PushTokenData(payload))
+                }
             }
             requestsInFlight.removeFirst()
             retryState = .retry(FlushConstants.initialAttempt)

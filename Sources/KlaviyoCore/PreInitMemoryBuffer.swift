@@ -7,9 +7,10 @@
 
 import Foundation
 
-/// Non-durable, process-local sink for high-priority pre-init calls (push-opens). Mirrors Android's
-/// in-memory `preInitQueue`: held only until `initialize()` drains it, lost on process death. Used
-/// only when `featureFlags.enablePreInitDiskCapture` is false. Not persisted — no disk I/O.
+/// Non-durable, process-local sink for the pre-init calls worth preserving without disk capture:
+/// high-priority events (push-opens) and the latest push token. Held only until `initialize()`
+/// drains it, lost on process death. Used only when `featureFlags.enablePreInitDiskCapture` is false.
+/// Not persisted — no disk I/O.
 final class PreInitMemoryBuffer {
     static let shared = PreInitMemoryBuffer()
     static let maxBufferSize = 200
@@ -17,9 +18,17 @@ final class PreInitMemoryBuffer {
     private let lock = UnfairLock()
     private var requests: [UnattributedRequest] = []
 
-    /// Appends a request, evicting the oldest when at capacity (FIFO drop-oldest).
+    /// Appends a request, coalescing push tokens to the latest and evicting the oldest when at
+    /// capacity (FIFO drop-oldest).
     func append(_ request: UnattributedRequest) {
         let didEvict = lock.withLock { () -> Bool in
+            // Coalesce: a new token supersedes any earlier buffered token (keep latest only).
+            if case .pushToken = request {
+                requests.removeAll {
+                    if case .pushToken = $0 { return true }
+                    return false
+                }
+            }
             let evicting = requests.count >= Self.maxBufferSize
             if evicting {
                 requests.removeFirst()

@@ -418,6 +418,63 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         )
     }
 
+    func testColdStartCompanySwitchPersistsReRegisterSynchronously() async throws {
+        let priorApiKey = "prior-sync-key"
+        let newApiKey = "new-sync-cs-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: priorApiKey))
+        IdentityStore.shared.update(ProfileData(email: "cs-sync@x.com", anonymousId: "anon-cs-sync"))
+        IdentityStore.shared.updatePushToken(defaultTokenData)
+
+        let readDisk = seedDeferredPersistQueueStore()
+        KlaviyoCommands.initialize(newApiKey) // cold-start switch runs synchronously in the head
+
+        let onDisk = readDisk().map(\.endpoint)
+        XCTAssertTrue(
+            onDisk.contains { if case let .unregisterPushToken(key, _) = $0 { return key == priorApiKey }
+                return false
+            },
+            "cold-start switch: unregister(prior) is persisted synchronously"
+        )
+        XCTAssertTrue(
+            onDisk.contains { if case let .registerPushToken(key, _) = $0 { return key == newApiKey }
+                return false
+            },
+            "cold-start switch: re-register(new) must be persisted synchronously (crash-safety)"
+        )
+    }
+
+    // MARK: - High-priority flush on init completion (bug 1)
+
+    /// Builds a `.createEvent` request with the given priority for the queued-request flush tests.
+    private func makeEventRequest(apiKey: String, anonymousId: String, priority: RequestPriority) -> KlaviyoRequest {
+        let payload = RequestFactory.eventPayload(
+            identity: PayloadIdentity(anonymousId: anonymousId),
+            event: Event(name: ._openedPush, priority: priority),
+            pushToken: nil
+        )
+        return KlaviyoRequest(endpoint: .createEvent(apiKey, payload), priority: priority)
+    }
+
+    /// A high-priority request queued when init completes is flushed immediately, not left until the
+    /// first `flushInterval` tick.
+    func testCompleteInitializationFlushesQueuedHighPriorityRequest() async throws {
+        let apiKey = "hp-flush-key"
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-hp"))
+        seedTestQueueStore()
+        QueueStore.shared.enqueue(
+            makeEventRequest(apiKey: apiKey, anonymousId: "anon-hp", priority: .high),
+            persist: .synchronous
+        )
+
+        LifecycleState.shared.beginInitializing()
+        await KlaviyoCommands.completeInitialization(apiKey: apiKey)
+
+        let flushCount = await spyQueue.getFlushNowCount()
+        XCTAssertEqual(flushCount, 1,
+                       "a queued high-priority request must be flushed as soon as init completes")
+    }
+
     // MARK: - Lifecycle loop
 
     //
