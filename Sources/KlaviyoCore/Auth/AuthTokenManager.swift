@@ -367,24 +367,7 @@ package actor AuthTokenManager {
             }
     }
 
-    /// Number of completed ``reconcileCompany()`` passes.
-    private var reconcileCount = 0
-    private var reconcileWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
-
-    /// Test-only: suspends until at least `count` ``reconcileCompany()`` passes
-    /// have completed.
-    func waitForReconcileForTesting(count: Int) async {
-        if reconcileCount >= count { return }
-        await withCheckedContinuation { reconcileWaiters.append((count, $0)) }
-    }
-
     private func reconcileCompany() async {
-        defer {
-            reconcileCount += 1
-            let ready = reconcileWaiters.filter { reconcileCount >= $0.count }
-            reconcileWaiters.removeAll { reconcileCount >= $0.count }
-            ready.forEach { $0.continuation.resume() }
-        }
         let companyID = config.current.apiKey
         guard observedCompanyID != companyID else { return }
         let previousCompanyID = observedCompanyID
