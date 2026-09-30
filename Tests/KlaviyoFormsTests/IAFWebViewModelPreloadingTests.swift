@@ -46,9 +46,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         //
         // The budget below is not the behavior under test. The handshake is mocked with
         // zero delay, so a healthy run returns in under a millisecond and never waits on
-        // it. It is generous because scheduler stalls dominate on loaded runners: in CI
-        // run 36046520520 this test failed at 5.0s while the 0.1s-budget test below
-        // still took 7.054 seconds of wall clock.
+        // it. It is generous because scheduler stalls dominate on loaded runners: this
+        // test has failed at a 5.0s budget in CI while the 0.1s-budget test below still
+        // took 7.054 seconds of wall clock in the same job.
         //
         // Do not raise it much further. XCTest kills a test at its 120s
         // executionTimeAllowance, and a stall that long is an environment problem that
