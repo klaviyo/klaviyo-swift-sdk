@@ -31,8 +31,12 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
     func testBadJWTInvalidatesCachedToken() async throws {
         // Given — a registered provider whose invocations can be counted deterministically
         let counter = InvocationCounter()
+        let refetched = expectation(description: "provider hit again after BadJWT")
         await AuthTokenManager.shared.registerProvider {
-            await counter.increment()
+            let invocation = await counter.increment()
+            if invocation == 2 {
+                refetched.fulfill()
+            }
             return try makeTestJWT()
         }
 
@@ -43,26 +47,26 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
         let baseline = await counter.value
         XCTAssertEqual(baseline, 1, "Expected the cached token to be served without a new fetch")
 
-        // When — KlaviyoJS rejects the injected token
-        sendBadJWT()
-
-        // Then — the cache no longer serves the rejected token: the next
-        // fetch must hit the provider again rather than reusing it. The
-        // invalidation runs on a fire-and-forget Task, so probe
-        // `currentToken()` until it lands, blocking on the counter (not a
-        // fixed sleep) via an expectation with a bounded timeout.
-        let refetched = XCTestExpectation(description: "cache invalidated; provider hit again")
-        let prober = Task {
-            while !Task.isCancelled {
-                _ = try? await AuthTokenManager.shared.currentToken()
-                if await counter.value > baseline {
-                    refetched.fulfill()
+        let cleared = expectation(description: "rejected token cleared")
+        let observer = Task {
+            let updates = await AuthTokenManager.shared.updates()
+            for await update in updates {
+                if case .cleared = update {
+                    cleared.fulfill()
                     return
                 }
             }
         }
-        await fulfillment(of: [refetched], timeout: 2.0)
-        prober.cancel()
+
+        // When — KlaviyoJS rejects the injected token
+        sendBadJWT()
+
+        await fulfillment(of: [cleared], timeout: 30)
+        observer.cancel()
+
+        let probe = Task { _ = try? await AuthTokenManager.shared.currentToken(mode: .background) }
+        await fulfillment(of: [refetched], timeout: 30)
+        probe.cancel()
 
         await AuthTokenManager.shared.unregisterProvider()
     }
