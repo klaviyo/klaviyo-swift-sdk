@@ -71,9 +71,11 @@ extension KlaviyoSDK {
     /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`, and only
     /// when SDK logging is enabled) and via form-display behavior.
     ///
-    /// - Parameter provider: an `@Sendable` async closure that returns a JWT. When
-    ///   called after the server rejected a token, it must return a newly issued
-    ///   token, not a cached copy of the rejected one.
+    /// - Parameter provider: an `@Sendable` async closure that returns a JWT. The
+    ///   SDK caches the returned token and calls this again only when it needs a new
+    ///   one (before expiry, or after the server rejected the current token). Return
+    ///   a freshly issued token on every call; don't return a token cached from a
+    ///   previous call.
     public func registerAuthTokenProvider(_ provider: @escaping AuthTokenProvider) {
         AuthTokenProviderSequencer.enqueue {
             await AuthTokenManager.shared.registerProvider(provider)
