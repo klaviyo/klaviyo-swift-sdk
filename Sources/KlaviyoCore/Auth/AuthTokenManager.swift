@@ -9,6 +9,11 @@ import Combine
 import Foundation
 import OSLog
 
+package enum AuthTokenUpdate {
+    case cleared
+    case token(String)
+}
+
 /// Owns the host-supplied ``AuthTokenProvider`` and serves the current auth JWT
 /// to internal SDK consumers (in-app forms today, future feature modules
 /// tomorrow).
@@ -124,6 +129,7 @@ package actor AuthTokenManager {
     /// Retained across both ``registerProvider(_:)`` and ``clearTokenState()``
     /// — see ``clearTokenState()`` for why a live subscription survives a reset.
     private let refreshSubject = PassthroughSubject<String, Never>()
+    private let updateSubject = PassthroughSubject<AuthTokenUpdate, Never>()
 
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
@@ -220,6 +226,7 @@ package actor AuthTokenManager {
     /// later replaces the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
         cancelInFlightWorkAndClearCache()
+        updateSubject.send(.cleared)
         provider = newProvider
 
         if #available(iOS 14.0, *) {
@@ -309,8 +316,7 @@ package actor AuthTokenManager {
     /// The subscription is established synchronously inside the stream's build
     /// closure, so a refresh that fires immediately after this call is still
     /// delivered — there is no gap between subscribing and being ready to
-    /// receive. Intended for `KlaviyoForms` to push refreshed tokens into an
-    /// active WebView.
+    /// receive.
     ///
     /// Why a stream and not the ``refreshSubject`` itself: the subject's
     /// `.send(_:)` write end must never cross the package boundary (a consumer
@@ -319,6 +325,20 @@ package actor AuthTokenManager {
     package func refreshes() -> AsyncStream<String> {
         AsyncStream { [refreshSubject] continuation in
             let cancellable = refreshSubject.sink { continuation.yield($0) }
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
+    }
+
+    package func updates() -> AsyncStream<AuthTokenUpdate> {
+        let currentUpdate: AuthTokenUpdate
+        if let cachedToken, isCachedTokenValid(cachedToken) {
+            currentUpdate = .token(cachedToken.rawToken)
+        } else {
+            currentUpdate = .cleared
+        }
+        return AsyncStream { [updateSubject] continuation in
+            let cancellable = updateSubject.sink { continuation.yield($0) }
+            continuation.yield(currentUpdate)
             continuation.onTermination = { _ in cancellable.cancel() }
         }
     }
@@ -341,6 +361,7 @@ package actor AuthTokenManager {
     ///   simply goes quiet until the next successful refresh produces a token.
     package func clearTokenState() async {
         cancelInFlightWorkAndClearCache()
+        updateSubject.send(.cleared)
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: token state cleared")
         }
@@ -620,6 +641,7 @@ package actor AuthTokenManager {
             // tokens never reach live ``refreshes()`` subscribers.
             guard cachedToken?.rawToken == token else { return }
             refreshSubject.send(token)
+            updateSubject.send(.token(token))
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)

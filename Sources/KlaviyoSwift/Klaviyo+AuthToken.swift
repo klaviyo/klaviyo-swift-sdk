@@ -12,7 +12,7 @@ import KlaviyoCore
 private enum AuthTokenProviderSequencer {
     static var tail: Task<Void, Never>?
 
-    nonisolated static func enqueue(_ operation: @escaping @Sendable () async -> Void) {
+    nonisolated static func enqueue(_ operation: @escaping @MainActor () async -> Void) {
         DispatchQueue.main.async { @MainActor in
             let previous = tail
             tail = Task {
@@ -20,6 +20,26 @@ private enum AuthTokenProviderSequencer {
                 await operation()
             }
         }
+    }
+}
+
+func enqueueAuthReset() {
+    AuthTokenProviderSequencer.enqueue {
+        await AuthTokenManager.shared.clearTokenState()
+        _ = klaviyoSwiftEnvironment.send(.resetProfile)
+    }
+}
+
+func enqueueSDKAction(_ action: KlaviyoAction) {
+    AuthTokenProviderSequencer.enqueue {
+        _ = klaviyoSwiftEnvironment.send(action)
+    }
+}
+
+func enqueueSDKInitialization(_ apiKey: String) {
+    AuthTokenProviderSequencer.enqueue {
+        SharedStoreMirror.setup()
+        _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
     }
 }
 

@@ -68,5 +68,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
         return true
     }
 
+    func refreshLoadScripts() {}
+
     func dismiss() {}
 }

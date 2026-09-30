@@ -504,6 +504,21 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertTrue(scripts[0].contains(firstToken))
         XCTAssertTrue(scripts[1].contains(secondToken))
     }
+
+    @MainActor
+    func testClearAuthTokenRemovesLiveAttributeAndNextNavigationScript() async throws {
+        let token = "header.outgoing.signature"
+        let fileURL = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let model = IAFWebViewModel(url: fileURL, apiKey: "abc123", profileData: nil, authToken: token)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        XCTAssertNotNil(model.findScript(containing: token))
+
+        await model.clearAuthToken()
+
+        XCTAssertNil(model.findScript(containing: token))
+        XCTAssertTrue(delegate.evaluatedScripts.contains("document.head.removeAttribute('data-klaviyo-jwt');"))
+    }
 }
 
 extension IAFWebViewModel {
