@@ -37,6 +37,7 @@ test-library:
 			-enableCodeCoverage YES \
 			-configuration $(XCODE_CONFIG) \
 			$(if $(filter Release,$(XCODE_CONFIG)),ENABLE_TESTABILITY=YES) \
+			'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$$(inherited) KLAVIYO_TESTING' \
 			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" \
 			-test-timeouts-enabled YES \
