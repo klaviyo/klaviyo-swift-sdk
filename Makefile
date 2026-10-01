@@ -36,7 +36,7 @@ test-library:
 			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \
 			-enableCodeCoverage $(if $(filter Release,$(XCODE_CONFIG)),NO,YES) \
 			-configuration $(XCODE_CONFIG) \
-			$(if $(filter Release,$(XCODE_CONFIG)),ENABLE_TESTABILITY=YES) \
+			$(if $(filter Release,$(XCODE_CONFIG)),ENABLE_TESTABILITY=YES SWIFT_COMPILATION_MODE=singlefile) \
 			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" \
 			-test-timeouts-enabled YES \
