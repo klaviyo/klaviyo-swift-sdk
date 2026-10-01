@@ -137,3 +137,18 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 /// Thrown by ``MockIAFWebViewDelegate/evaluateJavaScript(_:)`` for a script registered with
 /// ``MockIAFWebViewDelegate/failScript(containing:)``.
 struct ScriptEvaluationFailure: Error {}
+
+extension MockIAFWebViewDelegate {
+    /// Upper bound for ``awaitScript(containing:file:line:)``, which only exists to fail a test
+    /// whose script never arrives.
+    static let scriptSafeguard: TimeInterval = 60
+
+    /// Suspends until a script containing `text` has been evaluated, resuming as soon as it is.
+    func awaitScript(
+        containing text: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        await waitForScript(containing: text, timeout: Self.scriptSafeguard, file: file, line: line)
+    }
+}

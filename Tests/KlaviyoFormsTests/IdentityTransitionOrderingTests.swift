@@ -80,7 +80,7 @@ final class IdentityTransitionOrderingTests: XCTestCase {
             await makeViewModel(authToken: outgoingToken)
 
             send(path.action)
-            await delegate.waitForScript(containing: "data-klaviyo-jwt")
+            await delegate.awaitScript(containing: "data-klaviyo-jwt")
 
             let tokenScripts = delegate.authTokenScripts
             XCTAssertEqual(tokenScripts.count, 1, path.name)
