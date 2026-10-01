@@ -301,6 +301,12 @@ package actor AuthTokenManager {
         }
     }
 
+    /// Whether `token` is the currently cached token. `false` once the cache has been
+    /// cleared or replaced.
+    package func isCurrentToken(_ token: String) -> Bool {
+        cachedToken?.rawToken == token
+    }
+
     /// Clears all token-acquisition state tied to the current user, called from
     /// `KlaviyoSDK().resetProfile()` (e.g. on logout). Discards the cached
     /// token, cancels the scheduled proactive refresh and its wall-clock

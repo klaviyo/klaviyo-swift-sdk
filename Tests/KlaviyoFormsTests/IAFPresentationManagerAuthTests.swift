@@ -98,7 +98,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let manager = IAFPresentationManager(viewController: nil)
 
         manager.prepareTokenDelivery(
-            for: viewModel, initialToken: nil, initialProfile: IdentityStore.shared.current, updates: updates
+            for: viewModel,
+            initialToken: nil,
+            initialProfile: IdentityStore.shared.current,
+            updates: updates,
+            from: authTokenManager
         )
         await Task.yield()
         XCTAssertTrue(jwtScripts(delegate).isEmpty)
@@ -127,7 +131,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let (viewModel, delegate) = makeViewModel(authToken: nil)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
-            for: viewModel, initialToken: nil, initialProfile: IdentityStore.shared.current, updates: updates
+            for: viewModel,
+            initialToken: nil,
+            initialProfile: IdentityStore.shared.current,
+            updates: updates,
+            from: authTokenManager
         )
         manager.startTokenDelivery()
 
@@ -158,7 +166,8 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             for: viewModel,
             initialToken: initial,
             initialProfile: IdentityStore.shared.current,
-            updates: updates
+            updates: updates,
+            from: authTokenManager
         )
         manager.startTokenDelivery()
 
@@ -181,7 +190,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let (viewModel, delegate) = makeViewModel(authToken: token)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
-            for: viewModel, initialToken: token, initialProfile: profileA, updates: updates
+            for: viewModel,
+            initialToken: token,
+            initialProfile: profileA,
+            updates: updates,
+            from: authTokenManager
         )
         manager.startTokenDelivery()
         await Task.yield()
@@ -195,6 +208,40 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await Task.yield()
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(token))
+        manager.destroyWebView()
+    }
+
+    func testTokenClearedBeforeDeliveryIsNeverWritten() async throws {
+        IdentityStore.shared.update(profileA)
+        let stale = try makeToken("stale")
+        let fresh = try makeToken("fresh")
+        let authTokenManager = AuthTokenManager()
+        let updates = await authTokenManager.refreshes()
+        let counter = InvocationCounter()
+        await authTokenManager.registerProvider {
+            await counter.increment() == 1 ? stale : fresh
+        }
+        _ = try await authTokenManager.currentToken(mode: .background)
+        IdentityStore.shared.update(profileB)
+        await authTokenManager.clearTokenState()
+        let (viewModel, delegate) = makeViewModel(authToken: nil)
+        let manager = IAFPresentationManager(viewController: nil)
+        manager.prepareTokenDelivery(
+            for: viewModel,
+            initialToken: nil,
+            initialProfile: profileB,
+            updates: updates,
+            from: authTokenManager
+        )
+        manager.startTokenDelivery()
+
+        _ = try await authTokenManager.currentToken(mode: .background)
+
+        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await Task.yield()
+        XCTAssertEqual(jwtScripts(delegate).count, 1)
+        XCTAssertTrue(jwtScripts(delegate)[0].contains(fresh))
+        XCTAssertFalse(jwtScripts(delegate).contains { $0.contains(stale) })
         manager.destroyWebView()
     }
 
@@ -225,7 +272,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let (viewModel, delegate) = makeViewModel(authToken: nil)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
-            for: viewModel, initialToken: nil, initialProfile: IdentityStore.shared.current, updates: updates
+            for: viewModel,
+            initialToken: nil,
+            initialProfile: IdentityStore.shared.current,
+            updates: updates,
+            from: authTokenManager
         )
 
         manager.destroyWebView()
