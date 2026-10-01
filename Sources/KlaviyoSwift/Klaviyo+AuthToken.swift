@@ -31,9 +31,11 @@ extension KlaviyoSDK {
     /// Registers the host-supplied closure that produces the auth JWT used for
     /// personalized in-app forms.
     ///
-    /// Each call invalidates any cached token and triggers an eager fetch to
-    /// warm the cache. Calling again later replaces the previously registered
-    /// provider.
+    /// Each call invalidates any cached token and, for an identified profile (one with an
+    /// email, phone number or external ID), triggers an eager fetch to warm the cache. If
+    /// the profile is not identified yet, the fetch runs once the profile becomes identified.
+    /// The provider is never called while the profile has no identifier. Calling again later
+    /// replaces the previously registered provider.
     ///
     /// Register and unregister calls are applied in the order they are made,
     /// so the last call always determines the provider in effect. Ordering is
