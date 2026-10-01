@@ -161,9 +161,14 @@ extension IAFWebViewModelRefreshJwtTests {
         viewModel.handleScriptMessage(scriptMessage)
     }
 
-    /// Waits for the eager warm-up fetch to cache `token`.
+    /// Waits for the eager warm-up fetch to cache `token`. Each attempt joins the
+    /// same in-flight fetch, so a timed-out attempt never adds a provider call.
     private func warmCache(expecting token: String) async throws {
-        let warm = try await authTokenManager.currentToken(mode: .background)
+        let maxAttempts = 6
+        var warm: String?
+        for _ in 0..<maxAttempts where warm == nil {
+            warm = try? await authTokenManager.currentToken(mode: .background)
+        }
         XCTAssertEqual(warm, token)
     }
 
