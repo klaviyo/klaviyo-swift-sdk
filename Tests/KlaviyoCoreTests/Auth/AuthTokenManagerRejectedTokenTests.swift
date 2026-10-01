@@ -136,7 +136,6 @@ struct AuthTokenManagerRejectedTokenTests {
     func providerFailurePublishesNothingAndDropsRejectedToken() async throws {
         let rejected = try token("rejected")
         let replacement = try token("replacement")
-        let sentinel = try token("sentinel")
         let fixture = makeFixture()
         let manager = fixture.manager
         let gate = fixture.gate
@@ -146,8 +145,7 @@ struct AuthTokenManagerRejectedTokenTests {
             switch await counter.increment() {
             case 1: return rejected
             case 2: throw ProviderTestError.network
-            case 3: return replacement
-            default: return sentinel
+            default: return replacement
             }
         }
         try await warmUp(counter: counter, gate: gate)
@@ -157,10 +155,8 @@ struct AuthTokenManagerRejectedTokenTests {
 
         let served = try await manager.currentToken(mode: .background)
         #expect(served == replacement, "a failed refresh must still drop the rejected token")
-
-        await manager.refreshRejectedToken()
         let delivered = await firstElement(of: stream)
-        #expect(delivered == sentinel, "the failed refresh must publish nothing")
+        #expect(delivered == replacement, "the failed refresh must publish nothing")
     }
 
     @Test
@@ -209,7 +205,6 @@ struct AuthTokenManagerRejectedTokenTests {
         await manager.refreshRejectedToken()
 
         await manager.registerProvider { sentinel }
-        await manager.refreshRejectedToken()
         let delivered = await firstElement(of: stream)
         #expect(delivered == sentinel, "a refresh without a provider must publish nothing")
     }
@@ -281,7 +276,6 @@ struct AuthTokenManagerRejectedTokenTests {
         await releaseFetch.open()
         await refresh.value
 
-        await manager.refreshRejectedToken()
         let delivered = await firstElement(of: stream)
         #expect(delivered == sentinel, "a refresh interrupted by a provider change must publish nothing")
     }
@@ -391,7 +385,7 @@ extension AuthTokenManagerRejectedTokenTests {
 
 extension AuthTokenManagerRejectedTokenTests {
     @Test
-    func hungProviderTimesOutWithoutPublishing() async throws {
+    func hungProviderTimesOutAndItsLateTokenIsPublishedOnce() async throws {
         let rejected = try token("rejected")
         let replacement = try token("replacement")
         let sentinel = try token("sentinel")
@@ -425,7 +419,7 @@ extension AuthTokenManagerRejectedTokenTests {
         let second = await iterator.next()
         #expect(
             [first, second] == [replacement, sentinel],
-            "the timed-out refresh must publish nothing; the next one must publish its token"
+            "the timed-out fetch must publish its late token once; the next one must publish its token"
         )
     }
 }

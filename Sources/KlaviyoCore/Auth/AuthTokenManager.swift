@@ -861,19 +861,18 @@ extension AuthTokenManager {
     ///
     /// Discards the cached token and its scheduled refresh, then makes at most one
     /// provider call itself: it joins a fetch that is already in flight, or starts
-    /// one. On success the new token is published on ``refreshes()``. Nothing is
-    /// published when no provider is registered, when the fetch fails, or when the
-    /// cache no longer holds the fetched token by the time it returns (e.g. after
-    /// ``clearTokenState()`` or ``registerProvider(_:)`` ran mid-fetch).
+    /// one. Like every newly cached token, the replacement is published on
+    /// ``refreshes()`` by the fetch itself. Nothing is published when no provider is
+    /// registered, when the fetch fails, or when ``clearTokenState()`` or
+    /// ``registerProvider(_:)`` cancels the fetch mid-flight.
     ///
-    /// The wait is bounded by ``FetchMode/background``. On timeout this returns
-    /// without publishing; the fetch keeps running and still caches its token if
-    /// it eventually succeeds.
+    /// The wait is bounded by ``FetchMode/background``. On timeout this returns; the
+    /// fetch keeps running and still caches and publishes its token if it eventually
+    /// succeeds.
     ///
     /// This method never retries on its own. As with every other fetch, a
     /// connectivity-classified provider failure arms the manager's one-shot
-    /// connectivity retry; when it fires, that retry publishes its token on
-    /// ``refreshes()`` too.
+    /// connectivity retry, which publishes its token on ``refreshes()`` too.
     package func refreshRejectedToken() async {
         await refreshRejectedToken(timeoutSeconds: FetchMode.background.rawValue)
     }
@@ -891,17 +890,15 @@ extension AuthTokenManager {
         }
 
         let task = inFlight?.task ?? startFetch()
-        guard let token = try? await race(fetch: task, timeoutSeconds: timeoutSeconds) else {
+        do {
+            _ = try await race(fetch: task, timeoutSeconds: timeoutSeconds)
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: replaced rejected token")
+            }
+        } catch {
             if #available(iOS 14.0, *) {
                 Logger.auth.warning("AuthTokenManager: failed to replace rejected token")
             }
-            return
         }
-
-        guard cachedToken?.rawToken == token else { return }
-        if #available(iOS 14.0, *) {
-            Logger.auth.info("AuthTokenManager: replaced rejected token")
-        }
-        refreshSubject.send(token)
     }
 }
