@@ -229,6 +229,11 @@ package actor AuthTokenManager {
     /// swallows the `CancellationError` `Task.sleep` throws.
     private let sleeper: @Sendable (UInt64) async -> Void
 
+    /// Sleep primitive that bounds a caller's wait in ``race(fetch:timeoutSeconds:)``.
+    /// Injected so tests can run without a real-time budget; defaults to
+    /// `Task.sleep(nanoseconds:)`.
+    private let timeoutSleeper: @Sendable (UInt64) async -> Void
+
     /// Current network reachability, consulted when arming a connectivity wait so a
     /// retry armed *after* the offline→online transition already passed isn't
     /// stranded (see ``armConnectivityRetry(for:)``). Injected for testability; defaults
@@ -258,6 +263,7 @@ package actor AuthTokenManager {
         observedCompanyID = config.current.apiKey
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        timeoutSleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
         currentReachability = { environment.reachabilityStatus() }
         identityTracker = IdentityGenerationTracker(identity: identity)
         observeIdentityChanges()
@@ -286,6 +292,8 @@ package actor AuthTokenManager {
     ///     to `Task.sleep(nanoseconds:)`.
     ///   - reachabilityStatus: Current network reachability.
     ///   - identity: Source of the current profile identity.
+    ///   - fetchTimeoutSleep: Sleep primitive that bounds a caller's wait for a fetch, taking
+    ///     a duration in nanoseconds. Defaults to `Task.sleep(nanoseconds:)`.
     init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
         currentDate: @escaping () -> Date,
@@ -294,6 +302,9 @@ package actor AuthTokenManager {
         },
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
         identity: VersionedIdentityReading = IdentityStore.shared,
+        fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        },
         config: ConfigReading = SDKConfigStore.shared
     ) {
         self.lifeCycle = lifeCycle
@@ -301,6 +312,7 @@ package actor AuthTokenManager {
         observedCompanyID = config.current.apiKey
         self.currentDate = currentDate
         sleeper = sleep
+        timeoutSleeper = fetchTimeoutSleep
         currentReachability = reachabilityStatus
         identityTracker = IdentityGenerationTracker(identity: identity)
         observeIdentityChanges()
@@ -345,24 +357,27 @@ package actor AuthTokenManager {
 
     /// Fetches a background token to warm the cache. When the profile has no identifier it
     /// marks the warm-up pending, unless the profile became identified while the attempt
-    /// was in flight, in which case it tries again, up to three attempts in all.
+    /// was in flight, in which case it tries again.
     private func warmUp() async {
         isWarmUpPending = false
-        for _ in 0..<3 {
+        repeat {
             do {
                 _ = try await currentToken(mode: .background)
                 return
             } catch AuthTokenError.noProfileIdentifier {
+                isWarmUpPending = true
                 warmUpGatedHookForTesting?()
-                guard identityTracker.snapshot().profile.isIdentified else {
-                    isWarmUpPending = true
-                    return
-                }
             } catch {
                 return
             }
-        }
-        isWarmUpPending = true
+        } while consumePendingWarmUpIfIdentified()
+    }
+
+    /// Clears a pending warm-up and returns `true` when the profile has an identifier by now.
+    private func consumePendingWarmUpIfIdentified() -> Bool {
+        guard isWarmUpPending, identityTracker.snapshot().profile.isIdentified else { return false }
+        isWarmUpPending = false
+        return true
     }
 
     /// Reacts to a profile change: drops token state left over from an earlier identity
@@ -512,6 +527,17 @@ package actor AuthTokenManager {
             let cancellable = refreshSubject.sink { continuation.yield($0) }
             continuation.onTermination = { _ in cancellable.cancel() }
         }
+    }
+
+    /// Publishes `refresh` on ``refreshes()`` again when it is still the cached token of the
+    /// current identity generation, so a consumer that declined or missed it receives it
+    /// again. Does nothing otherwise.
+    package func republish(_ refresh: TokenRefresh) {
+        guard let cachedToken,
+              cachedToken.token.rawToken == refresh.token,
+              cachedToken.generation == refresh.generation,
+              refresh.generation == identityTracker.snapshot().generation else { return }
+        refreshSubject.send(refresh)
     }
 
     /// The current identity generation: it increases whenever a profile change is classified
@@ -1110,7 +1136,7 @@ package actor AuthTokenManager {
                 }
             }
             Task {
-                try? await Task.sleep(nanoseconds: timeoutNanos)
+                await timeoutSleeper(timeoutNanos)
                 let didTimeout = await resolver.resolve(.failure(AuthTokenError.timedOut))
                 if didTimeout, #available(iOS 14.0, *) {
                     Logger.auth.error(
@@ -1202,6 +1228,8 @@ extension AuthTokenManager {
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: replaced rejected token")
             }
+        } catch AuthTokenError.noProfileIdentifier {
+            return
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.auth.warning("AuthTokenManager: failed to replace rejected token")

@@ -183,7 +183,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func fetchCompletingAfterProfileReplacementIsDroppedAndNotCached() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity, fetchTimeoutSleep: neverTimesOut)
         let counter = CallCounter()
         let firstFetchRelease = Latch()
         let staleToken = try makeJWT(extraClaims: ["sub": "stale"])
@@ -243,7 +243,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func lateReplacementClearLeavesFetchForNewProfileRunning() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity, fetchTimeoutSleep: neverTimesOut)
         let counter = CallCounter()
         let incomingFetchRelease = Latch()
         let incomingToken = try makeJWT(extraClaims: ["sub": "incoming"])
@@ -308,10 +308,7 @@ struct AuthTokenManagerIdentityTests {
         clock.set(referenceDate.addingTimeInterval(10))
         await gate.release()
         await gate.release()
-        let delivered = try? await withTimeout(seconds: 2) {
-            var iterator = refreshes.makeAsyncIterator()
-            return await iterator.next()
-        }
+        let delivered = await firstElement(of: refreshes)
 
         #expect(delivered == refreshedToken)
     }
@@ -329,12 +326,61 @@ struct AuthTokenManagerIdentityTests {
             return token
         }
 
-        try await withTimeout(seconds: 5) { try await counter.waitFor(atLeast: 1) }
+        try await counter.waitFor(atLeast: 1)
         let served = try await manager.currentToken(mode: .background)
 
         let invocations = await counter.value
         #expect(served == token)
         #expect(invocations == 1)
+    }
+
+    // MARK: - Republish
+
+    @Test
+    func republishDeliversCachedTokenAgainAndIgnoresAStaleGeneration() async throws {
+        let identity = IdentityStore(initialIdentity: profileA)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let counter = CallCounter()
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            return try makeJWT(extraClaims: ["sub": "token-\(invocation)"])
+        }
+        let outgoing = try await manager.currentTokenRefresh(mode: .background)
+        let stream = await manager.tokens()
+        var iterator = stream.makeAsyncIterator()
+
+        await manager.republish(outgoing)
+        let republished = await iterator.next()
+        identity.update(profileB)
+        await manager.republish(outgoing)
+        let incoming = try await manager.currentToken(mode: .background)
+        let next = await iterator.next()
+
+        #expect(republished == outgoing.token)
+        #expect(next == incoming, "a token of an outgoing generation must not be republished")
+        #expect(incoming != outgoing.token)
+    }
+
+    @Test
+    func rejectedTokenRefreshWhileAnonymousNeitherCallsProviderNorPublishes() async throws {
+        let identity = IdentityStore(initialIdentity: anonymous)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let counter = CallCounter()
+        let token = try makeJWT()
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        let stream = await manager.tokens()
+        var iterator = stream.makeAsyncIterator()
+
+        await manager.refreshRejectedToken()
+        identity.update(profileA)
+        let published = await iterator.next()
+
+        let invocations = await counter.value
+        #expect(published == token)
+        #expect(invocations == 1, "only the warm-up after identification may call the provider")
     }
 
     // MARK: - Stale reads
