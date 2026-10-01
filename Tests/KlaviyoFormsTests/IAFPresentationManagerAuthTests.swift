@@ -19,15 +19,13 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
-        IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        resetPresentationManagerStores()
         seedCoreStores()
         fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
     }
 
     override func tearDown() async throws {
-        IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        resetPresentationManagerStores()
         try await super.tearDown()
     }
 
@@ -46,22 +44,6 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
     private func jwtScripts(_ delegate: MockIAFWebViewDelegate) -> [String] {
         delegate.evaluatedScripts.filter { $0.contains("data-klaviyo-jwt") }
-    }
-
-    private func waitUntil(
-        timeout: TimeInterval = 10,
-        file: StaticString = #filePath,
-        line: UInt = #line,
-        _ condition: () -> Bool
-    ) async throws {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() {
-            if Date() >= deadline {
-                XCTFail("condition not met within \(timeout)s", file: file, line: line)
-                return
-            }
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
     }
 
     /// Returns a token from `authTokenManager`, waiting for the fetch to finish even when
@@ -124,7 +106,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         manager.startTokenDelivery()
 
-        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await assertEventually { !self.jwtScripts(delegate).isEmpty }
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(token))
         manager.destroyWebView()
@@ -156,7 +138,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         await release.open()
 
-        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await assertEventually { !self.jwtScripts(delegate).isEmpty }
         _ = await Self.fetchToken(from: authTokenManager)
         await Task.yield()
         XCTAssertEqual(jwtScripts(delegate).count, 1)
@@ -189,7 +171,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await authTokenManager.clearTokenState()
         _ = await Self.fetchToken(from: authTokenManager)
 
-        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await assertEventually { !self.jwtScripts(delegate).isEmpty }
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(next))
         manager.destroyWebView()
@@ -219,7 +201,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await authTokenManager.clearTokenState()
         _ = await Self.fetchToken(from: authTokenManager)
 
-        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await assertEventually { !self.jwtScripts(delegate).isEmpty }
         await Task.yield()
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(token))
@@ -252,7 +234,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         _ = await Self.fetchToken(from: authTokenManager)
 
-        try await waitUntil { !self.jwtScripts(delegate).isEmpty }
+        await assertEventually { !self.jwtScripts(delegate).isEmpty }
         await Task.yield()
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(fresh))

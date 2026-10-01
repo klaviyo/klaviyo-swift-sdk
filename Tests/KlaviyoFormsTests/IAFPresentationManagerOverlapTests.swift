@@ -25,9 +25,6 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     /// Longer than `staleHandshakeTimeout`, so a stale handshake timing out is also covered.
     private static let handshakeTimeoutObservationWindow: TimeInterval = staleHandshakeTimeout + 2
 
-    /// Upper bound for waits on state that is expected to change.
-    private nonisolated static let eventTimeout: TimeInterval = 10
-
     private let gate = BuildGate()
     private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> String?)?
     private var defaultMakeViewController: ((IAFWebViewModel) -> KlaviyoWebViewController)?
@@ -39,8 +36,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
-        IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        resetPresentationManagerStores()
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
         defaultFetchInitialAuthToken = manager.fetchInitialAuthToken
@@ -63,8 +59,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         }
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
-        IdentityStore.shared.reset()
-        SDKConfigStore.shared.reset()
+        resetPresentationManagerStores()
         try await super.tearDown()
     }
 
@@ -81,7 +76,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     private var activeViewModel: IAFWebViewModel? {
-        Mirror(reflecting: manager).descendant("viewModel") as? IAFWebViewModel
+        manager.viewModel
     }
 
     private var lastBackgrounded: Date? {
@@ -90,18 +85,6 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
     private var lifecycleObserver: LifecycleObserver? {
         Mirror(reflecting: manager).descendant("lifecycleObserver") as? LifecycleObserver
-    }
-
-    /// Polls `condition` until it holds or `timeout` elapses; returns its final value.
-    private func waitUntil(
-        timeout: TimeInterval = eventTimeout,
-        _ condition: () async -> Bool
-    ) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while await !condition(), Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        return await condition()
     }
 
     /// Registers a token provider, then makes every later webview build park on `gate`
