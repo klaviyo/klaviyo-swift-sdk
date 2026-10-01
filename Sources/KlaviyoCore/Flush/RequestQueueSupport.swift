@@ -16,6 +16,14 @@ public enum FlushConstants {
     /// Hard bound on lanes in flight per flush pass. At most one request per lane is in flight at a
     /// time (lanes drain sequentially within a pass), so this also bounds total in-flight requests.
     public static let maxLanesInFlight = 3
+
+    /// The per-lane backoff floor for the current network tier: a lane resumes no sooner than one
+    /// flush interval after a failure (10s Wi-Fi / 30s cellular), matching the old countdown gate
+    /// semantics where a backoff smaller than the interval still cost one tick. `flushInterval` is
+    /// `.infinity` while offline, but flushes are gated off then so the floor is never applied.
+    public static func backoffFloor(forFlushInterval flushInterval: TimeInterval) -> TimeInterval {
+        flushInterval
+    }
 }
 
 // MARK: - RetryState
@@ -116,7 +124,8 @@ public enum FlushDecision: Equatable {
     case retry(RetryState)
 
     /// A rate-limit or server error occurred; record the backoff on the nested `RetryState`
-    /// (`currentBackoff`) and count it down over flush ticks before resending.
+    /// (`currentBackoff`). The queue engine converts it into an absolute per-lane deadline
+    /// (see `RequestQueue.laneDeadlines`) and resends once that deadline passes.
     case retryWithBackoff(RetryState)
 
     /// The server rejected a field (e.g. email or phone) with a validation error.

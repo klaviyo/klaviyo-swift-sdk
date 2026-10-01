@@ -100,6 +100,20 @@ final class SendSpy: @unchecked Sendable {
 
     // MARK: - Control
 
+    /// Polls (bounded) until at least `count` sends have been recorded. Lane drains are concurrent,
+    /// so assertions that a send landed must wait on it rather than assume ordering.
+    @discardableResult
+    func waitForSendCount(_ count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sentIds.count >= count {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+        return sentIds.count >= count
+    }
+
     /// Resumes the parked first send so it returns its scripted result.
     func release() {
         lock.lock()

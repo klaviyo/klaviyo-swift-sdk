@@ -18,8 +18,11 @@ import Foundation
 /// `FlushConstants.maxLanesInFlight` (3) lanes are in flight concurrently, selected round-robin
 /// from the lane after the last one served, so no lane starves. On success a request is dequeued;
 /// on failure it is classified and either dequeued (non-retryable), restored with a lane-local
-/// retry count (transient), or restored with a lane-local durable countdown backoff that the
-/// per-lane gate in `flush()` waits out over ticks before resending (rate-limit / server error).
+/// retry count (transient), or restored with a lane-local absolute backoff deadline
+/// (`laneDeadlines`) that the per-lane gate in `flush()` waits out before resending
+/// (rate-limit / server error). A one-shot `deadlineWake` task fires at the earliest outstanding
+/// deadline so a lane resumes AT its deadline rather than up to one flush interval late on the
+/// periodic tick; the periodic tick is unchanged for normal traffic.
 public actor RequestQueue {
     /// Transport seam: sends one request with its per-attempt retry metadata and reports the result.
     public typealias Send = @Sendable (KlaviyoRequest, RequestAttemptInfo)
@@ -52,6 +55,15 @@ public actor RequestQueue {
     /// Retry bookkeeping per lane; only the lane whose send failed advances. A missing entry is a
     /// fresh lane at `.retry(FlushConstants.initialAttempt)`.
     private var laneRetryStates: [RequestLane: RetryState] = [:]
+    /// Absolute per-lane backoff deadlines: a lane with an entry resends no earlier than this
+    /// instant. Runtime-only (never persisted) and cleared with the lane's retry state. Computed at
+    /// failure time from the injected clock, so a lane resumes at its deadline regardless of the
+    /// flush cadence (replacing the old interval-countdown gate, which could fire up to one
+    /// interval late — or early under bursts of immediate flushes).
+    private var laneDeadlines: [RequestLane: Date] = [:]
+    /// One-shot wake scheduled at the earliest outstanding lane deadline; cancelled/replaced when a
+    /// new earlier deadline is recorded and cancelled on `stop()`.
+    private var deadlineWake: Task<Void, Never>?
     /// Round-robin cursor: the position (into `RequestLane.allCases`) of the lane served LAST.
     /// Selection starts at the next lane so a continuously failing lane cannot starve the others.
     private var lastServedLaneIndex: Int?
@@ -98,6 +110,8 @@ public actor RequestQueue {
     public func stop() {
         runLoop?.cancel()
         runLoop = nil
+        deadlineWake?.cancel()
+        deadlineWake = nil
         let active = lanes
         for drain in active.values {
             drain.task.cancel()
@@ -144,8 +158,9 @@ public actor RequestQueue {
         guard !Task.isCancelled else { return }
 
         for lane in laneSelection(limit: FlushConstants.maxLanesInFlight) {
-            // Per-lane countdown gate: skip lanes with an outstanding backoff (each lane advances
-            // only when it is visited, so one lane's wait never delays another lane's sends).
+            // Per-lane deadline gate: skip lanes whose backoff deadline is still in the future
+            // (each lane gates on its own deadline, so one lane's wait never delays another
+            // lane's sends).
             if case .wait = advanceBackoffGate(for: lane) {
                 continue
             }
@@ -165,6 +180,9 @@ public actor RequestQueue {
         // Each lane task removes its own entry (finishLane / restoreLease) as it completes; by the
         // time all join, the active set is empty. Clear defensively so no stale entry lingers.
         lanes = [:]
+        // Wake at the earliest outstanding lane deadline rather than waiting for the next periodic
+        // tick, so a backed-off lane resumes AT its deadline (not up to one interval late).
+        scheduleDeadlineWake()
     }
 
     /// Sends the heads of `lane`'s leased batch in FIFO order until the lane is drained or stops on
@@ -207,6 +225,7 @@ public actor RequestQueue {
     private func finishLane(_ lane: RequestLane) {
         lastServedLaneIndex = RequestLane.allCases.firstIndex(of: lane)
         laneRetryStates[lane] = nil
+        laneDeadlines[lane] = nil
         lanes[lane] = nil
     }
 
@@ -286,7 +305,7 @@ public actor RequestQueue {
         }
     }
 
-    /// The attempt number for `lane`'s next send, sourced from `.retry(count)` ONLY. The countdown
+    /// The attempt number for `lane`'s next send, sourced from `.retry(count)` ONLY. The deadline
     /// gate always promotes `.retryWithBackoff` to `.retry` before any send, so the lane's
     /// retryState is `.retry` here. Reading `.retryWithBackoff` is what caused the reverted
     /// `requestCount: 0` stall — do NOT.
@@ -300,37 +319,63 @@ public actor RequestQueue {
     /// Dequeues `lane`'s head after a successful send and resets the lane's retry bookkeeping.
     private func applySuccess(lane: RequestLane) {
         lanes[lane]?.batch.removeFirst()
-        laneRetryStates[lane] = .retry(FlushConstants.initialAttempt)
+        clearLaneBackoff(lane)
     }
 
-    /// Result of the durable countdown backoff gate: whether this lane should wait out an
+    /// Resets a lane's retry bookkeeping and clears any outstanding backoff deadline.
+    private func clearLaneBackoff(_ lane: RequestLane) {
+        laneRetryStates[lane] = .retry(FlushConstants.initialAttempt)
+        laneDeadlines[lane] = nil
+    }
+
+    /// Result of the per-lane backoff deadline gate: whether this lane should wait out an
     /// outstanding backoff or proceed to drain + send.
     private enum BackoffGate {
         case wait
         case proceed
     }
 
-    /// Advances `lane`'s durable countdown backoff by one flush interval and reports whether the
-    /// lane should be skipped this pass. Called once per lane per flush (tick OR `flushNow()`), and
-    /// only when the lane is visited — so a lane's backoff counts down on its own visits and never
-    /// stalls another lane. Timing is therefore approximate — a backoff can fire one interval late
-    /// (tick path) or expire early (a burst of immediate flushes); that imprecision is the accepted
-    /// cost of interval-granularity counting. The failing request stays durable in `QueueStore`, so
-    /// it survives the wait.
+    /// Reports whether `lane`'s backoff deadline is still in the future (skip this pass) or has
+    /// passed (promote to a plain retry and let the caller fall through to drain + send). Timing is
+    /// exact against the injected clock — the lane becomes eligible AT its deadline, never one
+    /// interval late (tick path) or early (a burst of immediate flushes) as the old
+    /// interval-countdown gate could. The failing request stays durable in `QueueStore`, so it
+    /// survives the wait.
     private func advanceBackoffGate(for lane: RequestLane) -> BackoffGate {
-        guard case let .retryWithBackoff(requestCount, totalCount, backoff) = laneRetryStates[lane] else {
+        guard case let .retryWithBackoff(requestCount, _, _) = laneRetryStates[lane],
+              let deadline = laneDeadlines[lane] else {
             return .proceed
         }
-        let remaining = max(backoff - Int(flushInterval), 0)
-        if remaining > 0 {
-            laneRetryStates[lane] = .retryWithBackoff(requestCount: requestCount,
-                                                      totalRetryCount: totalCount,
-                                                      currentBackoff: remaining)
+        if clock.now() < deadline {
             return .wait
         }
-        // Expired: promote to a plain retry and let the caller fall through to drain + send.
+        // Deadline passed: promote to a plain retry and clear the deadline.
+        laneDeadlines[lane] = nil
         laneRetryStates[lane] = .retry(requestCount)
         return .proceed
+    }
+
+    /// (Re)schedules the one-shot wake at the earliest outstanding lane deadline, so a backed-off
+    /// lane is retried at its deadline instead of on the next periodic tick. Cancels any previous
+    /// wake (a new earlier deadline replaces it); a no-op while stopped (the run loop owns all
+    /// flushing then; `start()`'s first tick reschedules). The wake calls `flush()` like a periodic
+    /// tick — `flush()` is reentrant-guarded (`isFlushing`) and gated (api key / finite interval),
+    /// so a wake that fires while stopped or mid-flush is harmless.
+    private func scheduleDeadlineWake() {
+        deadlineWake?.cancel()
+        deadlineWake = nil
+        guard runLoop != nil,
+              let earliest = laneDeadlines.values.min() else { return }
+        let delay = max(0, earliest.timeIntervalSince(clock.now()))
+        deadlineWake = Task { [weak self] in
+            do {
+                try await self?.clock.sleep(delay)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
+            await self?.flush()
+        }
     }
 
     /// Classifies a send failure and applies it to `lane` only: non-retryable → dequeue + keep
@@ -346,7 +391,7 @@ public actor RequestQueue {
             // Parity: `deQueueCompletedResults` for a non-retryable failure.
             Self.clearOptimisticPushToken(head, error: error)
             lanes[lane]?.batch.removeFirst()
-            laneRetryStates[lane] = .retry(FlushConstants.initialAttempt)
+            clearLaneBackoff(lane)
 
         case let .clearInvalidFieldsAndDequeue(fields):
             // Clear the rejected field(s) on the
@@ -360,13 +405,14 @@ public actor RequestQueue {
                 }
             }
             lanes[lane]?.batch.removeFirst()
-            laneRetryStates[lane] = .retry(FlushConstants.initialAttempt)
+            clearLaneBackoff(lane)
 
         case let .retry(newState):
             // Transient network error. Set the lane's retry state; if it exceeded `maxRetries`, drop
             // the head and reset the count (parity: `requestFailed`). `drainLane` sees the advanced
             // state via `shouldStopLane` and restores the lane's lease.
             laneRetryStates[lane] = newState
+            laneDeadlines[lane] = nil
             if case let .retry(count) = newState,
                count > head.endpoint.maxRetries {
                 Self.clearOptimisticPushToken(head, error: error)
@@ -375,17 +421,27 @@ public actor RequestQueue {
             }
 
         case let .retryWithBackoff(newState):
-            // Rate-limit / server error: record the backoff on the lane; its countdown gate waits it
-            // out, then resends. If past `maxRetries`, drop the head and reset to
-            // `.retry(initialAttempt)`. The count is used raw as the attempt number, so the reset must
-            // be `initialAttempt`, never `0` — `.retry(0)` is rejected by `RequestAttemptInfo` →
-            // permanent stall.
+            // Rate-limit / server error: convert the backoff into an absolute per-lane deadline
+            // (value unchanged from the old countdown gate — only WHEN it fires changed); the
+            // deadline gate waits it out, then resends. If past `maxRetries`, drop the head and
+            // reset to `.retry(initialAttempt)`. The count is used raw as the attempt number, so the
+            // reset must be `initialAttempt`, never `0` — `.retry(0)` is rejected by
+            // `RequestAttemptInfo` → permanent stall.
             laneRetryStates[lane] = newState
-            if case let .retryWithBackoff(requestCount, _, _) = newState,
+            if case let .retryWithBackoff(requestCount, _, backoff) = newState,
                requestCount > head.endpoint.maxRetries {
                 Self.clearOptimisticPushToken(head, error: error)
                 lanes[lane]?.batch.removeFirst()
-                laneRetryStates[lane] = .retry(FlushConstants.initialAttempt)
+                clearLaneBackoff(lane)
+            } else if case let .retryWithBackoff(_, _, backoff) = newState {
+                // `backoff` arrives pre-composed by the network layer (Retry-After honoured,
+                // exponential otherwise, jitter applied, exponential capped at 300s). Floor it at
+                // one flush interval for the current network tier (10s Wi-Fi / 30s cellular),
+                // matching the old gate where a sub-interval backoff still cost one tick. The
+                // deadline itself is not re-capped: a server Retry-After above 300s stays honoured.
+                let floor = FlushConstants.backoffFloor(forFlushInterval: flushInterval)
+                let wait = max(TimeInterval(backoff), floor)
+                laneDeadlines[lane] = clock.now().addingTimeInterval(wait)
             }
         }
     }

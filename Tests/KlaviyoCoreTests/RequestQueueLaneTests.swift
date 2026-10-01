@@ -226,43 +226,320 @@ final class RequestQueueLaneTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "all lanes drained by the second tick")
     }
 
-    /// A rate-limit backoff gates ONLY the failing lane: while identity's backoff counts down over
-    /// ticks, events keeps draining every tick. The identity lane's next-eligible time advances per
-    /// its own gate; the events lane is never delayed by it.
+    /// A rate-limit backoff gates ONLY the failing lane: while identity's backoff deadline is
+    /// pending, events keeps draining every tick. The identity lane's next-eligible time is its own
+    /// absolute deadline; the events lane is never delayed by it.
     func testRateLimitBackoffGatesOnlyTheFailingLane() async {
         QueueStore.register(makeQueueStore())
-        // backoff 25s, wifi interval 10s → identity gate needs 25→15→5→0 across its visits.
+        let testClock = TestClock()
+        // backoff 25s → identity's deadline lands 25s after the failure.
         let sendSpy = LaneSendSpy(resultsByLane: [
             .identity: [.failure(.rateLimitError(backOff: 25)), .success(Data())]
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "id-1"), persist: .synchronous)
         QueueStore.shared.enqueue(makeEventRequest(id: "ev-1"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: sendSpy.send)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: sendSpy.send)
 
-        // Tick 1: identity rate-limits and restores; events drains unaffected.
+        // Tick 1 (t=0): identity rate-limits and restores; events drains unaffected.
         await queue.flushNow()
         XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1"])
         XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1"],
                        "events drains while identity's backoff begins")
 
-        // Ticks 2 & 3: identity's backoff counts down (25→15→5) and the lane is skipped — but a
-        // fresh event enqueued during the wait still sends on the very next tick.
+        // Ticks 2 & 3 (t=10s, t=20s): identity's 25s deadline is still pending and the lane is
+        // skipped — but a fresh event enqueued during the wait still sends on the very next tick.
         QueueStore.shared.enqueue(makeEventRequest(id: "ev-2"), persist: .synchronous)
+        testClock.advance(by: 10)
         await queue.flushNow()
+        testClock.advance(by: 10)
         await queue.flushNow()
         XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1"],
-                       "identity is not resent while its backoff counts down")
+                       "identity is not resent before its backoff deadline")
         XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1", "ev-2"],
                        "a retrying lane must not delay another lane's wake-up")
 
-        // Tick 4: identity's backoff elapses (5→0); it resends and succeeds.
+        // Tick 4 (t=25s): identity's deadline has passed; it resends and succeeds.
+        testClock.advance(by: 5)
         await queue.flushNow()
         XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1", "id-1"],
-                       "identity resends once its own backoff elapses")
+                       "identity resends once its own deadline passes")
         let identityAttempts = zip(sendSpy.sentLanes, sendSpy.sentAttempts)
             .compactMap { $0 == .identity ? $1 : nil }
         XCTAssertEqual(identityAttempts, [1, 2], "identity's attempt number advanced across the backoff")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "all lanes drained by the final tick")
+    }
+
+    // MARK: - Absolute backoff deadlines (MAGE-842 follow-up)
+
+    /// The lane becomes eligible AT its absolute deadline: a `flushNow()` with the clock advanced
+    /// past the deadline resends, regardless of how many (or how few) ticks elapsed since the
+    /// failure — and a burst of immediate flushes before the deadline never fires the lane early.
+    func testLaneResumesExactlyAtDeadlineNotOnTickCount() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 25)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: spy.send)
+
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"])
+
+        // A burst of immediate flushes well before the deadline must not resend early (the old
+        // interval-countdown gate could expire early under exactly this burst).
+        await queue.flushNow()
+        await queue.flushNow()
+        testClock.advance(by: 24)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"],
+                       "no early resend: tick count and sub-deadline time must not fire the lane")
+
+        // Clock crosses the deadline → the very next flush resends (not one interval later).
+        testClock.advance(by: 1)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resent as soon as the deadline passed")
+    }
+
+    /// Deadlines are independent per lane: identity's pending deadline neither delays events nor is
+    /// advanced/extended by events' failures.
+    func testLaneDeadlinesAreIndependent() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let sendSpy = LaneSendSpy(resultsByLane: [
+            .identity: [.failure(.rateLimitError(backOff: 20)), .success(Data())],
+            .events: [.failure(.rateLimitError(backOff: 40)), .success(Data())]
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "id-1"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeEventRequest(id: "ev-1"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: sendSpy.send)
+
+        // t=0: both lanes fail; identity's deadline is t=20, events' is t=40.
+        await queue.flushNow()
+        XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1"])
+        XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1"])
+
+        // t=20: identity's deadline passes → resends and succeeds; events is still gated.
+        testClock.advance(by: 20)
+        await queue.flushNow()
+        XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1", "id-1"],
+                       "identity resumes at its own deadline")
+        XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1"],
+                       "events' later deadline is unaffected by identity's resume")
+
+        // t=40: events' deadline passes → resends and succeeds.
+        testClock.advance(by: 20)
+        await queue.flushNow()
+        XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1", "ev-1"],
+                       "events resumes at its own later deadline")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "both lanes drained at their own deadlines")
+    }
+
+    /// A recorded deadline does not fire on the periodic tick: the lane stays gated until the
+    /// one-shot wake (or a tick after the deadline) reaches it — here proven by a tick arriving
+    /// BEFORE the deadline, which must not resend even though the old countdown gate would have
+    /// decremented on that visit.
+    func testPeriodicTickBeforeDeadlineDoesNotResend() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let gated = GatedSleepClock()
+        gated.nowProvider = { testClock.now }
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 25)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "run loop parks on its first sleep")
+
+        // Tick 1 (t=0): send fails; deadline lands at t=25.
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop re-parks after the failing tick")
+        XCTAssertTrue(spy.waitForSendCount(1), "the failing send completed")
+        // The flush scheduled a one-shot wake at the 25s deadline (delay 25 from t=0).
+        XCTAssertTrue(gated.waitForRequestedSleeps(atLeast: 3), "the deadline wake must park a sleep")
+        XCTAssertEqual(gated.requestedSleeps.last, 25,
+                       "the wake must be scheduled for the lane's absolute deadline, not the flush interval")
+
+        // Periodic tick 2 at t=10: BEFORE the deadline — no resend.
+        testClock.advance(by: 10)
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 4), "loop re-parks after the second tick")
+        XCTAssertEqual(spy.sentIds, ["rate"], "a periodic tick before the deadline must not resend")
+
+        await queue.stop()
+    }
+
+    /// The one-shot wake fires the lane AT its deadline without waiting for the next periodic
+    /// tick: the periodic loop stays parked on its 10s Wi-Fi sleep while the wake's shorter sleep
+    /// (to the deadline) is the one that fires the resend.
+    func testDeadlineWakeFiresBeforeNextPeriodicTick() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let gated = GatedSleepClock()
+        gated.nowProvider = { testClock.now }
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 15)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        // Wi-Fi cadence (10s); a 15s backoff exceeds the floor, so the deadline lands at t=15 —
+        // mid-interval between the periodic ticks.
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop parks on its first Wi-Fi sleep")
+
+        // Tick 1 (t=0): send fails → deadline t=15; the wake must be scheduled for 15s out.
+        gated.releaseOneTick()
+        XCTAssertTrue(spy.waitForSendCount(1), "the failing send completed")
+        XCTAssertTrue(gated.waitForRequestedSleeps(atLeast: 3),
+                      "the re-parked loop plus the deadline wake must both have parked a sleep")
+        XCTAssertEqual(gated.requestedSleeps.last, 15,
+                       "the wake must target the 15s deadline, not the 10s Wi-Fi interval")
+
+        // Advance past the deadline but NOT to the next periodic tick (t=20); releasing the WAKE's
+        // sleep must flush and resend while the periodic loop stays parked.
+        testClock.advance(by: 15)
+        gated.releaseOneTick()
+        XCTAssertTrue(spy.waitForSendCount(2),
+                      "the deadline wake must resend before the next periodic tick")
+        XCTAssertEqual(spy.sentAttempts, [1, 2], "attempt number advanced across the wake resend")
+
+        await queue.stop()
+    }
+
+    /// `stop()` cancels the pending deadline wake: after stopping, advancing the clock past the
+    /// deadline and releasing the parked sleep must NOT flush (the wake was cancelled; only the
+    /// cancelled run loop's sleeps remain).
+    func testStopCancelsDeadlineWake() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let gated = GatedSleepClock()
+        gated.nowProvider = { testClock.now }
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 15)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+
+        gated.releaseOneTick()
+        XCTAssertTrue(spy.waitForSendCount(1), "the failing send completed")
+        XCTAssertTrue(gated.waitForRequested(atLeast: 3), "loop re-parked and wake scheduled")
+
+        await queue.stop()
+
+        // Past the deadline, releasing whatever sleep remains must not produce a resend: the wake
+        // was cancelled (its continuation resumed without flushing) and the run loop is gone.
+        testClock.advance(by: 20)
+        gated.releaseOneTick()
+        // Give any (incorrectly) surviving wake a chance to fire.
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(spy.sentIds, ["rate"], "stop() must cancel the deadline wake — no resend")
+    }
+
+    /// A NEW failure with an EARLIER deadline replaces the pending wake: the old wake is cancelled
+    /// and the new one targets the earlier deadline (the recorded sleep requests show the wake
+    /// re-scheduled at the new, earlier delay).
+    func testEarlierDeadlineReplacesPendingWake() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let gated = GatedSleepClock()
+        gated.nowProvider = { testClock.now }
+        // Identity fails with a LONG backoff first; a later flushNow with a SHORT failure on the
+        // events lane must re-target the wake to the earlier deadline.
+        let sendSpy = LaneSendSpy(resultsByLane: [
+            .identity: [.failure(.rateLimitError(backOff: 60)), .success(Data())],
+            .events: [.failure(.rateLimitError(backOff: 20)), .success(Data())]
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "id-1"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: sendSpy.send)
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+
+        // Tick 1 (t=0): identity fails, deadline t=60 → wake scheduled for 60s out.
+        gated.releaseOneTick()
+        XCTAssertTrue(sendSpy.waitForSends(on: .identity, atLeast: 1))
+        XCTAssertTrue(gated.waitForRequestedSleeps(atLeast: 3), "loop re-parked and wake parked")
+        XCTAssertEqual(gated.requestedSleeps.last, 60, "the wake targets identity's 60s deadline")
+
+        // Events fails at t=5 with a 20s backoff → deadline t=25, EARLIER than identity's t=60.
+        // The next flush must re-schedule the wake for 20s out (from t=5), replacing the old one.
+        testClock.advance(by: 5)
+        QueueStore.shared.enqueue(makeEventRequest(id: "ev-1"), persist: .synchronous)
+        await queue.flushNow()
+        XCTAssertTrue(sendSpy.waitForSends(on: .events, atLeast: 1), "events sent and failed")
+        XCTAssertTrue(gated.waitForRequestedSleeps(atLeast: 4),
+                      "the replacement wake must park a new sleep")
+        XCTAssertEqual(gated.requestedSleeps.last, 20,
+                       "the earlier events deadline must replace the pending 60s wake")
+
+        // t=25: events' deadline passes → resends; identity (t=60) still gated.
+        testClock.advance(by: 20)
+        await queue.flushNow()
+        XCTAssertEqual(sendSpy.sentIds(for: .events), ["ev-1", "ev-1"],
+                       "events resumes at its earlier deadline")
+        XCTAssertEqual(sendSpy.sentIds(for: .identity), ["id-1"],
+                       "identity's later deadline still gates it")
+
+        await queue.stop()
+    }
+
+    /// The 300s ceiling: the network layer caps the SDK-computed exponential backoff at 300s, and
+    /// the queue honours whatever value arrives as the deadline — here a 300s backoff resumes at
+    /// t=300, not earlier (no re-cap below the value) and not later.
+    func testBackoffDeadlineHonoursThreeHundredSecondCeilingValue() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: RetryBackoffConstants.maxBackoffSeconds)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: spy.send)
+
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"])
+
+        // Just before the ceiling value: still gated.
+        testClock.advance(by: TimeInterval(RetryBackoffConstants.maxBackoffSeconds) - 1)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"], "still gated just before the 300s deadline")
+
+        testClock.advance(by: 1)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resumes at the 300s deadline")
+    }
+
+    /// A server-provided Retry-After LARGER than the 300s exponential cap arrives as the backoff
+    /// value (the network layer caps only its own exponential component); the queue floors it at
+    /// the network tier but never re-caps it, so the lane resumes at the full Retry-After.
+    func testRetryAfterAboveCapIsHonouredAsDeadline() async {
+        QueueStore.register(makeQueueStore())
+        let testClock = TestClock()
+        let retryAfter = 600
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: retryAfter)),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: spy.send)
+
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"])
+
+        // At the 300s exponential cap the lane must STILL be gated — Retry-After 600 wins.
+        testClock.advance(by: TimeInterval(RetryBackoffConstants.maxBackoffSeconds))
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate"], "a Retry-After above the 300s cap must not be re-capped")
+
+        testClock.advance(by: TimeInterval(retryAfter - RetryBackoffConstants.maxBackoffSeconds))
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resumes at the full Retry-After deadline")
     }
 
     // MARK: - Fairness

@@ -7,13 +7,23 @@
 
 import Foundation
 
-/// Injectable timing seam for interval/backoff sleeps. Production sleeps for real; tests inject an
-/// immediate or recording variant so time-dependent behavior is asserted without wall-clock waits.
+// `now` reads the wall clock; identifier_name's 4-char floor rejects it.
+// swiftlint:disable identifier_name
+/// Injectable timing seam for interval/backoff sleeps and the current time. Production sleeps for
+/// real and reads the wall clock; tests inject immediate/recording variants plus a scripted `now`
+/// so time-dependent behavior is asserted without wall-clock waits.
 public struct SleepClock: Sendable {
     public var sleep: @Sendable (_ seconds: TimeInterval) async throws -> Void
+    /// Current wall-clock time. Backs the per-lane absolute backoff deadlines (`nextEligibleAt`),
+    /// which must survive flush-cadence changes and never drift with the tick count.
+    public var now: @Sendable () -> Date
 
-    public init(sleep: @escaping @Sendable (_ seconds: TimeInterval) async throws -> Void) {
+    public init(
+        sleep: @escaping @Sendable (_ seconds: TimeInterval) async throws -> Void,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.sleep = sleep
+        self.now = now
     }
 
     /// Sleeps for real via structured concurrency. Negative/zero clamp to no wait; non-finite
@@ -25,3 +35,5 @@ public struct SleepClock: Sendable {
         try await Task.sleep(nanoseconds: clamped)
     }
 }
+
+// swiftlint:enable identifier_name
