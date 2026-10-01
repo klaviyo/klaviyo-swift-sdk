@@ -10,6 +10,7 @@ IOS_RUNTIME = iOS 18
 IOS_RUNTIME_RESOLVED = $(call newest_ios_runtime,$(IOS_RUNTIME))
 IOS_UDID = $(call udid_for,$(IOS_RUNTIME_RESOLVED),iPhone \d\+ Pro [^M])
 PLATFORM_IOS = iOS Simulator,id=$(IOS_UDID)
+XCODE_CONFIG = $(if $(filter release Release,$(CONFIG)),Release,Debug)
 
 
 default: test-all
@@ -28,12 +29,14 @@ test-library:
 		xcrun simctl list runtimes; \
 		exit 1; \
 	fi
+	xcrun simctl bootstatus $(IOS_UDID) -b
 	for platform in "$(PLATFORM_IOS)"; do \
 		env TEST_RUNNER_GITHUB_CI=$(GITHUB_CI) \
 		xcodebuild test \
 			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \
 			-enableCodeCoverage YES \
-			-configuration=$(CONFIG) \
+			-configuration $(XCODE_CONFIG) \
+			$(if $(filter Release,$(XCODE_CONFIG)),ENABLE_TESTABILITY=YES) \
 			-scheme klaviyo-swift-sdk-Package \
 			-destination platform="$$platform" \
 			-test-timeouts-enabled YES \
