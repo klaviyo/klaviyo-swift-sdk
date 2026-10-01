@@ -55,13 +55,15 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
     /// Returns a token from `authTokenManager`, waiting for the fetch to finish even when
     /// it outlasts the caller's latency budget.
-    private nonisolated static func fetchToken(from authTokenManager: AuthTokenManager) async -> String? {
+    private nonisolated static func fetchToken(
+        from authTokenManager: AuthTokenManager
+    ) async -> AuthTokenManager.TokenRefresh? {
         let updates = await authTokenManager.refreshes()
-        if let token = try? await authTokenManager.currentToken(mode: .background) {
-            return token
+        if let refresh = try? await authTokenManager.currentTokenRefresh(mode: .background) {
+            return refresh
         }
-        for await token in updates {
-            return token
+        for await refresh in updates {
+            return refresh
         }
         return nil
     }

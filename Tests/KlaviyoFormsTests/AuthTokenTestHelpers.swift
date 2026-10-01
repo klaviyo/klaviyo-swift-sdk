@@ -152,3 +152,19 @@ actor ScriptedTokenProvider {
         cancellationWaiters.removeValue(forKey: invocation)?.forEach { $0.resume() }
     }
 }
+
+extension AuthTokenManager {
+    /// The tokens of ``refreshes()`` without their generation. The subscription is
+    /// established before this returns.
+    func tokens() -> AsyncStream<String> {
+        let refreshes = refreshes()
+        return AsyncStream { continuation in
+            let forwarding = Task {
+                for await refresh in refreshes {
+                    continuation.yield(refresh.token)
+                }
+            }
+            continuation.onTermination = { _ in forwarding.cancel() }
+        }
+    }
+}
