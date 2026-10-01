@@ -66,6 +66,28 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         XCTAssertNil(viewModel.pendingAuthTokenRefresh)
     }
 
+    func testRefreshJwtRepublishesProviderTokenIdenticalToTheRejectedOne() async throws {
+        let repeated = try makeTestJWT(subject: "repeated")
+        let sentinel = try makeTestJWT(subject: "sentinel")
+        let counter = InvocationCounter()
+        await authTokenManager.registerProvider {
+            await counter.increment() <= 2 ? repeated : sentinel
+        }
+        try await warmCache(expecting: repeated)
+        let stream = await authTokenManager.refreshes()
+
+        sendRefreshJwt()
+        await awaitPendingRefresh()
+
+        let invocations = await counter.value
+        XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
+
+        await authTokenManager.refreshRejectedToken()
+        var iterator = stream.makeAsyncIterator()
+        let delivered = await iterator.next()
+        XCTAssertEqual(delivered, repeated, "a repeated token must be published, not swallowed")
+    }
+
     func testProviderFailurePublishesNothing() async throws {
         let rejected = try makeTestJWT(subject: "rejected")
         let sentinel = try makeTestJWT(subject: "sentinel")

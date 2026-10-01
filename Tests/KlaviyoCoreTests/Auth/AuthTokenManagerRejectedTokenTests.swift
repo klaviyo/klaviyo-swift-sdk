@@ -46,6 +46,31 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
+    func republishesProviderTokenIdenticalToTheRejectedOne() async throws {
+        let repeated = try token("repeated")
+        let sentinel = try token("sentinel")
+        let fixture = makeFixture()
+        let manager = fixture.manager
+        let gate = fixture.gate
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment() <= 2 ? repeated : sentinel
+        }
+        try await warmUp(counter: counter, gate: gate)
+        let stream = await manager.refreshes()
+
+        await manager.refreshRejectedToken()
+
+        let invocations = await counter.value
+        #expect(invocations == 2, "expected one provider call for the rejection, saw \(invocations - 1)")
+
+        await manager.refreshRejectedToken()
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == repeated, "a repeated token must be published, not swallowed")
+    }
+
+    @Test
     func joinsInFlightFetchInsteadOfStartingAnother() async throws {
         let onlyToken = try token("only")
         let manager = makeFixture().manager
