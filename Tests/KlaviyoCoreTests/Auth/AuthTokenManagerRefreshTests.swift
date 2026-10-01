@@ -634,16 +634,14 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func warmUpFetchPublishesToExistingSubscriber() async throws {
-        let token = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
-        let manager = makeManager(
-            lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate()
-        )
+        let warmUpToken = try token("warm-up")
+        let manager = makeIdleManager()
         let stream = await manager.refreshes()
 
-        await manager.registerProvider { token }
+        await manager.registerProvider { warmUpToken }
 
         let first = await firstElement(of: stream)
-        #expect(first == token)
+        #expect(first == warmUpToken)
     }
 
     @Test
@@ -651,9 +649,7 @@ struct AuthTokenManagerRefreshTests {
         let lateToken = try makeJWT(
             issuedAt: refSeconds - 60, expiresAt: refSeconds + 40, extraClaims: ["sub": "late"]
         )
-        let refreshedToken = try makeJWT(
-            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "refreshed"]
-        )
+        let refreshedToken = try token("refreshed")
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
         let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
@@ -692,15 +688,9 @@ struct AuthTokenManagerRefreshTests {
 
     @Test
     func fetchCancelledByClearTokenStateDoesNotPublish() async throws {
-        let staleToken = try makeJWT(
-            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "stale"]
-        )
-        let freshToken = try makeJWT(
-            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "fresh"]
-        )
-        let manager = makeManager(
-            lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate()
-        )
+        let staleToken = try token("stale")
+        let freshToken = try token("fresh")
+        let manager = makeIdleManager()
         let release = Latch()
         let counter = CallCounter()
         let stream = await manager.refreshes()
@@ -720,6 +710,64 @@ struct AuthTokenManagerRefreshTests {
 
         let first = await firstElement(of: stream)
         #expect(first == freshToken)
+    }
+
+    @Test
+    func providerChangeMidFetchPublishesNothing() async throws {
+        let warmUpToken = try token("warm-up")
+        let staleToken = try token("stale")
+        let sentinel = try token("sentinel")
+        let manager = makeIdleManager()
+        let counter = CallCounter()
+        let fetchStarted = Latch()
+        let releaseFetch = Latch()
+
+        await manager.registerProvider {
+            guard await counter.increment() >= 2 else { return warmUpToken }
+            await fetchStarted.open()
+            await releaseFetch.wait()
+            return staleToken
+        }
+        _ = try await manager.currentToken(mode: .background)
+        let stream = await manager.refreshes()
+
+        await manager.clearTokenState()
+        let fetch = Task { try? await manager.currentToken(mode: .background) }
+        await fetchStarted.wait()
+        await manager.registerProvider { sentinel }
+        await releaseFetch.open()
+        _ = await fetch.value
+
+        let first = await firstElement(of: stream)
+        #expect(first == sentinel, "a fetch interrupted by a provider change must publish nothing")
+    }
+
+    @Test
+    func republishesProviderTokenIdenticalToTheRejectedOne() async throws {
+        let repeated = try token("repeated")
+        let sentinel = try token("sentinel")
+        let manager = makeIdleManager()
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment() <= 3 ? repeated : sentinel
+        }
+        _ = try await manager.currentToken(mode: .background)
+        let stream = await manager.refreshes()
+
+        for _ in 0..<2 {
+            await manager.clearTokenState()
+            _ = try await manager.currentToken(mode: .background)
+        }
+        await manager.clearTokenState()
+        _ = try await manager.currentToken(mode: .background)
+
+        var delivered: [String] = []
+        for await token in stream {
+            delivered.append(token)
+            if token == sentinel { break }
+        }
+        #expect(delivered == [repeated, repeated, sentinel], "each fetch publishes its token, repeated or not")
     }
 
     // MARK: - clearTokenState
@@ -1751,6 +1799,16 @@ struct AuthTokenManagerRefreshTests {
     /// are expressed relative to the suite's fixed clock.
     private var refSeconds: TimeInterval {
         referenceDate.timeIntervalSince1970
+    }
+
+    /// Mints an hour-long token, valid at ``referenceDate``, tagged with `subject`.
+    private func token(_ subject: String) throws -> String {
+        try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": subject])
+    }
+
+    /// Manager on a fixed clock, with a sleep gate that is never released and no lifecycle events.
+    private func makeIdleManager() -> AuthTokenManager {
+        makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate())
     }
 
     /// Returns the first element a stream delivers (or `nil` if it finishes
