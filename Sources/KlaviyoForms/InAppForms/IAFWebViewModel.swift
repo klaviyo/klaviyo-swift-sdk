@@ -256,7 +256,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        return "document.head.setAttribute('data-klaviyo-profile', \(profileDataString.javaScriptStringLiteral));"
+        let literal = profileDataString.javaScriptStringLiteral
+        return "document.head.setAttribute('data-klaviyo-profile', \(literal));"
     }
 
     @MainActor
