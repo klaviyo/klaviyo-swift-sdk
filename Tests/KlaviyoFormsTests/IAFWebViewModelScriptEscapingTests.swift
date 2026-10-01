@@ -35,6 +35,7 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
     }
 
     func testLoadScriptSetsProfileAndTokenUnchanged() async throws {
+        let page = try await makePage()
         for email in awkwardValues {
             let profile = ProfileData(email: email, externalId: email, anonymousId: "anon")
             let viewModel = IAFWebViewModel(
@@ -46,7 +47,7 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
             let source = try XCTUnwrap(
                 viewModel.loadScripts?.map(\.source).first { $0.contains("data-klaviyo-jwt") }
             )
-            let page = try await makePage()
+            try await page.clearIdentityAttributes()
 
             try await page.evaluate(source)
 
@@ -55,22 +56,25 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
     }
 
     func testLivePageWritesSetProfileAndTokenUnchanged() async throws {
+        let authTokenManager = makeUnboundedAuthTokenManager()
+        let page = try await makePage()
         for email in awkwardValues {
             let profile = ProfileData(email: email, externalId: email, anonymousId: "anon")
             IdentityStore.shared.update(profile)
             let viewModel = IAFWebViewModel(
                 url: URL(string: "https://example.com")!,
                 apiKey: "abc123",
-                profileData: nil
+                profileData: nil,
+                authTokenManager: authTokenManager
             )
             let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
             viewModel.delegate = delegate
-            let page = try await makePage()
+            try await page.clearIdentityAttributes()
 
             await delegate.waitForScript(containing: "data-klaviyo-profile")
             await viewModel.pushAuthToken(
                 awkwardToken,
-                generation: AuthTokenManager.shared.currentIdentityGeneration
+                generation: authTokenManager.currentIdentityGeneration
             )
             for script in delegate.evaluatedScripts {
                 try await page.evaluate(script)
@@ -113,36 +117,66 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
         let loaded = NavigationWaiter()
         page.navigationDelegate = loaded
         page.loadHTMLString("<html><head></head><body></body></html>", baseURL: nil)
-        try await loaded.finished()
+        try await loaded.finished(timeout: Self.pageLoadTimeout)
         return page
+    }
+
+    private static let pageLoadTimeout: TimeInterval = 45
+}
+
+private enum PageError: Error, CustomStringConvertible {
+    case loadTimedOut(TimeInterval)
+    case scriptFailed(script: String, underlying: Error)
+
+    var description: String {
+        switch self {
+        case let .loadTimedOut(timeout):
+            "The test page did not finish loading within \(timeout) seconds"
+        case let .scriptFailed(script, underlying):
+            "The page rejected a script (\(underlying)): \(script.debugDescription)"
+        }
     }
 }
 
 private final class NavigationWaiter: NSObject, WKNavigationDelegate {
-    private var continuation: CheckedContinuation<Void, Error>?
+    private let loaded = XCTestExpectation(description: "test page load")
+    private var failure: Error?
 
-    func finished() async throws {
-        try await withCheckedThrowingContinuation { continuation = $0 }
+    func finished(timeout: TimeInterval) async throws {
+        let result = await XCTWaiter.fulfillment(of: [loaded], timeout: timeout)
+        if let failure { throw failure }
+        guard result == .completed else { throw PageError.loadTimedOut(timeout) }
     }
 
     func webView(_: WKWebView, didFinish _: WKNavigation!) {
-        continuation?.resume()
-        continuation = nil
+        loaded.fulfill()
     }
 
     func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
-        continuation?.resume(throwing: error)
-        continuation = nil
+        failure = error
+        loaded.fulfill()
+    }
+
+    func webView(_: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
+        failure = error
+        loaded.fulfill()
     }
 }
 
 extension WKWebView {
+    fileprivate func clearIdentityAttributes() async throws {
+        try await evaluate(
+            "document.head.removeAttribute('data-klaviyo-profile');"
+                + "document.head.removeAttribute('data-klaviyo-jwt');"
+        )
+    }
+
     @discardableResult
     fileprivate func evaluate(_ script: String) async throws -> Any? {
         try await withCheckedThrowingContinuation { continuation in
             evaluateJavaScript(script) { result, error in
                 if let error {
-                    continuation.resume(throwing: error)
+                    continuation.resume(throwing: PageError.scriptFailed(script: script, underlying: error))
                 } else {
                     continuation.resume(returning: result)
                 }
