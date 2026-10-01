@@ -106,9 +106,9 @@ package actor AuthTokenManager {
     /// ``init`` and survives ``registerProvider(_:)``).
     private var lifecycleCancellable: AnyCancellable?
 
-    /// Multicast hub for the proactive-refresh token stream. Each successful
-    /// proactive refresh sends the new token here (see ``performScheduledRefresh()``);
-    /// every active ``refreshes()`` subscriber receives it.
+    /// Multicast hub for newly acquired tokens. Every successful fetch that updates
+    /// the cache (see ``runFetch(fetchID:)``) sends the new token here; every active
+    /// ``refreshes()`` subscriber receives it.
     ///
     /// A `PassthroughSubject` rather than a hand-rolled collection of
     /// `AsyncStream.Continuation`s: the subject natively fans a single
@@ -272,19 +272,20 @@ package actor AuthTokenManager {
         return try await race(fetch: task, timeoutSeconds: mode.rawValue)
     }
 
-    /// Returns a stream of token strings produced by *proactive* refreshes.
+    /// Returns a stream of newly acquired token strings.
     ///
     /// Each call returns an independent `AsyncStream` backed by its own
     /// subscription to ``refreshSubject``; multiple concurrent subscribers are
-    /// supported. Only tokens from the proactive-refresh success path are
-    /// delivered (see ``performScheduledRefresh()``) — interactive
-    /// ``currentToken(mode:)`` fetches and the eager warm-up fetch do not emit
-    /// here. The stream never finishes on its own and never errors; the
-    /// consumer ends it by cancelling its iteration, which tears down the
-    /// underlying Combine subscription via `onTermination`.
+    /// supported. Yields every token newly cached by a successful fetch — the
+    /// registration warm-up, interactive and background ``currentToken(mode:)``
+    /// fetches, proactive refreshes, and connectivity or foreground retries. A
+    /// cache hit does not emit. The subject does not replay, so subscribe before
+    /// starting the fetch whose result you need. The stream never finishes on its
+    /// own and never errors; the consumer ends it by cancelling its iteration,
+    /// which tears down the underlying Combine subscription via `onTermination`.
     ///
     /// The subscription is established synchronously inside the stream's build
-    /// closure, so a refresh that fires immediately after this call is still
+    /// closure, so a token acquired immediately after this call is still
     /// delivered — there is no gap between subscribing and being ready to
     /// receive. Intended for `KlaviyoForms` to push refreshed tokens into an
     /// active WebView.
@@ -315,7 +316,7 @@ package actor AuthTokenManager {
     ///   running across resets.
     /// - ``refreshSubject`` — active ``refreshes()`` subscriptions (e.g. a form
     ///   on screen during the reset) stay alive across the reset; the stream
-    ///   simply goes quiet until the next successful refresh produces a token.
+    ///   simply goes quiet until the next successful fetch produces a token.
     package func clearTokenState() async {
         cancelInFlightWorkAndClearCache()
         if #available(iOS 14.0, *) {
@@ -401,6 +402,7 @@ package actor AuthTokenManager {
                 // reachability transition.
                 isAwaitingConnectivityRetry = false
                 scheduleRefresh(for: validated)
+                refreshSubject.send(validated.rawToken)
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(
                         """
@@ -537,10 +539,9 @@ package actor AuthTokenManager {
     ///
     /// Bails if a refresh is already mid-flight (``activeScheduledRefreshID`` set):
     /// the scheduled fire, the foreground "missed refresh" retry (case 2), and the
-    /// connectivity retry can all target the same still-armed refresh, and a second
-    /// run would await the shared in-flight fetch and broadcast its token a second
-    /// time. The single-flight guard here covers every caller; the foreground path
-    /// keeps its own pre-check so it doesn't tear down a live schedule.
+    /// connectivity retry can all target the same still-armed refresh. The
+    /// single-flight guard here covers every caller; the foreground path keeps its
+    /// own pre-check so it doesn't tear down a live schedule.
     ///
     /// Sets ``activeScheduledRefreshID`` for its duration so a concurrent
     /// foreground transition leaves an in-flight refresh to complete (case 2).
@@ -567,18 +568,10 @@ package actor AuthTokenManager {
         }
         let task = inFlight?.task ?? startFetch()
         do {
-            let token = try await task.value
+            _ = try await task.value
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: refresh succeeded")
             }
-            // A profile reset (``clearTokenState()``) may have landed on the
-            // actor while this fetch was suspended — `task.value` does not honor
-            // the awaiter's cancellation, so we can resume holding a token that
-            // belongs to the *outgoing* profile. Only broadcast a token that is
-            // still the live cached value; otherwise drop it so stale-profile
-            // tokens never reach live ``refreshes()`` subscribers.
-            guard cachedToken?.rawToken == token else { return }
-            refreshSubject.send(token)
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)
@@ -670,7 +663,7 @@ package actor AuthTokenManager {
     }
 
     /// Consumes an armed connectivity wait and re-fires the refresh through the
-    /// normal dedup/validate/reschedule/broadcast path. Clearing the flag *before*
+    /// normal dedup/validate/reschedule/publish path. Clearing the flag *before*
     /// re-firing collapses concurrent triggers (transition + arm-time check) into a
     /// single retry; a network-failed retry re-arms via ``performScheduledRefresh()``.
     ///
@@ -725,7 +718,7 @@ package actor AuthTokenManager {
         }
         if let scheduled = refreshAtWallClock, currentDate() >= scheduled {
             // An in-flight refresh is left to finish rather than cancelled and
-            // re-driven, which would drop its broadcast or duplicate it.
+            // re-driven.
             guard activeScheduledRefreshID == nil else {
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(

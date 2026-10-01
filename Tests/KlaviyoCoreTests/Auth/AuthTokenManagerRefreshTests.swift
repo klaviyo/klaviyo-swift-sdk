@@ -12,7 +12,6 @@ import Foundation
 #if canImport(Testing)
 import Testing
 
-@Suite
 struct AuthTokenManagerRefreshTests {
     /// Fixed instant every test pins its clock and tokens to. Using a constant
     /// (rather than `Date()`) makes the suite immune to real elapsed time: the
@@ -633,6 +632,96 @@ struct AuthTokenManagerRefreshTests {
         #expect(deliveredB == secondToken)
     }
 
+    @Test
+    func warmUpFetchPublishesToExistingSubscriber() async throws {
+        let token = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate()
+        )
+        let stream = await manager.refreshes()
+
+        await manager.registerProvider { token }
+
+        let first = await firstElement(of: stream)
+        #expect(first == token)
+    }
+
+    @Test
+    func fetchCompletingAfterInteractiveTimeoutPublishesOnceThenRefreshPublishesOnce() async throws {
+        let lateToken = try makeJWT(
+            issuedAt: refSeconds - 60, expiresAt: refSeconds + 40, extraClaims: ["sub": "late"]
+        )
+        let refreshedToken = try makeJWT(
+            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "refreshed"]
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let release = Latch()
+        let counter = CallCounter()
+        let collector = TokenCollector()
+        let stream = await manager.refreshes()
+        let consumer = Task { for await token in stream {
+            await collector.append(token)
+        } }
+        defer { consumer.cancel() }
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            if invocation == 1 {
+                await release.wait()
+                return lateToken
+            }
+            return refreshedToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await #expect(throws: AuthTokenError.timedOut) {
+            _ = try await manager.currentToken(mode: .interactive)
+        }
+
+        await release.open()
+        await collector.waitFor(atLeast: 1)
+        await gate.waitUntilSleeping(atLeast: 1)
+        clock.set(referenceDate.addingTimeInterval(10))
+        await gate.release()
+        await collector.waitFor(atLeast: 2)
+
+        let received = await collector.received
+        #expect(received == [lateToken, refreshedToken])
+    }
+
+    @Test
+    func fetchCancelledByClearTokenStateDoesNotPublish() async throws {
+        let staleToken = try makeJWT(
+            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "stale"]
+        )
+        let freshToken = try makeJWT(
+            issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600, extraClaims: ["sub": "fresh"]
+        )
+        let manager = makeManager(
+            lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate()
+        )
+        let release = Latch()
+        let counter = CallCounter()
+        let stream = await manager.refreshes()
+
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            if invocation == 1 {
+                await release.wait()
+                return staleToken
+            }
+            return freshToken
+        }
+        try await counter.waitFor(atLeast: 1)
+        await manager.clearTokenState()
+        await release.open()
+        _ = try await manager.currentToken(mode: .background)
+
+        let first = await firstElement(of: stream)
+        #expect(first == freshToken)
+    }
+
     // MARK: - clearTokenState
 
     @Test
@@ -718,13 +807,9 @@ struct AuthTokenManagerRefreshTests {
         // A proactive refresh that is mid-flight when `clearTokenState()` runs
         // must not deliver the outgoing profile's token to live subscribers.
         //
-        // This drives the realistic interleaving — reset lands while the
-        // refresh fetch is suspended in the provider — which the in-flight
-        // fetch cancellation in `clearTokenState()` covers. The
-        // `cachedToken`-identity guard in `performScheduledRefresh()` hardens
-        // the residual window where the fetch *completes* in the instant before
-        // the send; that sub-window isn't deterministically reproducible in a
-        // unit test, so it isn't asserted directly here.
+        // The reset lands while the refresh fetch is suspended in the provider;
+        // `clearTokenState()` cancels that fetch, so `runFetch` never caches or
+        // sends the outgoing profile's token.
         let firstToken = try makeJWT(
             issuedAt: refSeconds - 60,
             expiresAt: refSeconds + 40,
