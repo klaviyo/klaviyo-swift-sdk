@@ -26,7 +26,8 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
         provider = ScriptedTokenProvider()
         manager = AuthTokenManager(
             lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() }),
-            currentDate: { Date() }
+            currentDate: { Date() },
+            fetchTimeoutSleep: neverTimesOut
         )
     }
 

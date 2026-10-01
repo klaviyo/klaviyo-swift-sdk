@@ -32,7 +32,7 @@ final class IdentityTransitionOrderingTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         SharedStoreMirror.reset()
         provider = ScriptedTokenProvider()
-        manager = AuthTokenManager()
+        manager = makeUnboundedAuthTokenManager()
         presentationManager = IAFPresentationManager(viewController: nil)
     }
 

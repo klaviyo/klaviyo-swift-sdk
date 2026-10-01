@@ -14,6 +14,10 @@ import Foundation
 func makeUnboundedAuthTokenManager() -> AuthTokenManager {
     AuthTokenManager(
         currentDate: { environment.date() },
-        fetchTimeoutSleep: { _ in await Latch().wait() }
+        fetchTimeoutSleep: neverTimesOut
     )
 }
+
+/// Stand-in for the manager's fetch-timeout sleep that never wakes, so a test's calls are not
+/// bound by a real-time budget.
+let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }

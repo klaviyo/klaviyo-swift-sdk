@@ -27,7 +27,8 @@ struct AuthTokenManagerIdentityTests {
         let manager = AuthTokenManager(
             currentDate: { Date() },
             reachabilityStatus: { .reachableViaWiFi },
-            identity: identity
+            identity: identity,
+            fetchTimeoutSleep: neverTimesOut
         )
         let counter = CallCounter()
         let token = try makeJWT()
@@ -70,7 +71,8 @@ struct AuthTokenManagerIdentityTests {
                 await gate.sleep($0)
                 await observation.record(Task.isCancelled)
             },
-            identity: identity
+            identity: identity,
+            fetchTimeoutSleep: neverTimesOut
         )
         let counter = CallCounter()
         let token = try makeJWT(issuedAt: refSeconds - 60, expiresAt: refSeconds + 3600)
@@ -96,7 +98,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func cachedTokenIsNotServedAfterProfileReplacement() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -115,7 +117,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func cachedTokenIsServedAcrossCompatibleChanges() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -137,7 +139,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func chainOfCompatibleThenReplacingChangesDoesNotServeOutgoingToken() async throws {
         let identity = IdentityStore(initialIdentity: ProfileData(email: "a@example.com"))
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -157,7 +159,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func companySwitchShapeDoesNotServeOutgoingTokenAndGatesProviderWhileAnonymous() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -183,7 +185,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func fetchCompletingAfterProfileReplacementIsDroppedAndNotCached() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity, fetchTimeoutSleep: neverTimesOut)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         let firstFetchRelease = Latch()
         let staleToken = try makeJWT(extraClaims: ["sub": "stale"])
@@ -215,7 +217,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func warmUpGatedWhileAnonymousRunsOnceWhenProfileBecomesIdentified() async throws {
         let identity = IdentityStore(initialIdentity: anonymous)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         let token = try makeJWT()
         await manager.registerProvider {
@@ -243,7 +245,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func lateReplacementClearLeavesFetchForNewProfileRunning() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity, fetchTimeoutSleep: neverTimesOut)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         let incomingFetchRelease = Latch()
         let incomingToken = try makeJWT(extraClaims: ["sub": "incoming"])
@@ -276,7 +278,8 @@ struct AuthTokenManagerIdentityTests {
             lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() }),
             currentDate: { clock.now() },
             sleep: { await gate.sleep($0) },
-            identity: identity
+            identity: identity,
+            fetchTimeoutSleep: neverTimesOut
         )
         let counter = CallCounter()
         let refreshedToken = try makeJWT(
@@ -316,7 +319,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func profileIdentifiedWhileWarmUpIsGatedStillRunsWarmUpOnce() async throws {
         let identity = ControllableIdentity(VersionedProfile(profile: anonymous, sequence: 0))
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         let token = try makeJWT()
         let identifiedProfile = VersionedProfile(profile: profileA, sequence: 1)
@@ -339,7 +342,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func republishDeliversCachedTokenAgainAndIgnoresAStaleGeneration() async throws {
         let identity = IdentityStore(initialIdentity: profileA)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -364,7 +367,7 @@ struct AuthTokenManagerIdentityTests {
     @Test
     func rejectedTokenRefreshWhileAnonymousNeitherCallsProviderNorPublishes() async throws {
         let identity = IdentityStore(initialIdentity: anonymous)
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identity)
+        let manager = makeUnboundedManager(identity: identity)
         let counter = CallCounter()
         let token = try makeJWT()
         await manager.registerProvider {
