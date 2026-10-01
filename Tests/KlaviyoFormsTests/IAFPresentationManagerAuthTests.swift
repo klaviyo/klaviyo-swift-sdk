@@ -353,7 +353,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         IdentityStore.shared.update(profileA)
         let authTokenManager = AuthTokenManager()
         await authTokenManager.registerProvider(provider)
-        let warm = try await authTokenManager.currentToken(mode: .background)
+        let warm = await Self.fetchToken(from: authTokenManager)
         XCTAssertEqual(warm, initialToken)
         let updates = await authTokenManager.refreshes()
         let (viewModel, delegate) = makeViewModel(
