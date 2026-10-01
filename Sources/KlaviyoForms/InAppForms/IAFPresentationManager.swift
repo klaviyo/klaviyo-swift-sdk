@@ -28,7 +28,16 @@ class IAFPresentationManager {
     private var profileEventsTask: Task<Void, Error>?
 
     var viewController: KlaviyoWebViewController?
-    private var viewModel: IAFWebViewModel?
+    private(set) var viewModel: IAFWebViewModel?
+
+    private struct PendingTokenDelivery {
+        let viewModel: IAFWebViewModel
+        let initialToken: String?
+        let initialProfile: ProfileData?
+        let updates: AsyncStream<String>
+    }
+
+    private var pendingTokenDelivery: PendingTokenDelivery?
 
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
@@ -126,22 +135,33 @@ class IAFPresentationManager {
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    func createFormWebViewAndListen(apiKey: String) async throws {
+    func createFormWebViewAndListen(
+        apiKey: String,
+        authTokenManager: AuthTokenManager = .shared
+    ) async throws {
+        let tokenUpdates = await authTokenManager.refreshes()
+        let authToken = await fetchAuthTokenBestEffort(from: authTokenManager)
         let profileData = IdentityStore.shared.current
-        let authToken = await fetchAuthTokenBestEffort()
-        createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
+        if let viewModel = createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken) {
+            prepareTokenDelivery(
+                for: viewModel,
+                initialToken: authToken,
+                initialProfile: profileData,
+                updates: tokenUpdates
+            )
+        }
         setupFormLifecycleListener()
     }
 
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort() async -> String? {
+    private func fetchAuthTokenBestEffort(from authTokenManager: AuthTokenManager) async -> String? {
         // `currentToken()` defaults to `.interactive` mode, which applies the
         // 500ms latency budget appropriate for form display. No external timeout
         // is needed here.
         do {
-            let token = try await AuthTokenManager.shared.currentToken()
+            let token = try await authTokenManager.currentToken()
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Auth token injected at load")
             }
@@ -154,9 +174,15 @@ class IAFPresentationManager {
         }
     }
 
-    /// Creates the webview, view model, and view controller for displaying in-app forms
-    private func createFormWebView(apiKey: String, profileData: ProfileData?, authToken: String?) {
-        guard let fileUrl = indexHtmlFileUrl else { return }
+    /// Creates the webview, view model, and view controller for displaying in-app forms.
+    /// Returns the new view model, or `nil` when the forms HTML resource is unavailable.
+    @discardableResult
+    private func createFormWebView(
+        apiKey: String,
+        profileData: ProfileData?,
+        authToken: String?
+    ) -> IAFWebViewModel? {
+        guard let fileUrl = indexHtmlFileUrl else { return nil }
 
         let viewModel = IAFWebViewModel(
             url: fileUrl,
@@ -168,34 +194,60 @@ class IAFPresentationManager {
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
-
-        startTokenRefreshObservation()
+        return viewModel
     }
 
-    /// Subscribes to ``AuthTokenManager``'s proactive-refresh stream for the
-    /// lifetime of the WebView, pushing each refreshed token into the live page
-    /// via ``IAFWebViewModel/pushAuthToken(_:)`` so onsite always has a fresh
-    /// token — whether or not a form is currently on screen.
-    ///
-    /// Bound to the WebView's lifetime, not a single form display: started on
-    /// WebView creation and cancelled in ``destroyWebView()``. `self` (the shared
-    /// manager) is captured weakly and re-acquired inside the loop, matching the
-    /// other observer tasks.
-    ///
-    /// Cancels any existing task before replacing it: `viewController` can be
-    /// cleared without going through ``destroyWebView()`` (e.g. a failed
-    /// presentation in ``presentFormAsModal(viewController:)``), after which a
-    /// reinit can call this again — without this cancel the prior task's handle
-    /// would be overwritten and its `refreshes()` loop would leak (the shared
-    /// manager never deallocates, so the `[weak self]` guard never trips),
-    /// double-pushing every future token.
-    private func startTokenRefreshObservation() {
+    /// Records the token-update stream for `viewModel`'s page, along with the token and
+    /// profile the page was built with. Delivery starts on ``startTokenDelivery()``, once
+    /// the page has completed its handshake. Cancels any delivery already running for a
+    /// previous page, so a replaced WebView never leaves a stream loop behind to push every
+    /// future token a second time.
+    func prepareTokenDelivery(
+        for viewModel: IAFWebViewModel,
+        initialToken: String?,
+        initialProfile: ProfileData?,
+        updates: AsyncStream<String>
+    ) {
         tokenRefreshTask?.cancel()
-        tokenRefreshTask = Task { [weak self] in
-            let stream = await AuthTokenManager.shared.refreshes()
-            for await token in stream {
-                guard let self else { return }
-                await self.viewModel?.pushAuthToken(token)
+        tokenRefreshTask = nil
+        pendingTokenDelivery = PendingTokenDelivery(
+            viewModel: viewModel,
+            initialToken: initialToken,
+            initialProfile: initialProfile,
+            updates: updates
+        )
+    }
+
+    /// Whether a token must be written to the page again because the identity changed
+    /// since the last delivery, even if the token value is unchanged.
+    static func identityChanged(from previous: ProfileData?, to current: ProfileData?) -> Bool {
+        previous != current
+    }
+
+    /// Pushes each token from the prepared stream into its page, skipping a token equal to
+    /// the last one the page received for the current identity (starting from the token and
+    /// profile it was built with). After any identity change the next token is always
+    /// written, even if its value is identical. Bound to the WebView's lifetime: cancelled
+    /// and replaced by ``prepareTokenDelivery(for:initialToken:initialProfile:updates:)``
+    /// and cancelled in ``destroyWebView()``. No-op when nothing is prepared.
+    func startTokenDelivery() {
+        guard let pending = pendingTokenDelivery else { return }
+        pendingTokenDelivery = nil
+        tokenRefreshTask?.cancel()
+        let updates = pending.updates
+        let initialToken = pending.initialToken
+        let initialProfile = pending.initialProfile
+        tokenRefreshTask = Task { [weak viewModel = pending.viewModel] in
+            var deliveredToken = initialToken
+            var deliveredIdentity = initialProfile
+            for await token in updates {
+                guard let viewModel, !Task.isCancelled else { return }
+                let identity = IdentityStore.shared.current
+                if token == deliveredToken,
+                   !Self.identityChanged(from: deliveredIdentity, to: identity) { continue }
+                deliveredToken = token
+                deliveredIdentity = identity
+                await viewModel.pushAuthToken(token)
             }
         }
     }
@@ -245,6 +297,7 @@ class IAFPresentationManager {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
             }
             startProfileObservation()
+            startTokenDelivery()
         case let .present(withLayout: layout):
             presentForm(layout: layout)
         case .dismiss:
@@ -521,6 +574,7 @@ class IAFPresentationManager {
         // still running, so gating the cancel on `viewController` would leak it.
         tokenRefreshTask?.cancel()
         tokenRefreshTask = nil
+        pendingTokenDelivery = nil
 
         guard let viewController else { return }
 
