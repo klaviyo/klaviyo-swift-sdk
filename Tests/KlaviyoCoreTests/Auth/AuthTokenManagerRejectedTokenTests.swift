@@ -408,19 +408,17 @@ extension AuthTokenManagerRejectedTokenTests {
         let invocations = await counter.value
         #expect(invocations == 2)
 
-        let next = Task { await manager.refreshRejectedToken() }
+        var iterator = stream.makeAsyncIterator()
         await releaseFetch.open()
-        await next.value
+        let late = await iterator.next()
+        #expect(late == replacement, "the timed-out fetch must publish its late token")
+
         await nextToken.set(sentinel)
         await manager.refreshRejectedToken()
-
-        var iterator = stream.makeAsyncIterator()
-        let first = await iterator.next()
-        let second = await iterator.next()
-        #expect(
-            [first, second] == [replacement, sentinel],
-            "the timed-out fetch must publish its late token once; the next one must publish its token"
-        )
+        let next = await iterator.next()
+        #expect(next == sentinel, "the late token must be published only once")
+        let totalInvocations = await counter.value
+        #expect(totalInvocations == 3)
     }
 }
 #endif
