@@ -860,17 +860,27 @@ extension AuthTokenManager {
     /// Replaces a token the server has rejected.
     ///
     /// Discards the cached token and its scheduled refresh, then makes at most one
-    /// provider call: it joins a fetch that is already in flight, or starts one.
-    /// On success the new token is published on ``refreshes()``. Nothing is
+    /// provider call itself: it joins a fetch that is already in flight, or starts
+    /// one. On success the new token is published on ``refreshes()``. Nothing is
     /// published when no provider is registered, when the fetch fails, or when the
     /// cache no longer holds the fetched token by the time it returns (e.g. after
     /// ``clearTokenState()`` or ``registerProvider(_:)`` ran mid-fetch).
+    ///
+    /// The wait is bounded by ``FetchMode/background``. On timeout this returns
+    /// without publishing; the fetch keeps running and still caches its token if
+    /// it eventually succeeds.
     ///
     /// This method never retries on its own. As with every other fetch, a
     /// connectivity-classified provider failure arms the manager's one-shot
     /// connectivity retry; when it fires, that retry publishes its token on
     /// ``refreshes()`` too.
     package func refreshRejectedToken() async {
+        await refreshRejectedToken(timeoutSeconds: FetchMode.background.rawValue)
+    }
+
+    /// ``refreshRejectedToken()`` with the wait bounded by `timeoutSeconds`
+    /// instead of ``FetchMode/background``.
+    func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
         discardCachedToken()
 
         guard provider != nil else {
@@ -881,7 +891,7 @@ extension AuthTokenManager {
         }
 
         let task = inFlight?.task ?? startFetch()
-        guard let token = try? await task.value else {
+        guard let token = try? await race(fetch: task, timeoutSeconds: timeoutSeconds) else {
             if #available(iOS 14.0, *) {
                 Logger.auth.warning("AuthTokenManager: failed to replace rejected token")
             }

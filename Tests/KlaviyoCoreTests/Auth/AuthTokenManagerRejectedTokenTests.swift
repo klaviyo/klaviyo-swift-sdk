@@ -386,4 +386,47 @@ extension AuthTokenManagerRejectedTokenTests {
         )
     }
 }
+
+// MARK: - Timeout
+
+extension AuthTokenManagerRejectedTokenTests {
+    @Test
+    func hungProviderTimesOutWithoutPublishing() async throws {
+        let rejected = try token("rejected")
+        let replacement = try token("replacement")
+        let sentinel = try token("sentinel")
+        let fixture = makeFixture()
+        let manager = fixture.manager
+        let gate = fixture.gate
+        let counter = CallCounter()
+        let releaseFetch = Latch()
+        let nextToken = TokenBox(replacement)
+
+        await manager.registerProvider {
+            guard await counter.increment() >= 2 else { return rejected }
+            await releaseFetch.wait()
+            return await nextToken.value
+        }
+        try await warmUp(counter: counter, gate: gate)
+        let stream = await manager.refreshes()
+
+        await manager.refreshRejectedToken(timeoutSeconds: 0.05)
+        let invocations = await counter.value
+        #expect(invocations == 2)
+
+        let next = Task { await manager.refreshRejectedToken() }
+        await releaseFetch.open()
+        await next.value
+        await nextToken.set(sentinel)
+        await manager.refreshRejectedToken()
+
+        var iterator = stream.makeAsyncIterator()
+        let first = await iterator.next()
+        let second = await iterator.next()
+        #expect(
+            [first, second] == [replacement, sentinel],
+            "the timed-out refresh must publish nothing; the next one must publish its token"
+        )
+    }
+}
 #endif
