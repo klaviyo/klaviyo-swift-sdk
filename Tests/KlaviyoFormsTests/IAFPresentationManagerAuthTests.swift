@@ -96,7 +96,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testCreatedViewModelUsesInjectedAuthTokenManager() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("token")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let counter = InvocationCounter()
         await authTokenManager.registerProvider {
             await counter.increment()
@@ -389,7 +389,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         provider: @escaping AuthTokenProvider
     ) async throws -> LiveWebView {
         IdentityStore.shared.update(profileA)
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         await authTokenManager.registerProvider(provider)
         let warm = await Self.fetchToken(from: authTokenManager)
         XCTAssertEqual(warm, initialToken)

@@ -480,7 +480,7 @@ final class IAFWebViewModelTests: XCTestCase {
         // When — a refreshed token is pushed (driven by the presentation
         // manager's refresh subscription in production)
         let refreshedToken = "header.refreshed.signature"
-        await viewModel.pushAuthToken(refreshedToken)
+        await viewModel.pushAuthToken(refreshedToken, generation: AuthTokenManager.shared.currentIdentityGeneration)
 
         // Then — it is applied as a data-klaviyo-jwt update carrying the token
         let script = try XCTUnwrap(delegate.authTokenScripts.first)
@@ -495,8 +495,8 @@ final class IAFWebViewModelTests: XCTestCase {
         // When — two tokens are pushed sequentially
         let firstToken = "header.first.signature"
         let secondToken = "header.second.signature"
-        await viewModel.pushAuthToken(firstToken)
-        await viewModel.pushAuthToken(secondToken)
+        await viewModel.pushAuthToken(firstToken, generation: AuthTokenManager.shared.currentIdentityGeneration)
+        await viewModel.pushAuthToken(secondToken, generation: AuthTokenManager.shared.currentIdentityGeneration)
 
         // Then — both are applied, in order
         let scripts = delegate.authTokenScripts

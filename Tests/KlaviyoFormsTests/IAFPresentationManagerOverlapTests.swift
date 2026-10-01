@@ -91,6 +91,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     /// Registers a token provider, then makes every later webview build park on `gate`
     /// before fetching its token.
     private func gateTokenFetch() async throws {
+        IdentityStore.shared.update(ProfileData(email: "user@example.com"))
         let providerCalls = InvocationCounter()
         let token = try makeTestJWT()
         await AuthTokenManager.shared.registerProvider {

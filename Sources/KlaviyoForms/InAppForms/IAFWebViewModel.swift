@@ -256,12 +256,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        return "document.head.setAttribute('data-klaviyo-profile', '\(profileDataString)');"
+        return "document.head.setAttribute('data-klaviyo-profile', \(profileDataString.javaScriptStringLiteral));"
     }
 
     @MainActor
     private func createAuthTokenScript(from token: String) -> String {
-        "document.head.setAttribute('data-klaviyo-jwt', '\(token)');"
+        "document.head.setAttribute('data-klaviyo-jwt', \(token.javaScriptStringLiteral));"
     }
 
     /// Writes `newProfileData` to the page. When ``IdentityTransition/classify(previous:next:)``
@@ -325,17 +325,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     /// Fetches a token for `identity` from the registered provider, so the fetch publishes it
-    /// on ``AuthTokenManager/refreshes()``. Stops once a later change replaced `identity`. A
-    /// fetch that is cancelled, or whose identity generation moves before this returns, is
-    /// retried, up to ``maxIdentityTokenFetchAttempts`` attempts in total. Other failures are
-    /// logged.
+    /// on ``AuthTokenManager/refreshes()``, or re-publishes the cached token of the current
+    /// generation when a fetch already published it before the page handled the change.
+    /// Stops once a later change replaced `identity`. A fetch that is cancelled, or whose
+    /// identity generation moves before this returns, is retried, up to
+    /// ``maxIdentityTokenFetchAttempts`` attempts in total. Other failures are logged.
     @MainActor
     private func refreshAuthToken(for identity: ProfileData) async {
         for _ in 0..<Self.maxIdentityTokenFetchAttempts {
             guard isCompatibleWithPage(identity) else { return }
             do {
                 let refresh = try await authTokenManager.currentTokenRefresh(mode: .background)
-                if refresh.generation == authTokenManager.currentIdentityGeneration { return }
+                if refresh.generation == authTokenManager.currentIdentityGeneration {
+                    await authTokenManager.republish(refresh)
+                    return
+                }
             } catch where error.isFetchCancellation {
                 continue
             } catch AuthTokenError.noProfileIdentifier {
@@ -373,8 +377,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     ///
     /// Never writes a token ahead of the profile it belongs to. While an identity
     /// replacement's profile write and token-state clear are running, waits for them and
-    /// then writes `token` only if `generation` (by default, the manager's current one) is
-    /// still the manager's current identity generation. Declines when ``IdentityStore``
+    /// then writes `token` only if `generation` is still the manager's current identity
+    /// generation. Declines when ``IdentityStore``
     /// already holds an identity that replaces the page's profile.
     ///
     /// `async` so the caller can await it and apply refreshes in arrival order.
@@ -382,8 +386,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// - Returns: `true` when `token` was written, `false` when the push was declined.
     @MainActor
     @discardableResult
-    func pushAuthToken(_ token: String, generation: UInt64? = nil) async -> Bool {
-        let generation = generation ?? authTokenManager.currentIdentityGeneration
+    func pushAuthToken(_ token: String, generation: UInt64) async -> Bool {
         guard generation == authTokenManager.currentIdentityGeneration else { return false }
         var awaitedReplacement: Task<Void, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
