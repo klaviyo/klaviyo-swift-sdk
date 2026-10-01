@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoSwift
+import AnyCodable
 import Foundation
 import KlaviyoCore
 import XCTest
@@ -680,6 +681,87 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    // MARK: - Identity transitions
+
+    @MainActor
+    func testScalarSetterIgnoresUnchangedIdentityWithWarning() {
+        var warnings: [String] = []
+        environment.emitDeveloperWarning = { warnings.append($0) }
+        let start = identityTransitionState(email: "same@email.com")
+
+        for value in ["same@email.com", "  same@email.com  ", "", "   "] {
+            let store = Store(initialState: start, reducer: KlaviyoReducer())
+            _ = store.send(.setEmail(value))
+            XCTAssertEqual(store.state.value, start, "\(value)")
+        }
+        XCTAssertEqual(warnings.count, 4)
+
+        let store = Store(initialState: start, reducer: KlaviyoReducer())
+        _ = store.send(.setExternalId("ext-1"))
+        XCTAssertEqual(warnings.count, 4, "a changed identity is not warned about")
+    }
+
+    @MainActor
+    func testScalarReplacementEditsInPlaceCarryingPendingPropertiesIntoTokenRegistration() {
+        let pending: [Profile.ProfileKey: AnyEncodable] = [.firstName: AnyEncodable("A")]
+        let store = Store(
+            initialState: identityTransitionState(
+                email: "a@email.com",
+                phoneNumber: "+15555555555",
+                withPushToken: true,
+                pendingProfile: pending
+            ),
+            reducer: KlaviyoReducer()
+        )
+
+        _ = store.send(.setEmail("b@email.com"))
+
+        XCTAssertEqual(store.state.value.email, "b@email.com")
+        XCTAssertEqual(store.state.value.phoneNumber, "+15555555555")
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+        XCTAssertNil(store.state.value.pendingProfile)
+        XCTAssertEqual(store.state.value.queue.count, 1)
+        guard case let .registerPushToken(_, payload) = store.state.value.queue.first?.endpoint else {
+            return XCTFail("expected the push token to be re-registered")
+        }
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.firstName, "A")
+    }
+
+    @MainActor
+    func testReplayingQueuedRequestsAtInitializationMatchesSendingThemAfterwards() {
+        let event = Event(name: .openedAppMetric)
+        let aggregate = Data("aggregate".utf8)
+        let actions: [KlaviyoAction] = [
+            .enqueueEvent(event),
+            .setEmail("b@email.com"),
+            .setPushToken("blob_token", .authorized),
+            .enqueueAggregateEvent(aggregate),
+            .enqueueSubscription(.allAvailableMarketing(listId: "list-123")),
+            .enqueueProfile(Profile(email: "b@email.com", phoneNumber: "+15555555555")),
+            .enqueueEvent(Event(name: .viewedProductMetric))
+        ]
+        let persisted = identityTransitionState(email: "a@email.com")
+        var initializing = KlaviyoState(apiKey: TEST_API_KEY, queue: [], initalizationState: .initializing)
+
+        let replayed = Store(initialState: initializing, reducer: KlaviyoReducer())
+        for action in actions {
+            _ = replayed.send(action)
+        }
+        initializing = replayed.state.value
+        XCTAssertEqual(initializing.pendingRequests.count, actions.count)
+        _ = replayed.send(.completeInitialization(persisted))
+
+        let sequential = Store(initialState: persisted, reducer: KlaviyoReducer())
+        for action in actions {
+            _ = sequential.send(action)
+        }
+
+        XCTAssertEqual(replayed.state.value.queue, sequential.state.value.queue)
+        XCTAssertEqual(replayed.state.value.identity, sequential.state.value.identity)
+        XCTAssertEqual(replayed.state.value.pushTokenData, sequential.state.value.pushTokenData)
+        XCTAssertTrue(replayed.state.value.pendingRequests.isEmpty)
+    }
+
     // MARK: - enqueueProfile: conditional reset (push-token storm fix)
 
     @MainActor
@@ -927,6 +1009,32 @@ class StateManagementEdgeCaseTests: XCTestCase {
             )
             $0.queue = [request]
         }
+    }
+}
+
+extension StateManagementEdgeCaseTests {
+    private func identityTransitionState(
+        email: String? = nil,
+        phoneNumber: String? = nil,
+        withPushToken: Bool = false,
+        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
+    ) -> KlaviyoState {
+        KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: email,
+            anonymousId: "anonymous-A",
+            phoneNumber: phoneNumber,
+            pushTokenData: withPushToken ? .init(
+                pushToken: "blob_token",
+                pushEnablement: .authorized,
+                pushBackground: .available,
+                deviceData: .init(context: environment.appContextInfo())
+            ) : nil,
+            queue: [],
+            initalizationState: .initialized,
+            flushing: true,
+            pendingProfile: pendingProfile
+        )
     }
 }
 
