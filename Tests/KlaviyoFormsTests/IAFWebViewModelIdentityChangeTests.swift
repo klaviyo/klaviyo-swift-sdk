@@ -38,7 +38,8 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         manager = AuthTokenManager(
             lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() }),
             currentDate: { clock.now() },
-            sleep: { await sleepGate.sleep($0) }
+            sleep: { await sleepGate.sleep($0) },
+            fetchTimeoutSleep: neverTimesOut
         )
         provider = ScriptedTokenProvider(currentDate: { clock.now() })
         presentationManager = IAFPresentationManager(viewController: nil)

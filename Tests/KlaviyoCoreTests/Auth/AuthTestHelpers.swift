@@ -133,6 +133,22 @@ actor CancellationObservation {
 /// bound by a real-time budget.
 let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }
 
+/// Stand-in for the manager's fetch-timeout sleep that wakes at once for the budgets, in
+/// seconds, in `budgets` and never for the others.
+func timeoutSleep(expiring budgets: Set<TimeInterval>) -> @Sendable (UInt64) async -> Void {
+    let expiring = Set(budgets.map { UInt64($0 * 1_000_000_000) })
+    return { nanoseconds in
+        if expiring.contains(nanoseconds) { return }
+        await Latch().wait()
+    }
+}
+
+/// Stand-in for the manager's fetch-timeout sleep that wakes at once for the budgets of `modes`
+/// and never for the others.
+func timeoutSleep(expiring modes: Set<AuthTokenManager.FetchMode>) -> @Sendable (UInt64) async -> Void {
+    timeoutSleep(expiring: Set(modes.map(\.rawValue)))
+}
+
 // MARK: - Concurrency primitives
 
 /// One-shot async gate. ``wait()`` suspends until ``open()`` is called; once
@@ -380,13 +396,25 @@ func makeManager(
     lifeCycle: AppLifeCycleEvents,
     clock: TestClock,
     gate: SleepGate,
-    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
+    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
+    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut
 ) -> AuthTokenManager {
     AuthTokenManager(
         lifeCycle: lifeCycle,
         currentDate: { clock.now() },
         sleep: { await gate.sleep($0) },
         reachabilityStatus: reachabilityStatus,
-        identity: identifiedIdentity
+        identity: identifiedIdentity,
+        fetchTimeoutSleep: fetchTimeoutSleep
     )
+}
+
+/// Builds a manager following `identity`, on `currentDate`, whose callers are bound by
+/// `fetchTimeoutSleep` instead of a real-time fetch budget.
+func makeUnboundedManager(
+    currentDate: @escaping () -> Date = { Date() },
+    identity: VersionedIdentityReading = identifiedIdentity,
+    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut
+) -> AuthTokenManager {
+    AuthTokenManager(currentDate: currentDate, identity: identity, fetchTimeoutSleep: fetchTimeoutSleep)
 }

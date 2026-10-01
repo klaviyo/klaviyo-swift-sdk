@@ -71,7 +71,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testProfileChangedDuringTokenWaitIsUsedForInitialDocument() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("token")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let counter = InvocationCounter()
         let profileB = profileB
         await authTokenManager.registerProvider {
@@ -93,7 +93,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         manager.destroyWebView()
     }
 
-    func testCreatedViewModelUsesInjectedAuthTokenManager() async throws {
+    func testCreatedViewModelUsesInjectedmakeUnboundedAuthTokenManager() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("token")
         let authTokenManager = makeUnboundedAuthTokenManager()
@@ -120,7 +120,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testTokenArrivingBeforeHandshakeIsHeldThenDelivered() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("late")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
         _ = await Self.fetchToken(from: authTokenManager)
@@ -148,7 +148,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testLateTokenReachesLiveWebViewOnce() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("late")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         let release = Latch()
         let counter = InvocationCounter()
@@ -183,7 +183,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         IdentityStore.shared.update(profileA)
         let initial = try makeToken("initial")
         let next = try makeToken("next")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         let counter = InvocationCounter()
         await authTokenManager.registerProvider {
@@ -213,7 +213,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testSameTokenAfterIdentityChangeIsDeliveredAgain() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("same")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
         _ = await Self.fetchToken(from: authTokenManager)
@@ -245,7 +245,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         IdentityStore.shared.update(profileA)
         let stale = try makeToken("stale")
         let fresh = try makeToken("fresh")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         let counter = InvocationCounter()
         await authTokenManager.registerProvider {
@@ -298,7 +298,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testDestroyWebViewStopsPendingAndRunningDelivery() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("token")
-        let authTokenManager = AuthTokenManager()
+        let authTokenManager = makeUnboundedAuthTokenManager()
         let updates = await authTokenManager.refreshes()
         let release = Latch()
         let counter = InvocationCounter()
