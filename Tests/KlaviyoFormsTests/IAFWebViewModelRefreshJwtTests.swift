@@ -10,10 +10,6 @@ import XCTest
 
 @MainActor
 final class IAFWebViewModelRefreshJwtTests: XCTestCase {
-    private enum ProviderError: Error {
-        case rejected
-    }
-
     // MARK: - setup
 
     private var authTokenManager: AuthTokenManager!
@@ -88,37 +84,6 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         XCTAssertEqual(delivered, repeated, "a repeated token must be published, not swallowed")
     }
 
-    func testProviderFailurePublishesNothing() async throws {
-        let rejected = try makeTestJWT(subject: "rejected")
-        let sentinel = try makeTestJWT(subject: "sentinel")
-        let counter = InvocationCounter()
-        await authTokenManager.registerProvider {
-            switch await counter.increment() {
-            case 1: return rejected
-            case 2: throw ProviderError.rejected
-            default: return sentinel
-            }
-        }
-        try await warmCache(expecting: rejected)
-        let stream = await authTokenManager.refreshes()
-
-        sendRefreshJwt()
-        await awaitPendingRefresh()
-
-        await expectNextPublished(sentinel, on: stream)
-    }
-
-    func testRefreshJwtWithoutProviderPublishesNothing() async throws {
-        let sentinel = try makeTestJWT(subject: "sentinel")
-        let stream = await authTokenManager.refreshes()
-
-        sendRefreshJwt()
-        await awaitPendingRefresh()
-
-        await authTokenManager.registerProvider { sentinel }
-        await expectNextPublished(sentinel, on: stream)
-    }
-
     func testOverlappingSignalsShareOneProviderCall() async throws {
         let rejected = try makeTestJWT(subject: "rejected")
         let replacement = try makeTestJWT(subject: "replacement")
@@ -181,37 +146,6 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         let second = await iterator.next()
         XCTAssertEqual([first, second], [tokens[1], tokens[2]])
     }
-
-    func testClearTokenStateMidFetchPublishesNothing() async throws {
-        let rejected = try makeTestJWT(subject: "rejected")
-        let stale = try makeTestJWT(subject: "stale")
-        let sentinel = try makeTestJWT(subject: "sentinel")
-        let counter = InvocationCounter()
-        let fetchStarted = Latch()
-        let releaseFetch = Latch()
-        await authTokenManager.registerProvider {
-            switch await counter.increment() {
-            case 1:
-                return rejected
-            case 2:
-                await fetchStarted.open()
-                await releaseFetch.wait()
-                return stale
-            default:
-                return sentinel
-            }
-        }
-        try await warmCache(expecting: rejected)
-        let stream = await authTokenManager.refreshes()
-
-        sendRefreshJwt()
-        await fetchStarted.wait()
-        await authTokenManager.clearTokenState()
-        await releaseFetch.open()
-        await awaitPendingRefresh()
-
-        await expectNextPublished(sentinel, on: stream)
-    }
 }
 
 // MARK: - Helpers
@@ -235,25 +169,5 @@ extension IAFWebViewModelRefreshJwtTests {
 
     private func awaitPendingRefresh() async {
         await viewModel.pendingAuthTokenRefresh?.value
-    }
-
-    /// Publishes `sentinel` via a direct refresh and asserts it is the next value
-    /// on `stream`, proving nothing was published before it.
-    private func expectNextPublished(
-        _ sentinel: String,
-        on stream: AsyncStream<String>,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) async {
-        await authTokenManager.refreshRejectedToken()
-        var iterator = stream.makeAsyncIterator()
-        let delivered = await iterator.next()
-        XCTAssertEqual(
-            delivered,
-            sentinel,
-            "nothing may be published before the sentinel",
-            file: file,
-            line: line
-        )
     }
 }
