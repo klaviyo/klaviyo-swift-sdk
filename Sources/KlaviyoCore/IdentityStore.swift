@@ -44,7 +44,11 @@ package protocol VersionedIdentityReading: IdentityReading {
 public final class IdentityStore: IdentityReading, IdentityWriting, VersionedIdentityReading {
     public static let shared = IdentityStore()
 
-    // `CurrentValueSubject` is internally synchronized; `lock` guards `sequence`.
+    // `CurrentValueSubject` is internally synchronized, so reads and writes are thread-safe
+    // without an external lock. We deliberately avoid wrapping `send` in a lock/queue: Combine
+    // delivers to subscribers synchronously during `send`, so an external lock held across the
+    // emission would deadlock any subscriber that reads `current` in response. `lock` guards
+    // only `sequence`.
     private let subject: CurrentValueSubject<VersionedProfile, Never>
     private let lock = NSLock()
     private var sequence: UInt64 = 0

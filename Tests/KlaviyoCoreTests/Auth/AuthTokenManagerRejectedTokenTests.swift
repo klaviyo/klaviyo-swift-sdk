@@ -159,10 +159,7 @@ struct AuthTokenManagerRejectedTokenTests {
     func hungProviderTimesOutAndItsLateTokenIsPublished() async throws {
         let replacement = try token("replacement")
         let releaseFetch = Latch()
-        let hungProviderBudget: TimeInterval = 0.05
-        let fixture = try await makeWarmFixture(
-            fetchTimeoutSleep: timeoutSleep(expiring: [hungProviderBudget])
-        ) { _ in
+        let fixture = try await makeWarmFixture { _ in
             await releaseFetch.wait()
             return replacement
         }
@@ -226,17 +223,11 @@ extension AuthTokenManagerRejectedTokenTests {
     /// call and hands every later call, numbered from 2, to `provider`.
     /// Returns once the warm-up token is cached and its scheduled refresh is parked.
     private func makeWarmFixture(
-        fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut,
         provider: @escaping @Sendable (Int) async throws -> String
     ) async throws -> Fixture {
         let rejected = try token("rejected")
         let gate = SleepGate()
-        let manager = makeManager(
-            lifeCycle: noopLifecycle(),
-            clock: TestClock(referenceDate),
-            gate: gate,
-            fetchTimeoutSleep: fetchTimeoutSleep
-        )
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: gate)
         let counter = CallCounter()
 
         await manager.registerProvider {

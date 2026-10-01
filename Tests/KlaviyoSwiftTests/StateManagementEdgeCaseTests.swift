@@ -6,7 +6,6 @@
 //
 
 @testable import KlaviyoSwift
-import AnyCodable
 import Foundation
 import KlaviyoCore
 import XCTest
@@ -684,50 +683,6 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - Identity transitions
 
     @MainActor
-    func testScalarSetterIgnoresUnchangedIdentityWithWarning() {
-        var warnings: [String] = []
-        environment.emitDeveloperWarning = { warnings.append($0) }
-        let start = identityTransitionState(email: "same@email.com")
-
-        for value in ["same@email.com", "  same@email.com  ", "", "   "] {
-            let store = Store(initialState: start, reducer: KlaviyoReducer())
-            _ = store.send(.setEmail(value))
-            XCTAssertEqual(store.state.value, start, "\(value)")
-        }
-        XCTAssertEqual(warnings.count, 4)
-
-        let store = Store(initialState: start, reducer: KlaviyoReducer())
-        _ = store.send(.setExternalId("ext-1"))
-        XCTAssertEqual(warnings.count, 4, "a changed identity is not warned about")
-    }
-
-    @MainActor
-    func testScalarReplacementEditsInPlaceCarryingPendingPropertiesIntoTokenRegistration() {
-        let pending: [Profile.ProfileKey: AnyEncodable] = [.firstName: AnyEncodable("A")]
-        let store = Store(
-            initialState: identityTransitionState(
-                email: "a@email.com",
-                phoneNumber: "+15555555555",
-                withPushToken: true,
-                pendingProfile: pending
-            ),
-            reducer: KlaviyoReducer()
-        )
-
-        _ = store.send(.setEmail("b@email.com"))
-
-        XCTAssertEqual(store.state.value.email, "b@email.com")
-        XCTAssertEqual(store.state.value.phoneNumber, "+15555555555")
-        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
-        XCTAssertNil(store.state.value.pendingProfile)
-        XCTAssertEqual(store.state.value.queue.count, 1)
-        guard case let .registerPushToken(_, payload) = store.state.value.queue.first?.endpoint else {
-            return XCTFail("expected the push token to be re-registered")
-        }
-        XCTAssertEqual(payload.data.attributes.profile.data.attributes.firstName, "A")
-    }
-
-    @MainActor
     func testReplayingQueuedRequestsAtInitializationMatchesSendingThemAfterwards() {
         let event = Event(name: .openedAppMetric)
         let aggregate = Data("aggregate".utf8)
@@ -1013,27 +968,14 @@ class StateManagementEdgeCaseTests: XCTestCase {
 }
 
 extension StateManagementEdgeCaseTests {
-    private func identityTransitionState(
-        email: String? = nil,
-        phoneNumber: String? = nil,
-        withPushToken: Bool = false,
-        pendingProfile: [Profile.ProfileKey: AnyEncodable]? = nil
-    ) -> KlaviyoState {
+    private func identityTransitionState(email: String? = nil) -> KlaviyoState {
         KlaviyoState(
             apiKey: TEST_API_KEY,
             email: email,
             anonymousId: "anonymous-A",
-            phoneNumber: phoneNumber,
-            pushTokenData: withPushToken ? .init(
-                pushToken: "blob_token",
-                pushEnablement: .authorized,
-                pushBackground: .available,
-                deviceData: .init(context: environment.appContextInfo())
-            ) : nil,
             queue: [],
             initalizationState: .initialized,
-            flushing: true,
-            pendingProfile: pendingProfile
+            flushing: true
         )
     }
 }

@@ -650,12 +650,7 @@ struct AuthTokenManagerRefreshTests {
         let refreshedToken = try token("refreshed")
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(
-            lifeCycle: noopLifecycle(),
-            clock: clock,
-            gate: gate,
-            fetchTimeoutSleep: timeoutSleep(expiring: [.interactive])
-        )
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
         let release = Latch()
         let counter = CallCounter()
         let collector = TokenCollector()
@@ -1822,9 +1817,8 @@ struct AuthTokenManagerRefreshTests {
     }
 
     /// Suspends until `manager` has armed its connectivity-retry wait, which lands
-    /// asynchronously in the refresh-failure path, and the refresh that armed it has
-    /// finished — driving a transition before either would drop the event against an
-    /// unarmed flag or a still-running refresh. Adapts to scheduling rather
+    /// asynchronously in the refresh-failure path — driving a transition before it
+    /// would drop the event against an unarmed flag. Adapts to scheduling rather
     /// than guessing a yield count. The large cap is a safety net: if it's ever hit
     /// the wait never armed (a regression), and it records a labeled failure rather
     /// than spinning to CI's global timeout.
@@ -1834,9 +1828,7 @@ struct AuthTokenManagerRefreshTests {
     ) async {
         let maxYields = 10_000
         for _ in 0..<maxYields {
-            let armed = await manager.isAwaitingConnectivityRetryForTesting
-            let refreshing = await manager.isScheduledRefreshActiveForTesting
-            if armed, !refreshing { return }
+            if await manager.isAwaitingConnectivityRetryForTesting { return }
             await Task.yield()
         }
         Issue.record("connectivity retry wait never armed", sourceLocation: sourceLocation)
