@@ -118,15 +118,18 @@ struct AuthTokenManagerRejectedTokenTests {
             await releaseFetch.wait()
             return replacement
         }
+        let watchdogFires = CallCounter()
         let watchdog = Task {
-            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+            guard !Task.isCancelled else { return }
+            _ = await watchdogFires.increment()
             await releaseFetch.open()
         }
         defer { watchdog.cancel() }
 
-        let started = Date()
         await fixture.manager.refreshRejectedToken(timeoutSeconds: 0.05)
-        #expect(Date().timeIntervalSince(started) < 5, "the wait must be bounded by the timeout")
+        let fires = await watchdogFires.value
+        #expect(fires == 0, "the wait must end on the timeout, not when the provider is released")
         let invocations = await fixture.counter.value
         try #require(invocations == 2)
 
