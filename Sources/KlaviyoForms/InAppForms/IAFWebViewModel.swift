@@ -379,8 +379,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// Never writes a token ahead of the profile it belongs to. While an identity
     /// replacement's profile write and token-state clear are running, waits for them and
     /// then writes `token` only if `generation` is still the manager's current identity
-    /// generation. Declines when ``IdentityStore``
-    /// already holds an identity that replaces the page's profile.
+    /// generation. Declines when ``IdentityStore`` already holds an identity that replaces the
+    /// page's profile.
     ///
     /// `async` so the caller can await it and apply refreshes in arrival order.
     /// The token value is never logged — only the success/failure of the update.

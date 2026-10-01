@@ -133,6 +133,11 @@ actor CancellationObservation {
 /// bound by a real-time budget.
 let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }
 
+/// The manager's own fetch-timeout sleep: really waits out the budget.
+let realTimeSleep: @Sendable (UInt64) async -> Void = { nanoseconds in
+    try? await Task.sleep(nanoseconds: nanoseconds)
+}
+
 /// Stand-in for the manager's fetch-timeout sleep that wakes at once for the budgets, in
 /// seconds, in `budgets` and never for the others.
 func timeoutSleep(expiring budgets: Set<TimeInterval>) -> @Sendable (UInt64) async -> Void {
@@ -397,7 +402,7 @@ func makeManager(
     clock: TestClock,
     gate: SleepGate,
     reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
-    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut
+    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = realTimeSleep
 ) -> AuthTokenManager {
     AuthTokenManager(
         lifeCycle: lifeCycle,

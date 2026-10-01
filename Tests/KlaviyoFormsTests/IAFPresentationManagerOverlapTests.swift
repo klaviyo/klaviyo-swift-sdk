@@ -26,7 +26,6 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     private static let handshakeTimeoutObservationWindow: TimeInterval = staleHandshakeTimeout + 2
 
     private let gate = BuildGate()
-    private let tokenManager = makeUnboundedAuthTokenManager()
     private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> AuthTokenManager.TokenRefresh?)?
     private var defaultMakeViewController: ((IAFWebViewModel) -> KlaviyoWebViewController)?
     private var defaultHandshakeTimeout: TimeInterval?
@@ -39,7 +38,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         environment = KlaviyoEnvironment.test()
         resetPresentationManagerStores()
         IdentityStore.shared.update(ProfileData(email: "user@example.com"))
-        await tokenManager.unregisterProvider()
+        await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
         defaultFetchInitialAuthToken = manager.fetchInitialAuthToken
         defaultMakeViewController = manager.makeViewController
@@ -59,7 +58,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         if let defaultHandshakeTimeout {
             manager.handshakeTimeout = defaultHandshakeTimeout
         }
-        await tokenManager.unregisterProvider()
+        await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
         resetPresentationManagerStores()
         try await super.tearDown()
@@ -92,10 +91,9 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     /// Registers a token provider, then makes every later webview build park on `gate`
     /// before fetching its token.
     private func gateTokenFetch() async throws {
-        IdentityStore.shared.update(ProfileData(email: "user@example.com"))
         let providerCalls = InvocationCounter()
         let token = try makeTestJWT()
-        await tokenManager.registerProvider {
+        await AuthTokenManager.shared.registerProvider {
             await providerCalls.increment()
             return token
         }
@@ -121,7 +119,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     private func startBuild(apiKey: String) -> Task<Bool, Error> {
-        Task { try await manager.createFormWebViewAndListen(apiKey: apiKey, authTokenManager: tokenManager) }
+        Task { try await manager.createFormWebViewAndListen(apiKey: apiKey) }
     }
 
     /// Simulates KlaviyoJS completing the handshake on the active webview, so the
@@ -254,13 +252,13 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
     func testRebuildAfterTeardownSurvivesStaleHandshakeTimeout() async throws {
         manager.handshakeTimeout = Self.staleHandshakeTimeout
-        try await manager.createFormWebViewAndListen(apiKey: "first-key", authTokenManager: tokenManager)
+        try await manager.createFormWebViewAndListen(apiKey: "first-key")
         XCTAssertNotNil(manager.viewController)
         await settle(nanoseconds: 50_000_000)
 
         manager.tearDownFormWebView()
         manager.handshakeTimeout = Self.activeHandshakeTimeout
-        try await manager.createFormWebViewAndListen(apiKey: "second-key", authTokenManager: tokenManager)
+        try await manager.createFormWebViewAndListen(apiKey: "second-key")
         await settle(nanoseconds: 50_000_000)
 
         await assertActiveWebViewSurvives(

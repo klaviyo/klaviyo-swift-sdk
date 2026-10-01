@@ -178,11 +178,6 @@ package actor AuthTokenManager {
         warmUpGatedHookForTesting = hook
     }
 
-    /// Test-only window onto whether a ``performScheduledRefresh()`` run is mid-flight. Not package API.
-    var isScheduledRefreshActiveForTesting: Bool {
-        activeScheduledRefreshID != nil
-    }
-
     /// Long-lived Combine subscription that dispatches foreground transitions to
     /// ``handleForegroundTransition()``. Bound to the actor's lifetime (started in
     /// ``init`` and survives ``registerProvider(_:)``).

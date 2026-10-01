@@ -18,7 +18,7 @@ extension ProfileData: CustomDebugStringConvertible {
     }
 
     /// Encodes the identity as a JSON string suitable for injection into the forms webview
-    /// via `document.head.setAttribute('data-klaviyo-profile', ...)` as a JavaScript string literal.
+    /// via `document.head.setAttribute('data-klaviyo-profile', ...)`.
     func toHtmlString() throws -> String {
         do {
             let encoder = JSONEncoder()
