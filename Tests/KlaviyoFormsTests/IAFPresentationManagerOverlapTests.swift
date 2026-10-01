@@ -26,7 +26,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     private static let handshakeTimeoutObservationWindow: TimeInterval = staleHandshakeTimeout + 2
 
     private let gate = BuildGate()
-    private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> String?)?
+    private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> AuthTokenManager.TokenRefresh?)?
     private var defaultMakeViewController: ((IAFWebViewModel) -> KlaviyoWebViewController)?
     private var defaultHandshakeTimeout: TimeInterval?
     private var manager: IAFPresentationManager {
