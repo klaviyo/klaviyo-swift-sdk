@@ -133,27 +133,6 @@ actor CancellationObservation {
 /// bound by a real-time budget.
 let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }
 
-/// The manager's own fetch-timeout sleep: really waits out the budget.
-let realTimeSleep: @Sendable (UInt64) async -> Void = { nanoseconds in
-    try? await Task.sleep(nanoseconds: nanoseconds)
-}
-
-/// Stand-in for the manager's fetch-timeout sleep that wakes at once for the budgets, in
-/// seconds, in `budgets` and never for the others.
-func timeoutSleep(expiring budgets: Set<TimeInterval>) -> @Sendable (UInt64) async -> Void {
-    let expiring = Set(budgets.map { UInt64($0 * 1_000_000_000) })
-    return { nanoseconds in
-        if expiring.contains(nanoseconds) { return }
-        await Latch().wait()
-    }
-}
-
-/// Stand-in for the manager's fetch-timeout sleep that wakes at once for the budgets of `modes`
-/// and never for the others.
-func timeoutSleep(expiring modes: Set<AuthTokenManager.FetchMode>) -> @Sendable (UInt64) async -> Void {
-    timeoutSleep(expiring: Set(modes.map(\.rawValue)))
-}
-
 // MARK: - Concurrency primitives
 
 /// One-shot async gate. ``wait()`` suspends until ``open()`` is called; once
@@ -401,16 +380,14 @@ func makeManager(
     lifeCycle: AppLifeCycleEvents,
     clock: TestClock,
     gate: SleepGate,
-    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
-    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = realTimeSleep
+    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
 ) -> AuthTokenManager {
     AuthTokenManager(
         lifeCycle: lifeCycle,
         currentDate: { clock.now() },
         sleep: { await gate.sleep($0) },
         reachabilityStatus: reachabilityStatus,
-        identity: identifiedIdentity,
-        fetchTimeoutSleep: fetchTimeoutSleep
+        identity: identifiedIdentity
     )
 }
 
