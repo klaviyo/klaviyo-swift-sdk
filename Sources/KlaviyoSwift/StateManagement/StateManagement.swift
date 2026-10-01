@@ -150,7 +150,23 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
 
+    /// Reduces `action`, then clears auth-token state when
+    /// ``IdentityTransition/classify(previous:next:)`` calls the resulting identity change a
+    /// replacement. An identity is only compared once the SDK is initialized.
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
+        let previousIdentity = state.initializedIdentity
+        let effect = reduceAction(into: &state, action: action)
+        if let identity = state.initializedIdentity,
+           IdentityTransition.classify(previous: previousIdentity, next: identity) == .replacement {
+            klaviyoSwiftEnvironment.clearAuthTokenState()
+        }
+        return effect
+    }
+
+    private func reduceAction(
+        into state: inout KlaviyoState,
+        action: KlaviyoAction
+    ) -> EffectTask<KlaviyoAction> {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.emitDeveloperWarning("SDK must be initialized before usage.")
@@ -651,13 +667,6 @@ struct KlaviyoReducer: ReducerProtocol {
                 return .none
             }
             state.reset()
-
-            // Clear the auth-token cache and cancel any scheduled refresh tied
-            // to the outgoing profile. The provider is retained — see
-            // ``AuthTokenManager/clearTokenState()``.
-            Task {
-                await AuthTokenManager.shared.clearTokenState()
-            }
             return .none
 
         case let .setProfileProperty(key, value):
