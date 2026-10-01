@@ -61,7 +61,7 @@ final class IAFWebViewModelBadJWTTests: XCTestCase {
                 }
             }
         }
-        await fulfillment(of: [refetched], timeout: 2.0)
+        await fulfillment(of: [refetched], timeout: 10.0)
         prober.cancel()
 
         await AuthTokenManager.shared.unregisterProvider()

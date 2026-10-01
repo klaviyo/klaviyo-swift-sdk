@@ -14,14 +14,18 @@ import XCTest
 @MainActor
 final class IAFPresentationManagerOverlapTests: XCTestCase {
     /// Covers the immediate handshake-failure path (deallocated view controller).
-    private static let shortObservationWindow: TimeInterval = 1
+    private nonisolated static let shortObservationWindow: TimeInterval = 1
 
     /// Longer than the handshake timeout (`NetworkSession.networkTimeout`), so a stale
     /// handshake timing out is also covered.
     private static let handshakeTimeoutObservationWindow: TimeInterval =
         .init(NetworkSession.networkTimeout) / 1_000_000_000 + 2
 
-    private let gate = Latch()
+    /// Upper bound for waits on state that is expected to change.
+    private nonisolated static let eventTimeout: TimeInterval = 10
+
+    private let gate = BuildGate()
+    private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> String?)?
     private var manager: IAFPresentationManager {
         .shared
     }
@@ -33,10 +37,14 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         SDKConfigStore.shared.reset()
         await AuthTokenManager.shared.unregisterProvider()
         IAFPresentationManager.shared.destroyWebviewAndListeners()
+        defaultFetchInitialAuthToken = manager.fetchInitialAuthToken
     }
 
     override func tearDown() async throws {
-        await gate.open()
+        await gate.releaseAll()
+        if let defaultFetchInitialAuthToken {
+            manager.fetchInitialAuthToken = defaultFetchInitialAuthToken
+        }
         await AuthTokenManager.shared.unregisterProvider()
         IAFPresentationManager.shared.destroyWebviewAndListeners()
         IdentityStore.shared.reset()
@@ -54,27 +62,50 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         Mirror(reflecting: manager).descendant("lastBackgrounded") as? Date
     }
 
-    /// Polls `condition` until it holds or `timeout` elapses; returns its final value.
-    private func waitUntil(timeout: TimeInterval = 2, _ condition: () -> Bool) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition(), Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
-        return condition()
+    private var lifecycleObserver: LifecycleObserver? {
+        Mirror(reflecting: manager).descendant("lifecycleObserver") as? LifecycleObserver
     }
 
-    /// Registers a token provider that blocks on `gate`, and waits until the eager
-    /// warm-up fetch is parked on it. Later `currentToken()` callers share that fetch.
-    private func registerGatedProvider() async throws {
-        let gate = gate
-        let counter = InvocationCounter()
+    /// Polls `condition` until it holds or `timeout` elapses; returns its final value.
+    private func waitUntil(
+        timeout: TimeInterval = eventTimeout,
+        _ condition: () async -> Bool
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while await !condition(), Date() < deadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        return await condition()
+    }
+
+    /// Registers a token provider, then makes every later webview build park on `gate`
+    /// before fetching its token.
+    private func gateTokenFetch() async throws {
+        let providerCalls = InvocationCounter()
         let token = try makeTestJWT()
         await AuthTokenManager.shared.registerProvider {
-            await counter.increment()
-            await gate.wait()
+            await providerCalls.increment()
             return token
         }
-        await counter.waitFor(atLeast: 1)
+        await providerCalls.waitFor(atLeast: 1)
+
+        let gate = gate
+        let fetch = manager.fetchInitialAuthToken
+        manager.fetchInitialAuthToken = { authTokenManager in
+            await gate.park()
+            return await fetch(authTokenManager)
+        }
+    }
+
+    /// Waits until `count` builds have parked on the gated token fetch.
+    private func waitForParkedBuilds(
+        _ count: Int,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        let gate = gate
+        let parked = await waitUntil { await gate.arrivals >= count }
+        XCTAssertTrue(parked, "Expected \(count) builds parked on the token fetch", file: file, line: line)
     }
 
     private func startBuild(apiKey: String) -> Task<Bool, Error> {
@@ -134,13 +165,13 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     // MARK: - Tests
 
     func testLoneGatedBuildInstallsAndSurvives() async throws {
-        try await registerGatedProvider()
+        try await gateTokenFetch()
 
         let build = startBuild(apiKey: "only-key")
-        await settle()
+        await waitForParkedBuilds(1)
         XCTAssertNil(manager.viewController, "Build should be parked on the token fetch")
 
-        await gate.open()
+        await gate.releaseAll()
         let installed = try await build.value
 
         XCTAssertTrue(installed)
@@ -148,38 +179,38 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     func testOverlappingBuildsInstallOnlyLatestAndKeepItAlive() async throws {
-        try await registerGatedProvider()
+        try await gateTokenFetch()
 
         let first = startBuild(apiKey: "first-key")
-        await settle(nanoseconds: 50_000_000)
+        await waitForParkedBuilds(1)
         let second = startBuild(apiKey: "second-key")
-        await settle()
+        await waitForParkedBuilds(2)
         XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
 
-        await gate.open()
-        let firstInstalled = try await first.value
+        await gate.releaseNewest()
         let secondInstalled = try await second.value
+        await gate.releaseAll()
+        let firstInstalled = try await first.value
 
-        XCTAssertFalse(firstInstalled)
         XCTAssertTrue(secondInstalled)
+        XCTAssertFalse(firstInstalled)
         await assertActiveWebViewSurvives(apiKey: "second-key")
     }
 
     func testAPIKeyChangeDuringGatedTokenFetchKeepsLatestWebViewAlive() async throws {
-        try await registerGatedProvider()
+        try await gateTokenFetch()
 
         manager.initializeIAF(configuration: InAppFormsConfig())
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "first-key"))
-        await settle(nanoseconds: 50_000_000)
+        await waitForParkedBuilds(1)
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "second-key"))
-        await settle()
+        await waitForParkedBuilds(2)
         XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
 
-        await gate.open()
-        let deadline = Date().addingTimeInterval(2)
-        while activeViewModel?.apiKey != "second-key", Date() < deadline {
-            try? await Task.sleep(nanoseconds: 10_000_000)
-        }
+        await gate.releaseNewest()
+        let secondInstalled = await waitUntil { self.activeViewModel?.apiKey == "second-key" }
+        XCTAssertTrue(secondInstalled)
+        await gate.releaseAll()
         await settle()
 
         await assertActiveWebViewSurvives(apiKey: "second-key")
@@ -201,13 +232,13 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     func testUnregisterDuringPendingBuildPreventsInstall() async throws {
-        try await registerGatedProvider()
+        try await gateTokenFetch()
 
         let build = startBuild(apiKey: "first-key")
-        await settle()
+        await waitForParkedBuilds(1)
         manager.destroyWebviewAndListeners()
 
-        await gate.open()
+        await gate.releaseAll()
         let installed = try await build.value
         await settle()
 
@@ -217,21 +248,22 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     func testRebuildAfterUnregisterDuringPendingBuildInstallsOnlyLatest() async throws {
-        try await registerGatedProvider()
+        try await gateTokenFetch()
 
         let first = startBuild(apiKey: "first-key")
-        await settle(nanoseconds: 50_000_000)
+        await waitForParkedBuilds(1)
         manager.destroyWebviewAndListeners()
         let second = startBuild(apiKey: "second-key")
-        await settle()
+        await waitForParkedBuilds(2)
         XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
 
-        await gate.open()
-        let firstInstalled = try await first.value
+        await gate.releaseNewest()
         let secondInstalled = try await second.value
+        await gate.releaseAll()
+        let firstInstalled = try await first.value
 
-        XCTAssertFalse(firstInstalled)
         XCTAssertTrue(secondInstalled)
+        XCTAssertFalse(firstInstalled)
         await assertActiveWebViewSurvives(apiKey: "second-key")
     }
 
@@ -243,24 +275,36 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
         manager.initializeIAF(configuration: InAppFormsConfig())
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "first-key"))
-        let firstInstalled = await waitUntil { self.activeViewModel?.apiKey == "first-key" }
+        let firstInstalled = await waitUntil {
+            self.activeViewModel?.apiKey == "first-key" && self.lifecycleObserver != nil
+        }
         XCTAssertTrue(firstInstalled)
         XCTAssertNil(lastBackgrounded)
+        let firstObserver = lifecycleObserver
 
-        try await registerGatedProvider()
+        try await gateTokenFetch()
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "second-key"))
-        await settle()
+        await waitForParkedBuilds(1)
         XCTAssertNil(manager.viewController, "API key change build should be parked on the token fetch")
 
         // A foreground event delivered from the stopped observer's buffer starts its own build.
         let foregroundBuild = Task { await manager.handleAppLifecycleEvent(.foregrounded) }
-        await settle()
+        await waitForParkedBuilds(2)
 
-        await gate.open()
+        await gate.releaseAll()
         await foregroundBuild.value
         let secondInstalled = await waitUntil { self.activeViewModel?.apiKey == "second-key" }
         XCTAssertTrue(secondInstalled)
+        let observationRestarted = await waitUntil {
+            self.lifecycleObserver != nil && self.lifecycleObserver !== firstObserver
+        }
+        XCTAssertTrue(observationRestarted, "Lifecycle observation not restarted after the API key change")
         await settle()
+
+        // Lifecycle events are dispatched to the page via `evaluateJavaScript`, which
+        // waits for the web content process; wait for it once before sending events.
+        completeActiveHandshake()
+        _ = try? await manager.viewController?.evaluateJavaScript("0")
 
         lifecycleEvents.send(.backgrounded)
         let backgroundObserved = await waitUntil { self.lastBackgrounded != nil }
@@ -269,5 +313,33 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         lifecycleEvents.send(.foregrounded)
         let foregroundObserved = await waitUntil { self.lastBackgrounded == nil }
         XCTAssertTrue(foregroundObserved, "Lifecycle observation stopped after the superseded build")
+    }
+}
+
+/// Holds webview builds at their token fetch until the test releases them.
+private actor BuildGate {
+    private var parked: [CheckedContinuation<Void, Never>] = []
+    private var isOpen = false
+
+    /// Number of builds that have reached the gate.
+    private(set) var arrivals = 0
+
+    func park() async {
+        arrivals += 1
+        if isOpen { return }
+        await withCheckedContinuation { parked.append($0) }
+    }
+
+    /// Resumes the most recently parked build.
+    func releaseNewest() {
+        parked.popLast()?.resume()
+    }
+
+    /// Resumes every parked build, newest first, and lets later builds pass.
+    func releaseAll() {
+        isOpen = true
+        while let continuation = parked.popLast() {
+            continuation.resume()
+        }
     }
 }

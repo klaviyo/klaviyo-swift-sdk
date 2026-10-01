@@ -49,6 +49,11 @@ class IAFPresentationManager {
     private var tokenRefreshTask: Task<Void, Never>?
     private var webViewBuildGeneration = 0
 
+    /// Fetches the auth token each new webview is built with; `nil` when none is available.
+    var fetchInitialAuthToken: (AuthTokenManager) async -> String? = { authTokenManager in
+        await IAFPresentationManager.fetchAuthTokenBestEffort(from: authTokenManager)
+    }
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -149,7 +154,7 @@ class IAFPresentationManager {
         webViewBuildGeneration += 1
         let generation = webViewBuildGeneration
         let tokenUpdates = await authTokenManager.refreshes()
-        let fetchedToken = await fetchAuthTokenBestEffort(from: authTokenManager)
+        let fetchedToken = await fetchInitialAuthToken(authTokenManager)
         let authToken = await currentToken(fetchedToken, in: authTokenManager)
         guard generation == webViewBuildGeneration else {
             if #available(iOS 14.0, *) {
@@ -181,7 +186,7 @@ class IAFPresentationManager {
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort(from authTokenManager: AuthTokenManager) async -> String? {
+    private static func fetchAuthTokenBestEffort(from authTokenManager: AuthTokenManager) async -> String? {
         // `currentToken()` defaults to `.interactive` mode, which applies the
         // 500ms latency budget appropriate for form display. No external timeout
         // is needed here.
