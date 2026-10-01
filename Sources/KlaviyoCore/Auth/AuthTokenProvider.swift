@@ -11,9 +11,9 @@
 /// time (eager fetch), when the cached token has expired, during proactive
 /// refresh, and after the server rejected the current token.
 ///
-/// The SDK caches the returned token and calls the provider again only when it
-/// needs a new one (before expiry, or after the server rejected the current
-/// token). Return a freshly issued token on every call; don't return one cached
+/// The SDK caches the returned token and calls the provider again when it needs
+/// a new one, for example before expiry or after the server rejected the current
+/// token. Return a freshly issued token on every call; don't return one cached
 /// from a previous call.
 ///
 /// Returning a token from a long-lived async source (e.g. a network call

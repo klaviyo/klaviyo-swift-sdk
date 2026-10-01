@@ -279,13 +279,10 @@ func noopLifecycle() -> AppLifeCycleEvents {
 
 /// Builds a manager driven by a deterministic clock and sleep gate.
 ///
-/// The manager's `currentDate` and `sleep` both default to real wall-clock
-/// sources (`environment.date` / `Task.sleep`). Tests inject a ``TestClock``
-/// and ``SleepGate`` instead so token validity, refresh scheduling, and
-/// refresh firing all advance in virtual time under the test's control —
-/// removing the real-time races that made these paths flaky on slow,
-/// parallel CI. Injecting also sidesteps the shared global `environment`
-/// clock (see ``TestClock`` for why that matters).
+/// Injects `clock` as the manager's `currentDate` and `gate` as its `sleep`,
+/// so token validity, refresh scheduling, and refresh firing advance in
+/// virtual time under the test's control instead of reading
+/// `environment.date` and `Task.sleep`.
 func makeManager(
     lifeCycle: AppLifeCycleEvents,
     clock: TestClock,
