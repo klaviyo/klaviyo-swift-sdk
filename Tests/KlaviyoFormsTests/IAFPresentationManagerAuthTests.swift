@@ -35,7 +35,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
     private func makeViewModel(
         authToken: String?,
-        authTokenManager: AuthTokenManager = .shared
+        authTokenManager: AuthTokenManager
     ) -> (IAFWebViewModel, MockIAFWebViewDelegate) {
         let viewModel = IAFWebViewModel(
             url: fileUrl,
@@ -91,6 +91,29 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         manager.destroyWebView()
     }
 
+    func testCreatedViewModelUsesInjectedAuthTokenManager() async throws {
+        IdentityStore.shared.update(profileA)
+        let token = try makeToken("token")
+        let authTokenManager = AuthTokenManager()
+        let counter = InvocationCounter()
+        await authTokenManager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        _ = await Self.fetchToken(from: authTokenManager)
+        let manager = IAFPresentationManager(viewController: nil)
+        manager.indexHtmlFileUrl = fileUrl
+
+        try await manager.createFormWebViewAndListen(apiKey: "abc123", authTokenManager: authTokenManager)
+        let viewModel = try XCTUnwrap(manager.viewModel)
+        viewModel.receiveRefreshJwt()
+        await counter.waitFor(atLeast: 2)
+
+        let invocations = await counter.value
+        XCTAssertEqual(invocations, 2, "refreshJwt must reach the manager the page was built with")
+        manager.destroyWebView()
+    }
+
     func testTokenArrivingBeforeHandshakeIsHeldThenDelivered() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("late")
@@ -98,7 +121,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
         _ = await Self.fetchToken(from: authTokenManager)
-        let (viewModel, delegate) = makeViewModel(authToken: nil)
+        let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
 
         manager.prepareTokenDelivery(
@@ -132,7 +155,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             return token
         }
         await counter.waitFor(atLeast: 1)
-        let (viewModel, delegate) = makeViewModel(authToken: nil)
+        let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
             for: viewModel,
@@ -164,7 +187,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             await counter.increment() == 1 ? initial : next
         }
         _ = await Self.fetchToken(from: authTokenManager)
-        let (viewModel, delegate) = makeViewModel(authToken: initial)
+        let (viewModel, delegate) = makeViewModel(authToken: initial, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
             for: viewModel,
@@ -191,7 +214,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
         _ = await Self.fetchToken(from: authTokenManager)
-        let (viewModel, delegate) = makeViewModel(authToken: token)
+        let (viewModel, delegate) = makeViewModel(authToken: token, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
             for: viewModel,
@@ -228,7 +251,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         _ = await Self.fetchToken(from: authTokenManager)
         IdentityStore.shared.update(profileB)
         await authTokenManager.clearTokenState()
-        let (viewModel, delegate) = makeViewModel(authToken: nil)
+        let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
             for: viewModel,
@@ -254,9 +277,18 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let identified = ProfileData(email: "a@example.com", anonymousId: "anon-1")
         let emailChanged = ProfileData(email: "b@example.com", anonymousId: "anon-1")
 
+        let phoneAdded = ProfileData(
+            email: "a@example.com",
+            phoneNumber: "+15555550100",
+            anonymousId: "anon-2"
+        )
+
         XCTAssertTrue(IAFPresentationManager.identityChanged(from: identified, to: emailChanged))
         XCTAssertTrue(IAFPresentationManager.identityChanged(from: anonymous, to: identified))
+        XCTAssertTrue(IAFPresentationManager.identityChanged(from: identified, to: nil))
+        XCTAssertFalse(IAFPresentationManager.identityChanged(from: identified, to: phoneAdded))
         XCTAssertFalse(IAFPresentationManager.identityChanged(from: identified, to: identified))
+        XCTAssertFalse(IAFPresentationManager.identityChanged(from: nil, to: identified))
         XCTAssertFalse(IAFPresentationManager.identityChanged(from: nil, to: nil))
     }
 
@@ -273,7 +305,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             return token
         }
         await counter.waitFor(atLeast: 1)
-        let (viewModel, delegate) = makeViewModel(authToken: nil)
+        let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
             for: viewModel,
