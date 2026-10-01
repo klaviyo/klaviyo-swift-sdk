@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1}]
+        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -46,17 +46,18 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testBadJWT() throws {
-        let json = """
-        {
-          "type": "badJWT",
-          "data": {}
-        }
-        """
-
-        let data = try #require(json.data(using: .utf8))
+    func testRefreshJwt() throws {
+        let data = Data(#"{"type":"refreshJwt","data":{}}"#.utf8)
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
-        #expect(event == .badJWT)
+        #expect(event == .refreshJwt)
+    }
+
+    @Test(arguments: ["BadJWT", "badJWT"])
+    func legacyBadJWTNoLongerDecodes(type: String) {
+        let data = Data(#"{"type":"\#(type)","data":{}}"#.utf8)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        }
     }
 
     @Test

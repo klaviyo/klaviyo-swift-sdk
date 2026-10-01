@@ -84,7 +84,7 @@ extension IAFWebViewModelBadJWTTests {
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
             body: """
-            {"type":"badJWT","data":{}}
+            {"type":"refreshJwt","data":{}}
             """
         )
         viewModel.handleScriptMessage(scriptMessage)
