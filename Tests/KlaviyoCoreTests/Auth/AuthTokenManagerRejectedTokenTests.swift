@@ -286,41 +286,6 @@ struct AuthTokenManagerRejectedTokenTests {
         #expect(delivered == sentinel, "a refresh interrupted by a provider change must publish nothing")
     }
 
-    @Test
-    func cancelsTheRejectedTokensScheduledRefresh() async throws {
-        // iat=ref-60, exp=ref+40 → the scheduled refresh lands at ref+10.
-        let rejected = try makeJWT(
-            issuedAt: refSeconds - 60,
-            expiresAt: refSeconds + 40,
-            extraClaims: ["sub": "rejected"]
-        )
-        let replacement = try token("replacement")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let clock = fixture.clock
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            await counter.increment() == 1 ? rejected : replacement
-        }
-        try await warmUp(counter: counter, gate: gate)
-
-        await manager.refreshRejectedToken()
-        // The replacement's own refresh is now parked behind the rejected token's.
-        await gate.waitUntilSleeping(atLeast: 2)
-
-        // Wake the rejected token's (cancelled) sleep at its target time.
-        clock.set(referenceDate.addingTimeInterval(10))
-        await gate.release()
-        for _ in 0..<100 {
-            await Task.yield()
-        }
-
-        let invocations = await counter.value
-        #expect(invocations == 2, "the old scheduled refresh must not fire, saw \(invocations) calls")
-    }
-
     // MARK: - Test helpers
 
     private var refSeconds: TimeInterval {
@@ -363,6 +328,62 @@ struct AuthTokenManagerRejectedTokenTests {
     private func warmUp(counter: CallCounter, gate: SleepGate) async throws {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
+    }
+}
+
+// MARK: - Scheduled refresh
+
+extension AuthTokenManagerRejectedTokenTests {
+    @Test
+    func cancelsTheRejectedTokensScheduledRefresh() async throws {
+        // iat=ref-60, exp=ref+40 → the scheduled refresh lands at ref+10.
+        let rejected = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "rejected"]
+        )
+        let unexpected = try token("unexpected")
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let fixture = makeFixture(
+            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        )
+        let manager = fixture.manager
+        let clock = fixture.clock
+        let gate = fixture.gate
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            switch await counter.increment() {
+            case 1: return rejected
+            case 2: throw ProviderTestError.network
+            default: return unexpected
+            }
+        }
+        try await warmUp(counter: counter, gate: gate)
+
+        await manager.refreshRejectedToken()
+
+        // Wake the rejected token's sleep past its target time.
+        clock.set(referenceDate.addingTimeInterval(20))
+        await gate.release()
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        let invocationsAfterWake = await counter.value
+        #expect(
+            invocationsAfterWake == 2,
+            "the old scheduled refresh must not fire, saw \(invocationsAfterWake) calls"
+        )
+
+        lifecycleSubject.send(.foregrounded)
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        let invocationsAfterForeground = await counter.value
+        #expect(
+            invocationsAfterForeground == 2,
+            "a foreground must not retry the old refresh target, saw \(invocationsAfterForeground) calls"
+        )
     }
 }
 #endif
