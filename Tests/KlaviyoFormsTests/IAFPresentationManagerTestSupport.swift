@@ -43,3 +43,38 @@ extension XCTestCase {
         XCTAssertTrue(held, "condition not met within \(timeout)s", file: file, line: line)
     }
 }
+
+/// Builds a JWT tagged with `subject` that is valid at `date` (`iat` a minute before,
+/// `exp` an hour after). The signature is a placeholder.
+func makeTestJWT(subject: String, validAt date: Date) throws -> String {
+    let seconds = date.timeIntervalSince1970
+    let payload: [String: Any] = ["iat": seconds - 60, "exp": seconds + 3600, "sub": subject]
+    let header: [String: Any] = ["alg": "HS256", "typ": "JWT"]
+    return try [header, payload]
+        .map { try base64URLEncoded(JSONSerialization.data(withJSONObject: $0)) }
+        .joined(separator: ".") + ".signature"
+}
+
+private func base64URLEncoded(_ data: Data) -> String {
+    data.base64EncodedString()
+        .replacingOccurrences(of: "+", with: "-")
+        .replacingOccurrences(of: "/", with: "_")
+        .replacingOccurrences(of: "=", with: "")
+}
+
+/// A one-shot gate: ``wait()`` suspends until ``open()`` has been called.
+actor Latch {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+    }
+
+    func wait() async {
+        if isOpen { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+}
