@@ -128,6 +128,44 @@ public final class QueueStore {
         schedulePersist(persist)
     }
 
+    /// Restores a lane's in-flight lease to the FRONT of that lane, ahead of any requests enqueued
+    /// after it was leased, without moving other lanes' requests. Non-retryable failures drop the
+    /// head, so a restored head is always one still owed a send; preserving lane order here keeps
+    /// that head ahead of requests enqueued behind it while the lane was leased.
+    ///
+    /// Same durability contract as `prepend`: deliberately no dedup and no eviction — exactly one
+    /// path owns the lease at a time (leased once, restored once), so no id can be re-inserted
+    /// while still present in the store.
+    public func prepend(_ requests: [KlaviyoRequest], lane: RequestLane,
+                        persist: PersistPolicy = .debounced) {
+        guard !requests.isEmpty else { return }
+        queueLock.withLock {
+            var next = hydrated()
+            if let firstOfLane = next.firstIndex(where: { $0.endpoint.lane == lane }) {
+                next.insert(contentsOf: requests, at: firstOfLane)
+            } else {
+                next.insert(contentsOf: requests, at: 0)
+            }
+            queue = next
+        }
+        schedulePersist(persist)
+    }
+
+    /// Atomically extracts every pending request on `lane` (in queue order, FIFO within the lane)
+    /// and removes just those from the store, leaving other lanes' requests in place. Extraction and
+    /// removal happen under a single `queueLock` acquisition so a concurrent `enqueue` cannot
+    /// interleave between read and remove. Same leasing contract as `drainAll`: the caller owns the
+    /// returned requests and must restore or complete each exactly once.
+    public func drain(lane: RequestLane, persist: PersistPolicy = .debounced) -> [KlaviyoRequest] {
+        let drained = queueLock.withLock { () -> [KlaviyoRequest] in
+            let current = hydrated()
+            queue = current.filter { $0.endpoint.lane != lane }
+            return current.filter { $0.endpoint.lane == lane }
+        }
+        schedulePersist(persist)
+        return drained
+    }
+
     /// Atomically snapshots and clears the pending queue, returning the drained requests.
     /// Snapshot + clear happen under a single `queueLock` acquisition so a concurrent `enqueue`
     /// cannot interleave between read and clear. Parity with the flush loop's former
@@ -211,7 +249,9 @@ public final class QueueStore {
                 guard let self else { return }
                 let isCurrent = self.persistLock.withLock { () -> Bool in
                     let current = self.pendingDebounceToken == token
-                    if current { self.pendingDebounceToken = 0 }
+                    if current {
+                        self.pendingDebounceToken = 0
+                    }
                     return current
                 }
                 guard isCurrent else { return } // superseded → coalesced away
@@ -247,7 +287,9 @@ public final class QueueStore {
 
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `queueLock`.
     private func hydrated() -> [KlaviyoRequest] {
-        if let queue { return queue }
+        if let queue {
+            return queue
+        }
         let loaded: [KlaviyoRequest]
         do {
             loaded = try diskIO.load()
@@ -274,7 +316,9 @@ extension QueueStore {
     /// apiKey, so one queue serves every company; routing per key is unnecessary.
     public static var shared: QueueStore {
         sharedLock.withLock {
-            if let existing = sharedStore { return existing }
+            if let existing = sharedStore {
+                return existing
+            }
             let store = QueueStore()
             sharedStore = store
             return store

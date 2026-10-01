@@ -13,6 +13,9 @@ public enum FlushConstants {
     public static let wifiFlushInterval = 10.0
     public static let cellularFlushInterval = 30.0
     public static let initialAttempt = 1
+    /// Hard bound on lanes in flight per flush pass. At most one request per lane is in flight at a
+    /// time (lanes drain sequentially within a pass), so this also bounds total in-flight requests.
+    public static let maxLanesInFlight = 3
 }
 
 // MARK: - RetryState

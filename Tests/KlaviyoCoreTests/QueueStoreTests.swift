@@ -412,4 +412,88 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertNotNil(first)
         XCTAssertTrue(first === second, "the one shared instance")
     }
+
+    // MARK: - Lane leasing (MAGE-842)
+
+    private func eventRequest(_ id: String) -> KlaviyoRequest {
+        KlaviyoRequest(id: id,
+                       endpoint: .createEvent("foo", CreateEventPayload(data: .init(name: "e"))),
+                       enqueuedAt: Date(timeIntervalSince1970: 0))
+    }
+
+    /// `drain(lane:)` extracts only that lane's requests, in FIFO order, leaving other lanes in place.
+    func testDrainLaneExtractsOnlyThatLaneInFifoOrder() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        store.enqueue(request("id-1"))
+        store.enqueue(eventRequest("ev-1"))
+        store.enqueue(request("id-2"))
+        store.enqueue(eventRequest("ev-2"))
+
+        let drained = store.drain(lane: .identity, persist: .synchronous)
+
+        XCTAssertEqual(drained.map(\.id), ["id-1", "id-2"], "identity requests drained FIFO")
+        XCTAssertEqual(store.requests.map(\.id), ["ev-1", "ev-2"],
+                       "other lanes remain in the store, order preserved")
+    }
+
+    func testDrainLaneOnAbsentLaneReturnsEmpty() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        store.enqueue(request("id-1"))
+        XCTAssertEqual(store.drain(lane: .events), [])
+        XCTAssertEqual(store.requests.map(\.id), ["id-1"], "untouched lane's requests remain")
+    }
+
+    /// A lane restore goes to the front of THAT lane (ahead of the lane's requests enqueued after
+    /// the lease), without moving other lanes' requests. Store content: [ev-1, id-2] (id-2 enqueued
+    /// while the lane was leased, after the interleaved ev-1); restoring id-1 to identity must land
+    /// it ahead of id-2.
+    func testPrependLaneRestoresToFrontOfLaneOnly() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        store.enqueue(request("id-1"))
+        store.enqueue(eventRequest("ev-1"))
+        let leased = store.drain(lane: .identity, persist: .synchronous)
+        XCTAssertEqual(leased.map(\.id), ["id-1"], "the identity lane leased id-1")
+        // New work lands while the lane is leased.
+        store.enqueue(request("id-2"))
+        store.enqueue(eventRequest("ev-2"))
+
+        store.prepend(leased, lane: .identity, persist: .synchronous)
+
+        // The restored identity head (id-1) is re-inserted ahead of id-2 (the identity request
+        // enqueued while the lane was leased); the interleaved events requests stay put.
+        XCTAssertEqual(store.requests.map(\.id), ["ev-1", "id-1", "id-2", "ev-2"],
+                       "restored head stays ahead of id-2 (enqueued while leased); events unmoved")
+    }
+
+    /// Restoring a lane with no other requests on it lands at the front of the store.
+    func testPrependLaneWithNoExistingLaneRequestsGoesToFront() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        store.enqueue(eventRequest("ev-1"))
+        store.prepend([request("id-r")], lane: .identity, persist: .synchronous)
+        XCTAssertEqual(store.requests.map(\.id), ["id-r", "ev-1"])
+    }
+
+    /// The 200-cap eviction is global across lanes: the oldest-by-`enqueuedAt` request is evicted
+    /// regardless of which lane it sits on.
+    func testCapEvictionIsGlobalAcrossLanes() {
+        let diskIO = SpyDiskIO((0..<QueueStore.maxQueueSize).map {
+            $0 == 0
+                // The oldest entry is on the events lane; evicting it proves the cap is lane-blind.
+                ? KlaviyoRequest(
+                    id: "ev-oldest",
+                    endpoint: .createEvent("foo", CreateEventPayload(data: .init(name: "e"))),
+                    enqueuedAt: Date(timeIntervalSince1970: 0)
+                )
+                : request("req-\($0)", at: Date(timeIntervalSince1970: TimeInterval($0)))
+        })
+        let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler(),
+                              warnings: { _ in })
+
+        store.enqueue(request("new", at: Date(timeIntervalSince1970: 10_000)))
+
+        XCTAssertEqual(store.count, QueueStore.maxQueueSize)
+        XCTAssertEqual(store.requests.first?.id, "req-1",
+                       "the oldest request overall (an events request) is evicted, across lanes")
+        XCTAssertEqual(store.requests.last?.id, "new")
+    }
 }
