@@ -43,8 +43,10 @@ class IAFPresentationManager {
     private var assetSource: String?
 
     private var formEventTask: Task<Void, Never>?
+    private var handshakeTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
+    private var webViewBuildGeneration = 0
 
     lazy var indexHtmlFileUrl: URL? = {
         do {
@@ -128,19 +130,31 @@ class IAFPresentationManager {
         }
     }
 
-    private func initializeFormWithAPIKey() async throws {
+    @discardableResult
+    private func initializeFormWithAPIKey() async throws -> Bool {
         guard let apiKey = SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
             throw SDKError.notInitialized
         }
-        try await createFormWebViewAndListen(apiKey: apiKey)
+        return try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
+    /// Builds the form webview and starts listening for its events.
+    /// Returns `false` when a newer build or an unregister superseded this one.
+    @discardableResult
     func createFormWebViewAndListen(
         apiKey: String,
         authTokenManager: AuthTokenManager = .shared
-    ) async throws {
+    ) async throws -> Bool {
+        webViewBuildGeneration += 1
+        let generation = webViewBuildGeneration
         let tokenUpdates = await authTokenManager.refreshes()
         let authToken = await fetchAuthTokenBestEffort(from: authTokenManager)
+        guard generation == webViewBuildGeneration else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info("Dropping superseded webview build")
+            }
+            return false
+        }
         let profileData = IdentityStore.shared.current
         if let viewModel = createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken) {
             prepareTokenDelivery(
@@ -151,6 +165,7 @@ class IAFPresentationManager {
             )
         }
         setupFormLifecycleListener()
+        return true
     }
 
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
@@ -261,6 +276,9 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("👂 Starting to listen for form lifecycle events (BEFORE handshake)")
         }
 
+        formEventTask?.cancel()
+        handshakeTask?.cancel()
+
         // Start listening for form lifecycle events before handshake to avoid missing any events
         formEventTask = Task { [weak self] in
             guard let self else { return }
@@ -269,7 +287,7 @@ class IAFPresentationManager {
             }
         }
 
-        Task { [weak self] in
+        handshakeTask = Task { [weak self] in
             guard let self else { return }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("🤝 Starting handshake with KlaviyoJS")
@@ -281,9 +299,15 @@ class IAFPresentationManager {
                 }
             } catch {
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("❌ Unable to establish handshake with KlaviyoJS: \(error).") }
-                destroyWebviewAndListeners()
+                handleHandshakeFailure(for: viewModel)
             }
         }
+    }
+
+    /// Tears everything down only if `failedViewModel` is still the active view model.
+    func handleHandshakeFailure(for failedViewModel: IAFWebViewModel) {
+        guard viewModel === failedViewModel else { return }
+        destroyWebviewAndListeners()
     }
 
     func handleFormEvent(_ event: IAFLifecycleEvent) {
@@ -418,7 +442,9 @@ class IAFPresentationManager {
                     Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
                 }
                 try await self.createFormWebViewAndListen(apiKey: apiKey)
-                startLifecycleObservation()
+                if isInitializingOrInitialized {
+                    startLifecycleObservation()
+                }
             }
         }
     }
@@ -428,6 +454,8 @@ class IAFPresentationManager {
         destroyWebView()
         formEventTask?.cancel()
         formEventTask = nil
+        handshakeTask?.cancel()
+        handshakeTask = nil
         lifecycleObserver?.stopObserving()
         profileEventObserver?.stopObserving()
         profileEventObserver = nil
@@ -436,7 +464,9 @@ class IAFPresentationManager {
 
         do {
             try await createFormWebViewAndListen(apiKey: apiKey)
-            startLifecycleObservation()
+            if isInitializingOrInitialized {
+                startLifecycleObservation()
+            }
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
@@ -445,11 +475,13 @@ class IAFPresentationManager {
     }
 
     func startLifecycleObservation() {
-        lifecycleObserver = LifecycleObserver()
-        lifecycleObserver?.startObserving()
+        let observer = LifecycleObserver()
+        observer.startObserving()
+        lifecycleObserver = observer
+        let eventsStream = observer.eventsStream
         lifecycleEventsTask = Task { [weak self] in
-            guard let self, let eventsStream = lifecycleObserver?.eventsStream else { return }
             for await event in eventsStream {
+                guard let self else { return }
                 await self.handleAppLifecycleEvent(event)
             }
         }
@@ -606,6 +638,8 @@ class IAFPresentationManager {
         profileEventsTask = nil
         formEventTask?.cancel()
         formEventTask = nil
+        handshakeTask?.cancel()
+        handshakeTask = nil
         delayedPresentationTask?.cancel()
         delayedPresentationTask = nil
         destroyWebView()
@@ -616,6 +650,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("UnregisterFromInAppForms; destroying webview and listeners")
         }
         isInitializingOrInitialized = false
+        webViewBuildGeneration += 1
         lifecycleObserver = nil
         companyObserver = nil
         tearDownFormWebView()
