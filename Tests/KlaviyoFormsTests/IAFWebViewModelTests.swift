@@ -483,7 +483,7 @@ final class IAFWebViewModelTests: XCTestCase {
         await viewModel.pushAuthToken(refreshedToken)
 
         // Then — it is applied as a data-klaviyo-jwt update carrying the token
-        let script = try XCTUnwrap(tokenScripts(delegate).first)
+        let script = try XCTUnwrap(delegate.authTokenScripts.first)
         XCTAssertTrue(script.contains(refreshedToken), "Pushed token should update data-klaviyo-jwt with the new value")
     }
 
@@ -499,7 +499,7 @@ final class IAFWebViewModelTests: XCTestCase {
         await viewModel.pushAuthToken(secondToken)
 
         // Then — both are applied, in order
-        let scripts = tokenScripts(delegate)
+        let scripts = delegate.authTokenScripts
         XCTAssertEqual(scripts.count, 2)
         XCTAssertTrue(scripts[0].contains(firstToken))
         XCTAssertTrue(scripts[1].contains(secondToken))
@@ -536,14 +536,5 @@ extension IAFWebViewModelTests {
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
         return (viewModel, delegate)
-    }
-
-    /// The auth-token update scripts among everything the delegate has evaluated.
-    /// Filters out the incidental `data-klaviyo-profile` updates that the view
-    /// model's profile subscription emits during setup, isolating the
-    /// token-update behavior under test.
-    @MainActor
-    private func tokenScripts(_ delegate: MockIAFWebViewDelegate) -> [String] {
-        delegate.evaluatedScripts.filter { $0.contains("data-klaviyo-jwt") }
     }
 }
