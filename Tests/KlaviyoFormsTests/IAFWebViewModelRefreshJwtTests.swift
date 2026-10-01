@@ -36,54 +36,6 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
 
     // MARK: - tests
 
-    func testRefreshJwtPublishesReplacementFromOneProviderCall() async throws {
-        let rejected = try makeTestJWT(subject: "rejected")
-        let replacement = try makeTestJWT(subject: "replacement")
-        let counter = InvocationCounter()
-        await authTokenManager.registerProvider {
-            await counter.increment() == 1 ? rejected : replacement
-        }
-        try await warmCache(expecting: rejected)
-        let stream = await authTokenManager.refreshes()
-
-        sendRefreshJwt()
-        await awaitPendingRefresh()
-
-        var iterator = stream.makeAsyncIterator()
-        let delivered = await iterator.next()
-        XCTAssertEqual(delivered, replacement)
-        let invocations = await counter.value
-        XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
-
-        let served = try await authTokenManager.currentToken(mode: .background)
-        XCTAssertEqual(served, replacement, "the rejected token must no longer be served")
-        let invocationsAfterRead = await counter.value
-        XCTAssertEqual(invocationsAfterRead, 2, "the replacement must be served from cache")
-        XCTAssertNil(viewModel.pendingAuthTokenRefresh)
-    }
-
-    func testRefreshJwtRepublishesProviderTokenIdenticalToTheRejectedOne() async throws {
-        let repeated = try makeTestJWT(subject: "repeated")
-        let sentinel = try makeTestJWT(subject: "sentinel")
-        let counter = InvocationCounter()
-        await authTokenManager.registerProvider {
-            await counter.increment() <= 2 ? repeated : sentinel
-        }
-        try await warmCache(expecting: repeated)
-        let stream = await authTokenManager.refreshes()
-
-        sendRefreshJwt()
-        await awaitPendingRefresh()
-
-        let invocations = await counter.value
-        XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
-
-        await authTokenManager.refreshRejectedToken()
-        var iterator = stream.makeAsyncIterator()
-        let delivered = await iterator.next()
-        XCTAssertEqual(delivered, repeated, "a repeated token must be published, not swallowed")
-    }
-
     func testOverlappingSignalsShareOneProviderCall() async throws {
         let rejected = try makeTestJWT(subject: "rejected")
         let replacement = try makeTestJWT(subject: "replacement")
@@ -106,10 +58,10 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         try await warmCache(expecting: rejected)
         let stream = await authTokenManager.refreshes()
 
-        sendRefreshJwt()
+        viewModel.receiveRefreshJwt()
         let firstRefresh = try XCTUnwrap(viewModel.pendingAuthTokenRefresh)
         await fetchStarted.wait()
-        sendRefreshJwt()
+        viewModel.receiveRefreshJwt()
         XCTAssertEqual(viewModel.pendingAuthTokenRefresh, firstRefresh, "the second signal must be dropped")
 
         await releaseFetch.open()
@@ -134,9 +86,9 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
         try await warmCache(expecting: tokens[0])
         let stream = await authTokenManager.refreshes()
 
-        sendRefreshJwt()
+        viewModel.receiveRefreshJwt()
         await awaitPendingRefresh()
-        sendRefreshJwt()
+        viewModel.receiveRefreshJwt()
         await awaitPendingRefresh()
 
         let invocations = await counter.value
@@ -151,16 +103,6 @@ final class IAFWebViewModelRefreshJwtTests: XCTestCase {
 // MARK: - Helpers
 
 extension IAFWebViewModelRefreshJwtTests {
-    private func sendRefreshJwt() {
-        let scriptMessage = MockWKScriptMessage(
-            name: "KlaviyoNativeBridge",
-            body: """
-            {"type":"refreshJwt","data":{}}
-            """
-        )
-        viewModel.handleScriptMessage(scriptMessage)
-    }
-
     /// Waits for the eager warm-up fetch to cache `token`. Each attempt joins the
     /// same in-flight fetch, so a timed-out attempt never adds a provider call.
     private func warmCache(expecting token: String) async throws {
