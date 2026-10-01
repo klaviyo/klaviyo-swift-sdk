@@ -169,6 +169,12 @@ extension AppContextInfo {
                            deviceId: "fe-fi-fo-fum")
 }
 
+#if DEBUG
+let buildConfigurationSnapshotName = "debug"
+#else
+let buildConfigurationSnapshotName = "release"
+#endif
+
 extension URLResponse {
     static let non200Response = HTTPURLResponse(url: TEST_URL, statusCode: 500, httpVersion: nil, headerFields: nil)!
     static let validResponse = HTTPURLResponse(url: TEST_URL, statusCode: 200, httpVersion: nil, headerFields: nil)!
