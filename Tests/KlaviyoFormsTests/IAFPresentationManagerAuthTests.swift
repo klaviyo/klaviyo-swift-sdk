@@ -103,6 +103,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         _ = await Self.fetchToken(from: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
         manager.indexHtmlFileUrl = fileUrl
+        manager.makeViewController = { InertWebViewController(hosting: $0) }
 
         try await manager.createFormWebViewAndListen(apiKey: "abc123", authTokenManager: authTokenManager)
         let viewModel = try XCTUnwrap(manager.viewModel)
