@@ -54,6 +54,14 @@ class IAFPresentationManager {
         await IAFPresentationManager.fetchAuthTokenBestEffort(from: authTokenManager)
     }
 
+    /// Seconds each new webview waits for the KlaviyoJS handshake before it is torn down.
+    var handshakeTimeout: TimeInterval = NetworkSession.networkTimeout.seconds
+
+    /// Creates the view controller hosting each new form webview.
+    var makeViewController: (IAFWebViewModel) -> KlaviyoWebViewController = { viewModel in
+        KlaviyoWebViewController(viewModel: viewModel)
+    }
+
     lazy var indexHtmlFileUrl: URL? = {
         do {
             return try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
@@ -222,7 +230,7 @@ class IAFPresentationManager {
             assetSource: assetSource
         )
         self.viewModel = viewModel
-        viewController = KlaviyoWebViewController(viewModel: viewModel)
+        viewController = makeViewController(viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
         return viewModel
     }
@@ -309,13 +317,14 @@ class IAFPresentationManager {
             }
         }
 
+        let handshakeTimeout = handshakeTimeout
         handshakeTask = Task { [weak self] in
             guard let self else { return }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("🤝 Starting handshake with KlaviyoJS")
             }
             do {
-                try await viewModel.establishHandshake(timeout: NetworkSession.networkTimeout.seconds)
+                try await viewModel.establishHandshake(timeout: handshakeTimeout)
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("✅ Handshake completed successfully.")
                 }

@@ -16,16 +16,22 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     /// Covers the immediate handshake-failure path (deallocated view controller).
     private nonisolated static let shortObservationWindow: TimeInterval = 1
 
-    /// Longer than the handshake timeout (`NetworkSession.networkTimeout`), so a stale
-    /// handshake timing out is also covered.
-    private static let handshakeTimeoutObservationWindow: TimeInterval =
-        .init(NetworkSession.networkTimeout) / 1_000_000_000 + 2
+    /// Handshake timeout for builds whose handshake the test completes itself.
+    private static let activeHandshakeTimeout: TimeInterval = 300
+
+    /// Handshake timeout for a build whose handshake is expected to time out.
+    private static let staleHandshakeTimeout: TimeInterval = 1
+
+    /// Longer than `staleHandshakeTimeout`, so a stale handshake timing out is also covered.
+    private static let handshakeTimeoutObservationWindow: TimeInterval = staleHandshakeTimeout + 2
 
     /// Upper bound for waits on state that is expected to change.
     private nonisolated static let eventTimeout: TimeInterval = 10
 
     private let gate = BuildGate()
     private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> String?)?
+    private var defaultMakeViewController: ((IAFWebViewModel) -> KlaviyoWebViewController)?
+    private var defaultHandshakeTimeout: TimeInterval?
     private var manager: IAFPresentationManager {
         .shared
     }
@@ -38,12 +44,24 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
         defaultFetchInitialAuthToken = manager.fetchInitialAuthToken
+        defaultMakeViewController = manager.makeViewController
+        defaultHandshakeTimeout = manager.handshakeTimeout
+        manager.handshakeTimeout = Self.activeHandshakeTimeout
+        manager.makeViewController = { viewModel in
+            InertWebViewController(viewModel: viewModel, webViewFactory: { InertWebView() })
+        }
     }
 
     override func tearDown() async throws {
         await gate.releaseAll()
         if let defaultFetchInitialAuthToken {
             manager.fetchInitialAuthToken = defaultFetchInitialAuthToken
+        }
+        if let defaultMakeViewController {
+            manager.makeViewController = defaultMakeViewController
+        }
+        if let defaultHandshakeTimeout {
+            manager.handshakeTimeout = defaultHandshakeTimeout
         }
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
@@ -227,11 +245,13 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     }
 
     func testRebuildAfterTeardownSurvivesStaleHandshakeTimeout() async throws {
+        manager.handshakeTimeout = Self.staleHandshakeTimeout
         try await manager.createFormWebViewAndListen(apiKey: "first-key")
         XCTAssertNotNil(manager.viewController)
         await settle(nanoseconds: 50_000_000)
 
         manager.tearDownFormWebView()
+        manager.handshakeTimeout = Self.activeHandshakeTimeout
         try await manager.createFormWebViewAndListen(apiKey: "second-key")
         await settle(nanoseconds: 50_000_000)
 
@@ -343,5 +363,19 @@ private actor BuildGate {
         while let continuation = parked.popLast() {
             continuation.resume()
         }
+    }
+}
+
+/// Never loads a page, so no WebKit content process is started.
+private final class InertWebView: WKWebView {
+    override func load(_ request: URLRequest) -> WKNavigation? {
+        nil
+    }
+}
+
+/// Hosts an ``InertWebView`` and completes every script evaluation immediately.
+private final class InertWebViewController: KlaviyoWebViewController {
+    override func evaluateJavaScript(_ script: String) async throws -> Any? {
+        nil
     }
 }
