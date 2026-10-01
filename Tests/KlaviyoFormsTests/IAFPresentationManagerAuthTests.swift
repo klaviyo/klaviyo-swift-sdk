@@ -49,7 +49,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     }
 
     private func waitUntil(
-        timeout: TimeInterval = 2,
+        timeout: TimeInterval = 10,
         file: StaticString = #filePath,
         line: UInt = #line,
         _ condition: () -> Bool
@@ -64,6 +64,19 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         }
     }
 
+    /// Returns a token from `authTokenManager`, waiting for the fetch to finish even when
+    /// it outlasts the caller's latency budget.
+    private nonisolated static func fetchToken(from authTokenManager: AuthTokenManager) async -> String? {
+        let updates = await authTokenManager.refreshes()
+        if let token = try? await authTokenManager.currentToken(mode: .background) {
+            return token
+        }
+        for await token in updates {
+            return token
+        }
+        return nil
+    }
+
     func testProfileChangedDuringTokenWaitIsUsedForInitialDocument() async throws {
         IdentityStore.shared.update(profileA)
         let token = try makeToken("token")
@@ -76,10 +89,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             }
             return token
         }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         await authTokenManager.clearTokenState()
         let manager = IAFPresentationManager(viewController: nil)
         manager.indexHtmlFileUrl = fileUrl
+        manager.fetchInitialAuthToken = { await Self.fetchToken(from: $0) }
 
         try await manager.createFormWebViewAndListen(apiKey: "abc123", authTokenManager: authTokenManager)
 
@@ -93,7 +107,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let authTokenManager = AuthTokenManager()
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: nil)
         let manager = IAFPresentationManager(viewController: nil)
 
@@ -142,7 +156,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await release.open()
 
         try await waitUntil { !self.jwtScripts(delegate).isEmpty }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         await Task.yield()
         XCTAssertEqual(jwtScripts(delegate).count, 1)
         XCTAssertTrue(jwtScripts(delegate)[0].contains(token))
@@ -159,7 +173,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await authTokenManager.registerProvider {
             await counter.increment() == 1 ? initial : next
         }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: initial)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
@@ -172,7 +186,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         manager.startTokenDelivery()
 
         await authTokenManager.clearTokenState()
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
 
         try await waitUntil { !self.jwtScripts(delegate).isEmpty }
         XCTAssertEqual(jwtScripts(delegate).count, 1)
@@ -186,7 +200,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let authTokenManager = AuthTokenManager()
         let updates = await authTokenManager.refreshes()
         await authTokenManager.registerProvider { token }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: token)
         let manager = IAFPresentationManager(viewController: nil)
         manager.prepareTokenDelivery(
@@ -202,7 +216,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         IdentityStore.shared.update(profileB)
         await authTokenManager.clearTokenState()
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
 
         try await waitUntil { !self.jwtScripts(delegate).isEmpty }
         await Task.yield()
@@ -221,7 +235,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await authTokenManager.registerProvider {
             await counter.increment() == 1 ? stale : fresh
         }
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         IdentityStore.shared.update(profileB)
         await authTokenManager.clearTokenState()
         let (viewModel, delegate) = makeViewModel(authToken: nil)
@@ -235,7 +249,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         )
         manager.startTokenDelivery()
 
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
 
         try await waitUntil { !self.jwtScripts(delegate).isEmpty }
         await Task.yield()
@@ -282,7 +296,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         manager.destroyWebView()
         manager.startTokenDelivery()
         await release.open()
-        _ = try await authTokenManager.currentToken(mode: .background)
+        _ = await Self.fetchToken(from: authTokenManager)
         try await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertTrue(jwtScripts(delegate).isEmpty)

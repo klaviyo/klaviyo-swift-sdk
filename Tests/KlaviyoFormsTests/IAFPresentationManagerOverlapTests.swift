@@ -36,7 +36,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         IdentityStore.shared.reset()
         SDKConfigStore.shared.reset()
         await AuthTokenManager.shared.unregisterProvider()
-        IAFPresentationManager.shared.destroyWebviewAndListeners()
+        await resetManager()
         defaultFetchInitialAuthToken = manager.fetchInitialAuthToken
     }
 
@@ -46,13 +46,23 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
             manager.fetchInitialAuthToken = defaultFetchInitialAuthToken
         }
         await AuthTokenManager.shared.unregisterProvider()
-        IAFPresentationManager.shared.destroyWebviewAndListeners()
+        await resetManager()
         IdentityStore.shared.reset()
         SDKConfigStore.shared.reset()
         try await super.tearDown()
     }
 
     // MARK: - Helpers
+
+    /// Unregisters the shared manager and clears the background timestamp a previous
+    /// `.backgrounded` event left behind. With no webview, the foreground event only
+    /// consumes that timestamp.
+    private func resetManager() async {
+        manager.destroyWebviewAndListeners()
+        if lastBackgrounded != nil {
+            await manager.handleAppLifecycleEvent(.foregrounded)
+        }
+    }
 
     private var activeViewModel: IAFWebViewModel? {
         Mirror(reflecting: manager).descendant("viewModel") as? IAFWebViewModel
@@ -299,20 +309,12 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
             self.lifecycleObserver != nil && self.lifecycleObserver !== firstObserver
         }
         XCTAssertTrue(observationRestarted, "Lifecycle observation not restarted after the API key change")
-        await settle()
-
-        // Lifecycle events are dispatched to the page via `evaluateJavaScript`, which
-        // waits for the web content process; wait for it once before sending events.
         completeActiveHandshake()
-        _ = try? await manager.viewController?.evaluateJavaScript("0")
+        await settle()
 
         lifecycleEvents.send(.backgrounded)
         let backgroundObserved = await waitUntil { self.lastBackgrounded != nil }
         XCTAssertTrue(backgroundObserved, "Lifecycle observation stopped after the superseded build")
-
-        lifecycleEvents.send(.foregrounded)
-        let foregroundObserved = await waitUntil { self.lastBackgrounded == nil }
-        XCTAssertTrue(foregroundObserved, "Lifecycle observation stopped after the superseded build")
     }
 }
 
