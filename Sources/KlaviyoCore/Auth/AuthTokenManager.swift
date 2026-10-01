@@ -399,6 +399,15 @@ package actor AuthTokenManager {
         cachedToken = nil
     }
 
+    /// Drops the cached token and cancels the proactive refresh scheduled for it.
+    /// Leaves any in-flight fetch running so callers can still join it.
+    private func discardCachedToken() {
+        cachedToken = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
+    }
+
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
     /// it. Must be called from actor-isolated context.
     private func startFetch() -> Task<String, Error> {
@@ -761,10 +770,7 @@ package actor AuthTokenManager {
     /// 3. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
         if let cached = cachedToken, !isCachedTokenValid(cached) {
-            cachedToken = nil
-            refreshTask?.cancel()
-            refreshTask = nil
-            refreshAtWallClock = nil
+            discardCachedToken()
             Task { [weak self] in
                 _ = try? await self?.currentToken(mode: .background)
             }
@@ -847,5 +853,45 @@ package actor AuthTokenManager {
     private func isCachedTokenValid(_ token: ValidatedToken) -> Bool {
         let expiresAtSeconds = token.expiresAt.timeIntervalSince1970
         return currentDate().timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
+    }
+}
+
+extension AuthTokenManager {
+    /// Replaces a token the server has rejected.
+    ///
+    /// Discards the cached token and its scheduled refresh, then makes at most one
+    /// provider call: it joins a fetch that is already in flight, or starts one.
+    /// On success the new token is published on ``refreshes()``. Nothing is
+    /// published when no provider is registered, when the fetch fails, or when the
+    /// cache no longer holds the fetched token by the time it returns (e.g. after
+    /// ``clearTokenState()`` or ``registerProvider(_:)`` ran mid-fetch).
+    ///
+    /// This method never retries on its own. As with every other fetch, a
+    /// connectivity-classified provider failure arms the manager's one-shot
+    /// connectivity retry; when it fires, that retry publishes its token on
+    /// ``refreshes()`` too.
+    package func refreshRejectedToken() async {
+        discardCachedToken()
+
+        guard provider != nil else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: rejected token not replaced, no provider registered")
+            }
+            return
+        }
+
+        let task = inFlight?.task ?? startFetch()
+        guard let token = try? await task.value else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.warning("AuthTokenManager: failed to replace rejected token")
+            }
+            return
+        }
+
+        guard cachedToken?.rawToken == token else { return }
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: replaced rejected token")
+        }
+        refreshSubject.send(token)
     }
 }
