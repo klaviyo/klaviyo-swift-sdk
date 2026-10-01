@@ -17,7 +17,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenWithoutProviderThrowsNoProviderRegistered() async {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
 
         await #expect(throws: AuthTokenError.noProviderRegistered) {
             _ = try await manager.currentToken()
@@ -28,7 +28,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenInvokesProviderAndReturnsTokenString() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
 
         await manager.registerProvider { token }
@@ -39,7 +39,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenServesCachedTokenOnSubsequentCalls() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let initialToken = try makeJWT()
         let swappedToken = try makeJWT(extraClaims: ["sub": "user-after-swap"])
         let providerToken = TokenBox(initialToken)
@@ -71,7 +71,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenRethrowsErrorFromProvider() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
 
         await manager.registerProvider {
             throw ProviderTestError.network
@@ -84,7 +84,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenThrowsValidationFailedForMalformedToken() async {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
 
         await manager.registerProvider { "not.a.valid.jwt" }
 
@@ -104,7 +104,7 @@ struct AuthTokenManagerTests {
             issuedAt: fixedNow.timeIntervalSince1970 - 3660,
             expiresAt: fixedNow.timeIntervalSince1970 - 3600
         )
-        let manager = AuthTokenManager(currentDate: { fixedNow })
+        let manager = AuthTokenManager(currentDate: { fixedNow }, identity: identifiedIdentity)
 
         await manager.registerProvider { expiredToken }
 
@@ -117,7 +117,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func registerProviderEagerlyFetches() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
         let counter = CallCounter()
 
@@ -133,7 +133,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func replacingProviderDiscardsCachedToken() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let firstToken = try makeJWT()
         let secondToken = try makeJWT(extraClaims: ["sub": "user-2"])
 
@@ -162,7 +162,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func concurrentCallersShareSingleProviderInvocation() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
         let counter = CallCounter()
         let providerEntered = Latch()
@@ -213,7 +213,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func interactiveTimeoutThrowsWithinBudget() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
         let releaseFetch = Latch()
 
@@ -237,7 +237,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func backgroundTimeoutThrowsWithinBudget() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
         let releaseFetch = Latch()
 
@@ -258,7 +258,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func interactiveTimeoutLeavesFetchTaskRunningForLaterCallers() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let token = try makeJWT()
         let counter = CallCounter()
         let releaseFetch = Latch()
@@ -299,7 +299,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func failureClearsInFlightSoNextCallReinvokesProvider() async throws {
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let counter = CallCounter()
         let successToken = try makeJWT()
         // Single stateful provider on a single manager: it fails until we flip
@@ -353,7 +353,7 @@ struct AuthTokenManagerTests {
         // the fetch body's explicit `Task.checkCancellation()` checkpoint drops
         // the stale write on the floor even when the host's provider closure
         // does not honor cancellation.
-        let manager = AuthTokenManager()
+        let manager = AuthTokenManager(identity: identifiedIdentity)
         let firstToken = try makeJWT(extraClaims: ["sub": "user-a"])
         let secondToken = try makeJWT(extraClaims: ["sub": "user-b"])
 

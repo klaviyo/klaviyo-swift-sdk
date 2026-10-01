@@ -37,6 +37,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
         resetPresentationManagerStores()
+        IdentityStore.shared.update(ProfileData(email: "user@example.com"))
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()
         defaultFetchInitialAuthToken = manager.fetchInitialAuthToken

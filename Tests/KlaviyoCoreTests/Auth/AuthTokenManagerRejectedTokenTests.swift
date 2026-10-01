@@ -46,7 +46,7 @@ struct AuthTokenManagerRejectedTokenTests {
         }
         // The eager warm-up fetch is now parked inside the provider.
         await fetchStarted.wait()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         let refresh = Task { await manager.refreshRejectedToken() }
         await yieldRepeatedly()
@@ -248,7 +248,10 @@ struct AuthTokenManagerRejectedTokenTests {
     func hungProviderTimesOutAndItsLateTokenIsPublished() async throws {
         let replacement = try token("replacement")
         let releaseFetch = Latch()
-        let fixture = try await makeWarmFixture { _ in
+        let hungProviderBudget: TimeInterval = 0.05
+        let fixture = try await makeWarmFixture(
+            fetchTimeoutSleep: timeoutSleep(expiring: [hungProviderBudget])
+        ) { _ in
             await releaseFetch.wait()
             return replacement
         }
@@ -270,7 +273,7 @@ struct AuthTokenManagerRejectedTokenTests {
     func withoutProviderPublishesNothing() async throws {
         let sentinel = try token("sentinel")
         let manager = makeColdManager()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         await manager.refreshRejectedToken()
         await manager.registerProvider { sentinel }
@@ -316,12 +319,15 @@ extension AuthTokenManagerRejectedTokenTests {
     private func makeWarmFixture(
         rejected: String? = nil,
         lifeCycle: AppLifeCycleEvents = noopLifecycle(),
+        fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut,
         provider: @escaping @Sendable (Int) async throws -> String
     ) async throws -> Fixture {
         let rejected = try rejected ?? token("rejected")
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifeCycle, clock: clock, gate: gate)
+        let manager = makeManager(
+            lifeCycle: lifeCycle, clock: clock, gate: gate, fetchTimeoutSleep: fetchTimeoutSleep
+        )
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -331,7 +337,7 @@ extension AuthTokenManagerRejectedTokenTests {
         }
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
-        let refreshes = await manager.refreshes()
+        let refreshes = await manager.tokens()
         return Fixture(manager: manager, clock: clock, gate: gate, counter: counter, refreshes: refreshes)
     }
 

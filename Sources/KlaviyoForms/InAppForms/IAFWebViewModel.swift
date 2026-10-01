@@ -36,8 +36,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let assetSource: String?
     private let authTokenManager: AuthTokenManager
 
-    private var profileAttributesUserScript: WKUserScript?
-    private var authTokenUserScript: WKUserScript?
+    private var identityUserScript: WKUserScript?
 
     private var profileUpdatesCancellable: AnyCancellable?
     /// The task writing the latest profile change to the page and, after an identity
@@ -105,18 +104,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    /// Writes ``profileData`` and then ``authToken`` to the page in one script, so the token
+    /// always reaches a loading page after the profile it belongs to.
     @MainActor
-    private var profileAttributesWKScript: WKUserScript? {
-        guard let profileData else { return nil }
-        guard let profileAttributesScript = createProfileAttributesScript(from: profileData) else { return nil }
-        return WKUserScript(source: profileAttributesScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-    }
-
-    @MainActor
-    private var authTokenWKScript: WKUserScript? {
-        guard let authToken else { return nil }
-        let authTokenScript = createAuthTokenScript(from: authToken)
-        return WKUserScript(source: authTokenScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    private var identityWKScript: WKUserScript? {
+        let profileScript = profileData.flatMap { createProfileAttributesScript(from: $0) }
+        let authTokenScript = authToken.map { createAuthTokenScript(from: $0) }
+        let source = [profileScript, authTokenScript].compactMap { $0 }.joined(separator: "\n")
+        guard !source.isEmpty else { return nil }
+        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
@@ -172,8 +168,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(sdkVersionWKScript)
         loadScripts?.insert(handshakeWKScript)
         loadScripts?.insert(deviceInfoWKScript)
-        replaceLoadScript(&profileAttributesUserScript, with: profileAttributesWKScript)
-        replaceLoadScript(&authTokenUserScript, with: authTokenWKScript)
+        replaceLoadScript(&identityUserScript, with: identityWKScript)
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
         }
@@ -282,7 +277,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
         let transition = IdentityTransition.classify(previous: profileData, next: newProfileData)
         profileData = newProfileData
-        replaceLoadScript(&profileAttributesUserScript, with: profileAttributesWKScript)
+        if transition == .replacement {
+            authToken = nil
+        }
+        replaceLoadScript(&identityUserScript, with: identityWKScript)
         let profileAttributesScript = createProfileAttributesScript(from: newProfileData)
 
         guard transition == .replacement else {
@@ -294,14 +292,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             return
         }
 
-        authToken = nil
-        replaceLoadScript(&authTokenUserScript, with: nil)
         let authTokenManager = authTokenManager
         let replacement = Task { @MainActor [weak self] in
             if let profileAttributesScript {
                 await self?.writeProfileAttributes(profileAttributesScript)
             }
-            await authTokenManager.clearTokenState()
+            await authTokenManager.clearReplacedProfileTokenState()
         }
         pendingIdentityReplacement = replacement
         profileUpdateTask = Task { @MainActor [weak self] in
@@ -330,18 +326,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     /// Fetches a token for `identity` from the registered provider, so the fetch publishes it
     /// on ``AuthTokenManager/refreshes()``. Stops once a later change replaced `identity`. A
-    /// fetch that is cancelled, or whose token is cleared before this returns (e.g. by a
-    /// concurrent ``AuthTokenManager/clearTokenState()``), is retried, up to
-    /// ``maxIdentityTokenFetchAttempts`` attempts in total. Other failures are logged.
+    /// fetch that is cancelled, or whose identity generation moves before this returns, is
+    /// retried, up to ``maxIdentityTokenFetchAttempts`` attempts in total. Other failures are
+    /// logged.
     @MainActor
     private func refreshAuthToken(for identity: ProfileData) async {
         for _ in 0..<Self.maxIdentityTokenFetchAttempts {
             guard isCompatibleWithPage(identity) else { return }
             do {
-                let token = try await authTokenManager.currentToken(mode: .background)
-                if await authTokenManager.isCurrentToken(token) { return }
+                let refresh = try await authTokenManager.currentTokenRefresh(mode: .background)
+                if refresh.generation == authTokenManager.currentIdentityGeneration { return }
             } catch where error.isFetchCancellation {
                 continue
+            } catch AuthTokenError.noProfileIdentifier {
+                return
             } catch {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Auth token unavailable after profile change; error: \(error)")
@@ -375,20 +373,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     ///
     /// Never writes a token ahead of the profile it belongs to. While an identity
     /// replacement's profile write and token-state clear are running, waits for them and
-    /// then writes `token` only if it is still the manager's cached token. Declines when
-    /// ``IdentityStore`` already holds an identity that replaces the page's profile.
+    /// then writes `token` only if `generation` (by default, the manager's current one) is
+    /// still the manager's current identity generation. Declines when ``IdentityStore``
+    /// already holds an identity that replaces the page's profile.
     ///
     /// `async` so the caller can await it and apply refreshes in arrival order.
     /// The token value is never logged — only the success/failure of the update.
     /// - Returns: `true` when `token` was written, `false` when the push was declined.
     @MainActor
     @discardableResult
-    func pushAuthToken(_ token: String) async -> Bool {
+    func pushAuthToken(_ token: String, generation: UInt64? = nil) async -> Bool {
+        let generation = generation ?? authTokenManager.currentIdentityGeneration
+        guard generation == authTokenManager.currentIdentityGeneration else { return false }
         var awaitedReplacement: Task<Void, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
             await replacement.value
             awaitedReplacement = replacement
-            guard await authTokenManager.isCurrentToken(token) else { return false }
+            guard generation == authTokenManager.currentIdentityGeneration else { return false }
         }
         guard !isPageBehindIdentityStore else {
             if #available(iOS 14.0, *) {
@@ -400,7 +401,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
         authToken = token
-        replaceLoadScript(&authTokenUserScript, with: authTokenWKScript)
+        replaceLoadScript(&identityUserScript, with: identityWKScript)
         let authTokenScript = createAuthTokenScript(from: token)
         do {
             _ = try await delegate?.evaluateJavaScript(authTokenScript)
