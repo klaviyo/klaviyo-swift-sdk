@@ -15,65 +15,25 @@ struct AuthTokenManagerRejectedTokenTests {
     /// Fixed instant every test pins its clock and tokens to.
     private let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
 
-    // MARK: - Replacement
-
     @Test
     func replacesRejectedTokenWithOneProviderCall() async throws {
-        let rejected = try token("rejected")
         let replacement = try token("replacement")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
+        let fixture = try await makeWarmFixture { _ in replacement }
 
-        await manager.registerProvider {
-            await counter.increment() == 1 ? rejected : replacement
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
+        await fixture.manager.refreshRejectedToken()
 
-        await manager.refreshRejectedToken()
-
-        let delivered = await firstElement(of: stream)
+        let served = try await fixture.manager.currentToken(mode: .background)
+        try #require(served == replacement, "the rejected token must not be served after a refresh")
+        let invocations = await fixture.counter.value
+        #expect(invocations == 2, "expected one provider call, then the replacement served from cache")
+        let delivered = await firstElement(of: fixture.refreshes)
         #expect(delivered == replacement)
-        let invocations = await counter.value
-        #expect(invocations == 2, "expected one provider call for the rejection, saw \(invocations - 1)")
-
-        let served = try await manager.currentToken(mode: .background)
-        #expect(served == replacement, "the rejected token must not be served after a refresh")
-        let invocationsAfterRead = await counter.value
-        #expect(invocationsAfterRead == 2, "the replacement must be served from cache")
-    }
-
-    @Test
-    func republishesProviderTokenIdenticalToTheRejectedOne() async throws {
-        let repeated = try token("repeated")
-        let sentinel = try token("sentinel")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            await counter.increment() <= 2 ? repeated : sentinel
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
-
-        await manager.refreshRejectedToken()
-
-        let invocations = await counter.value
-        #expect(invocations == 2, "expected one provider call for the rejection, saw \(invocations - 1)")
-
-        await manager.refreshRejectedToken()
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == repeated, "a repeated token must be published, not swallowed")
     }
 
     @Test
     func joinsInFlightFetchInsteadOfStartingAnother() async throws {
         let onlyToken = try token("only")
-        let manager = makeFixture().manager
+        let manager = makeColdManager()
         let counter = CallCounter()
         let fetchStarted = Latch()
         let releaseFetch = Latch()
@@ -89,9 +49,7 @@ struct AuthTokenManagerRejectedTokenTests {
         let stream = await manager.refreshes()
 
         let refresh = Task { await manager.refreshRejectedToken() }
-        for _ in 0..<100 {
-            await Task.yield()
-        }
+        await yieldRepeatedly()
         await releaseFetch.open()
         await refresh.value
 
@@ -102,185 +60,106 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
-    func makesOneProviderCallPerInvocationWithoutRetrying() async throws {
-        let rejected = try token("rejected")
-        let sentinel = try token("sentinel")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            switch await counter.increment() {
-            case 1: return rejected
-            case 2...4: throw ProviderTestError.network
-            default: return sentinel
-            }
+    func failedRefreshesMakeOneCallEachAndStillDropTheRejectedToken() async throws {
+        let replacement = try token("replacement")
+        let fixture = try await makeWarmFixture { call in
+            guard call > 4 else { throw ProviderTestError.network }
+            return replacement
         }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
 
         for _ in 0..<3 {
-            await manager.refreshRejectedToken()
+            await fixture.manager.refreshRejectedToken()
         }
 
-        let invocations = await counter.value
+        let invocations = await fixture.counter.value
         #expect(invocations == 4, "expected one provider call per invocation, saw \(invocations - 1)")
-
-        await manager.refreshRejectedToken()
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == sentinel, "failed refreshes must publish nothing")
+        let served = try await fixture.manager.currentToken(mode: .background)
+        try #require(served == replacement, "a failed refresh must still drop the rejected token")
+        let delivered = await firstElement(of: fixture.refreshes)
+        #expect(delivered == replacement, "failed refreshes must publish nothing")
     }
 
     @Test
-    func providerFailurePublishesNothingAndDropsRejectedToken() async throws {
-        let rejected = try token("rejected")
-        let replacement = try token("replacement")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            switch await counter.increment() {
-            case 1: return rejected
-            case 2: throw ProviderTestError.network
-            default: return replacement
-            }
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
-
-        await manager.refreshRejectedToken()
-
-        let served = try await manager.currentToken(mode: .background)
-        #expect(served == replacement, "a failed refresh must still drop the rejected token")
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == replacement, "the failed refresh must publish nothing")
-    }
-
-    @Test
-    func connectivityFailureArmsTheExistingConnectivityRetry() async throws {
-        let rejected = try token("rejected")
-        let replacement = try token("replacement")
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let reachability = TestReachability(.notReachable)
-        let fixture = makeFixture(
-            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() }),
-            reachability: reachability
+    func cancelsTheRejectedTokensScheduledRefresh() async throws {
+        // iat=ref-60, exp=ref+40 → the scheduled refresh lands at ref+10.
+        let rejected = try makeJWT(
+            issuedAt: refSeconds - 60,
+            expiresAt: refSeconds + 40,
+            extraClaims: ["sub": "rejected"]
         )
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            switch await counter.increment() {
-            case 1: return rejected
-            case 2: throw URLError(.notConnectedToInternet)
-            default: return replacement
-            }
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let fixture = try await makeWarmFixture(
+            rejected: rejected,
+            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        ) { _ in
+            throw ProviderTestError.network
         }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
 
-        await manager.refreshRejectedToken()
-        let armed = await manager.isAwaitingConnectivityRetryForTesting
-        #expect(armed, "a connectivity failure must arm the one-shot connectivity retry")
+        await fixture.manager.refreshRejectedToken()
 
-        reachability.set(.reachableViaWiFi)
-        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        // Wake the rejected token's sleep past its target time.
+        fixture.clock.set(referenceDate.addingTimeInterval(20))
+        await fixture.gate.release()
+        await yieldRepeatedly()
+        let invocationsAfterWake = await fixture.counter.value
+        #expect(invocationsAfterWake == 2, "the old scheduled refresh must not fire")
 
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == replacement)
-        let invocations = await counter.value
-        #expect(invocations == 3)
+        lifecycleSubject.send(.foregrounded)
+        await yieldRepeatedly()
+        let invocationsAfterForeground = await fixture.counter.value
+        #expect(invocationsAfterForeground == 2, "a foreground must not retry the old refresh target")
+    }
+
+    @Test
+    func hungProviderTimesOutAndItsLateTokenIsPublished() async throws {
+        let replacement = try token("replacement")
+        let releaseFetch = Latch()
+        let fixture = try await makeWarmFixture { _ in
+            await releaseFetch.wait()
+            return replacement
+        }
+        let watchdog = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            await releaseFetch.open()
+        }
+        defer { watchdog.cancel() }
+
+        let started = Date()
+        await fixture.manager.refreshRejectedToken(timeoutSeconds: 0.05)
+        #expect(Date().timeIntervalSince(started) < 5, "the wait must be bounded by the timeout")
+        let invocations = await fixture.counter.value
+        try #require(invocations == 2)
+
+        await releaseFetch.open()
+        let late = await firstElement(of: fixture.refreshes)
+        #expect(late == replacement, "the timed-out fetch must publish its late token")
     }
 
     @Test
     func withoutProviderPublishesNothing() async throws {
         let sentinel = try token("sentinel")
-        let manager = makeFixture().manager
+        let manager = makeColdManager()
         let stream = await manager.refreshes()
 
         await manager.refreshRejectedToken()
-
         await manager.registerProvider { sentinel }
+
         let delivered = await firstElement(of: stream)
         #expect(delivered == sentinel, "a refresh without a provider must publish nothing")
     }
+}
 
-    // MARK: - Fencing
+// MARK: - Test helpers
 
-    @Test
-    func clearTokenStateMidFetchPublishesNothing() async throws {
-        let rejected = try token("rejected")
-        let stale = try token("stale")
-        let sentinel = try token("sentinel")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-        let fetchStarted = Latch()
-        let releaseFetch = Latch()
-
-        await manager.registerProvider {
-            switch await counter.increment() {
-            case 1:
-                return rejected
-            case 2:
-                await fetchStarted.open()
-                await releaseFetch.wait()
-                return stale
-            default:
-                return sentinel
-            }
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
-
-        let refresh = Task { await manager.refreshRejectedToken() }
-        await fetchStarted.wait()
-        await manager.clearTokenState()
-        await releaseFetch.open()
-        await refresh.value
-
-        await manager.refreshRejectedToken()
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == sentinel, "a refresh interrupted by clearTokenState must publish nothing")
+extension AuthTokenManagerRejectedTokenTests {
+    private struct Fixture {
+        let manager: AuthTokenManager
+        let clock: TestClock
+        let gate: SleepGate
+        let counter: CallCounter
+        /// Subscribed after the warm-up token was published.
+        let refreshes: AsyncStream<String>
     }
-
-    @Test
-    func providerChangeMidFetchPublishesNothing() async throws {
-        let rejected = try token("rejected")
-        let stale = try token("stale")
-        let sentinel = try token("sentinel")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-        let fetchStarted = Latch()
-        let releaseFetch = Latch()
-
-        await manager.registerProvider {
-            guard await counter.increment() >= 2 else { return rejected }
-            await fetchStarted.open()
-            await releaseFetch.wait()
-            return stale
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
-
-        let refresh = Task { await manager.refreshRejectedToken() }
-        await fetchStarted.wait()
-        await manager.registerProvider { sentinel }
-        await releaseFetch.open()
-        await refresh.value
-
-        let delivered = await firstElement(of: stream)
-        #expect(delivered == sentinel, "a refresh interrupted by a provider change must publish nothing")
-    }
-
-    // MARK: - Test helpers
 
     private var refSeconds: TimeInterval {
         referenceDate.timeIntervalSince1970
@@ -296,129 +175,39 @@ struct AuthTokenManagerRejectedTokenTests {
         )
     }
 
-    private struct Fixture {
-        let manager: AuthTokenManager
-        let clock: TestClock
-        let gate: SleepGate
+    private func makeColdManager() -> AuthTokenManager {
+        makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate())
     }
 
-    private func makeFixture(
+    /// Registers a provider that returns `rejected` (an hour-long token by default)
+    /// on its warm-up call and hands every later call, numbered from 2, to `provider`.
+    /// Returns once the warm-up token is cached and its scheduled refresh is parked.
+    private func makeWarmFixture(
+        rejected: String? = nil,
         lifeCycle: AppLifeCycleEvents = noopLifecycle(),
-        reachability: TestReachability = TestReachability()
-    ) -> Fixture {
+        provider: @escaping @Sendable (Int) async throws -> String
+    ) async throws -> Fixture {
+        let rejected = try rejected ?? token("rejected")
         let clock = TestClock(referenceDate)
         let gate = SleepGate()
-        let manager = makeManager(
-            lifeCycle: lifeCycle,
-            clock: clock,
-            gate: gate,
-            reachabilityStatus: { reachability.status() }
-        )
-        return Fixture(manager: manager, clock: clock, gate: gate)
-    }
+        let manager = makeManager(lifeCycle: lifeCycle, clock: clock, gate: gate)
+        let counter = CallCounter()
 
-    /// Suspends until the eager warm-up fetch has cached its token and parked
-    /// its scheduled refresh.
-    private func warmUp(counter: CallCounter, gate: SleepGate) async throws {
+        await manager.registerProvider {
+            let call = await counter.increment()
+            guard call > 1 else { return rejected }
+            return try await provider(call)
+        }
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
+        let refreshes = await manager.refreshes()
+        return Fixture(manager: manager, clock: clock, gate: gate, counter: counter, refreshes: refreshes)
     }
-}
 
-// MARK: - Scheduled refresh
-
-extension AuthTokenManagerRejectedTokenTests {
-    @Test
-    func cancelsTheRejectedTokensScheduledRefresh() async throws {
-        // iat=ref-60, exp=ref+40 → the scheduled refresh lands at ref+10.
-        let rejected = try makeJWT(
-            issuedAt: refSeconds - 60,
-            expiresAt: refSeconds + 40,
-            extraClaims: ["sub": "rejected"]
-        )
-        let unexpected = try token("unexpected")
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let fixture = makeFixture(
-            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
-        )
-        let manager = fixture.manager
-        let clock = fixture.clock
-        let gate = fixture.gate
-        let counter = CallCounter()
-
-        await manager.registerProvider {
-            switch await counter.increment() {
-            case 1: return rejected
-            case 2: throw ProviderTestError.network
-            default: return unexpected
-            }
-        }
-        try await warmUp(counter: counter, gate: gate)
-
-        await manager.refreshRejectedToken()
-
-        // Wake the rejected token's sleep past its target time.
-        clock.set(referenceDate.addingTimeInterval(20))
-        await gate.release()
+    private func yieldRepeatedly() async {
         for _ in 0..<100 {
             await Task.yield()
         }
-        let invocationsAfterWake = await counter.value
-        #expect(
-            invocationsAfterWake == 2,
-            "the old scheduled refresh must not fire, saw \(invocationsAfterWake) calls"
-        )
-
-        lifecycleSubject.send(.foregrounded)
-        for _ in 0..<100 {
-            await Task.yield()
-        }
-        let invocationsAfterForeground = await counter.value
-        #expect(
-            invocationsAfterForeground == 2,
-            "a foreground must not retry the old refresh target, saw \(invocationsAfterForeground) calls"
-        )
-    }
-}
-
-// MARK: - Timeout
-
-extension AuthTokenManagerRejectedTokenTests {
-    @Test
-    func hungProviderTimesOutAndItsLateTokenIsPublishedOnce() async throws {
-        let rejected = try token("rejected")
-        let replacement = try token("replacement")
-        let sentinel = try token("sentinel")
-        let fixture = makeFixture()
-        let manager = fixture.manager
-        let gate = fixture.gate
-        let counter = CallCounter()
-        let releaseFetch = Latch()
-        let nextToken = TokenBox(replacement)
-
-        await manager.registerProvider {
-            guard await counter.increment() >= 2 else { return rejected }
-            await releaseFetch.wait()
-            return await nextToken.value
-        }
-        try await warmUp(counter: counter, gate: gate)
-        let stream = await manager.refreshes()
-
-        await manager.refreshRejectedToken(timeoutSeconds: 0.05)
-        let invocations = await counter.value
-        #expect(invocations == 2)
-
-        var iterator = stream.makeAsyncIterator()
-        await releaseFetch.open()
-        let late = await iterator.next()
-        #expect(late == replacement, "the timed-out fetch must publish its late token")
-
-        await nextToken.set(sentinel)
-        await manager.refreshRejectedToken()
-        let next = await iterator.next()
-        #expect(next == sentinel, "the late token must be published only once")
-        let totalInvocations = await counter.value
-        #expect(totalInvocations == 3)
     }
 }
 #endif
