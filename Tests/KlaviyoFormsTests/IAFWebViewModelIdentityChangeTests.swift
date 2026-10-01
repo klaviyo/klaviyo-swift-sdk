@@ -190,6 +190,40 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(outgoingToken) })
     }
 
+    func testTokenPublishedBeforePageHandledTheChangeIsRepublishedOnCacheHit() async throws {
+        IdentityStore.shared.update(incomingProfile)
+        _ = try await registerProviderAndWarmCache()
+        await makeViewModel(profileData: outgoingProfile)
+
+        await awaitProfileUpdate(writing: "anon-new")
+
+        let delivered = try await awaitDelivery(ofInvocation: 1)
+        assertOnlyTokenPushed(delivered, afterProfileWriteContaining: "anon-new")
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 1)
+    }
+
+    func testPushHeldOnPendingReplacementIsDeclinedWhenAnotherReplacementLands() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+        let profileWrite = delegate.holdScript(containing: "anon-new")
+        IdentityStore.shared.update(incomingProfile)
+        await profileWrite.reached.wait()
+        let heldToken = try makeTestJWT(subject: "held", validAt: clock.now())
+        let incomingGeneration = manager.currentIdentityGeneration
+        let held = Task { await self.viewModel.pushAuthToken(heldToken, generation: incomingGeneration) }
+        await Task.yield()
+        let latestProfile = ProfileData(email: "latest@example.com", anonymousId: "anon-latest")
+        IdentityStore.shared.update(latestProfile)
+        await profileWrite.release.open()
+
+        let wasWritten = await held.value
+        await awaitProfileUpdate(writing: "anon-latest")
+
+        XCTAssertFalse(wasWritten)
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(heldToken) })
+    }
+
     func testPushFromOutgoingGenerationIsDeclinedAfterReplacement() async throws {
         let outgoingToken = try await registerProviderAndWarmCache()
         await makeViewModel(authToken: outgoingToken)
@@ -247,7 +281,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         let staleToken = try makeTestJWT(subject: "stale", validAt: clock.now())
 
         IdentityStore.shared.update(incomingProfile)
-        let wasWritten = await viewModel.pushAuthToken(staleToken)
+        let wasWritten = await viewModel.pushAuthToken(staleToken, generation: manager.currentIdentityGeneration)
 
         XCTAssertFalse(wasWritten)
         XCTAssertEqual(viewModel.authToken, outgoingToken)

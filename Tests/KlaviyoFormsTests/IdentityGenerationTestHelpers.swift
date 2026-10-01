@@ -1,0 +1,19 @@
+//
+//  IdentityGenerationTestHelpers.swift
+//  klaviyo-swift-sdk
+//
+//  Shared fixtures for identity-generation auth-token tests.
+//
+
+@testable import KlaviyoCore
+@testable import KlaviyoForms
+import Foundation
+
+/// An `AuthTokenManager` independent of `.shared` on the test environment's clock, whose
+/// callers are never bound by a real-time fetch budget.
+func makeUnboundedAuthTokenManager() -> AuthTokenManager {
+    AuthTokenManager(
+        currentDate: { environment.date() },
+        fetchTimeoutSleep: { _ in await Latch().wait() }
+    )
+}
