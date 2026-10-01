@@ -276,11 +276,10 @@ package actor AuthTokenManager {
     ///
     /// Each call returns an independent `AsyncStream` backed by its own
     /// subscription to ``refreshSubject``; multiple concurrent subscribers are
-    /// supported. Yields every token newly cached by a successful fetch — the
-    /// registration warm-up, interactive and background ``currentToken(mode:)``
-    /// fetches, proactive refreshes, and connectivity or foreground retries. A
-    /// cache hit does not emit. The subject does not replay, so subscribe before
-    /// starting the fetch whose result you need. The stream never finishes on its
+    /// supported. Yields every token newly cached by a successful fetch (warm-up,
+    /// ``currentToken(mode:)`` fetches, proactive refreshes, retries); a cache hit does
+    /// not emit. The subject does not replay, so subscribe before starting the fetch
+    /// whose result you need. The stream never finishes on its
     /// own and never errors; the consumer ends it by cancelling its iteration,
     /// which tears down the underlying Combine subscription via `onTermination`.
     ///
@@ -723,8 +722,7 @@ package actor AuthTokenManager {
             return
         }
         if let scheduled = refreshAtWallClock, currentDate() >= scheduled {
-            // An in-flight refresh is left to finish rather than cancelled and
-            // re-driven.
+            // An in-flight refresh is left to finish.
             guard activeScheduledRefreshID == nil else {
                 if #available(iOS 14.0, *) {
                     Logger.auth.info(

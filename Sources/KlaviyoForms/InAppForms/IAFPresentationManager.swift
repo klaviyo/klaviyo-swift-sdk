@@ -235,11 +235,9 @@ class IAFPresentationManager {
         return viewModel
     }
 
-    /// Records the token-update stream for `viewModel`'s page, along with the token and
-    /// profile the page was built with. Delivery starts on ``startTokenDelivery()``, once
-    /// the page has completed its handshake. Cancels any delivery already running for a
-    /// previous page, so a replaced WebView never leaves a stream loop behind to push every
-    /// future token a second time.
+    /// Records the token stream for `viewModel`'s page, with the token and profile the page
+    /// was built with. Delivery starts on ``startTokenDelivery()`` after the handshake.
+    /// Cancels any delivery already running for a previous page.
     func prepareTokenDelivery(
         for viewModel: IAFWebViewModel,
         initialToken: String?,
@@ -247,8 +245,7 @@ class IAFPresentationManager {
         updates: AsyncStream<String>,
         from authTokenManager: AuthTokenManager
     ) {
-        tokenRefreshTask?.cancel()
-        tokenRefreshTask = nil
+        stopTokenDelivery()
         pendingTokenDelivery = PendingTokenDelivery(
             viewModel: viewModel,
             initialToken: initialToken,
@@ -258,24 +255,20 @@ class IAFPresentationManager {
         )
     }
 
-    /// Whether a token must be written to the page again because the identity changed
-    /// since the last delivery, even if the token value is unchanged.
+    /// Whether the identity changed since the last delivery, forcing a token write even
+    /// if the token value is unchanged.
     static func identityChanged(from previous: ProfileData?, to current: ProfileData?) -> Bool {
         previous != current
     }
 
-    /// Pushes each token from the prepared stream into its page, skipping a token equal to
-    /// the last one the page received for the current identity (starting from the token and
-    /// profile it was built with). After any identity change the next token is always
-    /// written, even if its value is identical. A token that is no longer the cached token
-    /// when its turn comes (cleared or replaced since it was acquired) is never written.
-    /// Bound to the WebView's lifetime: cancelled and replaced by
-    /// ``prepareTokenDelivery(for:initialToken:initialProfile:updates:from:)`` and cancelled
-    /// in ``destroyWebView()``. No-op when nothing is prepared.
+    /// Pushes each token from the prepared stream into its page. Skips a token equal to the
+    /// last one delivered for the current identity (starting from the page's initial token
+    /// and profile), and any token that is no longer the cached token. Cancelled by
+    /// ``prepareTokenDelivery(for:initialToken:initialProfile:updates:from:)`` and
+    /// ``destroyWebView()``. No-op when nothing is prepared.
     func startTokenDelivery() {
         guard let pending = pendingTokenDelivery else { return }
         pendingTokenDelivery = nil
-        tokenRefreshTask?.cancel()
         let updates = pending.updates
         let initialToken = pending.initialToken
         let initialProfile = pending.initialProfile
@@ -306,8 +299,7 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("👂 Starting to listen for form lifecycle events (BEFORE handshake)")
         }
 
-        formEventTask?.cancel()
-        handshakeTask?.cancel()
+        stopFormEventListening()
 
         // Start listening for form lifecycle events before handshake to avoid missing any events
         formEventTask = Task { [weak self] in
@@ -333,6 +325,19 @@ class IAFPresentationManager {
                 handleHandshakeFailure(for: viewModel)
             }
         }
+    }
+
+    private func stopTokenDelivery() {
+        tokenRefreshTask?.cancel()
+        tokenRefreshTask = nil
+        pendingTokenDelivery = nil
+    }
+
+    private func stopFormEventListening() {
+        formEventTask?.cancel()
+        formEventTask = nil
+        handshakeTask?.cancel()
+        handshakeTask = nil
     }
 
     /// Tears everything down only if `failedViewModel` is still the active view model.
@@ -483,10 +488,7 @@ class IAFPresentationManager {
     /// Dismisses and re-initializes the In-App Form when the public API key changes.
     private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
         destroyWebView()
-        formEventTask?.cancel()
-        formEventTask = nil
-        handshakeTask?.cancel()
-        handshakeTask = nil
+        stopFormEventListening()
         lifecycleObserver?.stopObserving()
         profileEventObserver?.stopObserving()
         profileEventObserver = nil
@@ -635,9 +637,7 @@ class IAFPresentationManager {
         // Cancel before the guard: `viewController` may already have been cleared
         // elsewhere (e.g. a failed presentation) while the token-refresh task is
         // still running, so gating the cancel on `viewController` would leak it.
-        tokenRefreshTask?.cancel()
-        tokenRefreshTask = nil
-        pendingTokenDelivery = nil
+        stopTokenDelivery()
 
         guard let viewController else { return }
 
@@ -667,10 +667,7 @@ class IAFPresentationManager {
         profileEventObserver = nil
         profileEventsTask?.cancel()
         profileEventsTask = nil
-        formEventTask?.cancel()
-        formEventTask = nil
-        handshakeTask?.cancel()
-        handshakeTask = nil
+        stopFormEventListening()
         delayedPresentationTask?.cancel()
         delayedPresentationTask = nil
         destroyWebView()
