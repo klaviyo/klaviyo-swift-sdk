@@ -250,7 +250,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         await makeViewModel(authToken: token)
 
         await changeIdentity(to: incomingProfile, writing: "anon-new")
-        await delegate.waitForScript(containing: token)
+        await delegate.awaitScript(containing: token)
 
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2)
@@ -356,7 +356,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         )
         try await refetch()
         try await refetch()
-        await delegate.waitForScript(containing: sentinel)
+        await delegate.awaitScript(containing: sentinel)
 
         let invocations = await counter.value
         XCTAssertEqual(invocations, 3)
@@ -504,7 +504,7 @@ extension IAFWebViewModelIdentityChangeTests {
     ) async throws -> String {
         await provider.waitFor(invocations: invocation)
         let token = try await minted(invocation, file: file, line: line)
-        await delegate.waitForScript(containing: token, file: file, line: line)
+        await delegate.awaitScript(containing: token, file: file, line: line)
         return token
     }
 
@@ -527,7 +527,7 @@ extension IAFWebViewModelIdentityChangeTests {
         file: StaticString = #filePath,
         line: UInt = #line
     ) async {
-        await delegate.waitForScript(containing: marker, file: file, line: line)
+        await delegate.awaitScript(containing: marker, file: file, line: line)
         await viewModel.profileUpdateTask?.value
     }
 

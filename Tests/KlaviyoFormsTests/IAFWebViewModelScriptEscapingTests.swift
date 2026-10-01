@@ -89,7 +89,7 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
             let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
             viewModel.delegate = delegate
 
-            await delegate.waitForScript(containing: Self.profileAttribute)
+            await delegate.awaitScript(containing: Self.profileAttribute)
             await viewModel.pushAuthToken(value, generation: authTokenManager.currentIdentityGeneration)
             let page = try JavaScriptPage()
             for script in delegate.evaluatedScripts {
