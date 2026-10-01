@@ -7,6 +7,7 @@
 //
 
 @testable import KlaviyoCore
+import Combine
 import Foundation
 
 // MARK: - JWT minting
@@ -257,4 +258,44 @@ actor SleepGate {
             parked.removeFirst().resume()
         }
     }
+}
+
+// MARK: - Manager & stream fixtures
+
+/// Returns the first element a stream delivers (or `nil` if it finishes
+/// without delivering). Each call drives its own iterator, so independent
+/// subscribers can be awaited concurrently.
+func firstElement(of stream: AsyncStream<String>) async -> String? {
+    var iterator = stream.makeAsyncIterator()
+    return await iterator.next()
+}
+
+/// Lifecycle source that emits nothing, for tests that don't exercise the
+/// foreground transition path. Uses an `Empty` publisher so the observer
+/// task simply parks on the await without ever firing.
+func noopLifecycle() -> AppLifeCycleEvents {
+    AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
+}
+
+/// Builds a manager driven by a deterministic clock and sleep gate.
+///
+/// The manager's `currentDate` and `sleep` both default to real wall-clock
+/// sources (`environment.date` / `Task.sleep`). Tests inject a ``TestClock``
+/// and ``SleepGate`` instead so token validity, refresh scheduling, and
+/// refresh firing all advance in virtual time under the test's control —
+/// removing the real-time races that made these paths flaky on slow,
+/// parallel CI. Injecting also sidesteps the shared global `environment`
+/// clock (see ``TestClock`` for why that matters).
+func makeManager(
+    lifeCycle: AppLifeCycleEvents,
+    clock: TestClock,
+    gate: SleepGate,
+    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
+) -> AuthTokenManager {
+    AuthTokenManager(
+        lifeCycle: lifeCycle,
+        currentDate: { clock.now() },
+        sleep: { await gate.sleep($0) },
+        reachabilityStatus: reachabilityStatus
+    )
 }
