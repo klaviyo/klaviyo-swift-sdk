@@ -34,7 +34,7 @@ test-library:
 		env TEST_RUNNER_GITHUB_CI=$(GITHUB_CI) \
 		xcodebuild test \
 			-resultBundlePath TestResults-$(XCODE)-$(CONFIG) \
-			-enableCodeCoverage YES \
+			-enableCodeCoverage $(if $(filter Release,$(XCODE_CONFIG)),NO,YES) \
 			-configuration $(XCODE_CONFIG) \
 			$(if $(filter Release,$(XCODE_CONFIG)),ENABLE_TESTABILITY=YES) \
 			-scheme klaviyo-swift-sdk-Package \
