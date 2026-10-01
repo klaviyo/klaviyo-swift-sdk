@@ -47,9 +47,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         defaultMakeViewController = manager.makeViewController
         defaultHandshakeTimeout = manager.handshakeTimeout
         manager.handshakeTimeout = Self.activeHandshakeTimeout
-        manager.makeViewController = { viewModel in
-            InertWebViewController(viewModel: viewModel, webViewFactory: { InertWebView() })
-        }
+        manager.makeViewController = { InertWebViewController(hosting: $0) }
     }
 
     override func tearDown() async throws {
@@ -363,19 +361,5 @@ private actor BuildGate {
         while let continuation = parked.popLast() {
             continuation.resume()
         }
-    }
-}
-
-/// Never loads a page, so no WebKit content process is started.
-private final class InertWebView: WKWebView {
-    override func load(_ request: URLRequest) -> WKNavigation? {
-        nil
-    }
-}
-
-/// Hosts an ``InertWebView`` and completes every script evaluation immediately.
-private final class InertWebViewController: KlaviyoWebViewController {
-    override func evaluateJavaScript(_ script: String) async throws -> Any? {
-        nil
     }
 }

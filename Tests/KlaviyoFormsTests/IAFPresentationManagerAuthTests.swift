@@ -94,6 +94,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let manager = IAFPresentationManager(viewController: nil)
         manager.indexHtmlFileUrl = fileUrl
         manager.fetchInitialAuthToken = { await Self.fetchToken(from: $0) }
+        manager.makeViewController = { InertWebViewController(hosting: $0) }
 
         try await manager.createFormWebViewAndListen(apiKey: "abc123", authTokenManager: authTokenManager)
 
