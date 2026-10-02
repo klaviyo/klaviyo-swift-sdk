@@ -83,7 +83,7 @@ public final class QueueStore {
     private let queueLock = UnfairLock()
     private let persistLock = UnfairLock()
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
-    private var requestSizes: [String: Int] = [:]
+    private var entrySizes: [Int] = [] // serialized size per entry, index-aligned with `queue`
     private var queuedBytes = 0
     // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
     // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
@@ -118,10 +118,11 @@ public final class QueueStore {
             evictIfAtCapacity(&next, newSize: requestSize)
             if request.priority == .high {
                 next.insert(request, at: 0)
+                entrySizes.insert(requestSize, at: 0)
             } else {
                 next.append(request)
+                entrySizes.append(requestSize)
             }
-            requestSizes[request.id] = requestSize
             queuedBytes += requestSize
             queue = next
         }
@@ -134,11 +135,9 @@ public final class QueueStore {
         queueLock.withLock {
             var next = hydrated()
             next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
-            for request in requests {
-                let requestSize = size(of: request)
-                requestSizes[request.id] = requestSize
-                queuedBytes += requestSize
-            }
+            let sizes = requests.map(size(of:))
+            entrySizes.insert(contentsOf: sizes, at: 0)
+            queuedBytes += sizes.reduce(0, +)
             queue = next
         }
         schedulePersist(persist)
@@ -152,7 +151,7 @@ public final class QueueStore {
         let drained = queueLock.withLock { () -> [KlaviyoRequest] in
             let drainedRequests = hydrated()
             queue = []
-            requestSizes = [:]
+            entrySizes = []
             queuedBytes = 0
             return drainedRequests
         }
@@ -207,8 +206,8 @@ public final class QueueStore {
               let oldest = queue.indices.min(
                   by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }
               ) {
-            let removed = queue.remove(at: oldest)
-            queuedBytes -= requestSizes.removeValue(forKey: removed.id) ?? 0
+            queue.remove(at: oldest)
+            queuedBytes -= entrySizes.remove(at: oldest)
         }
     }
 
@@ -224,13 +223,8 @@ public final class QueueStore {
     }
 
     private func rebuildByteAccounting(for requests: [KlaviyoRequest]) {
-        requestSizes = [:]
-        queuedBytes = 0
-        for request in requests {
-            let requestSize = size(of: request)
-            requestSizes[request.id] = requestSize
-            queuedBytes += requestSize
-        }
+        entrySizes = requests.map(size(of:))
+        queuedBytes = entrySizes.reduce(0, +)
     }
 
     // MARK: Persistence

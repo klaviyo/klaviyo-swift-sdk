@@ -48,4 +48,17 @@ final class QueueStoreByteBudgetTests: XCTestCase {
         XCTAssertEqual(store.requests.map(\.id), ["oversized"])
         XCTAssertGreaterThan(store.byteCount, QueueStore.maxQueueBytes)
     }
+
+    func testDuplicateIdsKeepIndependentSizes() {
+        let requestSize = QueueStore.maxQueueBytes / 3 + 1
+        let store = makeStore { _ in requestSize }
+
+        store.enqueue(request("dup", at: 1))
+        store.enqueue(request("dup", at: 2))
+        store.enqueue(request("newer", at: 3))
+        store.enqueue(request("last", at: 4))
+
+        XCTAssertEqual(store.requests.map(\.id), ["newer", "last"])
+        XCTAssertEqual(store.byteCount, requestSize * 2)
+    }
 }
