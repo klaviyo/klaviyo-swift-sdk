@@ -2,7 +2,7 @@
 //  RequestQueueLaneTests.swift
 //  klaviyo-swift-sdk
 //
-//  MAGE-842 lane-scheduler POC: tests for lane classification, per-lane leasing/FIFO, the global
+//  Lane-scheduler POC: tests for lane classification, per-lane leasing/FIFO, the global
 //  in-flight bound, lane-local retry isolation, round-robin fairness, and restart reclassification.
 //
 
@@ -34,7 +34,7 @@ final class RequestQueueLaneTests: XCTestCase {
 
     // MARK: - Lane classification
 
-    /// Every endpoint maps to its lane per the MAGE-842 lane table. The mapping lives in one place
+    /// Every endpoint maps to its lane per the lane table. The mapping lives in one place
     /// (`KlaviyoEndpoint.lane`), so remapping is a one-line change; this pins the current table.
     func testLaneClassificationForEveryEndpoint() throws {
         let profile = KlaviyoEndpoint.createProfile("k", CreateProfilePayload(data: .test))
@@ -269,7 +269,7 @@ final class RequestQueueLaneTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "all lanes drained by the final tick")
     }
 
-    // MARK: - Absolute backoff deadlines (MAGE-842 follow-up)
+    // MARK: - Absolute backoff deadlines
 
     /// The lane becomes eligible AT its absolute deadline: a `flushNow()` with the clock advanced
     /// past the deadline resends, regardless of how many (or how few) ticks elapsed since the
@@ -423,7 +423,15 @@ final class RequestQueueLaneTests: XCTestCase {
             .success(Data())
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        // Inverted: fulfilled only by a send AFTER the first (a resend from a surviving wake).
+        let resent = expectation(description: "no resend after stop()")
+        resent.isInverted = true
+        let send: RequestQueue.Send = { request, info in
+            let result = await spy.send(request, info)
+            if spy.sentIds.count > 1 { resent.fulfill() }
+            return result
+        }
+        let queue = RequestQueue(clock: gated.clock, send: send)
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1))
 
@@ -437,9 +445,8 @@ final class RequestQueueLaneTests: XCTestCase {
         // was cancelled (its continuation resumed without flushing) and the run loop is gone.
         testClock.advance(by: 20)
         gated.releaseOneTick()
-        // Give any (incorrectly) surviving wake a chance to fire.
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertEqual(spy.sentIds, ["rate"], "stop() must cancel the deadline wake — no resend")
+        await fulfillment(of: [resent], timeout: 0.5)
+        XCTAssertEqual(spy.sentIds, ["rate"], "stop() must cancel the deadline wake, no resend")
     }
 
     /// A NEW failure with an EARLIER deadline replaces the pending wake: the old wake is cancelled
