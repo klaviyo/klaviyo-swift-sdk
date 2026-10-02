@@ -23,7 +23,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case profileEvent
     case profileMutation
     case jwtMutation
-    case badJWT
+    case refreshJwt
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -44,7 +44,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case profileEvent
         case profileMutation
         case jwtMutation
-        case badJWT
+        case refreshJwt
     }
 
     init(from decoder: Decoder) throws {
@@ -93,8 +93,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .profileMutation
         case .jwtMutation:
             self = .jwtMutation
-        case .badJWT:
-            self = .badJWT
+        case .refreshJwt:
+            self = .refreshJwt
         }
     }
 }
@@ -157,12 +157,6 @@ extension IAFNativeBridgeEvent {
         // Events that JS is permitted to send. These are only used for their
         // `name` and `version` properties — the associated values are placeholders
         // and are never decoded.
-        //
-        // `badJWT` is deliberately absent: fender's handshake schema doesn't
-        // recognize it as an advertisable capability (it rejects the whole
-        // handshake as malformed if it's present) — fender sends `badJWT`
-        // unconditionally when it rejects a token, so native only needs to
-        // decode and handle it, never declare support for it upfront.
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
@@ -173,7 +167,8 @@ extension IAFNativeBridgeEvent {
             .lifecycleEvent,
             .profileEvent,
             .profileMutation,
-            .jwtMutation
+            .jwtMutation,
+            .refreshJwt
         ]
     }
 
@@ -192,7 +187,7 @@ extension IAFNativeBridgeEvent {
         case .profileEvent: return 1
         case .profileMutation: return 1
         case .jwtMutation: return 1
-        case .badJWT: return 1
+        case .refreshJwt: return 1
         }
     }
 
@@ -211,7 +206,7 @@ extension IAFNativeBridgeEvent {
         case .profileEvent: return "profileEvent"
         case .profileMutation: return "profileMutation"
         case .jwtMutation: return "jwtMutation"
-        case .badJWT: return "badJWT"
+        case .refreshJwt: return "refreshJwt"
         }
     }
 }

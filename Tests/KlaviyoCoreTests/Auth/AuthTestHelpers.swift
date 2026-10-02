@@ -7,6 +7,7 @@
 //
 
 @testable import KlaviyoCore
+import Combine
 import Foundation
 
 // MARK: - JWT minting
@@ -257,4 +258,41 @@ actor SleepGate {
             parked.removeFirst().resume()
         }
     }
+}
+
+// MARK: - Manager & stream fixtures
+
+/// Returns the first element a stream delivers (or `nil` if it finishes
+/// without delivering). Each call drives its own iterator, so independent
+/// subscribers can be awaited concurrently.
+func firstElement(of stream: AsyncStream<String>) async -> String? {
+    var iterator = stream.makeAsyncIterator()
+    return await iterator.next()
+}
+
+/// Lifecycle source that emits nothing, for tests that don't exercise the
+/// foreground transition path. Uses an `Empty` publisher so the observer
+/// task simply parks on the await without ever firing.
+func noopLifecycle() -> AppLifeCycleEvents {
+    AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
+}
+
+/// Builds a manager driven by a deterministic clock and sleep gate.
+///
+/// Injects `clock` as the manager's `currentDate` and `gate` as its `sleep`,
+/// so token validity, refresh scheduling, and refresh firing advance in
+/// virtual time under the test's control instead of reading
+/// `environment.date` and `Task.sleep`.
+func makeManager(
+    lifeCycle: AppLifeCycleEvents,
+    clock: TestClock,
+    gate: SleepGate,
+    reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
+) -> AuthTokenManager {
+    AuthTokenManager(
+        lifeCycle: lifeCycle,
+        currentDate: { clock.now() },
+        sleep: { await gate.sleep($0) },
+        reachabilityStatus: reachabilityStatus
+    )
 }

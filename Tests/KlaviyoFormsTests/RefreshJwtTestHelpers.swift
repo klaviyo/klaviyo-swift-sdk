@@ -1,11 +1,12 @@
 //
-//  BadJWTTestHelpers.swift
+//  RefreshJwtTestHelpers.swift
 //  klaviyo-swift-sdk
 //
-//  Shared fixtures for `.badJWT` handling tests: JWT minting and deterministic
-//  provider-invocation counting.
+//  Shared fixtures for `refreshJwt` handling tests: JWT minting, delivering the
+//  bridge message, and deterministic provider-invocation counting.
 //
 
+@testable import KlaviyoForms
 import Foundation
 
 /// Builds a JWT with `iat` slightly in the past and `exp` an hour ahead so it
@@ -28,6 +29,18 @@ private func base64URLEncode(_ data: Data) -> String {
         .replacingOccurrences(of: "+", with: "-")
         .replacingOccurrences(of: "/", with: "_")
         .replacingOccurrences(of: "=", with: "")
+}
+
+extension IAFWebViewModel {
+    /// Delivers the `refreshJwt` bridge message KlaviyoJS sends after the server
+    /// rejected the injected token.
+    @MainActor
+    func receiveRefreshJwt() {
+        handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: #"{"type":"refreshJwt","data":{}}"#
+        ))
+    }
 }
 
 /// Counts provider invocations and lets tests await a specific call count

@@ -1816,21 +1816,6 @@ struct AuthTokenManagerRefreshTests {
         makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate())
     }
 
-    /// Returns the first element a stream delivers (or `nil` if it finishes
-    /// without delivering). Each call drives its own iterator, so independent
-    /// subscribers can be awaited concurrently.
-    private func firstElement(of stream: AsyncStream<String>) async -> String? {
-        var iterator = stream.makeAsyncIterator()
-        return await iterator.next()
-    }
-
-    /// Lifecycle source that emits nothing, for tests that don't exercise the
-    /// foreground transition path. Uses an `Empty` publisher so the observer
-    /// task simply parks on the await without ever firing.
-    private func noopLifecycle() -> AppLifeCycleEvents {
-        AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() })
-    }
-
     /// Suspends until `manager` has armed its connectivity-retry wait, which lands
     /// asynchronously in the refresh-failure path — driving a transition before it
     /// would drop the event against an unarmed flag. Adapts to scheduling rather
@@ -1847,29 +1832,6 @@ struct AuthTokenManagerRefreshTests {
             await Task.yield()
         }
         Issue.record("connectivity retry wait never armed", sourceLocation: sourceLocation)
-    }
-
-    /// Builds a manager driven by a deterministic clock and sleep gate.
-    ///
-    /// The manager's `currentDate` and `sleep` both default to real wall-clock
-    /// sources (`environment.date` / `Task.sleep`). Tests inject a ``TestClock``
-    /// and ``SleepGate`` instead so token validity, refresh scheduling, and
-    /// refresh firing all advance in virtual time under the test's control —
-    /// removing the real-time races that made these paths flaky on slow,
-    /// parallel CI. Injecting also sidesteps the shared global `environment`
-    /// clock (see ``TestClock`` for why that matters).
-    private func makeManager(
-        lifeCycle: AppLifeCycleEvents,
-        clock: TestClock,
-        gate: SleepGate,
-        reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil }
-    ) -> AuthTokenManager {
-        AuthTokenManager(
-            lifeCycle: lifeCycle,
-            currentDate: { clock.now() },
-            sleep: { await gate.sleep($0) },
-            reachabilityStatus: reachabilityStatus
-        )
     }
 }
 #endif

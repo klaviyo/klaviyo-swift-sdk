@@ -3,11 +3,11 @@
 //  klaviyo-swift-sdk
 //
 //  Auth token delivery to the live WebView: subscription ordering, handshake gating,
-//  de-duplication and teardown.
+//  de-duplication, teardown and `refreshJwt` replacement.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoForms
-import KlaviyoCore
 import XCTest
 
 @MainActor
@@ -33,9 +33,16 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try makeTestJWT(subject: subject, validAt: environment.date())
     }
 
-    private func makeViewModel(authToken: String?) -> (IAFWebViewModel, MockIAFWebViewDelegate) {
+    private func makeViewModel(
+        authToken: String?,
+        authTokenManager: AuthTokenManager = .shared
+    ) -> (IAFWebViewModel, MockIAFWebViewDelegate) {
         let viewModel = IAFWebViewModel(
-            url: fileUrl, apiKey: "abc123", profileData: nil, authToken: authToken
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: nil,
+            authToken: authToken,
+            authTokenManager: authTokenManager
         )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
@@ -283,5 +290,92 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertTrue(jwtScripts(delegate).isEmpty)
+    }
+
+    // MARK: - refreshJwt
+
+    func testRefreshJwtPushesReplacementToLiveWebViewOnce() async throws {
+        let rejected = try makeToken("rejected")
+        let replacement = try makeToken("replacement")
+        let counter = InvocationCounter()
+        let live = try await makeLiveWebView(showing: rejected) {
+            await counter.increment() == 1 ? rejected : replacement
+        }
+
+        live.viewModel.receiveRefreshJwt()
+
+        try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
+        await Task.yield()
+        XCTAssertEqual(jwtScripts(live.delegate).count, 1)
+        XCTAssertTrue(jwtScripts(live.delegate)[0].contains(replacement))
+        let invocations = await counter.value
+        XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
+        live.manager.destroyWebView()
+    }
+
+    func testRefreshJwtReturningTheRejectedTokenIsNotPushedAgain() async throws {
+        let repeated = try makeToken("repeated")
+        let sentinel = try makeToken("sentinel")
+        let counter = InvocationCounter()
+        let live = try await makeLiveWebView(showing: repeated) {
+            await counter.increment() <= 2 ? repeated : sentinel
+        }
+
+        live.viewModel.receiveRefreshJwt()
+        await assertEventually {
+            let providerCalled = await counter.value >= 2
+            let refreshing = await live.authTokenManager.isRefreshingRejectedTokenForTesting
+            return providerCalled && !refreshing
+        }
+        let invocations = await counter.value
+        XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
+
+        live.viewModel.receiveRefreshJwt()
+
+        try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
+        await Task.yield()
+        XCTAssertEqual(jwtScripts(live.delegate).count, 1, "the repeated token must not be pushed again")
+        XCTAssertTrue(jwtScripts(live.delegate)[0].contains(sentinel))
+        live.manager.destroyWebView()
+    }
+
+    private struct LiveWebView {
+        let manager: IAFPresentationManager
+        let viewModel: IAFWebViewModel
+        let delegate: MockIAFWebViewDelegate
+        let authTokenManager: AuthTokenManager
+    }
+
+    /// Builds a live WebView showing `initialToken` for the current identity, with
+    /// token delivery running from a fresh manager whose provider is `provider`.
+    /// The provider's first call must return `initialToken`.
+    private func makeLiveWebView(
+        showing initialToken: String,
+        provider: @escaping AuthTokenProvider
+    ) async throws -> LiveWebView {
+        IdentityStore.shared.update(profileA)
+        let authTokenManager = AuthTokenManager()
+        await authTokenManager.registerProvider(provider)
+        let warm = await Self.fetchToken(from: authTokenManager)
+        XCTAssertEqual(warm, initialToken)
+        let updates = await authTokenManager.refreshes()
+        let (viewModel, delegate) = makeViewModel(
+            authToken: initialToken, authTokenManager: authTokenManager
+        )
+        let manager = IAFPresentationManager(viewController: nil)
+        manager.prepareTokenDelivery(
+            for: viewModel,
+            initialToken: initialToken,
+            initialProfile: IdentityStore.shared.current,
+            updates: updates,
+            from: authTokenManager
+        )
+        manager.startTokenDelivery()
+        return LiveWebView(
+            manager: manager,
+            viewModel: viewModel,
+            delegate: delegate,
+            authTokenManager: authTokenManager
+        )
     }
 }
