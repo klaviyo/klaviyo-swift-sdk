@@ -30,4 +30,8 @@ package enum AuthTokenError: Error, Equatable {
     /// The underlying fetch task may still be running and will write to the cache
     /// if it eventually succeeds; the timeout only bounds the *caller's* wait.
     case timedOut
+
+    /// The configured company changed while the caller was waiting on the fetch,
+    /// so the fetched token belongs to the previous company and was discarded.
+    case companyChanged
 }
