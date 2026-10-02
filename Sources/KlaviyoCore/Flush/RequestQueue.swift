@@ -10,7 +10,7 @@ import Foundation
 /// Core-owned flush engine: drains `QueueStore.shared` on a timed cadence and sends through an
 /// injected transport.
 ///
-/// MAGE-842 lane-scheduler POC: `flush()` leases one batch PER LANE (`QueueStore.drain(lane:)`) and
+/// Lane-scheduler POC: `flush()` leases one batch PER LANE (`QueueStore.drain(lane:)`) and
 /// drains each lane on its own task (`drainLane(_:)`), so a slow in-flight send on one lane never
 /// blocks another lane's sends. Each lane has its own retry bookkeeping, so a retrying or
 /// backing-off lane never delays another lane's wake-up either: on a retryable failure the lane's

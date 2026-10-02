@@ -413,7 +413,7 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertTrue(first === second, "the one shared instance")
     }
 
-    // MARK: - Lane leasing (MAGE-842)
+    // MARK: - Lane leasing
 
     private func eventRequest(_ id: String) -> KlaviyoRequest {
         KlaviyoRequest(id: id,

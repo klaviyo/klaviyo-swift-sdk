@@ -2,7 +2,7 @@
 //  RequestLane.swift
 //  klaviyo-swift-sdk
 //
-//  MAGE-842 lane-scheduler POC.
+//  Lane-scheduler POC.
 //
 
 import Foundation
