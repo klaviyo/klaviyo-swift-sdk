@@ -117,7 +117,7 @@ struct AuthTokenManagerRefreshTests {
         // confirms firstToken is cached). Subscribe, then drive virtual time to
         // the fire point and release the parked sleep.
         await gate.waitUntilSleeping(atLeast: 1)
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         clock.set(referenceDate.addingTimeInterval(10))
         await gate.release()
@@ -280,7 +280,7 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
 
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         // Fire the refresh past its target; invocation 2 throws. Awaiting the armed
         // (but inert) connectivity wait signals the failure has settled.
@@ -344,9 +344,9 @@ struct AuthTokenManagerRefreshTests {
         // Collect *every* emission, not just the first: a broken guard would let the
         // foreground also drive `performScheduledRefresh()`, and both callers awaiting
         // the shared fetch would broadcast — a duplicate that reading one element hides.
-        // Subscribe up front (`refreshes()` installs its sink synchronously) so no
+        // Subscribe up front (`tokens()` installs its sink synchronously) so no
         // broadcast is missed; the stream buffers until the consumer drains it.
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
         let collector = TokenCollector()
         let consumer = Task {
             for await token in stream {
@@ -435,7 +435,7 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
 
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
         let collector = TokenCollector()
         let consumer = Task {
             for await token in stream {
@@ -617,8 +617,8 @@ struct AuthTokenManagerRefreshTests {
         await gate.waitUntilSleeping(atLeast: 1)
 
         // Two independent subscribers, both attached before the refresh fires.
-        let streamA = await manager.refreshes()
-        let streamB = await manager.refreshes()
+        let streamA = await manager.tokens()
+        let streamB = await manager.tokens()
 
         clock.set(referenceDate.addingTimeInterval(10))
         await gate.release()
@@ -636,7 +636,7 @@ struct AuthTokenManagerRefreshTests {
     func warmUpFetchPublishesToExistingSubscriber() async throws {
         let warmUpToken = try token("warm-up")
         let manager = makeIdleManager()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         await manager.registerProvider { warmUpToken }
 
@@ -654,7 +654,7 @@ struct AuthTokenManagerRefreshTests {
         let release = Latch()
         let counter = CallCounter()
         let collector = TokenCollector()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
         let consumer = Task { for await token in stream {
             await collector.append(token)
         } }
@@ -691,7 +691,7 @@ struct AuthTokenManagerRefreshTests {
         let manager = makeIdleManager()
         let release = Latch()
         let counter = CallCounter()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         await manager.registerProvider {
             let invocation = await counter.increment()
@@ -730,7 +730,7 @@ struct AuthTokenManagerRefreshTests {
         }
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         clock.set(referenceDate.addingTimeInterval(10))
         await gate.release()
@@ -756,7 +756,7 @@ struct AuthTokenManagerRefreshTests {
         }
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         clock.set(referenceDate.addingTimeInterval(3300))
         await gate.release()
@@ -894,7 +894,7 @@ struct AuthTokenManagerRefreshTests {
 
         let collector = TokenCollector()
         let consumer = Task {
-            for await token in await manager.refreshes() {
+            for await token in await manager.tokens() {
                 await collector.append(token)
             }
         }
@@ -970,7 +970,7 @@ struct AuthTokenManagerRefreshTests {
         await gate.waitUntilSleeping(atLeast: 1)
 
         // Subscribe before the retry so the broadcast can be observed.
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         // Fire the scheduled refresh: invocation 2 throws a network error, arming
         // the connectivity wait. Await the arming deterministically before driving
@@ -1040,7 +1040,7 @@ struct AuthTokenManagerRefreshTests {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
 
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         clock.set(referenceDate.addingTimeInterval(10))
         await gate.release()
@@ -1349,7 +1349,7 @@ struct AuthTokenManagerRefreshTests {
 
         // Subscribe before restoring connectivity so the eventual success broadcast
         // is observable.
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         // Restore connectivity. The transition fires the retry (invocation 3),
         // which also fails — re-arming the wait. Because the path is still
@@ -1405,7 +1405,7 @@ struct AuthTokenManagerRefreshTests {
 
         // Subscribe before restoring connectivity so the eventual broadcast is
         // observable.
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
@@ -1469,7 +1469,7 @@ struct AuthTokenManagerRefreshTests {
         }
         await awaitConnectivityWaitArmed(manager)
 
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
         reachability.set(.reachableViaWiFi)
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
 

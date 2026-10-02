@@ -51,7 +51,9 @@ enum KlaviyoAction: Equatable {
     /// Loads the state from disk and carries over existing items from the queue. This emits `completeInitialization` at the end with the state loaded from disk.
     case initialize(String)
 
-    /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists) and queues up any tasks that are pending
+    /// after the SDK is initialized, creates an initial state from existing state from disk (if it exists)
+    /// and applies any requests queued while initializing in the same pass, so the first initialized
+    /// state already reflects them
     case completeInitialization(KlaviyoState)
 
     /// if initialized, set the email else queue it up
@@ -150,23 +152,7 @@ struct KlaviyoReducer: ReducerProtocol {
     typealias State = KlaviyoState
     typealias Action = KlaviyoAction
 
-    /// Reduces `action`, then clears auth-token state when
-    /// ``IdentityTransition/classify(previous:next:)`` calls the resulting identity change a
-    /// replacement. An identity is only compared once the SDK is initialized.
     func reduce(into state: inout KlaviyoState, action: KlaviyoAction) -> EffectTask<KlaviyoAction> {
-        let previousIdentity = state.initializedIdentity
-        let effect = reduceAction(into: &state, action: action)
-        if let identity = state.initializedIdentity,
-           IdentityTransition.classify(previous: previousIdentity, next: identity) == .replacement {
-            klaviyoSwiftEnvironment.clearAuthTokenState()
-        }
-        return effect
-    }
-
-    private func reduceAction(
-        into state: inout KlaviyoState,
-        action: KlaviyoAction
-    ) -> EffectTask<KlaviyoAction> {
         if action.requiresInitialization,
            case .uninitialized = state.initalizationState {
             environment.emitDeveloperWarning("SDK must be initialized before usage.")
@@ -225,34 +211,14 @@ struct KlaviyoReducer: ReducerProtocol {
             state.initalizationState = .initialized
 
             state.pendingRequests = []
+            let replayEffects = pendingRequests.map { reduce(into: &state, action: $0.action) }
+            let lifecycleEffect = environment.lifecycleEventsWithReachability()
+                .map(\.transformToKlaviyoAction)
+                .eraseToEffect()
 
-            return .run { send in
-                for request in pendingRequests {
-                    switch request {
-                    case let .event(event):
-                        await send(.enqueueEvent(event))
-                    case let .aggregateEvent(payload):
-                        await send(.enqueueAggregateEvent(payload))
-                    case let .profile(profile):
-                        await send(.enqueueProfile(profile))
-                    case let .pushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .automaticPushToken(token, enablement):
-                        await send(.setPushToken(token, enablement))
-                    case let .setEmail(email):
-                        await send(.setEmail(email))
-                    case let .setExternalId(externalId):
-                        await send(.setExternalId(externalId))
-                    case let .setPhoneNumber(phoneNumber):
-                        await send(.setPhoneNumber(phoneNumber))
-                    case let .subscription(subscription):
-                        await send(.enqueueSubscription(subscription))
-                    }
-                }
-                await send(.start)
-            }
-            .merge(with: environment.lifecycleEventsWithReachability().map(\.transformToKlaviyoAction).eraseToEffect())
-            .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
+            return EffectTask.merge(replayEffects + [.run { send in await send(.start) }])
+                .merge(with: lifecycleEffect)
+                .merge(with: klaviyoSwiftEnvironment.stateChangePublisher().eraseToEffect())
 
         case let .setEmail(email):
             guard case .initialized = state.initalizationState else {
@@ -742,6 +708,30 @@ struct KlaviyoReducer: ReducerProtocol {
             state.enqueueRequest(request: request)
 
             return .none
+        }
+    }
+}
+
+extension KlaviyoState.PendingRequest {
+    /// The action that applies this request once the SDK is initialized.
+    fileprivate var action: KlaviyoAction {
+        switch self {
+        case let .event(event):
+            return .enqueueEvent(event)
+        case let .aggregateEvent(payload):
+            return .enqueueAggregateEvent(payload)
+        case let .profile(profile):
+            return .enqueueProfile(profile)
+        case let .pushToken(token, enablement), let .automaticPushToken(token, enablement):
+            return .setPushToken(token, enablement)
+        case let .setEmail(email):
+            return .setEmail(email)
+        case let .setExternalId(externalId):
+            return .setExternalId(externalId)
+        case let .setPhoneNumber(phoneNumber):
+            return .setPhoneNumber(phoneNumber)
+        case let .subscription(subscription):
+            return .enqueueSubscription(subscription)
         }
     }
 }

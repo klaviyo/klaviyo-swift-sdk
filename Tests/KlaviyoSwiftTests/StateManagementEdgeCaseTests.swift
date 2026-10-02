@@ -680,6 +680,43 @@ class StateManagementEdgeCaseTests: XCTestCase {
         }
     }
 
+    // MARK: - Identity transitions
+
+    @MainActor
+    func testReplayingQueuedRequestsAtInitializationMatchesSendingThemAfterwards() {
+        let event = Event(name: .openedAppMetric)
+        let aggregate = Data("aggregate".utf8)
+        let actions: [KlaviyoAction] = [
+            .enqueueEvent(event),
+            .setEmail("b@email.com"),
+            .setPushToken("blob_token", .authorized),
+            .enqueueAggregateEvent(aggregate),
+            .enqueueSubscription(.allAvailableMarketing(listId: "list-123")),
+            .enqueueProfile(Profile(email: "b@email.com", phoneNumber: "+15555555555")),
+            .enqueueEvent(Event(name: .viewedProductMetric))
+        ]
+        let persisted = identityTransitionState(email: "a@email.com")
+        var initializing = KlaviyoState(apiKey: TEST_API_KEY, queue: [], initalizationState: .initializing)
+
+        let replayed = Store(initialState: initializing, reducer: KlaviyoReducer())
+        for action in actions {
+            _ = replayed.send(action)
+        }
+        initializing = replayed.state.value
+        XCTAssertEqual(initializing.pendingRequests.count, actions.count)
+        _ = replayed.send(.completeInitialization(persisted))
+
+        let sequential = Store(initialState: persisted, reducer: KlaviyoReducer())
+        for action in actions {
+            _ = sequential.send(action)
+        }
+
+        XCTAssertEqual(replayed.state.value.queue, sequential.state.value.queue)
+        XCTAssertEqual(replayed.state.value.identity, sequential.state.value.identity)
+        XCTAssertEqual(replayed.state.value.pushTokenData, sequential.state.value.pushTokenData)
+        XCTAssertTrue(replayed.state.value.pendingRequests.isEmpty)
+    }
+
     // MARK: - enqueueProfile: conditional reset (push-token storm fix)
 
     @MainActor
@@ -927,6 +964,19 @@ class StateManagementEdgeCaseTests: XCTestCase {
             )
             $0.queue = [request]
         }
+    }
+}
+
+extension StateManagementEdgeCaseTests {
+    private func identityTransitionState(email: String? = nil) -> KlaviyoState {
+        KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: email,
+            anonymousId: "anonymous-A",
+            queue: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
     }
 }
 

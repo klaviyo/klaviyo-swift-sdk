@@ -14,7 +14,7 @@ import Combine
 import XCTest
 
 private let outgoingProfile = ProfileData(email: "old@example.com", anonymousId: "anon-old")
-private let incomingProfile = ProfileData(anonymousId: "anon-new")
+private let incomingProfile = ProfileData(email: "new@example.com", anonymousId: "anon-new")
 
 @MainActor
 final class IAFWebViewModelIdentityChangeTests: XCTestCase {
@@ -130,7 +130,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         _ = try await registerProviderAndWarmCache()
         _ = await provider.hold(invocation: 2)
         await makeViewModel()
-        let latestProfile = ProfileData(email: "new@example.com", anonymousId: "anon-latest")
+        let latestProfile = ProfileData(email: "latest@example.com", anonymousId: "anon-latest")
 
         IdentityStore.shared.update(incomingProfile)
         await provider.waitFor(invocations: 2)
@@ -144,17 +144,98 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(firstChangeToken) })
     }
 
-    func testAddingEmailToAnonymousProfileRefetchesToken() async throws {
+    func testAddingEmailToAnonymousProfileFetchesFirstToken() async throws {
         let anonymousProfile = ProfileData(anonymousId: "anon-old")
         let identifiedProfile = ProfileData(email: "new@example.com", anonymousId: "anon-old")
         IdentityStore.shared.update(anonymousProfile)
-        _ = try await registerProviderAndWarmCache()
+        try await registerProvider()
         await makeViewModel(profileData: anonymousProfile)
 
         await changeIdentity(to: identifiedProfile, writing: "new@example.com")
 
-        let identifiedToken = try await awaitDelivery(ofInvocation: 2)
+        let identifiedToken = try await awaitDelivery(ofInvocation: 1)
         assertOnlyTokenPushed(identifiedToken, afterProfileWriteContaining: "new@example.com")
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 1, "the provider must not be invoked while the profile is anonymous")
+    }
+
+    func testResetToAnonymousDropsTokenWithoutFetchingOrWritingOne() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+
+        await changeIdentity(to: ProfileData(anonymousId: "anon-reset"), writing: "anon-reset")
+
+        XCTAssertNil(viewModel.authToken)
+        XCTAssertTrue(delegate.authTokenScripts.isEmpty)
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 1)
+    }
+
+    func testCompatibleChangeRightAfterReplacementStillDeliversTokenForNewProfile() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+        let compatibleProfile = ProfileData(
+            email: "new@example.com",
+            phoneNumber: "+15551234567",
+            anonymousId: "anon-new"
+        )
+
+        IdentityStore.shared.update(incomingProfile)
+        IdentityStore.shared.update(compatibleProfile)
+        let incomingToken = try await awaitDelivery(ofInvocation: 2)
+
+        XCTAssertEqual(viewModel.profileData, compatibleProfile)
+        XCTAssertEqual(viewModel.authToken, incomingToken)
+        assertOnlyTokenPushed(incomingToken, afterProfileWriteContaining: "anon-new")
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(outgoingToken) })
+    }
+
+    func testTokenPublishedBeforePageHandledTheChangeIsRepublishedOnCacheHit() async throws {
+        IdentityStore.shared.update(incomingProfile)
+        _ = try await registerProviderAndWarmCache()
+        await makeViewModel(profileData: outgoingProfile)
+
+        await awaitProfileUpdate(writing: "anon-new")
+
+        let delivered = try await awaitDelivery(ofInvocation: 1)
+        assertOnlyTokenPushed(delivered, afterProfileWriteContaining: "anon-new")
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 1)
+    }
+
+    func testPushHeldOnPendingReplacementIsDeclinedWhenAnotherReplacementLands() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+        let profileWrite = delegate.holdScript(containing: "anon-new")
+        IdentityStore.shared.update(incomingProfile)
+        await profileWrite.reached.wait()
+        let heldToken = try makeTestJWT(subject: "held", validAt: clock.now())
+        let incomingGeneration = manager.currentIdentityGeneration
+        let held = Task { await self.viewModel.pushAuthToken(heldToken, generation: incomingGeneration) }
+        await Task.yield()
+        let latestProfile = ProfileData(email: "latest@example.com", anonymousId: "anon-latest")
+        IdentityStore.shared.update(latestProfile)
+        await profileWrite.release.open()
+
+        let wasWritten = await held.value
+        await awaitProfileUpdate(writing: "anon-latest")
+
+        XCTAssertFalse(wasWritten)
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(heldToken) })
+    }
+
+    func testPushFromOutgoingGenerationIsDeclinedAfterReplacement() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+        let outgoingGeneration = manager.currentIdentityGeneration
+        await changeIdentity(to: incomingProfile, writing: "anon-new")
+        let incomingToken = try await awaitDelivery(ofInvocation: 2)
+
+        let pushed = await viewModel.pushAuthToken(outgoingToken, generation: outgoingGeneration)
+
+        XCTAssertFalse(pushed)
+        XCTAssertEqual(viewModel.authToken, incomingToken)
+        XCTAssertFalse(delegate.authTokenScripts.contains { $0.contains(outgoingToken) })
     }
 
     func testSameTokenAfterReplacementIsDeliveredAgain() async throws {
@@ -186,16 +267,12 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         IdentityStore.shared.update(incomingProfile)
         await profileWrite.reached.wait()
         // Another consumer's fetch publishes a token while the profile write is in flight.
-        await manager.clearTokenState()
         let otherFetchToken = try await manager.currentToken(mode: .background)
-        let directPush = Task { await self.viewModel.pushAuthToken(otherFetchToken) }
         await profileWrite.release.open()
 
-        let wasWritten = await directPush.value
-        XCTAssertFalse(wasWritten)
-        let incomingToken = try await awaitDelivery(ofInvocation: 3)
-        assertOnlyTokenPushed(incomingToken, afterProfileWriteContaining: "anon-new")
-        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(otherFetchToken) })
+        let delivered = try await awaitDelivery(ofInvocation: 2)
+        XCTAssertEqual(delivered, otherFetchToken)
+        assertOnlyTokenPushed(otherFetchToken, afterProfileWriteContaining: "anon-new")
     }
 
     func testPushIsDeclinedWhileIdentityStoreIsAheadOfPage() async throws {
@@ -204,7 +281,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         let staleToken = try makeTestJWT(subject: "stale", validAt: clock.now())
 
         IdentityStore.shared.update(incomingProfile)
-        let wasWritten = await viewModel.pushAuthToken(staleToken)
+        let wasWritten = await viewModel.pushAuthToken(staleToken, generation: manager.currentIdentityGeneration)
 
         XCTAssertFalse(wasWritten)
         XCTAssertEqual(viewModel.authToken, outgoingToken)
