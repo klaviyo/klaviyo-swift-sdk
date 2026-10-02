@@ -6,8 +6,8 @@
 //  de-duplication, teardown and `refreshJwt` replacement.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoForms
-import KlaviyoCore
 import XCTest
 
 @MainActor
@@ -303,7 +303,6 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         }
 
         live.viewModel.receiveRefreshJwt()
-        await live.viewModel.pendingAuthTokenRefresh?.value
 
         try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
         await Task.yield()
@@ -323,12 +322,15 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         }
 
         live.viewModel.receiveRefreshJwt()
-        await live.viewModel.pendingAuthTokenRefresh?.value
+        await assertEventually {
+            let providerCalled = await counter.value >= 2
+            let refreshing = await live.authTokenManager.isRefreshingRejectedTokenForTesting
+            return providerCalled && !refreshing
+        }
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
 
         live.viewModel.receiveRefreshJwt()
-        await live.viewModel.pendingAuthTokenRefresh?.value
 
         try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
         await Task.yield()
@@ -341,6 +343,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         let manager: IAFPresentationManager
         let viewModel: IAFWebViewModel
         let delegate: MockIAFWebViewDelegate
+        let authTokenManager: AuthTokenManager
     }
 
     /// Builds a live WebView showing `initialToken` for the current identity, with
@@ -368,6 +371,11 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             from: authTokenManager
         )
         manager.startTokenDelivery()
-        return LiveWebView(manager: manager, viewModel: viewModel, delegate: delegate)
+        return LiveWebView(
+            manager: manager,
+            viewModel: viewModel,
+            delegate: delegate,
+            authTokenManager: authTokenManager
+        )
     }
 }

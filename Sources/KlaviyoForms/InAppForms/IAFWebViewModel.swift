@@ -31,10 +31,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private let assetSource: String?
     private let authTokenManager: AuthTokenManager
 
-    /// The in-flight replacement of a rejected auth token, or `nil` when none is
-    /// running. While set, further `refreshJwt` signals are dropped.
-    @MainActor private(set) var pendingAuthTokenRefresh: Task<Void, Never>?
-
     private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
@@ -484,25 +480,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'refreshJwt' event from KlaviyoJS")
             }
-            refreshRejectedAuthToken()
-        }
-    }
-
-    /// Asks the auth token manager to replace the token KlaviyoJS reports as
-    /// rejected. The replacement reaches the live WebView through the manager's
-    /// refresh stream. Drops the signal if a replacement is already running.
-    @MainActor
-    private func refreshRejectedAuthToken() {
-        guard pendingAuthTokenRefresh == nil else {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Ignoring 'refreshJwt': an auth token refresh is already running")
+            Task { [authTokenManager] in
+                await authTokenManager.refreshRejectedToken()
             }
-            return
-        }
-        let authTokenManager = authTokenManager
-        pendingAuthTokenRefresh = Task { @MainActor [weak self] in
-            await authTokenManager.refreshRejectedToken()
-            self?.pendingAuthTokenRefresh = nil
         }
     }
 
