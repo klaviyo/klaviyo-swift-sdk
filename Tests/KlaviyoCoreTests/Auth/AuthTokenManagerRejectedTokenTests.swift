@@ -83,7 +83,9 @@ struct AuthTokenManagerRejectedTokenTests {
             await secondReturns.increment()
             return await manager.isCurrentToken(replacement)
         }
-        try await Task.sleep(nanoseconds: 200_000_000)
+        let joined = await yieldUntil { await manager.joinedRejectedTokenRefreshesForTesting == 1 }
+        try #require(joined, "the overlapping call never joined the running replacement")
+        await yieldRepeatedly()
         let returnsWhileParked = await secondReturns.value
         #expect(
             returnsWhileParked == 0,
@@ -368,6 +370,18 @@ extension AuthTokenManagerRejectedTokenTests {
         for _ in 0..<100 {
             await Task.yield()
         }
+    }
+
+    /// Yields until `condition` holds, up to `maxYields` times. Returns whether it held.
+    private func yieldUntil(
+        maxYields: Int = 100_000,
+        _ condition: () async -> Bool
+    ) async -> Bool {
+        for _ in 0..<maxYields {
+            if await condition() { return true }
+            await Task.yield()
+        }
+        return await condition()
     }
 }
 #endif

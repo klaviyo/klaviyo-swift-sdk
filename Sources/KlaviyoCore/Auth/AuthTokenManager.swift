@@ -109,6 +109,10 @@ package actor AuthTokenManager {
         rejectedTokenRefresh != nil
     }
 
+    /// Test-only count of ``refreshRejectedToken()`` calls that joined a running
+    /// replacement instead of starting one. Not package API.
+    private(set) var joinedRejectedTokenRefreshesForTesting = 0
+
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
     /// deterministically await the wait being *armed* (which lands asynchronously
     /// in the failure path) instead of racing it with fixed yields. Not package API.
@@ -899,6 +903,7 @@ extension AuthTokenManager {
     /// waits on that replacement's bound instead.
     func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
         if let running = rejectedTokenRefresh {
+            joinedRejectedTokenRefreshesForTesting += 1
             await running.task.value
             return
         }
