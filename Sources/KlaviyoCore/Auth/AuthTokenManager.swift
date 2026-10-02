@@ -655,8 +655,12 @@ package actor AuthTokenManager {
     }
 
     /// Creates a new in-flight fetch task for identity `generation`, stores it on the
-    /// actor, and returns it. Must be called from actor-isolated context.
+    /// actor, and returns it. Cancels the fetch it replaces when that one is for an earlier
+    /// generation. Must be called from actor-isolated context.
     private func startFetch(generation: UInt64) -> Task<String, Error> {
+        if let inFlight, inFlight.generation < generation {
+            inFlight.task.cancel()
+        }
         let fetchID = UUID()
         let task = Task<String, Error> { [weak self] in
             guard let self else { throw CancellationError() }
