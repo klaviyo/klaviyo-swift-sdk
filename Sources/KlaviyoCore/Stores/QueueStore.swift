@@ -211,14 +211,14 @@ public final class QueueStore {
         }
     }
 
-    /// Counts the same per-request JSON representation used by queue persistence. If encoding ever
-    /// fails, treating the request as oversized preserves the queue bound while still admitting it.
+    /// Counts the same per-request JSON representation used by queue persistence. An unmeasurable
+    /// request counts as 0 bytes so it can't evict the backlog; the count cap still bounds it.
     private func size(of request: KlaviyoRequest) -> Int {
         do {
             return try serializedSize(request)
         } catch {
-            emitWarning("QueueStore: failed to measure serialized request (\(error)); treating as oversized")
-            return Self.maxQueueBytes + 1
+            emitWarning("QueueStore: failed to measure serialized request (\(error)); counting as 0 bytes")
+            return 0
         }
     }
 

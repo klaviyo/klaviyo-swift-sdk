@@ -61,4 +61,18 @@ final class QueueStoreByteBudgetTests: XCTestCase {
         XCTAssertEqual(store.requests.map(\.id), ["newer", "last"])
         XCTAssertEqual(store.byteCount, requestSize * 2)
     }
+
+    func testUnmeasurableRequestDoesNotEvictBacklog() {
+        struct MeasureError: Error {}
+        let store = makeStore { request in
+            if request.id == "bad" { throw MeasureError() }
+            return 100
+        }
+
+        store.enqueue(request("existing", at: 1))
+        store.enqueue(request("bad", at: 2))
+
+        XCTAssertEqual(store.requests.map(\.id), ["existing", "bad"])
+        XCTAssertEqual(store.byteCount, 100)
+    }
 }
