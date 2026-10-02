@@ -10,7 +10,7 @@ IOS_RUNTIME = iOS 18
 IOS_RUNTIME_RESOLVED = $(call newest_ios_runtime,$(IOS_RUNTIME))
 IOS_UDID = $(call udid_for,$(IOS_RUNTIME_RESOLVED),iPhone \d\+ Pro [^M])
 PLATFORM_IOS = iOS Simulator,id=$(IOS_UDID)
-XCODE_CONFIG = $(if $(filter release Release,$(CONFIG)),Release,Debug)
+XCODE_CONFIG = $(if $(filter release Release,$(CONFIG)),Release,$(if $(filter debug Debug,$(CONFIG)),Debug,$(error Unknown CONFIG '$(CONFIG)', expected debug or release)))
 
 
 default: test-all
