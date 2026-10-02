@@ -122,7 +122,7 @@ final class KlaviyoStateTests: XCTestCase {
         }
 
         let state = loadKlaviyoStateFromDisk(apiKey: "foo")
-        assertSnapshot(matching: state, as: .dump)
+        assertSnapshot(matching: state, as: .dump, named: buildConfigurationSnapshotName)
     }
 
     func testFullKlaviyoStateEncodingDecodingIsEqual() throws {
