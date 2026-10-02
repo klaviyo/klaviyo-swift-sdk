@@ -187,6 +187,30 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         await assertActiveWebViewSurvives(apiKey: "only-key")
     }
 
+    func testFormEventFromReplacedWebViewDoesNotTearDownActiveWebView() async throws {
+        try await gateTokenFetch()
+        let first = startBuild(apiKey: "first-key")
+        await waitForParkedBuilds(1)
+        await gate.releaseAll()
+        let firstInstalled = try await first.value
+        let replaced = try XCTUnwrap(activeViewModel)
+
+        let second = startBuild(apiKey: "second-key")
+        await waitForParkedBuilds(2)
+        await gate.releaseAll()
+        let secondInstalled = try await second.value
+        let active = try XCTUnwrap(activeViewModel)
+        XCTAssertTrue(firstInstalled)
+        XCTAssertTrue(secondInstalled)
+
+        manager.dispatchFormEvent(.abort, from: replaced)
+        XCTAssertNotNil(manager.viewController, "A replaced webview's abort must not tear down the active one")
+        XCTAssertEqual(activeViewModel?.apiKey, "second-key")
+
+        manager.dispatchFormEvent(.abort, from: active)
+        XCTAssertNil(manager.viewController, "The active webview's own abort still tears it down")
+    }
+
     func testOverlappingBuildsInstallOnlyLatestAndKeepItAlive() async throws {
         try await gateTokenFetch()
 

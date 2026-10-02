@@ -305,7 +305,7 @@ class IAFPresentationManager {
         formEventTask = Task { [weak self] in
             guard let self else { return }
             for await event in viewModel.formLifecycleStream {
-                self.handleFormEvent(event)
+                self.dispatchFormEvent(event, from: viewModel)
             }
         }
 
@@ -344,6 +344,12 @@ class IAFPresentationManager {
     func handleHandshakeFailure(for failedViewModel: IAFWebViewModel) {
         guard viewModel === failedViewModel else { return }
         destroyWebviewAndListeners()
+    }
+
+    /// Handles `event` only if `source` is still the active view model.
+    func dispatchFormEvent(_ event: IAFLifecycleEvent, from source: IAFWebViewModel) {
+        guard viewModel === source else { return }
+        handleFormEvent(event)
     }
 
     func handleFormEvent(_ event: IAFLifecycleEvent) {
