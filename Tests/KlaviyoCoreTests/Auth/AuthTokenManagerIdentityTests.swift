@@ -240,6 +240,95 @@ struct AuthTokenManagerIdentityTests {
         #expect(invocations == 1)
     }
 
+    // MARK: - Republish
+
+    @Test
+    func republishDeliversCachedTokenAgainAndIgnoresAStaleGeneration() async throws {
+        let identity = IdentityStore(initialIdentity: profileA)
+        let manager = makeUnboundedManager(identity: identity)
+        let counter = CallCounter()
+        await manager.registerProvider {
+            let invocation = await counter.increment()
+            return try makeJWT(extraClaims: ["sub": "token-\(invocation)"])
+        }
+        let outgoing = try await manager.currentTokenRefresh(mode: .background)
+        let stream = await manager.tokens()
+        var iterator = stream.makeAsyncIterator()
+
+        await manager.republish(outgoing)
+        let republished = await iterator.next()
+        identity.update(profileB)
+        await manager.republish(outgoing)
+        let incoming = try await manager.currentToken(mode: .background)
+        let next = await iterator.next()
+
+        #expect(republished == outgoing.token)
+        #expect(next == incoming, "a token of an outgoing generation must not be republished")
+        #expect(incoming != outgoing.token)
+    }
+
+    @Test
+    func rejectedTokenRefreshWhileAnonymousNeitherCallsProviderNorPublishes() async throws {
+        let identity = IdentityStore(initialIdentity: anonymous)
+        let manager = makeUnboundedManager(identity: identity)
+        let counter = CallCounter()
+        let token = try makeJWT()
+        await manager.registerProvider {
+            await counter.increment()
+            return token
+        }
+        let stream = await manager.tokens()
+        var iterator = stream.makeAsyncIterator()
+
+        await manager.refreshRejectedToken()
+        identity.update(profileA)
+        let published = await iterator.next()
+
+        let invocations = await counter.value
+        #expect(published == token)
+        #expect(invocations == 1, "only the warm-up after identification may call the provider")
+    }
+
+    // MARK: - Stale reads
+
+    @Test
+    func staleIdentityReadDoesNotMoveGenerationBackwards() {
+        let identity = ControllableIdentity(VersionedProfile(profile: profileA, sequence: 0))
+        let tracker = IdentityGenerationTracker(identity: identity)
+        identity.emit(VersionedProfile(profile: profileB, sequence: 1))
+        let afterReplacement = tracker.snapshot()
+
+        identity.setStaleRead(VersionedProfile(profile: profileA, sequence: 0))
+        let afterStaleRead = tracker.snapshot()
+
+        #expect(afterReplacement.profile == profileB)
+        #expect(afterReplacement.generation == 1)
+        #expect(afterStaleRead == afterReplacement)
+    }
+
+    @Test
+    func lateDeliveryOfOlderValueIsIgnored() {
+        let identity = ControllableIdentity(VersionedProfile(profile: profileA, sequence: 0))
+        let tracker = IdentityGenerationTracker(identity: identity)
+        identity.emit(VersionedProfile(profile: profileB, sequence: 2))
+
+        identity.emit(VersionedProfile(profile: profileA, sequence: 1))
+
+        let snapshot = tracker.snapshot()
+        #expect(snapshot.profile == profileB)
+        #expect(snapshot.generation == 1)
+    }
+
+    private var profileB: ProfileData {
+        ProfileData(email: "b@example.com", anonymousId: "anon-b")
+    }
+
+    private var refSeconds: TimeInterval {
+        referenceDate.timeIntervalSince1970
+    }
+}
+
+extension AuthTokenManagerIdentityTests {
     // MARK: - Replacement clear arriving late
 
     @Test
@@ -335,93 +424,6 @@ struct AuthTokenManagerIdentityTests {
         let invocations = await counter.value
         #expect(served == token)
         #expect(invocations == 1)
-    }
-
-    // MARK: - Republish
-
-    @Test
-    func republishDeliversCachedTokenAgainAndIgnoresAStaleGeneration() async throws {
-        let identity = IdentityStore(initialIdentity: profileA)
-        let manager = makeUnboundedManager(identity: identity)
-        let counter = CallCounter()
-        await manager.registerProvider {
-            let invocation = await counter.increment()
-            return try makeJWT(extraClaims: ["sub": "token-\(invocation)"])
-        }
-        let outgoing = try await manager.currentTokenRefresh(mode: .background)
-        let stream = await manager.tokens()
-        var iterator = stream.makeAsyncIterator()
-
-        await manager.republish(outgoing)
-        let republished = await iterator.next()
-        identity.update(profileB)
-        await manager.republish(outgoing)
-        let incoming = try await manager.currentToken(mode: .background)
-        let next = await iterator.next()
-
-        #expect(republished == outgoing.token)
-        #expect(next == incoming, "a token of an outgoing generation must not be republished")
-        #expect(incoming != outgoing.token)
-    }
-
-    @Test
-    func rejectedTokenRefreshWhileAnonymousNeitherCallsProviderNorPublishes() async throws {
-        let identity = IdentityStore(initialIdentity: anonymous)
-        let manager = makeUnboundedManager(identity: identity)
-        let counter = CallCounter()
-        let token = try makeJWT()
-        await manager.registerProvider {
-            await counter.increment()
-            return token
-        }
-        let stream = await manager.tokens()
-        var iterator = stream.makeAsyncIterator()
-
-        await manager.refreshRejectedToken()
-        identity.update(profileA)
-        let published = await iterator.next()
-
-        let invocations = await counter.value
-        #expect(published == token)
-        #expect(invocations == 1, "only the warm-up after identification may call the provider")
-    }
-
-    // MARK: - Stale reads
-
-    @Test
-    func staleIdentityReadDoesNotMoveGenerationBackwards() {
-        let identity = ControllableIdentity(VersionedProfile(profile: profileA, sequence: 0))
-        let tracker = IdentityGenerationTracker(identity: identity)
-        identity.emit(VersionedProfile(profile: profileB, sequence: 1))
-        let afterReplacement = tracker.snapshot()
-
-        identity.setStaleRead(VersionedProfile(profile: profileA, sequence: 0))
-        let afterStaleRead = tracker.snapshot()
-
-        #expect(afterReplacement.profile == profileB)
-        #expect(afterReplacement.generation == 1)
-        #expect(afterStaleRead == afterReplacement)
-    }
-
-    @Test
-    func lateDeliveryOfOlderValueIsIgnored() {
-        let identity = ControllableIdentity(VersionedProfile(profile: profileA, sequence: 0))
-        let tracker = IdentityGenerationTracker(identity: identity)
-        identity.emit(VersionedProfile(profile: profileB, sequence: 2))
-
-        identity.emit(VersionedProfile(profile: profileA, sequence: 1))
-
-        let snapshot = tracker.snapshot()
-        #expect(snapshot.profile == profileB)
-        #expect(snapshot.generation == 1)
-    }
-
-    private var profileB: ProfileData {
-        ProfileData(email: "b@example.com", anonymousId: "anon-b")
-    }
-
-    private var refSeconds: TimeInterval {
-        referenceDate.timeIntervalSince1970
     }
 }
 #endif
