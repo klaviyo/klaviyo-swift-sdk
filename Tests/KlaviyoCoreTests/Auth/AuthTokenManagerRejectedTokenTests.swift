@@ -151,6 +151,50 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
+    func companyChangeEndsTheSharedReplacement() async throws {
+        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
+        let tokenA = try makeJWT(extraClaims: ["sub": "A"])
+        let tokenB = try makeJWT(extraClaims: ["sub": "B"])
+        let hungFetchStarted = Latch()
+        let releaseHungFetch = Latch()
+        let calls = CallCounter()
+        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        await manager.registerProvider {
+            switch await calls.increment() {
+            case 1:
+                return tokenA
+            case 2:
+                await hungFetchStarted.open()
+                await releaseHungFetch.wait()
+                return tokenA
+            default:
+                return tokenB
+            }
+        }
+        let warm = try await manager.currentToken(mode: .background)
+        try #require(warm == tokenA)
+        let watchdog = Watchdog(opening: hungFetchStarted, releaseHungFetch)
+        defer { watchdog.cancel() }
+
+        let hung = Task { await manager.refreshRejectedToken(timeoutSeconds: 60) }
+        await hungFetchStarted.wait()
+        config.update(KlaviyoConfig(apiKey: "B"))
+        let afterSwitch = try await manager.currentToken(mode: .background)
+        #expect(afterSwitch == tokenB)
+        await manager.refreshRejectedToken()
+
+        let fired = await watchdog.fired
+        #expect(!fired, "a call after a company change must not wait on the replacement it ended")
+        let invocations = await calls.value
+        #expect(invocations == 4)
+        let cached = await manager.isCurrentToken(tokenB)
+        #expect(cached)
+        await releaseHungFetch.open()
+        await hung.value
+        await manager.unregisterProvider()
+    }
+
+    @Test
     func failedRefreshesMakeOneCallEachAndStillDropTheRejectedToken() async throws {
         let replacement = try token("replacement")
         let fixture = try await makeWarmFixture { call in
