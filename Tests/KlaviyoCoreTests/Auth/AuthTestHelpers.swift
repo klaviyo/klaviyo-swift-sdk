@@ -110,11 +110,6 @@ extension AuthTokenManager {
             continuation.onTermination = { _ in forwarding.cancel() }
         }
     }
-
-    /// Whether `token` is what ``currentToken(mode:)`` returns now. A cache miss calls the provider.
-    func isCurrentToken(_ token: String) async -> Bool {
-        await (try? currentToken(mode: .interactive)) == token
-    }
 }
 
 /// Records whether the task that called ``record(_:)`` was cancelled, and lets a test await it.

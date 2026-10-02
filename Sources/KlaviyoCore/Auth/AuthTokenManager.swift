@@ -524,6 +524,15 @@ package actor AuthTokenManager {
         }
     }
 
+    /// Whether `token` is the currently cached token of the current identity generation.
+    /// `false` once the cache has been cleared or replaced, or once a profile change has moved
+    /// the generation past the cached token's.
+    package func isCurrentToken(_ token: String) -> Bool {
+        guard let cachedToken else { return false }
+        return cachedToken.token.rawToken == token
+            && cachedToken.generation == identityTracker.snapshot().generation
+    }
+
     /// Publishes `refresh` on ``refreshes()`` again when it is still the cached token of the
     /// current identity generation, so a consumer that declined or missed it receives it
     /// again. Does nothing otherwise.
