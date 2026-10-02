@@ -312,54 +312,61 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after success")
     }
 
-    /// A rate-limit error records a durable countdown backoff and restores the request to
+    /// A rate-limit error records an absolute per-lane deadline and restores the request to
     /// `QueueStore` (it stays on disk, not held in memory). It is NOT re-sent on the same tick. The
-    /// countdown gate at the top of `flush()` decrements the backoff by `flushInterval` each tick;
-    /// once it elapses the request is promoted to `.retry(requestCount)`, drained, and resent — with
-    /// `attemptNumber` advanced (`sentAttempts == [1, 2]`). Driven by repeated `flushNow()` ticks; no
-    /// run loop or recording clock is involved.
+    /// deadline gate at the top of `flush()` skips the lane while `now < deadline`; once the clock
+    /// passes the deadline the request is promoted to `.retry(requestCount)`, drained, and resent —
+    /// with `attemptNumber` advanced (`sentAttempts == [1, 2]`). Driven by repeated `flushNow()`
+    /// ticks with a controlled clock; no run loop or real sleeps are involved.
     func testRateLimitCountsDownBackoffThenResends() async {
         QueueStore.register(makeQueueStore())
-        // backoff 25s, wifi interval 10s → gate needs 25→15→5→0 to elapse across ticks.
+        let testClock = TestClock()
+        // backoff 25s → the lane's deadline lands 25s after the failure.
         let spy = SendSpy(results: [
             .failure(.rateLimitError(backOff: 25)),
             .success(Data())
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: spy.send)
 
         // Tick 1: send fails with rate-limit; the request is restored to the durable queue, not resent.
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["rate"], "sent once; not resent on the same tick")
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["rate"],
-                       "rate-limited request must be restored to the durable queue during the countdown")
+                       "rate-limited request must be restored to the durable queue during the backoff")
 
-        // Ticks 2 & 3: the gate counts the backoff down (25→15→5) and skips the flush; no new send.
+        // Ticks 2 & 3 (t=10s, t=20s): before the 25s deadline, the lane is skipped — no new send.
+        testClock.advance(by: 10)
         await queue.flushNow()
+        testClock.advance(by: 10)
         await queue.flushNow()
-        XCTAssertEqual(spy.sentIds, ["rate"], "no resend while the backoff is still counting down")
+        XCTAssertEqual(spy.sentIds, ["rate"], "no resend before the backoff deadline")
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["rate"],
-                       "request stays durable in the queue across the countdown ticks")
+                       "request stays durable in the queue until the deadline passes")
 
-        // Tick 4: backoff elapses (5→0), promotes to `.retry(2)`, drains + resends → success + dequeue.
+        // Tick 4 (t=25s): the deadline has passed; the lane promotes to `.retry(2)`, drains +
+        // resends → success + dequeue.
+        testClock.advance(by: 5)
         await queue.flushNow()
-        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resent once the backoff elapsed")
+        XCTAssertEqual(spy.sentIds, ["rate", "rate"], "resent once the backoff deadline passed")
         XCTAssertEqual(spy.sentAttempts, [1, 2],
                        "attemptNumber must advance across the backoff retry, not freeze at 1")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
-    /// A server error behaves like a rate-limit: record the countdown backoff, restore the request,
-    /// count it down over ticks, then resend.
+    /// A server error behaves like a rate-limit: record the absolute backoff deadline, restore the
+    /// request, wait the deadline out, then resend. A sub-interval backoff is floored at the
+    /// network tier's flush interval (10s Wi-Fi), matching the old countdown gate.
     func testServerErrorCountsDownBackoffThenResends() async {
         QueueStore.register(makeQueueStore())
-        // backoff 5s, wifi interval 10s → one countdown tick (5→0) elapses it.
+        let testClock = TestClock()
+        // backoff 5s, wifi floor 10s → the lane's deadline lands 10s after the failure.
         let spy = SendSpy(results: [
             .failure(.serverError(statusCode: 503, backOff: 5)),
             .success(Data())
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "srv"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue(clock: .immediate(now: { testClock.now }), send: spy.send)
 
         // Tick 1: send fails; the request is restored to the durable queue, not resent.
         await queue.flushNow()
@@ -367,9 +374,15 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["srv"],
                        "server-errored request must be restored to the durable queue during the backoff")
 
-        // Tick 2: backoff elapses (5→0), promotes to `.retry`, drains + resends → success + dequeue.
+        // Tick 2 (t=5s): the raw backoff elapsed but the 10s floor has not — still gated.
+        testClock.advance(by: 5)
         await queue.flushNow()
-        XCTAssertEqual(spy.sentIds, ["srv", "srv"], "resent once the backoff elapsed")
+        XCTAssertEqual(spy.sentIds, ["srv"], "the network-tier floor still gates a sub-interval backoff")
+
+        // Tick 3 (t=10s): the floored deadline has passed; the lane drains + resends → dequeue.
+        testClock.advance(by: 5)
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["srv", "srv"], "resent once the floored deadline passed")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
@@ -730,11 +743,12 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(parking.sentIds, ["leased"], "the head was sent exactly once, not re-processed")
     }
 
-    /// Durability during the countdown backoff is inherent: after a rate-limit failure the request is
-    /// restored to `QueueStore` (on disk) and only the retry bookkeeping lives in memory. There is no
-    /// backoff sleep to be interrupted, so a `stop()` mid-wait is trivially safe — the request is
-    /// already durable in the store. This asserts the synchronous restore hit disk and the store holds
-    /// the request while the backoff counts down, so nothing can be stranded in memory across shutdown.
+    /// Durability during the backoff wait is inherent: after a rate-limit failure the request is
+    /// restored to `QueueStore` (on disk) and only the retry bookkeeping (and the runtime-only
+    /// deadline) lives in memory. The deadline wake is a separate cancellable task, so a `stop()`
+    /// mid-wait is trivially safe — the request is already durable in the store. This asserts the
+    /// synchronous restore hit disk and the store holds the request while the deadline is pending,
+    /// so nothing can be stranded in memory across shutdown.
     func testBackoffKeepsRequestDurableInQueueStore() async {
         let diskSpy = WriteSpyDiskIO()
         QueueStore.register(makeQueueStore(diskIO: diskSpy))
@@ -751,7 +765,7 @@ final class RequestQueueTests: XCTestCase {
                        "the rate-limited request must be restored to QueueStore synchronously")
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["durable"],
                        "request stays durable in the store during the backoff wait, not held in memory")
-        XCTAssertEqual(spy.sentIds, ["durable"], "sent once; the backoff is counted down, not slept")
+        XCTAssertEqual(spy.sentIds, ["durable"], "sent once; the backoff is gated on a deadline, not slept")
 
         // A `stop()` mid-wait is trivially safe: the request is already on disk, in-flight is empty.
         await queue.stop()
