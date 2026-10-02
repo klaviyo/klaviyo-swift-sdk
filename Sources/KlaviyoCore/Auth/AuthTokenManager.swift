@@ -97,6 +97,18 @@ package actor AuthTokenManager {
     /// queue multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()``.
     private var isAwaitingConnectivityRetry = false
 
+    /// The running ``refreshRejectedToken()`` replacement, paired with the `id` that
+    /// names it so only that run clears the slot when it finishes. Overlapping calls
+    /// await `task` instead of starting their own replacement. Cleared by
+    /// ``cancelInFlightWorkAndClearCache()``.
+    private var rejectedTokenRefresh: (id: UUID, task: Task<Void, Never>)?
+
+    /// Test-only window onto ``rejectedTokenRefresh`` so suites can await a
+    /// rejected-token replacement finishing. Not package API.
+    var isRefreshingRejectedTokenForTesting: Bool {
+        rejectedTokenRefresh != nil
+    }
+
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
     /// deterministically await the wait being *armed* (which lands asynchronously
     /// in the failure path) instead of racing it with fixed yields. Not package API.
@@ -396,6 +408,7 @@ package actor AuthTokenManager {
         refreshAtWallClock = nil
         activeScheduledRefreshID = nil
         isAwaitingConnectivityRetry = false
+        rejectedTokenRefresh = nil
         cachedToken = nil
     }
 
@@ -866,6 +879,10 @@ extension AuthTokenManager {
     /// registered, when the fetch fails, or when ``clearTokenState()`` or
     /// ``registerProvider(_:)`` cancels the fetch mid-flight.
     ///
+    /// Overlapping calls share one replacement: a call made while another is running
+    /// discards nothing and waits for that one to finish. ``clearTokenState()`` and
+    /// ``registerProvider(_:)`` end the sharing, so the next call starts its own.
+    ///
     /// The wait is bounded by ``FetchMode/background``. On timeout this returns; the
     /// fetch keeps running and still caches and publishes its token if it eventually
     /// succeeds.
@@ -878,8 +895,14 @@ extension AuthTokenManager {
     }
 
     /// ``refreshRejectedToken()`` with the wait bounded by `timeoutSeconds`
-    /// instead of ``FetchMode/background``.
+    /// instead of ``FetchMode/background``. A call that joins a running replacement
+    /// waits on that replacement's bound instead.
     func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
+        if let running = rejectedTokenRefresh {
+            await running.task.value
+            return
+        }
+
         discardCachedToken()
 
         guard provider != nil else {
@@ -889,9 +912,30 @@ extension AuthTokenManager {
             return
         }
 
-        let task = inFlight?.task ?? startFetch()
+        let fetch = inFlight?.task ?? startFetch()
+        let refreshID = UUID()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.awaitReplacement(from: fetch, timeoutSeconds: timeoutSeconds, refreshID: refreshID)
+        }
+        rejectedTokenRefresh = (id: refreshID, task: task)
+        await task.value
+    }
+
+    /// Waits up to `timeoutSeconds` for `fetch`, then clears ``rejectedTokenRefresh``
+    /// if it still names `refreshID`.
+    private func awaitReplacement(
+        from fetch: Task<String, Error>,
+        timeoutSeconds: TimeInterval,
+        refreshID: UUID
+    ) async {
+        defer {
+            if rejectedTokenRefresh?.id == refreshID {
+                rejectedTokenRefresh = nil
+            }
+        }
         do {
-            _ = try await race(fetch: task, timeoutSeconds: timeoutSeconds)
+            _ = try await race(fetch: fetch, timeoutSeconds: timeoutSeconds)
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: replaced rejected token")
             }

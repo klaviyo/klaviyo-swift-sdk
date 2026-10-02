@@ -60,6 +60,97 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
+    func overlappingCallsShareOneReplacement() async throws {
+        let replacement = try token("replacement")
+        let fetchStarted = Latch()
+        let releaseFetch = Latch()
+        let fixture = try await makeWarmFixture { _ in
+            await fetchStarted.open()
+            await releaseFetch.wait()
+            return replacement
+        }
+        let manager = fixture.manager
+        let watchdog = Watchdog(opening: fetchStarted, releaseFetch)
+        defer { watchdog.cancel() }
+
+        let first = Task { await manager.refreshRejectedToken() }
+        await fetchStarted.wait()
+        let firedBeforeFetch = await watchdog.fired
+        try #require(!firedBeforeFetch, "the refresh never called the provider")
+        let secondReturns = CallCounter()
+        let second = Task {
+            await manager.refreshRejectedToken(timeoutSeconds: 0)
+            await secondReturns.increment()
+            return await manager.isCurrentToken(replacement)
+        }
+        try await Task.sleep(nanoseconds: 200_000_000)
+        let returnsWhileParked = await secondReturns.value
+        #expect(
+            returnsWhileParked == 0,
+            "an overlapping call must wait for the shared replacement, not its own budget"
+        )
+        await releaseFetch.open()
+        await first.value
+
+        let secondSawReplacement = await second.value
+        #expect(secondSawReplacement)
+        let invocations = await fixture.counter.value
+        #expect(invocations == 2, "expected one provider call for both, saw \(invocations - 1)")
+        let delivered = await firstElement(of: fixture.refreshes)
+        #expect(delivered == replacement)
+    }
+
+    @Test
+    func callAfterTheSharedReplacementFinishedStartsANewOne() async throws {
+        let firstReplacement = try token("first")
+        let secondReplacement = try token("second")
+        let fixture = try await makeWarmFixture { call in
+            call == 2 ? firstReplacement : secondReplacement
+        }
+
+        await fixture.manager.refreshRejectedToken()
+        await fixture.manager.refreshRejectedToken()
+
+        let invocations = await fixture.counter.value
+        #expect(invocations == 3, "expected one provider call per finished replacement")
+        let served = try await fixture.manager.currentToken(mode: .background)
+        #expect(served == secondReplacement)
+    }
+
+    @Test
+    func resetEndsTheSharedReplacement() async throws {
+        let replacement = try token("replacement")
+        let hungFetchStarted = Latch()
+        let releaseHungFetch = Latch()
+        let fixture = try await makeWarmFixture { call in
+            if call == 2 {
+                await hungFetchStarted.open()
+                await releaseHungFetch.wait()
+            }
+            return replacement
+        }
+        let manager = fixture.manager
+        let watchdog = Watchdog(opening: hungFetchStarted, releaseHungFetch)
+        defer { watchdog.cancel() }
+
+        let hung = Task { await manager.refreshRejectedToken(timeoutSeconds: 60) }
+        await hungFetchStarted.wait()
+        let firedBeforeFetch = await watchdog.fired
+        try #require(!firedBeforeFetch, "the refresh never called the provider")
+        await manager.clearTokenState()
+        await manager.refreshRejectedToken()
+
+        let fired = await watchdog.fired
+        #expect(!fired, "a call after a reset must not wait on the replacement the reset ended")
+        let invocations = await fixture.counter.value
+        #expect(invocations == 3)
+        let cached = await manager.isCurrentToken(replacement)
+        #expect(cached)
+        await releaseHungFetch.open()
+        await hung.value
+    }
+
+    @Test
     func failedRefreshesMakeOneCallEachAndStillDropTheRejectedToken() async throws {
         let replacement = try token("replacement")
         let fixture = try await makeWarmFixture { call in
@@ -118,18 +209,12 @@ struct AuthTokenManagerRejectedTokenTests {
             await releaseFetch.wait()
             return replacement
         }
-        let watchdogFires = CallCounter()
-        let watchdog = Task {
-            try? await Task.sleep(nanoseconds: 60_000_000_000)
-            guard !Task.isCancelled else { return }
-            _ = await watchdogFires.increment()
-            await releaseFetch.open()
-        }
+        let watchdog = Watchdog(opening: releaseFetch)
         defer { watchdog.cancel() }
 
         await fixture.manager.refreshRejectedToken(timeoutSeconds: 0.05)
-        let fires = await watchdogFires.value
-        #expect(fires == 0, "the wait must end on the timeout, not when the provider is released")
+        let fired = await watchdog.fired
+        #expect(!fired, "the wait must end on the timeout, not when the provider is released")
         let invocations = await fixture.counter.value
         try #require(invocations == 2)
 
@@ -205,6 +290,34 @@ extension AuthTokenManagerRejectedTokenTests {
         await gate.waitUntilSleeping(atLeast: 1)
         let refreshes = await manager.refreshes()
         return Fixture(manager: manager, clock: clock, gate: gate, counter: counter, refreshes: refreshes)
+    }
+
+    /// Opens `latches` if the test is still running after a minute, so a wait that
+    /// never ends fails the test instead of hanging it. ``fired`` reports whether it did.
+    private struct Watchdog {
+        private let fires: CallCounter
+        private let task: Task<Void, Never>
+
+        init(opening latches: Latch...) {
+            let fires = CallCounter()
+            self.fires = fires
+            task = Task {
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                guard !Task.isCancelled else { return }
+                await fires.increment()
+                for latch in latches {
+                    await latch.open()
+                }
+            }
+        }
+
+        var fired: Bool {
+            get async { await fires.value > 0 }
+        }
+
+        func cancel() {
+            task.cancel()
+        }
     }
 
     private func yieldRepeatedly() async {
