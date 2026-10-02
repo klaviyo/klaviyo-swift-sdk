@@ -171,7 +171,12 @@ class IAFPresentationManager {
             return false
         }
         let profileData = IdentityStore.shared.current
-        if let viewModel = createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken) {
+        if let viewModel = createFormWebView(
+            apiKey: apiKey,
+            profileData: profileData,
+            authToken: authToken,
+            authTokenManager: authTokenManager
+        ) {
             prepareTokenDelivery(
                 for: viewModel,
                 initialToken: authToken,
@@ -218,7 +223,8 @@ class IAFPresentationManager {
     private func createFormWebView(
         apiKey: String,
         profileData: ProfileData?,
-        authToken: String?
+        authToken: String?,
+        authTokenManager: AuthTokenManager
     ) -> IAFWebViewModel? {
         guard let fileUrl = indexHtmlFileUrl else { return nil }
 
@@ -227,7 +233,8 @@ class IAFPresentationManager {
             apiKey: apiKey,
             profileData: profileData,
             authToken: authToken,
-            assetSource: assetSource
+            assetSource: assetSource,
+            authTokenManager: authTokenManager
         )
         self.viewModel = viewModel
         viewController = makeViewController(viewModel)
@@ -255,15 +262,19 @@ class IAFPresentationManager {
         )
     }
 
-    /// Whether the identity changed since the last delivery, forcing a token write even
-    /// if the token value is unchanged.
+    /// Whether ``IdentityTransition/classify(previous:next:)`` calls the change since the
+    /// last delivery a replacement, forcing a token write even if the token value is
+    /// unchanged. A `nil` `current` replaces any non-`nil` `previous`.
     static func identityChanged(from previous: ProfileData?, to current: ProfileData?) -> Bool {
-        previous != current
+        guard let current else { return previous != nil }
+        return IdentityTransition.classify(previous: previous, next: current) == .replacement
     }
 
     /// Pushes each token from the prepared stream into its page. Skips a token equal to the
-    /// last one delivered for the current identity (starting from the page's initial token
-    /// and profile), and any token that is no longer the cached token. Cancelled by
+    /// last one delivered for the page's current profile (starting from the page's initial
+    /// token and profile) unless the identity was replaced since, and any token that is no
+    /// longer the cached token. A token the page declines (see
+    /// ``IAFWebViewModel/pushAuthToken(_:)``) does not count as delivered. Cancelled by
     /// ``prepareTokenDelivery(for:initialToken:initialProfile:updates:from:)`` and
     /// ``destroyWebView()``. No-op when nothing is prepared.
     func startTokenDelivery() {
@@ -278,14 +289,14 @@ class IAFPresentationManager {
             var deliveredIdentity = initialProfile
             for await token in updates {
                 guard let viewModel, !Task.isCancelled else { return }
-                let identity = IdentityStore.shared.current
                 if token == deliveredToken,
-                   !Self.identityChanged(from: deliveredIdentity, to: identity) { continue }
+                   !Self.identityChanged(from: deliveredIdentity, to: viewModel.profileData) { continue }
                 guard await authTokenManager.isCurrentToken(token) else { continue }
                 guard !Task.isCancelled else { return }
+                let identity = viewModel.profileData
+                guard await viewModel.pushAuthToken(token) else { continue }
                 deliveredToken = token
                 deliveredIdentity = identity
-                await viewModel.pushAuthToken(token)
             }
         }
     }
