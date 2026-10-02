@@ -47,6 +47,7 @@ class IAFPresentationManager {
     private var handshakeTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
+    private var tokenRequestTask: Task<Void, Never>?
     private var webViewBuildGeneration = 0
 
     /// Fetches the auth token each new webview is built with; `nil` when none is available.
@@ -162,8 +163,8 @@ class IAFPresentationManager {
         webViewBuildGeneration += 1
         let generation = webViewBuildGeneration
         let tokenUpdates = await authTokenManager.refreshes()
+        let startGeneration = authTokenManager.currentIdentityGeneration
         let fetchedToken = await fetchInitialAuthToken(authTokenManager)
-        let authToken = deliverableToken(fetchedToken, in: authTokenManager)
         guard generation == webViewBuildGeneration else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Dropping superseded webview build")
@@ -171,6 +172,7 @@ class IAFPresentationManager {
             return false
         }
         let profileData = IdentityStore.shared.current
+        let authToken = deliverableToken(fetchedToken, in: authTokenManager)
         if let viewModel = createFormWebView(
             apiKey: apiKey,
             profileData: profileData,
@@ -184,9 +186,22 @@ class IAFPresentationManager {
                 updates: tokenUpdates,
                 from: authTokenManager
             )
+            let fetchedGeneration = fetchedToken?.generation ?? startGeneration
+            if authTokenManager.currentIdentityGeneration != fetchedGeneration {
+                requestTokenForCurrentIdentity(from: authTokenManager)
+            }
         }
         setupFormLifecycleListener()
         return true
+    }
+
+    /// Starts a token fetch for the current identity generation. The fetch publishes the token
+    /// on ``AuthTokenManager/refreshes()``, which ``startTokenDelivery()`` writes to the page.
+    /// Cancelled with the page's token delivery.
+    private func requestTokenForCurrentIdentity(from authTokenManager: AuthTokenManager) {
+        tokenRequestTask = Task {
+            _ = try? await authTokenManager.currentTokenRefresh(mode: .background)
+        }
     }
 
     /// The token of `refresh` when its identity generation is still current in
@@ -348,6 +363,8 @@ class IAFPresentationManager {
     private func stopTokenDelivery() {
         tokenRefreshTask?.cancel()
         tokenRefreshTask = nil
+        tokenRequestTask?.cancel()
+        tokenRequestTask = nil
         pendingTokenDelivery = nil
     }
 
