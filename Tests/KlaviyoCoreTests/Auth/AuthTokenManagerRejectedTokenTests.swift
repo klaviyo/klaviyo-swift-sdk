@@ -157,7 +157,7 @@ struct AuthTokenManagerRejectedTokenTests {
         let hungFetchStarted = Latch()
         let releaseHungFetch = Latch()
         let calls = CallCounter()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         await manager.registerProvider {
             switch await calls.increment() {
             case 1:
