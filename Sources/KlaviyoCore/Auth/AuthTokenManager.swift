@@ -113,6 +113,28 @@ package actor AuthTokenManager {
     /// replacement instead of starting one. Not package API.
     private(set) var joinedRejectedTokenRefreshesForTesting = 0
 
+    /// Test-only count of ``refreshRejectedToken()`` calls received. Recorded on entry,
+    /// in the same actor turn as the join decision. Not package API.
+    private(set) var rejectedTokenRefreshCallsForTesting = 0
+    private var rejectedTokenRefreshCallWaiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    /// Test-only: suspends until at least `threshold` ``refreshRejectedToken()`` calls
+    /// have been received. Not package API.
+    func waitForRejectedTokenRefreshCallsForTesting(atLeast threshold: Int) async {
+        if rejectedTokenRefreshCallsForTesting >= threshold { return }
+        await withCheckedContinuation { continuation in
+            rejectedTokenRefreshCallWaiters.append((threshold, continuation))
+        }
+    }
+
+    private func recordRejectedTokenRefreshCallForTesting() {
+        rejectedTokenRefreshCallsForTesting += 1
+        let count = rejectedTokenRefreshCallsForTesting
+        let ready = rejectedTokenRefreshCallWaiters.filter { $0.threshold <= count }
+        rejectedTokenRefreshCallWaiters.removeAll { $0.threshold <= count }
+        ready.forEach { $0.continuation.resume() }
+    }
+
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
     /// deterministically await the wait being *armed* (which lands asynchronously
     /// in the failure path) instead of racing it with fixed yields. Not package API.
@@ -902,6 +924,7 @@ extension AuthTokenManager {
     /// instead of ``FetchMode/background``. A call that joins a running replacement
     /// waits on that replacement's bound instead.
     func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
+        recordRejectedTokenRefreshCallForTesting()
         if let running = rejectedTokenRefresh {
             joinedRejectedTokenRefreshesForTesting += 1
             await running.task.value

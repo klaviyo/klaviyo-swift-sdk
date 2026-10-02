@@ -70,21 +70,18 @@ struct AuthTokenManagerRejectedTokenTests {
             return replacement
         }
         let manager = fixture.manager
-        let watchdog = Watchdog(opening: fetchStarted, releaseFetch)
-        defer { watchdog.cancel() }
 
-        let first = Task { await manager.refreshRejectedToken() }
+        let first = Task { await manager.refreshRejectedToken(timeoutSeconds: 3600) }
         await fetchStarted.wait()
-        let firedBeforeFetch = await watchdog.fired
-        try #require(!firedBeforeFetch, "the refresh never called the provider")
         let secondReturns = CallCounter()
         let second = Task {
             await manager.refreshRejectedToken(timeoutSeconds: 0)
             await secondReturns.increment()
             return await manager.isCurrentToken(replacement)
         }
-        let joined = await yieldUntil { await manager.joinedRejectedTokenRefreshesForTesting == 1 }
-        try #require(joined, "the overlapping call never joined the running replacement")
+        await manager.waitForRejectedTokenRefreshCallsForTesting(atLeast: 2)
+        let joined = await manager.joinedRejectedTokenRefreshesForTesting
+        try #require(joined == 1, "the overlapping call must join the running replacement")
         await yieldRepeatedly()
         let returnsWhileParked = await secondReturns.value
         #expect(
@@ -370,18 +367,6 @@ extension AuthTokenManagerRejectedTokenTests {
         for _ in 0..<100 {
             await Task.yield()
         }
-    }
-
-    /// Yields until `condition` holds, up to `maxYields` times. Returns whether it held.
-    private func yieldUntil(
-        maxYields: Int = 100_000,
-        _ condition: () async -> Bool
-    ) async -> Bool {
-        for _ in 0..<maxYields {
-            if await condition() { return true }
-            await Task.yield()
-        }
-        return await condition()
     }
 }
 #endif
