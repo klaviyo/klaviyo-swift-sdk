@@ -195,14 +195,21 @@ extension UnattributedRequest {
         _ previousAnonymousId: String, with replacementAnonymousId: String
     ) -> UnattributedRequest {
         guard let data = try? environment.encodeJSON(self),
-              let json = try? JSONSerialization.jsonObject(with: data) else { return self }
+              let json = try? JSONSerialization.jsonObject(with: data) else {
+            environment.logger.error(
+                "UnattributedRequest: failed to encode or deserialize JSON for anonymousId remap"
+            )
+            return self
+        }
         let (rewritten, didChange) = Self.rewrite(
             json, from: previousAnonymousId, to: replacementAnonymousId
         )
-        guard didChange,
-              let rewrittenData = try? JSONSerialization.data(withJSONObject: rewritten),
-              let decoded: UnattributedRequest = try? environment.decoder.decode(rewrittenData)
-        else { return self }
+        guard didChange else { return self }
+        guard let rewrittenData = try? JSONSerialization.data(withJSONObject: rewritten),
+              let decoded: UnattributedRequest = try? environment.decoder.decode(rewrittenData) else {
+            environment.logger.error("UnattributedRequest: failed to re-serialize or decode remapped request")
+            return self
+        }
         return decoded
     }
 
