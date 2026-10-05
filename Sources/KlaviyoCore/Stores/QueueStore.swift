@@ -30,6 +30,7 @@ struct PersistedQueue: Codable, Equatable {
 
 public final class QueueStore {
     public static let maxQueueSize = 200
+    static let maxQueueBytes = 2 * 1024 * 1024
 
     /// Coalescing window for `.debounced` persistence.
     static let debounceInterval: TimeInterval = 1.0
@@ -68,6 +69,7 @@ public final class QueueStore {
     private let diskIO: DiskIO
     private let scheduler: PersistScheduler
     private let emitWarning: (String) -> Void
+    private let serializedSize: (KlaviyoRequest) throws -> Int
 
     // Two locks keep slow disk I/O off the hot queue path: `queueLock` guards the in-memory array
     // and is released before any disk write, so a persist never blocks enqueue/prepend/reads.
@@ -81,6 +83,8 @@ public final class QueueStore {
     private let queueLock = UnfairLock()
     private let persistLock = UnfairLock()
     private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
+    private var entrySizes: [Int] = [] // serialized size per entry, index-aligned with `queue`
+    private var queuedBytes = 0
     // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
     // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
     // See `schedulePersist` for how a burst coalesces onto a single callback.
@@ -95,10 +99,14 @@ public final class QueueStore {
     }
 
     init(diskIO: DiskIO, scheduler: PersistScheduler,
-         emitWarning: @escaping (String) -> Void) {
+         emitWarning: @escaping (String) -> Void,
+         serializedSize: @escaping (KlaviyoRequest) throws -> Int = {
+             try environment.encodeJSON($0).count
+         }) {
         self.diskIO = diskIO
         self.scheduler = scheduler
         self.emitWarning = emitWarning
+        self.serializedSize = serializedSize
     }
 
     // MARK: Mutations
@@ -106,12 +114,16 @@ public final class QueueStore {
     public func enqueue(_ request: KlaviyoRequest, persist: PersistPolicy = .debounced) {
         queueLock.withLock {
             var next = hydrated()
-            evictIfAtCapacity(&next)
+            let requestSize = size(of: request)
+            evictIfAtCapacity(&next, newSize: requestSize)
             if request.priority == .high {
                 next.insert(request, at: 0)
+                entrySizes.insert(requestSize, at: 0)
             } else {
                 next.append(request)
+                entrySizes.append(requestSize)
             }
+            queuedBytes += requestSize
             queue = next
         }
         schedulePersist(persist)
@@ -123,6 +135,9 @@ public final class QueueStore {
         queueLock.withLock {
             var next = hydrated()
             next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
+            let sizes = requests.map(size(of:))
+            entrySizes.insert(contentsOf: sizes, at: 0)
+            queuedBytes += sizes.reduce(0, +)
             queue = next
         }
         schedulePersist(persist)
@@ -136,6 +151,8 @@ public final class QueueStore {
         let drained = queueLock.withLock { () -> [KlaviyoRequest] in
             let drainedRequests = hydrated()
             queue = []
+            entrySizes = []
+            queuedBytes = 0
             return drainedRequests
         }
         schedulePersist(persist)
@@ -165,26 +182,49 @@ public final class QueueStore {
                 let merged = requests.filter { !existingIds.contains($0.id) } + current
                 try diskIO.save(merged)
                 queue = merged
+                rebuildByteAccounting(for: merged)
             }
             pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
         }
     }
 
-    /// Drains oldest-by-`enqueuedAt` while at/over capacity, leaving room for one insert.
+    /// Drains oldest-by-`enqueuedAt` while at/over either capacity, leaving room for one insert.
     /// Loops (not a single removal) so an over-capacity queue produced by `prepend`/restore
     /// self-heals on the next enqueue.
-    private func evictIfAtCapacity(_ queue: inout [KlaviyoRequest]) {
-        guard queue.count >= Self.maxQueueSize else { return }
+    /// A lone request larger than the byte budget is admitted after everything else is evicted.
+    private func evictIfAtCapacity(_ queue: inout [KlaviyoRequest], newSize: Int) {
+        guard queue.count >= Self.maxQueueSize || queuedBytes + newSize > Self.maxQueueBytes else {
+            return
+        }
         emitWarning(
-            "Request queue at capacity (\(Self.maxQueueSize)); "
+            "Request queue at capacity (\(Self.maxQueueSize) requests / "
+                + "\(Self.maxQueueBytes) bytes); "
                 + "evicting oldest request(s) to make room."
         )
-        while queue.count >= Self.maxQueueSize,
+        while !queue.isEmpty,
+              queue.count >= Self.maxQueueSize || queuedBytes + newSize > Self.maxQueueBytes,
               let oldest = queue.indices.min(
                   by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }
               ) {
             queue.remove(at: oldest)
+            queuedBytes -= entrySizes.remove(at: oldest)
         }
+    }
+
+    /// Counts the same per-request JSON representation used by queue persistence. An unmeasurable
+    /// request counts as 0 bytes so it can't evict the backlog; the count cap still bounds it.
+    private func size(of request: KlaviyoRequest) -> Int {
+        do {
+            return try serializedSize(request)
+        } catch {
+            emitWarning("QueueStore: failed to measure serialized request (\(error)); counting as 0 bytes")
+            return 0
+        }
+    }
+
+    private func rebuildByteAccounting(for requests: [KlaviyoRequest]) {
+        entrySizes = requests.map(size(of:))
+        queuedBytes = entrySizes.reduce(0, +)
     }
 
     // MARK: Persistence
@@ -211,7 +251,9 @@ public final class QueueStore {
                 guard let self else { return }
                 let isCurrent = self.persistLock.withLock { () -> Bool in
                     let current = self.pendingDebounceToken == token
-                    if current { self.pendingDebounceToken = 0 }
+                    if current {
+                        self.pendingDebounceToken = 0
+                    }
                     return current
                 }
                 guard isCurrent else { return } // superseded → coalesced away
@@ -245,9 +287,18 @@ public final class QueueStore {
         queueLock.withLock { hydrated().count }
     }
 
+    var byteCount: Int {
+        queueLock.withLock {
+            _ = hydrated()
+            return queuedBytes
+        }
+    }
+
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `queueLock`.
     private func hydrated() -> [KlaviyoRequest] {
-        if let queue { return queue }
+        if let queue {
+            return queue
+        }
         let loaded: [KlaviyoRequest]
         do {
             loaded = try diskIO.load()
@@ -262,6 +313,7 @@ public final class QueueStore {
             loaded = []
         }
         queue = loaded
+        rebuildByteAccounting(for: loaded)
         return loaded
     }
 }
@@ -274,7 +326,9 @@ extension QueueStore {
     /// apiKey, so one queue serves every company; routing per key is unnecessary.
     public static var shared: QueueStore {
         sharedLock.withLock {
-            if let existing = sharedStore { return existing }
+            if let existing = sharedStore {
+                return existing
+            }
             let store = QueueStore()
             sharedStore = store
             return store
