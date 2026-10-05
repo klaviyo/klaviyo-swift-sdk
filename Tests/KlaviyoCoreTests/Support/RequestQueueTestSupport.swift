@@ -60,10 +60,14 @@ final class SendSpy: @unchecked Sendable {
     // MARK: - Observables
 
     /// The id of every request handed to `send`, in call order.
-    var sentIds: [String] { lock.lock(); defer { lock.unlock() }; return _sentIds }
+    var sentIds: [String] {
+        lock.lock(); defer { lock.unlock() }; return _sentIds
+    }
 
     /// The `attemptNumber` from the `RequestAttemptInfo` passed with each `send` call, in order.
-    var sentAttempts: [Int] { lock.lock(); defer { lock.unlock() }; return _sentAttempts }
+    var sentAttempts: [Int] {
+        lock.lock(); defer { lock.unlock() }; return _sentAttempts
+    }
 
     // MARK: - Send closure
 
@@ -74,7 +78,9 @@ final class SendSpy: @unchecked Sendable {
                 _sentIds.append(request.id)
                 _sentAttempts.append(info.attemptNumber)
                 let firstCall = parkFirstCall && !_parked
-                if parkFirstCall { _parked = true }
+                if parkFirstCall {
+                    _parked = true
+                }
                 let r = _results.count > 1 ? _results.removeFirst() : (_results.first ?? .success(Data()))
                 return (firstCall, r)
             }()
@@ -94,6 +100,20 @@ final class SendSpy: @unchecked Sendable {
 
     // MARK: - Control
 
+    /// Polls (bounded) until at least `count` sends have been recorded. Lane drains are concurrent,
+    /// so assertions that a send landed must wait on it rather than assume ordering.
+    @discardableResult
+    func waitForSendCount(_ count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sentIds.count >= count {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+        return sentIds.count >= count
+    }
+
     /// Resumes the parked first send so it returns its scripted result.
     func release() {
         lock.lock()
@@ -101,6 +121,76 @@ final class SendSpy: @unchecked Sendable {
         _resume = nil
         lock.unlock()
         continuation?.resume()
+    }
+}
+
+// MARK: - LaneSendSpy
+
+/// A `send` spy whose scripted outcomes are keyed by request LANE (not global call order), for the
+/// lane-scheduler tests: a lane's script is consumed only by sends on that lane, so tests can script
+/// e.g. "identity always fails, events always succeed" without coupling to interleaving. Records
+/// every send's id, lane, and attempt number in global call order. Thread-safe (`NSLock`,
+/// `@unchecked Sendable`) like `SendSpy`.
+final class LaneSendSpy: @unchecked Sendable {
+    private let lock = NSLock()
+    private var resultsByLane: [RequestLane: [Result<Data, KlaviyoAPIError>]]
+    private var _sentIds: [String] = []
+    private var _sentLanes: [RequestLane] = []
+    private var _sentAttempts: [Int] = []
+
+    /// - Parameter resultsByLane: per-lane scripted outcomes consumed in order; the last result
+    ///   repeats once exhausted. A lane missing from the map always succeeds.
+    init(resultsByLane: [RequestLane: [Result<Data, KlaviyoAPIError>]] = [:]) {
+        self.resultsByLane = resultsByLane
+    }
+
+    var sentIds: [String] {
+        lock.lock(); defer { lock.unlock() }; return _sentIds
+    }
+
+    var sentLanes: [RequestLane] {
+        lock.lock(); defer { lock.unlock() }; return _sentLanes
+    }
+
+    var sentAttempts: [Int] {
+        lock.lock(); defer { lock.unlock() }; return _sentAttempts
+    }
+
+    /// The ids sent on one lane, in order.
+    func sentIds(for lane: RequestLane) -> [String] {
+        lock.lock(); defer { lock.unlock() }
+        return zip(_sentLanes, _sentIds).compactMap { $0 == lane ? $1 : nil }
+    }
+
+    /// Polls (bounded) until `lane` has at least `count` sends. Because concurrent lane drains make
+    /// send timing nondeterministic, assertions that a lane sent must wait on it rather than assume
+    /// it landed before another lane's send.
+    @discardableResult
+    func waitForSends(on lane: RequestLane, atLeast count: Int,
+                      timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sentIds(for: lane).count >= count {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+        return sentIds(for: lane).count >= count
+    }
+
+    var send: RequestQueue.Send {
+        { [self] request, info in
+            lock.lock()
+            let lane = request.endpoint.lane
+            _sentIds.append(request.id)
+            _sentLanes.append(lane)
+            _sentAttempts.append(info.attemptNumber)
+            var script = resultsByLane[lane] ?? [.success(Data())]
+            let result = script.count > 1 ? script.removeFirst() : (script.first ?? .success(Data()))
+            resultsByLane[lane] = script
+            lock.unlock()
+            return result
+        }
     }
 }
 
@@ -114,7 +204,10 @@ final class WriteSpyDiskIO {
     private var _stored: [KlaviyoRequest] = []
     private var _savedBatches: [[KlaviyoRequest]] = []
 
-    var stored: [KlaviyoRequest] { lock.lock(); defer { lock.unlock() }; return _stored }
+    var stored: [KlaviyoRequest] {
+        lock.lock(); defer { lock.unlock() }; return _stored
+    }
+
     var savedBatches: [[KlaviyoRequest]] {
         lock.lock(); defer { lock.unlock() }; return _savedBatches
     }
@@ -166,6 +259,53 @@ func makeCreateProfileRequest(id: String = UUID().uuidString) -> KlaviyoRequest 
     KlaviyoRequest(
         id: id,
         endpoint: .createProfile("test-api-key", CreateProfilePayload(data: .test))
+    )
+}
+
+// MARK: - Per-lane request builders
+
+func makeEventRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .createEvent("test-api-key", CreateEventPayload(data: .init(name: "test-event")))
+    )
+}
+
+func makeAggregateEventRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .aggregateEvent("test-api-key", Data("[]".utf8))
+    )
+}
+
+func makeSubscriptionRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .createSubscription(
+            "test-api-key",
+            CreateSubscriptionPayload(listId: "list-1", profile: ProfilePayload(anonymousId: "anon-1"))
+        )
+    )
+}
+
+func makeUnregisterPushTokenRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .unregisterPushToken(
+            "test-api-key",
+            UnregisterPushTokenPayload(pushToken: "tok-1", anonymousId: "anon-1")
+        )
+    )
+}
+
+func makeTrackingLinkClickRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .logTrackingLinkClicked(
+            trackingLink: URL(string: "https://klaviyo.com/track")!,
+            clickTime: Date(timeIntervalSince1970: 0),
+            profileInfo: ProfilePayload(anonymousId: "anon-1")
+        )
     )
 }
 
