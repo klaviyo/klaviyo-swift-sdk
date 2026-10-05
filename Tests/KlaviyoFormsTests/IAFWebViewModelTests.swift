@@ -415,7 +415,7 @@ final class IAFWebViewModelTests: XCTestCase {
     /// platform-split `ios`/`android` keys, and no `openExternally` flag
     /// (fender `deepLinkToScreenAction.ts`).
     private func makeDeepLinkMessage(
-        url: String = "holafly://notifications?utm_source=push_flow",
+        url: String = "abcdcompany://notifications?utm_source=push_flow",
         formId: String? = "form123",
         formName: String? = "Newsletter",
         buttonLabel: String? = "Go"
@@ -443,10 +443,10 @@ final class IAFWebViewModelTests: XCTestCase {
         defer { EventDispatcher.shared.reset() }
 
         // Guard the premise: if this scheme were declared, the test would pass vacuously.
-        let url = try XCTUnwrap(URL(string: "holafly://notifications?utm_source=push_flow"))
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
         XCTAssertFalse(
             UIApplication.shared.canOpenURL(url),
-            "Premise broken: 'holafly' must not be declared in the test bundle for this to regress"
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
         )
 
         // When - JS sends the deep link CTA message
@@ -472,10 +472,10 @@ final class IAFWebViewModelTests: XCTestCase {
         defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
 
         // Guard the premise: if this scheme were declared, the test would pass vacuously.
-        let url = try XCTUnwrap(URL(string: "holafly://notifications?utm_source=push_flow"))
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
         XCTAssertFalse(
             UIApplication.shared.canOpenURL(url),
-            "Premise broken: 'holafly' must not be declared in the test bundle for this to regress"
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
         )
 
         // When

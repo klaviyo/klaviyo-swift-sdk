@@ -10,7 +10,7 @@
 //  Onsite is the only stubbed part. The local page posts the same payload shape that
 //  fender `deepLinkToScreenAction.ts` emits for a "Go to app screen" CTA.
 //
-//  The scheme under test (`holafly`) is deliberately absent from the test bundle's
+//  The scheme under test (`abcdcompany`) is deliberately absent from the test bundle's
 //  `CFBundleURLTypes`, so `UIApplication.shared.canOpenURL` returns false for it. That is
 //  the customer's configuration, and it is what the removed gate used to reject.
 //
@@ -85,14 +85,15 @@ final class IAFDeepLinkEndToEndTests: XCTestCase {
 
         let expectedURL = try XCTUnwrap(
             URL(
-                string: "holafly://notifications?utm_source=push_flow&utm_medium=push_notification&utm_campaign=test_inapp"
+                string: "abcdcompany://notifications?utm_source=push_flow"
+                    + "&utm_medium=push_notification&utm_campaign=test_inapp"
             )
         )
 
         // Premise: the scheme must be undeclared, or this passes without exercising the bug.
         XCTAssertFalse(
             UIApplication.shared.canOpenURL(expectedURL),
-            "Premise broken: 'holafly' must not be in the test bundle's CFBundleURLTypes"
+            "Premise broken: 'abcdcompany' must not be in the test bundle's CFBundleURLTypes"
         )
 
         // Given - a host app deep link handler, the integration this bug bypassed

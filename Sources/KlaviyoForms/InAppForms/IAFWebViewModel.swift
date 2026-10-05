@@ -371,11 +371,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             } else {
                 // In-app deep link: route to the host app's registered deep link handler.
-                // No `canOpenURL` pre-check here: the destination is an in-process handler, not
-                // LaunchServices. `canOpenURL` is false for any custom scheme the host app does
-                // not declare in its own `CFBundleURLTypes`, which gated out apps that route deep
-                // links through `registerDeepLinkHandler(_:)` before their handler was ever
-                // consulted. `DeepLinkHandler` logs its own failures downstream.
+                // The host's handler can route a URL internally even if iOS cannot open its scheme.
+                // Let DeepLinkHandler choose the registered callback or the system fallback.
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }
