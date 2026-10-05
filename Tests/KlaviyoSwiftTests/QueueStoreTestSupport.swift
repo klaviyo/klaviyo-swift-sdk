@@ -58,10 +58,13 @@ func seedDeferredPersistQueueStore() -> () -> [KlaviyoRequest] {
 }
 
 /// Registers a recording spy `QueueStore` that accumulates every request ever persisted
-/// (deduplicated by `id`, first-seen order preserved), so drain-then-flush sequences are fully
-/// observable without one request being re-recorded on every later `save` of the whole queue.
-/// Resets the shared store first (like `seedTestQueueStore`) — call before other registrations.
-/// Returns a closure that reads the accumulated recorded requests.
+/// (deduplicated by full value, first-seen order preserved), so drain-then-flush sequences are
+/// fully observable without one request being re-recorded on every later `save` of the whole queue.
+/// Deduplicating by value rather than by `id` alone matters under the fixed test `environment.uuid`:
+/// two distinct enqueues can default to the same `id` there (production always mints a fresh one),
+/// and an id-only dedup would silently drop the second as a false repeat of the first. Resets the
+/// shared store first (like `seedTestQueueStore`) — call before other registrations. Returns a
+/// closure that reads the accumulated recorded requests.
 @discardableResult
 func registerRecordingQueueStore() -> () -> [KlaviyoRequest] {
     let recorded = ThreadSafeBox<[KlaviyoRequest]>([])
@@ -70,8 +73,7 @@ func registerRecordingQueueStore() -> () -> [KlaviyoRequest] {
         load: { [] },
         save: { snapshot in
             recorded.mutate { seen in
-                let known = Set(seen.map(\.id))
-                seen.append(contentsOf: snapshot.filter { !known.contains($0.id) })
+                seen.append(contentsOf: snapshot.filter { !seen.contains($0) })
             }
         }
     )
