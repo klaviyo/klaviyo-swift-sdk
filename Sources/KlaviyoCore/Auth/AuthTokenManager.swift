@@ -800,13 +800,14 @@ package actor AuthTokenManager {
     /// background window will not have fired yet — and a sufficiently long
     /// background window can outlive the cached token entirely.
     ///
-    /// Three cases, in this order:
+    /// Four cases, in this order:
     /// 1. Cached token expired during backgrounding — clear cache, cancel any
     ///    pending refresh, kick off an eager fetch so a subsequent caller
     ///    isn't the one paying the round-trip.
     /// 2. Scheduled refresh time has passed but the cache is still valid —
     ///    cancel the stuck refresh task and fire the refresh immediately.
-    /// 3. Cache valid and refresh still in the future — no-op.
+    /// 3. No cached token (e.g. after a failed fetch) — log only, no fetch.
+    /// 4. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
         if let cached = cachedToken, !isCachedTokenValid(cached) {
             discardCachedToken()
@@ -839,6 +840,14 @@ package actor AuthTokenManager {
                 )
             }
             await performScheduledRefresh()
+            return
+        }
+        guard cachedToken != nil else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.info(
+                    "AuthTokenManager: foreground transition (case=no-cached-token)"
+                )
+            }
             return
         }
         if #available(iOS 14.0, *) {
