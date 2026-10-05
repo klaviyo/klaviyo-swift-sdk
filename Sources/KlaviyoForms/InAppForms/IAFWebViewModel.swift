@@ -45,7 +45,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private(set) var profileUpdateTask: Task<Void, Never>?
     /// The latest identity replacement's profile write and token-state clear, until both
     /// finish. ``pushAuthToken(_:)`` waits for it.
-    private var pendingIdentityReplacement: Task<Void, Never>?
+    private var pendingIdentityReplacement: Task<Bool, Never>?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
     private let formLifecycleContinuation: AsyncStream<IAFLifecycleEvent>.Continuation
     private let (handshakeStream, handshakeContinuation) = AsyncStream.makeStream(of: Void.self)
@@ -297,34 +297,42 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         authToken = nil
         replaceLoadScript(&authTokenUserScript, with: nil)
         let authTokenManager = authTokenManager
-        let replacement = Task { @MainActor [weak self] in
+        let replacement = Task { @MainActor [weak self] () -> Bool in
+            var profileWritten = true
             if let profileAttributesScript {
-                await self?.writeProfileAttributes(profileAttributesScript)
+                profileWritten = await self?.writeProfileAttributes(profileAttributesScript) ?? false
             }
             await authTokenManager.clearTokenState()
+            return profileWritten
         }
         pendingIdentityReplacement = replacement
         profileUpdateTask = Task { @MainActor [weak self] in
-            await replacement.value
+            let profileWritten = await replacement.value
             guard let self else { return }
             if pendingIdentityReplacement == replacement {
                 pendingIdentityReplacement = nil
             }
+            // A token for a profile the page never received would reach onsite ahead of it.
+            guard profileWritten else { return }
             await refreshAuthToken(for: newProfileData)
         }
     }
 
+    /// Writes `script` to the live page. Returns `false` when the write failed.
     @MainActor
-    private func writeProfileAttributes(_ script: String) async {
+    @discardableResult
+    private func writeProfileAttributes(_ script: String) async -> Bool {
         do {
             let result = try await delegate?.evaluateJavaScript(script)
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successfully updated In-App Forms HTML with updated profile data; message: \(result.debugDescription)")
             }
+            return true
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error updating In-App Forms HTML; error: \(error)")
             }
+            return false
         }
     }
 
@@ -380,13 +388,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     ///
     /// `async` so the caller can await it and apply refreshes in arrival order.
     /// The token value is never logged — only the success/failure of the update.
-    /// - Returns: `true` when `token` was written, `false` when the push was declined.
+    /// - Returns: `true` when `token` was written, `false` when the push was declined or the
+    ///   live write failed.
     @MainActor
     @discardableResult
     func pushAuthToken(_ token: String) async -> Bool {
-        var awaitedReplacement: Task<Void, Never>?
+        var awaitedReplacement: Task<Bool, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
-            await replacement.value
+            _ = await replacement.value
             awaitedReplacement = replacement
             guard await authTokenManager.isCurrentToken(token) else { return false }
         }
@@ -407,12 +416,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successfully updated In-App Forms HTML with refreshed auth token")
             }
+            return true
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Error updating In-App Forms HTML with refreshed auth token; error: \(error)")
             }
+            return false
         }
-        return true
     }
 
     // MARK: - handle WKWebView events

@@ -358,6 +358,41 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         XCTAssertTrue(loadScriptSources(containing: "data-klaviyo-jwt").isEmpty)
         XCTAssertTrue(delegate.authTokenScripts.isEmpty)
     }
+
+    func testFailedProfileWriteClearsOutgoingTokenWithoutFetchingForNewProfile() async throws {
+        let outgoingToken = try await registerProviderAndWarmCache()
+        await makeViewModel(authToken: outgoingToken)
+        let profileWrite = delegate.holdScript(containing: "data-klaviyo-profile")
+        delegate.failScript(containing: "data-klaviyo-profile")
+
+        IdentityStore.shared.update(incomingProfile)
+        await profileWrite.reached.wait()
+        let replacement = viewModel.profileUpdateTask
+        await profileWrite.release.open()
+        await replacement?.value
+
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 1, "no token may be fetched for a profile the page never received")
+        let outgoingStillCached = await manager.isCurrentToken(outgoingToken)
+        XCTAssertFalse(outgoingStillCached, "the outgoing token must not outlive the identity change")
+        XCTAssertNil(viewModel.authToken)
+        XCTAssertTrue(delegate.authTokenScripts.isEmpty)
+    }
+
+    func testFailedTokenWriteDoesNotSuppressTheSameTokenLater() async throws {
+        let token = try makeTestJWT(subject: "same", validAt: clock.now())
+        await manager.registerProvider { token }
+        _ = try await manager.currentToken(mode: .background)
+        await makeViewModel()
+        delegate.failScript(containing: "data-klaviyo-jwt")
+
+        try await refetch()
+        // The failed write must not count as delivered, so the same token is written next time.
+        try await refetch()
+
+        await delegate.waitForScript(containing: token)
+        XCTAssertEqual(delegate.authTokenScripts.count, 1)
+    }
 }
 
 // MARK: - Helpers

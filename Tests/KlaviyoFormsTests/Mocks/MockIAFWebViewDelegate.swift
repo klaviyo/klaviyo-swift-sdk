@@ -43,6 +43,13 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
     }
 
     private var scriptHolds: [(text: String, hold: ScriptHold)] = []
+    private var scriptFailures: [String] = []
+
+    /// Makes the next evaluation of a script containing `text` throw instead of completing.
+    /// A failed evaluation is not recorded in ``evaluatedScripts``.
+    func failScript(containing text: String) {
+        scriptFailures.append(text)
+    }
 
     /// Makes the next evaluation of a script containing `text` wait for the returned hold's
     /// ``ScriptHold/release`` before it completes and is recorded in ``evaluatedScripts``.
@@ -111,6 +118,10 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
             await hold.reached.open()
             await hold.release.wait()
         }
+        if let index = scriptFailures.firstIndex(where: { script.contains($0) }) {
+            scriptFailures.remove(at: index)
+            throw ScriptEvaluationFailure()
+        }
         evaluatedScripts.append(script)
         scriptWaiters.removeAll { waiter in
             guard script.contains(waiter.text) else { return false }
@@ -122,3 +133,7 @@ class MockIAFWebViewDelegate: UIViewController, KlaviyoWebViewDelegate {
 
     func dismiss() {}
 }
+
+/// Thrown by ``MockIAFWebViewDelegate/evaluateJavaScript(_:)`` for a script registered with
+/// ``MockIAFWebViewDelegate/failScript(containing:)``.
+struct ScriptEvaluationFailure: Error {}
