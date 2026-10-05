@@ -27,13 +27,13 @@ func seedTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest
 private func registerTestQueueStore(initial: [KlaviyoRequest] = []) -> () -> [KlaviyoRequest] {
     var stored = initial
     let lock = NSLock()
-    let io = QueueStore.DiskIO(
+    let diskIO = QueueStore.DiskIO(
         load: { lock.lock(); defer { lock.unlock() }; return stored },
-        save: { new in lock.lock(); defer { lock.unlock() }; stored = new }
+        save: { snapshot in lock.lock(); defer { lock.unlock() }; stored = snapshot }
     )
     // Fire debounced persists immediately so tests observe writes without wall-clock waits.
     let scheduler = QueueStore.PersistScheduler { _, work in work() }
-    let store = QueueStore(diskIO: io, scheduler: scheduler, emitWarning: { _ in })
+    let store = QueueStore(diskIO: diskIO, scheduler: scheduler, emitWarning: { _ in })
     QueueStore.register(store)
     return { lock.lock(); defer { lock.unlock() }; return stored }
 }
@@ -47,33 +47,39 @@ func seedDeferredPersistQueueStore() -> () -> [KlaviyoRequest] {
     QueueStore.resetShared()
     var stored: [KlaviyoRequest] = []
     let lock = NSLock()
-    let io = QueueStore.DiskIO(
+    let diskIO = QueueStore.DiskIO(
         load: { lock.lock(); defer { lock.unlock() }; return stored },
-        save: { new in lock.lock(); defer { lock.unlock() }; stored = new }
+        save: { snapshot in lock.lock(); defer { lock.unlock() }; stored = snapshot }
     )
     let scheduler = QueueStore.PersistScheduler { _, _ in } // never run debounced work
-    let store = QueueStore(diskIO: io, scheduler: scheduler, emitWarning: { _ in })
+    let store = QueueStore(diskIO: diskIO, scheduler: scheduler, emitWarning: { _ in })
     QueueStore.register(store)
     return { lock.lock(); defer { lock.unlock() }; return stored }
 }
 
 /// Registers a recording spy `QueueStore` that accumulates every request ever persisted
-/// (appending each `save` call), so drain-then-flush sequences are fully observable. Resets the
-/// shared store first (like `seedTestQueueStore`) — call before other registrations.
-/// Returns a closure that reads the accumulated recorded batches.
+/// (deduplicated by `id`, first-seen order preserved), so drain-then-flush sequences are fully
+/// observable without one request being re-recorded on every later `save` of the whole queue.
+/// Resets the shared store first (like `seedTestQueueStore`) — call before other registrations.
+/// Returns a closure that reads the accumulated recorded requests.
 @discardableResult
 func registerRecordingQueueStore() -> () -> [KlaviyoRequest] {
     let recorded = ThreadSafeBox<[KlaviyoRequest]>([])
     QueueStore.resetShared()
-    let io = QueueStore.DiskIO(
+    let diskIO = QueueStore.DiskIO(
         load: { [] },
-        save: { new in recorded.mutate { $0.append(contentsOf: new) } }
+        save: { snapshot in
+            recorded.mutate { seen in
+                let known = Set(seen.map(\.id))
+                seen.append(contentsOf: snapshot.filter { !known.contains($0.id) })
+            }
+        }
     )
-    let spy = QueueStore(
-        diskIO: io,
+    let spyStore = QueueStore(
+        diskIO: diskIO,
         scheduler: QueueStore.PersistScheduler { _, work in work() },
         emitWarning: { _ in }
     )
-    QueueStore.register(spy)
+    QueueStore.register(spyStore)
     return { recorded.value }
 }

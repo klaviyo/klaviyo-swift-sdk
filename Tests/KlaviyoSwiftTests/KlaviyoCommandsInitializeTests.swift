@@ -219,9 +219,8 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         // LifecycleState remains .initialized through a runtime switch.
         XCTAssertEqual(LifecycleState.shared.current, .initialized)
 
-        // Yield to let the fire-and-forget `Task { flushNow() }` run.
-        await Task.yield()
-        await Task.yield()
+        // Wait for the fire-and-forget `Task { flushNow() }` to reach the spy.
+        try await waitForConditionOrFail { await self.spyQueue.getFlushNowCount() == 1 }
 
         // flushNow must be called once for the runtime switch.
         let flushCount = await spyQueue.getFlushNowCount()
@@ -231,14 +230,14 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         let endpoints = readQueue().map(\.endpoint)
         XCTAssertTrue(
             endpoints.contains {
-                if case let .unregisterPushToken(key, _) = $0 { return key == oldApiKey }
+                if case let .unregisterPushToken(endpointKey, _) = $0 { return endpointKey == oldApiKey }
                 return false
             },
             "unregister for old company must be enqueued"
         )
         XCTAssertTrue(
             endpoints.contains {
-                if case let .registerPushToken(key, _) = $0 { return key == newApiKey }
+                if case let .registerPushToken(endpointKey, _) = $0 { return endpointKey == newApiKey }
                 return false
             },
             "register under new company must be enqueued"
@@ -325,6 +324,12 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         let priorAnon = "anon-cs"
         let pushToken = "tok-cs"
 
+        var nextUUID = 0
+        environment.uuid = {
+            nextUUID += 1
+            return UUID(uuidString: String(format: "00000000-0000-0000-0000-%012d", nextUUID))!
+        }
+
         // Seed the canonical stores as if a prior session left them populated.
         // LifecycleState remains .uninitialized (cold start).
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: priorApiKey))
@@ -348,14 +353,14 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         let endpoints = readQueue().map(\.endpoint)
         XCTAssertTrue(
             endpoints.contains {
-                if case let .unregisterPushToken(key, _) = $0 { return key == priorApiKey }
+                if case let .unregisterPushToken(endpointKey, _) = $0 { return endpointKey == priorApiKey }
                 return false
             },
             "cold-start: unregister for prior company must be enqueued"
         )
         XCTAssertTrue(
             endpoints.contains {
-                if case let .registerPushToken(key, _) = $0 { return key == newApiKey }
+                if case let .registerPushToken(endpointKey, _) = $0 { return endpointKey == newApiKey }
                 return false
             },
             "cold-start: token re-register under new company must be enqueued"
@@ -457,13 +462,13 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
 
         let onDisk = readDisk().map(\.endpoint)
         XCTAssertTrue(
-            onDisk.contains { if case let .unregisterPushToken(key, _) = $0 { return key == priorApiKey }
+            onDisk.contains { if case let .unregisterPushToken(endpointKey, _) = $0 { return endpointKey == priorApiKey }
                 return false
             },
             "cold-start switch: unregister(prior) is persisted synchronously"
         )
         XCTAssertTrue(
-            onDisk.contains { if case let .registerPushToken(key, _) = $0 { return key == newApiKey }
+            onDisk.contains { if case let .registerPushToken(endpointKey, _) = $0 { return endpointKey == newApiKey }
                 return false
             },
             "cold-start switch: re-register(new) must be persisted synchronously (crash-safety)"
