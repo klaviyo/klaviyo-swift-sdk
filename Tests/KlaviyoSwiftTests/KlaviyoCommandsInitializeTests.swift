@@ -462,13 +462,15 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
 
         let onDisk = readDisk().map(\.endpoint)
         XCTAssertTrue(
-            onDisk.contains { if case let .unregisterPushToken(endpointKey, _) = $0 { return endpointKey == priorApiKey }
+            onDisk.contains {
+                if case let .unregisterPushToken(endpointKey, _) = $0 { return endpointKey == priorApiKey }
                 return false
             },
             "cold-start switch: unregister(prior) is persisted synchronously"
         )
         XCTAssertTrue(
-            onDisk.contains { if case let .registerPushToken(endpointKey, _) = $0 { return endpointKey == newApiKey }
+            onDisk.contains {
+                if case let .registerPushToken(endpointKey, _) = $0 { return endpointKey == newApiKey }
                 return false
             },
             "cold-start switch: re-register(new) must be persisted synchronously (crash-safety)"
@@ -609,8 +611,10 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         await callInitializeAndAwaitTail(apiKey: apiKey)
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, legacyAnon)
-        let ids = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
-        XCTAssertEqual(ids, [legacyAnon], "drained push-open must carry the migrated anonymousId")
+        let drainedAnonymousIds = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
+        XCTAssertEqual(
+            drainedAnonymousIds, [legacyAnon], "drained push-open must carry the migrated anonymousId"
+        )
     }
 
     func testPreInitPushTokenIsAttributedToLegacyAnonymousIdAfterInitialize() async throws {
@@ -628,7 +632,68 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         await callInitializeAndAwaitTail(apiKey: apiKey)
 
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, legacyAnon)
-        let ids = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
-        XCTAssertEqual(ids, [legacyAnon], "drained token registration must carry the migrated anonymousId")
+        let drainedAnonymousIds = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
+        XCTAssertEqual(
+            drainedAnonymousIds, [legacyAnon],
+            "drained token registration must carry the migrated anonymousId"
+        )
+    }
+
+    /// Same as `testPreInitPushOpenIsAttributedToLegacyAnonymousIdAfterInitialize`, but with
+    /// `enablePreInitDiskCapture` on: the pre-init call is captured in the durable `UnattributedBuffer`
+    /// (persisted rewrite path), not the non-durable `PreInitMemoryBuffer`.
+    func testPreInitPushOpenWithDiskCaptureIsAttributedToLegacyAnonymousIdAfterInitialize() async throws {
+        featureFlags.enablePreInitDiskCapture = true
+        let apiKey = "remap-event-disk-key"
+        let legacyAnon = "anon-legacy-event-disk"
+
+        try seedMigrationLaunch(
+            label: "remap-event-disk", apiKey: apiKey, identity: ProfileData(anonymousId: legacyAnon)
+        )
+
+        KlaviyoCommands.enqueueEvent(
+            Event(name: .customEvent("$opened_push"), properties: nil, identifiers: nil,
+                  value: nil, priority: .high)
+        )
+        XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, legacyAnon,
+                          "precondition: pre-init call must mint an id distinct from the legacy one")
+        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 1,
+                       "precondition: disk capture must buffer the event durably, not in-memory only")
+
+        await callInitializeAndAwaitTail(apiKey: apiKey)
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, legacyAnon)
+        let drainedAnonymousIds = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
+        XCTAssertEqual(
+            drainedAnonymousIds, [legacyAnon],
+            "drained push-open must carry the migrated anonymousId (durable buffer path)"
+        )
+    }
+
+    /// Same as `testPreInitPushTokenIsAttributedToLegacyAnonymousIdAfterInitialize`, but with
+    /// `enablePreInitDiskCapture` on.
+    func testPreInitPushTokenWithDiskCaptureIsAttributedToLegacyAnonymousIdAfterInitialize() async throws {
+        featureFlags.enablePreInitDiskCapture = true
+        let apiKey = "remap-token-disk-key"
+        let legacyAnon = "anon-legacy-token-disk"
+
+        try seedMigrationLaunch(
+            label: "remap-token-disk", apiKey: apiKey, identity: ProfileData(anonymousId: legacyAnon)
+        )
+
+        KlaviyoCommands.setPushToken("tok-remap-disk", .authorized)
+        XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, legacyAnon,
+                          "precondition: pre-init call must mint an id distinct from the legacy one")
+        XCTAssertEqual(UnattributedBuffer.shared.snapshot().count, 1,
+                       "precondition: disk capture must buffer the token durably, not in-memory only")
+
+        await callInitializeAndAwaitTail(apiKey: apiKey)
+
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, legacyAnon)
+        let drainedAnonymousIds = QueueStore.shared.requests.compactMap { anonymousId(of: $0.endpoint) }
+        XCTAssertEqual(
+            drainedAnonymousIds, [legacyAnon],
+            "drained token registration must carry the migrated anonymousId (durable buffer path)"
+        )
     }
 }
