@@ -17,6 +17,7 @@ class BadgeManagerTests: XCTestCase {
 
     override func tearDown() {
         BadgeManager.resetToProduction()
+        LifecycleState.shared.reset()
         super.tearDown()
     }
 
@@ -126,7 +127,7 @@ class BadgeManagerTests: XCTestCase {
         // that would race the async `initialize(with:)`.
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        klaviyoSwiftEnvironment.state = { KlaviyoState(queue: [], requestsInFlight: []) } // .uninitialized
+        LifecycleState.shared.reset() // .uninitialized
 
         var warningEmitted = false
         environment.emitDeveloperWarning = { _ in warningEmitted = true }
@@ -146,7 +147,10 @@ class BadgeManagerTests: XCTestCase {
     func testFacadeSetBadgeCount_whenInitialized_callsBadgeManager() async {
         environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        klaviyoSwiftEnvironment.state = { INITIALIZED_TEST_STATE() }
+        resetCanonicalCoreStores()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        LifecycleState.shared.beginInitializing()
+        LifecycleState.shared.completeInitialization()
 
         let badgeExpectation = expectation(description: "BadgeManager called with correct count")
         BadgeManager.setBadgeCountSpy = { count in

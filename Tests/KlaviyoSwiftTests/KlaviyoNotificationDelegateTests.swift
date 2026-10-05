@@ -5,6 +5,7 @@
 //  Created by Glenn Brannelly on 5/21/26.
 //
 
+@testable import KlaviyoCore
 @testable import KlaviyoSwift
 import UserNotifications
 import XCTest
@@ -144,8 +145,16 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     }
 
     override func setUpWithError() throws {
+        environment = KlaviyoEnvironment.test()
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        resetCanonicalCoreStores()
+        LifecycleState.shared.reset()
         KlaviyoNotificationDelegate.shared.clearAutoTracked()
+    }
+
+    override func tearDown() {
+        LifecycleState.shared.reset()
+        super.tearDown()
     }
 
     // MARK: - Injection Wiring
@@ -155,15 +164,14 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
     func testInitializeTriggersNotificationDelegateInjection() {
         var callCount = 0
         klaviyoSwiftEnvironment.injectNotificationDelegate = { callCount += 1 }
-        // initialize(with:) dispatches its action asynchronously. Wait for it here so the
-        // action is fully drained before this test returns — otherwise it lands in the next
-        // test's send handler and causes a spurious assertion failure.
-        let actionFired = XCTestExpectation(description: "initialize action dispatched")
-        klaviyoSwiftEnvironment.send = { _ in actionFired.fulfill(); return nil }
 
         KlaviyoSDK().initialize(with: "test-key")
 
-        wait(for: [actionFired], timeout: 1.0)
+        // `injectNotificationDelegate` is invoked synchronously by `initialize(with:)`. Drain the main
+        // queue afterward so the async `initialize` work settles before the test returns.
+        let drained = XCTestExpectation(description: "main queue drained after initialize")
+        DispatchQueue.main.async { drained.fulfill() }
+        wait(for: [drained], timeout: 1.0)
         XCTAssertEqual(callCount, 1)
     }
 
@@ -417,13 +425,13 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
         let pushBody = ["body": ["_k": ["foo": "bar"]]]
         let response = try UNNotificationResponse.with(userInfo: pushBody)
         let completionCount = CallbackBox(0)
-        let openedPushEnqueued = expectation(description: "opened push tracked exactly once")
-        klaviyoSwiftEnvironment.send = { action in
-            if case let .enqueueEvent(event) = action, event.metric.name == ._openedPush {
-                openedPushEnqueued.fulfill()
-            }
-            return nil
-        }
+        // An `_openedPush` track routes through `create(event:)` → `KlaviyoCommands.enqueueEvent`
+        // → `RequestEnqueuer`. Seed an apiKey + record the QueueStore so the enqueued createEvent is
+        // observable, then assert exactly one `_openedPush` lands.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
+        markSessionInitialized()
+        let recorded = registerRecordingQueueStore()
 
         // The system always calls the proxy — the setter hook keeps it as the effective
         // delegate — exactly as it would on a real device.
@@ -433,7 +441,23 @@ class KlaviyoNotificationDelegateTests: XCTestCase {
             withCompletionHandler: { completionCount.value += 1 }
         )
 
+        let openedPushCount: () -> Int = {
+            recorded().filter { request in
+                guard case let .createEvent(_, payload) = request.endpoint else { return false }
+                return payload.data.attributes.metric.data.attributes.name == "$opened_push"
+            }.count
+        }
+        let openedPushEnqueued = expectation(description: "opened push tracked exactly once")
+        func poll() {
+            if openedPushCount() >= 1 {
+                openedPushEnqueued.fulfill()
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { poll() }
+            }
+        }
+        poll()
         wait(for: [openedPushEnqueued], timeout: 1.0)
+        XCTAssertEqual(openedPushCount(), 1, "opened push must be tracked exactly once")
         XCTAssertEqual(forwardingProxy.didReceiveCallCount, 1)
         XCTAssertEqual(completionCount.value, 0)
 

@@ -8,7 +8,6 @@
 import Foundation
 
 open class SimpleMockURLProtocol: URLProtocol {
-    static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
     override open func startLoading() {
         client?.urlProtocol(self, didReceive: .validResponse, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data())

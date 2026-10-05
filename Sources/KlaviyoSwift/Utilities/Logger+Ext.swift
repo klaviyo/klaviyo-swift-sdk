@@ -26,7 +26,7 @@ extension Logger {
         KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Encoding/Decoding Logger") : Logger(OSLog.disabled)
     }
 
-    /// Logger for state events that run through the reducer
+    /// Logger for SDK state and orchestration events
     static var stateLogger: Logger {
         KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "State logger") : Logger(OSLog.disabled)
     }

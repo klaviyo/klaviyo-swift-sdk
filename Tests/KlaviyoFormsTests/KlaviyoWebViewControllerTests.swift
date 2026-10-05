@@ -96,18 +96,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         }
         environment = testEnvironment
 
-        // Reset Klaviyo state
+        // Seed canonical Core stores for this test.
         seedCoreStores()
-        let testState = KlaviyoState(
-            apiKey: "abc123",
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
 
         // Create view model
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
