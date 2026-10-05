@@ -373,6 +373,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(tokenData)
+        markSessionInitialized()
         seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "new@x.com"))
@@ -380,6 +381,8 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         XCTAssertNotNil(IdentityStore.shared.pushToken,
                         "identifier-change enqueueProfile must not clear the canonical push token")
         XCTAssertEqual(IdentityStore.shared.pushToken?.pushToken, tokenData.pushToken)
+        XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, "anon-old",
+                          "identifier change must mint a fresh anonymousId")
     }
 
     // MARK: - enqueueProfile: no push token → createProfile only
@@ -416,7 +419,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
 
         let snap = UnattributedBuffer.shared.drainSnapshot().requests
         let profiles: [CreateProfilePayload] = snap.compactMap {
-            if case let .profile(p) = $0 { return p } else { return nil }
+            if case let .profile(payload) = $0 { return payload } else { return nil }
         }
         XCTAssertEqual(profiles.count, 1, "pre-init enqueueProfile must buffer a profile")
         XCTAssertEqual(profiles.first?.data.attributes.email, "buf@x.com")
@@ -496,8 +499,11 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// No anonymousId → guard fires, nothing enqueued.
     @MainActor
     func testEnqueueSubscriptionNoAnonymousIdIsNoOp() {
-        // IdentityStore starts with no anonymousId after reset().
-        IdentityStore.shared.update(ProfileData()) // anonymousId nil
+        // Post-init with an identifier present, so only the missing anonymousId can stop the
+        // enqueue — otherwise this would pass vacuously via the pre-init drop/buffer gate.
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(email: "sub@x.com")) // anonymousId nil
+        markSessionInitialized()
         let readQueue = seedTestQueueStore()
 
         KlaviyoCommands.enqueueSubscription(

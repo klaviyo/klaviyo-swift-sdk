@@ -149,6 +149,19 @@ public enum RequestEnqueuer {
         }
     }
 
+    /// Re-attributes pre-init buffered requests from `previousAnonymousId` to
+    /// `replacementAnonymousId`. A pre-init call reads `IdentityStore`, which mints an `anonymousId`
+    /// when none is persisted; if migration then replaces it with the legacy one, the buffered
+    /// payloads (already built) would still carry the minted ID. Call after migration and before
+    /// `drainBuffer`.
+    public static func remapBufferedAnonymousId(
+        from previousAnonymousId: String, to replacementAnonymousId: String
+    ) {
+        guard previousAnonymousId != replacementAnonymousId else { return }
+        UnattributedBuffer.shared.remapAnonymousId(from: previousAnonymousId, to: replacementAnonymousId)
+        PreInitMemoryBuffer.shared.remapAnonymousId(from: previousAnonymousId, to: replacementAnonymousId)
+    }
+
     /// Moves every buffered request into `QueueStore`, stamping `apiKey` into each endpoint, then
     /// removes only the drained FIFO prefix from the durable buffer. Drains BOTH the durable disk
     /// buffer (`UnattributedBuffer`) and the non-durable in-memory buffer (`PreInitMemoryBuffer`);

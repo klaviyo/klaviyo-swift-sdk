@@ -151,7 +151,12 @@ extension KlaviyoCommands {
         // Migrate synchronously, before routing opens, so no identity read can hydrate a fresh
         // anonymousId over the persisted identity and no racing host setter can pass the session gate
         // while legacy state is still migrating.
-        migrateLegacyStateIfNeeded(apiKey: apiKey)
+        let replacedAnonymousId = migrateLegacyStateIfNeeded(apiKey: apiKey)
+        // A pre-init call may have minted an `anonymousId` that migration just replaced; re-attribute
+        // anything buffered under it before routing opens and the buffers drain.
+        if let replacedAnonymousId, let migratedAnonymousId = IdentityStore.shared.current.anonymousId {
+            RequestEnqueuer.remapBufferedAnonymousId(from: replacedAnonymousId, to: migratedAnonymousId)
+        }
         SessionState.markInitialized()
         Task { await completeInitialization(apiKey: apiKey) }
     }

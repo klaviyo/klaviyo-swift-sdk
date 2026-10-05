@@ -148,6 +148,25 @@ final class UnattributedBuffer {
         }
     }
 
+    /// Rewrites `previousAnonymousId` to `replacementAnonymousId` in every buffered request's
+    /// `anonymousId`, persisting only if something changed. Used when migration replaces an
+    /// `anonymousId` minted by a pre-init call.
+    func remapAnonymousId(from previousAnonymousId: String, to replacementAnonymousId: String) {
+        lock.withLock {
+            hydrateIfNeeded()
+            var changed = false
+            entries = entries.map { entry in
+                let remapped = entry.request.replacingAnonymousId(
+                    previousAnonymousId, with: replacementAnonymousId
+                )
+                guard remapped != entry.request else { return entry }
+                changed = true
+                return Entry(sequence: entry.sequence, request: remapped)
+            }
+            if changed { persist() }
+        }
+    }
+
     func clear() {
         lock.withLock {
             entries = []
@@ -163,6 +182,77 @@ final class UnattributedBuffer {
             entries = []
             nextSequence = 1
             removePersisted(fileName: StoreFile.unattributed)
+        }
+    }
+}
+
+extension UnattributedRequest {
+    /// Returns a copy with every `anonymous_id` equal to `previousAnonymousId` replaced by
+    /// `replacementAnonymousId`. The payload structs declare `anonymousId` and its parents as `let`,
+    /// so rewrite the encoded form instead of rebuilding each type; returns `self` unchanged when
+    /// nothing matches or the round-trip fails.
+    func replacingAnonymousId(
+        _ previousAnonymousId: String, with replacementAnonymousId: String
+    ) -> UnattributedRequest {
+        guard let data = try? environment.encodeJSON(self),
+              let json = try? JSONSerialization.jsonObject(with: data) else {
+            environment.logger.error(
+                "UnattributedRequest: failed to encode or deserialize JSON for anonymousId remap"
+            )
+            return self
+        }
+        let (rewritten, didChange) = Self.rewrite(
+            json, from: previousAnonymousId, to: replacementAnonymousId
+        )
+        guard didChange else { return self }
+        guard let rewrittenData = try? JSONSerialization.data(withJSONObject: rewritten),
+              let decoded: UnattributedRequest = try? environment.decoder.decode(rewrittenData) else {
+            environment.logger.error("UnattributedRequest: failed to re-serialize or decode remapped request")
+            return self
+        }
+        return decoded
+    }
+
+    /// Walks the encoded request, rewriting only `anonymous_id`. Does not recurse into any
+    /// `properties` subtree: both event-level (`CreateEventPayload.Attributes.properties`) and
+    /// profile-level (`ProfilePayload.Attributes.properties`) properties are caller-supplied data,
+    /// not request identity, and must never be rewritten even if a caller happens to use the key
+    /// `anonymous_id` with a colliding value.
+    private static func rewrite(
+        _ node: Any, from previousAnonymousId: String, to replacementAnonymousId: String
+    ) -> (Any, Bool) {
+        switch node {
+        case let dictionary as [String: Any]:
+            var changed = false
+            var result: [String: Any] = [:]
+            for (key, value) in dictionary {
+                if key == "properties" {
+                    result[key] = value
+                } else if key == "anonymous_id", let string = value as? String,
+                          string == previousAnonymousId {
+                    result[key] = replacementAnonymousId
+                    changed = true
+                } else {
+                    let (rewritten, didChange) = rewrite(
+                        value, from: previousAnonymousId, to: replacementAnonymousId
+                    )
+                    result[key] = rewritten
+                    changed = changed || didChange
+                }
+            }
+            return (result, changed)
+        case let array as [Any]:
+            var changed = false
+            let result = array.map { element -> Any in
+                let (rewritten, didChange) = rewrite(
+                    element, from: previousAnonymousId, to: replacementAnonymousId
+                )
+                changed = changed || didChange
+                return rewritten
+            }
+            return (result, changed)
+        default:
+            return (node, false)
         }
     }
 }

@@ -53,9 +53,7 @@ class KlaviyoSDKTests: XCTestCase {
     private func seedInitializedRecording() {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(anonymousId: environment.uuid().uuidString))
-        LifecycleState.shared.beginInitializing()
-        LifecycleState.shared.completeInitialization()
-        SessionState.markInitialized()
+        markSessionInitialized()
         recordedRequests = registerRecordingQueueStore()
     }
 
@@ -893,7 +891,7 @@ class KlaviyoSDKTests: XCTestCase {
         let handled = klaviyo.handle(notificationResponse: response) { callback.fulfill() }
 
         await fulfillment(of: [callback], timeout: 1.0)
-        wait(for: [externalUrlNotInvoked], timeout: 0.3)
+        await fulfillment(of: [externalUrlNotInvoked], timeout: 0.3)
         try await waitForOpenedPush()
         XCTAssertTrue(handled)
         XCTAssertFalse(openedPushEvents().isEmpty, "tap is tracked even when the scheme is blocked")

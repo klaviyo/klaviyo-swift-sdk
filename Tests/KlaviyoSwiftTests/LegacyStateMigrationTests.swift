@@ -414,4 +414,34 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b"])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey))
     }
+
+    // MARK: - Returned replaced-id reflects IdentityStore even when every attempt fails
+
+    /// `attemptMigration` writes the legacy identity as its first step, before the queue write that
+    /// fails here. If every retry is exhausted, the returned replaced-id must still reflect that
+    /// `IdentityStore` was changed — otherwise the caller (which uses the return value to decide
+    /// whether to re-attribute pre-init buffered requests) wrongly concludes nothing changed and
+    /// skips the remap, leaving requests attributed to the stale pre-migration id.
+    func testReplacedAnonymousIdReturnedEvenWhenAllAttemptsFail() throws {
+        let apiKey = "exhausted-retries-key"
+        try seedLegacyFile(apiKey: apiKey, fixture: LegacyNestedFixture(
+            apiKey: apiKey, identity: ProfileData(anonymousId: "anon-legacy"), pushTokenData: nil,
+            queue: [legacyRequest("a", apiKey: apiKey)]
+        ))
+        let mintedAnonymousId = "anon-minted-preinit"
+        IdentityStore.shared.update(ProfileData(anonymousId: mintedAnonymousId))
+        // Fails every write, so all 3 attempts exhaust without ever completing.
+        fakeEnvironment.failWriteForPathSuffix = "-queue.json"
+
+        let replacedAnonymousId = migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        // IdentityStore.update() is attemptMigration's first step and isn't rolled back on a later
+        // failure, so identity is already the legacy one despite every attempt failing overall.
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-legacy",
+                       "precondition: identity was changed by the failed attempts")
+        XCTAssertEqual(replacedAnonymousId, mintedAnonymousId,
+                       "must report the id IdentityStore changed FROM, even though every attempt failed")
+        XCTAssertTrue(legacyFileExists(apiKey: apiKey),
+                      "left in place — migration never completed, so it must remain for a retry")
+    }
 }

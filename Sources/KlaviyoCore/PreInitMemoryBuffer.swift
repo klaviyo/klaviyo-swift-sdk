@@ -51,6 +51,16 @@ final class PreInitMemoryBuffer {
         }
     }
 
+    /// Rewrites `previousAnonymousId` to `replacementAnonymousId` in every buffered request's
+    /// `anonymousId` (see `UnattributedBuffer`).
+    func remapAnonymousId(from previousAnonymousId: String, to replacementAnonymousId: String) {
+        lock.withLock {
+            requests = requests.map {
+                $0.replacingAnonymousId(previousAnonymousId, with: replacementAnonymousId)
+            }
+        }
+    }
+
     func reset() {
         lock.withLock {
             requests = []

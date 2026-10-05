@@ -223,4 +223,34 @@ final class UnattributedBufferTests: XCTestCase {
 
         XCTAssertEqual(decoded, original)
     }
+
+    // MARK: - replacingAnonymousId
+
+    /// `replacingAnonymousId` must rewrite the request's own identity field, not a caller-supplied
+    /// event property that happens to share the literal key `anonymous_id` with a colliding value —
+    /// that property is customer data, not request identity, and must survive untouched.
+    func testReplacingAnonymousIdDoesNotRewriteCallerPropertiesNamedAnonymousId() {
+        let request = UnattributedRequest.event(
+            CreateEventPayload(
+                data: CreateEventPayload.Event(
+                    name: "Test",
+                    properties: ["anonymous_id": "anon-old", "other": "unchanged"],
+                    anonymousId: "anon-old"
+                )
+            ),
+            .high
+        )
+
+        let remapped = request.replacingAnonymousId("anon-old", with: "anon-new")
+
+        guard case let .event(payload, _) = remapped else {
+            return XCTFail("expected .event after remap")
+        }
+        XCTAssertEqual(payload.data.attributes.profile.data.attributes.anonymousId, "anon-new",
+                       "the request's own identity field must be rewritten")
+        let properties = payload.data.attributes.properties.value as? [String: Any]
+        XCTAssertEqual(properties?["anonymous_id"] as? String, "anon-old",
+                       "a caller-supplied property literally named anonymous_id must not be rewritten")
+        XCTAssertEqual(properties?["other"] as? String, "unchanged")
+    }
 }
