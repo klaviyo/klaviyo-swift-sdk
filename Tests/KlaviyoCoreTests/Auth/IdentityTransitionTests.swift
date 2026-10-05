@@ -2,8 +2,7 @@
 //  IdentityTransitionTests.swift
 //  KlaviyoCore
 //
-//  Mirrors the identifier-transition cases in onsite-personalization's
-//  `tokenStore.test.ts`.
+//  Mirrors the identifier-transition cases onsite applies to its own auth token.
 //
 
 @testable import KlaviyoCore

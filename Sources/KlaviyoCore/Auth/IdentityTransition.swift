@@ -5,9 +5,8 @@
 
 /// How a profile's identifiers changed, as decided by ``classify(previous:next:)``.
 ///
-/// Matches the classification onsite applies to identifier changes
-/// (`setProfileIdentifiers` in onsite-personalization's `tokenStore.ts`): an auth token
-/// survives `unchanged` and `compatible` transitions and is discarded on a `replacement`.
+/// Matches the classification onsite applies to identifier changes: an auth token survives
+/// `unchanged` and `compatible` transitions and is discarded on a `replacement`.
 package enum IdentityTransition: Equatable {
     /// Every identifier, anonymous ID included, is the same.
     case unchanged
