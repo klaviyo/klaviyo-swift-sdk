@@ -30,21 +30,35 @@ func klaviyoStateFile(apiKey: String) -> URL {
 /// Retries immediately, in this same call; the shape-based (`apiKey != nil`) unmigrated marker
 /// survives across launches until a migration succeeds, so a transient failure is safely retried
 /// on the next cold launch.
-func migrateLegacyStateIfNeeded(apiKey: String) {
+///
+/// Returns the `anonymousId` that migration replaced (nil if none ran, or the ID was unchanged), so the
+/// caller can re-attribute requests buffered pre-init under that now-stale ID.
+///
+/// Returned whenever `IdentityStore` ends up changed from what it held before this call — not only on
+/// a fully successful attempt. `attemptMigration` writes the legacy identity as its first step, before
+/// queue restore, verification, or file retirement can fail, so a run that exhausts every retry can
+/// still leave `IdentityStore` migrated. Gating the return on success alone would make the caller skip
+/// the remap in that case, leaving buffered pre-init payloads attributed to the stale minted id.
+@discardableResult
+func migrateLegacyStateIfNeeded(apiKey: String) -> String? {
     let legacyFile = klaviyoStateFile(apiKey: apiKey)
     guard let decoded = validatedLegacyState(apiKey: apiKey, legacyFile: legacyFile) else {
-        return
+        return nil
     }
+    // Captured once, before any attempt: a retry would otherwise read the already-migrated ID.
+    let replacedAnonymousId = IdentityStore.shared.current.anonymousId
 
     let maxAttempts = 3
     for attempt in 1...maxAttempts {
         if attemptMigration(apiKey: apiKey, legacyFile: legacyFile, decoded: decoded) {
-            return
+            break
         }
         if attempt < maxAttempts {
             environment.logger.error("LegacyStateMigration: retrying (\(attempt + 1)/\(maxAttempts)).")
         }
     }
+    let currentAnonymousId = IdentityStore.shared.current.anonymousId
+    return replacedAnonymousId == currentAnonymousId ? nil : replacedAnonymousId
 }
 
 /// One write-verify-retire attempt. `true` once the canonical stores hold `decoded` and the legacy

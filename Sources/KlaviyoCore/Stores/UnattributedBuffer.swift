@@ -148,6 +148,22 @@ final class UnattributedBuffer {
         }
     }
 
+    /// Rewrites `old` to `new` in every buffered request's `anonymousId`, persisting only if something
+    /// changed. Used when migration replaces an `anonymousId` minted by a pre-init call.
+    func remapAnonymousId(from old: String, to new: String) {
+        lock.withLock {
+            hydrateIfNeeded()
+            var changed = false
+            entries = entries.map { entry in
+                let remapped = entry.request.replacingAnonymousId(old, with: new)
+                guard remapped != entry.request else { return entry }
+                changed = true
+                return Entry(sequence: entry.sequence, request: remapped)
+            }
+            if changed { persist() }
+        }
+    }
+
     func clear() {
         lock.withLock {
             entries = []
@@ -163,6 +179,51 @@ final class UnattributedBuffer {
             entries = []
             nextSequence = 1
             removePersisted(fileName: StoreFile.unattributed)
+        }
+    }
+}
+
+extension UnattributedRequest {
+    /// Returns a copy with every `anonymous_id` equal to `old` replaced by `new`. The payload structs
+    /// declare `anonymousId` and its parents as `let`, so rewrite the encoded form instead of
+    /// rebuilding each type; returns `self` unchanged when nothing matches or the round-trip fails.
+    func replacingAnonymousId(_ old: String, with new: String) -> UnattributedRequest {
+        guard let data = try? environment.encodeJSON(self),
+              let json = try? JSONSerialization.jsonObject(with: data) else { return self }
+        let (rewritten, didChange) = Self.rewrite(json, from: old, to: new)
+        guard didChange,
+              let rewrittenData = try? JSONSerialization.data(withJSONObject: rewritten),
+              let decoded: UnattributedRequest = try? environment.decoder.decode(rewrittenData)
+        else { return self }
+        return decoded
+    }
+
+    private static func rewrite(_ node: Any, from old: String, to new: String) -> (Any, Bool) {
+        switch node {
+        case let dictionary as [String: Any]:
+            var changed = false
+            var result: [String: Any] = [:]
+            for (key, value) in dictionary {
+                if key == "anonymous_id", let string = value as? String, string == old {
+                    result[key] = new
+                    changed = true
+                } else {
+                    let (rewritten, didChange) = rewrite(value, from: old, to: new)
+                    result[key] = rewritten
+                    changed = changed || didChange
+                }
+            }
+            return (result, changed)
+        case let array as [Any]:
+            var changed = false
+            let result = array.map { element -> Any in
+                let (rewritten, didChange) = rewrite(element, from: old, to: new)
+                changed = changed || didChange
+                return rewritten
+            }
+            return (result, changed)
+        default:
+            return (node, false)
         }
     }
 }
