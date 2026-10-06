@@ -475,34 +475,34 @@ final class IAFWebViewModelTests: XCTestCase {
     @MainActor
     func testPushAuthTokenUpdatesWebView() async throws {
         // Given — a view model with a wired-up delegate
-        let (viewModel, delegate) = try makeTokenViewModel()
+        let (viewModel, delegate, manager) = try await makeTokenViewModel()
 
         // When — a refreshed token is pushed (driven by the presentation
         // manager's refresh subscription in production)
-        let refreshedToken = "header.refreshed.signature"
-        await viewModel.pushAuthToken(refreshedToken)
+        let refreshed = try await cacheTestToken(subject: "refreshed", in: manager)
+        await viewModel.pushAuthToken(refreshed.token, generation: refreshed.generation)
 
         // Then — it is applied as a data-klaviyo-jwt update carrying the token
         let script = try XCTUnwrap(delegate.authTokenScripts.first)
-        XCTAssertTrue(script.contains(refreshedToken), "Pushed token should update data-klaviyo-jwt with the new value")
+        XCTAssertTrue(script.contains(refreshed.token), "Pushed token should update data-klaviyo-jwt with the new value")
     }
 
     @MainActor
     func testPushAuthTokenAppliesUpdatesInOrder() async throws {
         // Given
-        let (viewModel, delegate) = try makeTokenViewModel()
+        let (viewModel, delegate, manager) = try await makeTokenViewModel()
 
         // When — two tokens are pushed sequentially
-        let firstToken = "header.first.signature"
-        let secondToken = "header.second.signature"
-        await viewModel.pushAuthToken(firstToken)
-        await viewModel.pushAuthToken(secondToken)
+        let first = try await cacheTestToken(subject: "first", in: manager)
+        await viewModel.pushAuthToken(first.token, generation: first.generation)
+        let second = try await cacheTestToken(subject: "second", in: manager)
+        await viewModel.pushAuthToken(second.token, generation: second.generation)
 
         // Then — both are applied, in order
         let scripts = delegate.authTokenScripts
         XCTAssertEqual(scripts.count, 2)
-        XCTAssertTrue(scripts[0].contains(firstToken))
-        XCTAssertTrue(scripts[1].contains(secondToken))
+        XCTAssertTrue(scripts[0].contains(first.token))
+        XCTAssertTrue(scripts[1].contains(second.token))
     }
 }
 
@@ -527,14 +527,23 @@ extension IAFWebViewModel {
 // MARK: - Token refresh test helpers
 
 extension IAFWebViewModelTests {
-    /// Builds a view model with a wired-up mock delegate, so `pushAuthToken`
-    /// tests can observe the resulting `evaluateJavaScript` calls.
+    /// Builds a view model with a wired-up mock delegate and its own token manager, so
+    /// `pushAuthToken` tests can observe the resulting `evaluateJavaScript` calls.
     @MainActor
-    private func makeTokenViewModel() throws -> (IAFWebViewModel, MockIAFWebViewDelegate) {
+    private func makeTokenViewModel() async throws -> (IAFWebViewModel, MockIAFWebViewDelegate, AuthTokenManager) {
+        let profile = ProfileData(email: "token@example.com", anonymousId: "anon-token")
+        IdentityStore.shared.update(profile)
+        let manager = makeUnboundedAuthTokenManager()
+        addTeardownBlock { await manager.unregisterProvider() }
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        let viewModel = IAFWebViewModel(url: fileUrl, apiKey: "abc123", profileData: nil)
+        let viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: profile,
+            authTokenManager: manager
+        )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
-        return (viewModel, delegate)
+        return (viewModel, delegate, manager)
     }
 }

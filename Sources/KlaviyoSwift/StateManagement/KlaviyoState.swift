@@ -324,12 +324,6 @@ struct KlaviyoState: Equatable, Codable {
         email != nil || externalId != nil || phoneNumber != nil
     }
 
-    /// The profile identity once the SDK is initialized, otherwise `nil`.
-    var initializedIdentity: ProfileData? {
-        guard case .initialized = initalizationState else { return nil }
-        return identity
-    }
-
     mutating func reset(preserveTokenData: Bool = true) {
         if isIdentified {
             // If we are still anonymous we want to preserve our anonymous id so we can merge this profile with the new profile.

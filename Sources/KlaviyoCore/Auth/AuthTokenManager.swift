@@ -18,6 +18,13 @@ import OSLog
 /// has elapsed (with the same clock-skew leeway ``JWTParser`` uses) or the
 /// provider is replaced via ``registerProvider(_:)``.
 ///
+/// The provider is only invoked while the current profile (read from an
+/// ``IdentityReading``) has an identifier. Token state is bound to an identity
+/// generation, which increases whenever a profile change is classified as a
+/// replacement (see ``IdentityTransition/classify(previous:next:)``): a cached token,
+/// in-flight fetch or connectivity retry from an earlier generation is never served,
+/// shared or retried, however many compatible changes lie between the two profiles.
+///
 /// Concurrent callers requesting a token while a fetch is in flight share the
 /// result of that fetch — they do not trigger additional provider invocations.
 /// Each caller bounds *its own* wait via ``FetchMode``; the underlying fetch
@@ -26,6 +33,12 @@ import OSLog
 ///
 /// The token cache is in-memory only — never persisted to disk or Keychain.
 package actor AuthTokenManager {
+    /// A token and the identity generation it was fetched for.
+    package struct TokenRefresh: Equatable {
+        package let token: String
+        package let generation: UInt64
+    }
+
     /// Latency budget for callers awaiting a token, expressed as a named policy
     /// rather than a free `TimeInterval` so the two budgets stay
     /// single-source-of-truth and can be tuned together based on production
@@ -45,9 +58,9 @@ package actor AuthTokenManager {
     /// construct their own instances to keep test runs independent.
     package static let shared = AuthTokenManager()
 
-    /// Most recently validated token, if any. Cleared whenever
-    /// ``registerProvider(_:)`` runs.
-    private var cachedToken: ValidatedToken?
+    /// Most recently validated token, if any, and the identity generation it was fetched
+    /// under. Cleared whenever ``registerProvider(_:)`` runs.
+    private var cachedToken: (token: ValidatedToken, generation: UInt64)?
     private var observedCompanyID: String?
     private var companyCancellable: AnyCancellable?
     private let config: ConfigReading
@@ -56,15 +69,21 @@ package actor AuthTokenManager {
     /// Starts `nil`; set by ``registerProvider(_:)``.
     private var provider: AuthTokenProvider?
 
-    /// In-flight fetch slot: a token-fetch task paired with the generation `id`
-    /// that names it. Concurrent callers `await` the `task` rather than starting
-    /// their own fetch. The `id` lets the fetch task itself decide whether to
+    /// In-flight fetch slot: a token-fetch task paired with the fetch `id` that names it
+    /// and the identity `generation` it fetches for. Concurrent callers `await` the `task`
+    /// rather than starting their own fetch. The `id` lets the fetch task itself decide whether to
     /// clear the slot on completion — a stale (cancelled) task waking up after
     /// a newer fetch was installed must not clobber the newer slot.
     ///
     /// Always set and cleared as a unit: there is no valid state where the
     /// task is present without its id, or vice versa.
-    private var inFlight: (id: UUID, task: Task<String, Error>)?
+    private var inFlight: InFlightFetch?
+
+    private struct InFlightFetch {
+        let id: UUID
+        let task: Task<String, Error>
+        let generation: UInt64
+    }
 
     /// Sleep-and-refresh task that fires at ``refreshAtWallClock``. Cancelled
     /// and replaced when a new token is acquired (chaining), when
@@ -87,21 +106,31 @@ package actor AuthTokenManager {
     private var activeScheduledRefreshID: UUID?
 
     /// `true` while a token fetch has failed for a network reason and the
-    /// manager is awaiting connectivity before retrying. A single boolean (not a
-    /// task) because connectivity comes through the existing ``lifecycleCancellable``
-    /// reachability sink: a network-classified failure arms it — inside
-    /// ``runFetch(fetchID:)``, so every acquisition path shares the same arming
+    /// manager is awaiting connectivity before retrying. Derived from
+    /// ``connectivityRetryGeneration`` (not a task) because connectivity comes through the
+    /// existing ``lifecycleCancellable`` reachability sink: a network-classified failure arms it — inside
+    /// ``runFetch(fetchID:generation:)``, so every acquisition path shares the same arming
     /// logic (the eager warm-up fetch, an interactive ``currentToken(mode:)``
     /// call, and ``performScheduledRefresh()`` alike) — the next reachable
     /// status consumes it (``handleReachabilityChange()``), so flapping can't
     /// queue multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()``.
-    private var isAwaitingConnectivityRetry = false
+    private var isAwaitingConnectivityRetry: Bool {
+        connectivityRetryGeneration != nil
+    }
 
     /// The running ``refreshRejectedToken()`` replacement, paired with the `id` that
-    /// names it so only that run clears the slot when it finishes. Overlapping calls
+    /// names it so only that run clears the slot when it finishes, and the identity
+    /// `generation` it replaces a token for. Overlapping calls for the same generation
     /// await `task` instead of starting their own replacement. Cleared by
-    /// ``cancelInFlightWorkAndClearCache()``.
-    private var rejectedTokenRefresh: (id: UUID, task: Task<Void, Never>)?
+    /// ``cancelInFlightWorkAndClearCache()``, and by ``discardState(before:)`` once
+    /// `generation` is no longer current.
+    private var rejectedTokenRefresh: RejectedTokenRefresh?
+
+    private struct RejectedTokenRefresh {
+        let id: UUID
+        let task: Task<Void, Never>
+        let generation: UInt64
+    }
 
     /// Test-only window onto ``rejectedTokenRefresh`` so suites can await a
     /// rejected-token replacement finishing. Not package API.
@@ -135,6 +164,13 @@ package actor AuthTokenManager {
         ready.forEach { $0.continuation.resume() }
     }
 
+    /// The identity generation whose failed fetch armed ``isAwaitingConnectivityRetry``.
+    private var connectivityRetryGeneration: UInt64?
+
+    /// `true` while a warm-up fetch from ``registerProvider(_:)`` was gated because the
+    /// profile had no identifier; the next change that identifies the profile runs it.
+    private var isWarmUpPending = false
+
     /// Test-only: whether a proactive refresh is scheduled (``refreshTask`` or
     /// ``refreshAtWallClock`` is set). Not package API.
     var hasScheduledRefreshForTesting: Bool {
@@ -146,6 +182,14 @@ package actor AuthTokenManager {
     /// in the failure path) instead of racing it with fixed yields. Not package API.
     var isAwaitingConnectivityRetryForTesting: Bool {
         isAwaitingConnectivityRetry
+    }
+
+    /// Test-only hook called when a warm-up attempt is gated for lack of a profile identifier,
+    /// before the warm-up re-checks the profile. Not package API.
+    private var warmUpGatedHookForTesting: (@Sendable () -> Void)?
+
+    func setWarmUpGatedHookForTesting(_ hook: (@Sendable () -> Void)?) {
+        warmUpGatedHookForTesting = hook
     }
 
     /// Long-lived Combine subscription that dispatches foreground transitions to
@@ -167,7 +211,7 @@ package actor AuthTokenManager {
     ///
     /// Retained across both ``registerProvider(_:)`` and ``clearTokenState()``
     /// — see ``clearTokenState()`` for why a live subscription survives a reset.
-    private let refreshSubject = PassthroughSubject<String, Never>()
+    private let refreshSubject = PassthroughSubject<TokenRefresh, Never>()
 
     /// Lifecycle event source. Injected for testability; defaults to the
     /// SDK-wide `environment.appLifeCycle`.
@@ -188,25 +232,44 @@ package actor AuthTokenManager {
     /// swallows the `CancellationError` `Task.sleep` throws.
     private let sleeper: @Sendable (UInt64) async -> Void
 
+    /// Sleep primitive that bounds a caller's wait in ``race(fetch:timeoutSeconds:)``.
+    /// Injected so tests can run without a real-time budget; defaults to
+    /// `Task.sleep(nanoseconds:)`. Used exclusively for testing.
+    private let timeoutSleeper: @Sendable (UInt64) async -> Void
+
     /// Current network reachability, consulted when arming a connectivity wait so a
     /// retry armed *after* the offline→online transition already passed isn't
-    /// stranded (see ``armConnectivityRetry()``). Injected for testability; defaults
+    /// stranded (see ``armConnectivityRetry(for:)``). Injected for testability; defaults
     /// to `environment.reachabilityStatus`. `nil`/unknown is treated as "no path".
     private let currentReachability: () -> Reachability.NetworkStatus?
+
+    /// Follows the injected ``VersionedIdentityReading`` (default `IdentityStore.shared`) and
+    /// supplies the current profile and identity generation for every decision. Subscribed
+    /// synchronously in ``init``.
+    private let identityTracker: IdentityGenerationTracker
 
     /// Production initializer. Wires the actor to the real SDK-wide clock
     /// (`environment.date`) and `Task.sleep`. This is the only initializer
     /// visible to sibling product modules, and is what ``shared`` uses.
     ///
-    /// - Parameter lifeCycle: Source of foreground/background events. Defaults
-    ///   to `environment.appLifeCycle`.
-    package init(lifeCycle: AppLifeCycleEvents = environment.appLifeCycle) {
+    /// - Parameters:
+    ///   - lifeCycle: Source of foreground/background events. Defaults to
+    ///     `environment.appLifeCycle`.
+    ///   - identity: Source of the current profile identity. Defaults to
+    ///     `IdentityStore.shared`.
+    package init(
+        lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
+        identity: VersionedIdentityReading = IdentityStore.shared
+    ) {
         self.lifeCycle = lifeCycle
         config = SDKConfigStore.shared
         observedCompanyID = config.current.apiKey
         currentDate = { environment.date() }
         sleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
+        timeoutSleeper = { nanoseconds in try? await Task.sleep(nanoseconds: nanoseconds) }
         currentReachability = { environment.reachabilityStatus() }
+        identityTracker = IdentityGenerationTracker(identity: identity)
+        observeIdentityChanges()
         Task {
             await self.startLifecycleObserver()
             await self.startCompanyObserver()
@@ -230,6 +293,10 @@ package actor AuthTokenManager {
     ///   - sleep: Sleep primitive for the refresh loop, taking a duration in
     ///     nanoseconds. See ``sleeper`` for its cancellation contract. Defaults
     ///     to `Task.sleep(nanoseconds:)`.
+    ///   - reachabilityStatus: Current network reachability.
+    ///   - identity: Source of the current profile identity.
+    ///   - fetchTimeoutSleep: Sleep primitive that bounds a caller's wait for a fetch, taking
+    ///     a duration in nanoseconds. Defaults to `Task.sleep(nanoseconds:)`.
     init(
         lifeCycle: AppLifeCycleEvents = environment.appLifeCycle,
         currentDate: @escaping () -> Date,
@@ -237,6 +304,10 @@ package actor AuthTokenManager {
             try? await Task.sleep(nanoseconds: nanoseconds)
         },
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus? = { nil },
+        identity: VersionedIdentityReading = IdentityStore.shared,
+        fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = { nanoseconds in
+            try? await Task.sleep(nanoseconds: nanoseconds)
+        },
         config: ConfigReading = SDKConfigStore.shared
     ) {
         self.lifeCycle = lifeCycle
@@ -244,10 +315,20 @@ package actor AuthTokenManager {
         observedCompanyID = config.current.apiKey
         self.currentDate = currentDate
         sleeper = sleep
+        timeoutSleeper = fetchTimeoutSleep
         currentReachability = reachabilityStatus
+        identityTracker = IdentityGenerationTracker(identity: identity)
+        observeIdentityChanges()
         Task {
             await self.startLifecycleObserver()
             await self.startCompanyObserver()
+        }
+    }
+
+    private nonisolated func observeIdentityChanges() {
+        identityTracker.setOnChange { [weak self] in
+            guard let self else { return }
+            Task { await self.handleIdentityChange() }
         }
     }
 
@@ -260,8 +341,10 @@ package actor AuthTokenManager {
     /// logs ``currentToken(mode:)`` would emit). A connectivity-classified
     /// warm-up failure still arms the connectivity retry despite being
     /// fire-and-forget, since that classification lives in the shared
-    /// ``runFetch(fetchID:)`` this call eventually reaches. Calling this again
-    /// later replaces the previous provider.
+    /// ``runFetch(fetchID:generation:)`` this call eventually reaches. Like every fetch, the
+    /// warm-up does not invoke the provider while the profile has no identifier; it then
+    /// runs once, as soon as a profile change gives the profile an identifier.
+    /// Calling this again later replaces the previous provider.
     package func registerProvider(_ newProvider: @escaping AuthTokenProvider) async {
         cancelInFlightWorkAndClearCache()
         provider = newProvider
@@ -270,9 +353,43 @@ package actor AuthTokenManager {
             Logger.auth.info("AuthTokenManager: provider registered")
         }
         Task {
-            // fetch a token to warm the cache
-            _ = try? await self.currentToken(mode: .background)
+            await self.warmUp()
+            await self.handleIdentityChange()
         }
+    }
+
+    /// Fetches a background token to warm the cache. When the profile has no identifier it
+    /// marks the warm-up pending, unless the profile became identified while the attempt
+    /// was in flight, in which case it tries again.
+    private func warmUp() async {
+        isWarmUpPending = false
+        repeat {
+            do {
+                _ = try await currentToken(mode: .background)
+                return
+            } catch AuthTokenError.noProfileIdentifier {
+                isWarmUpPending = true
+                warmUpGatedHookForTesting?()
+            } catch {
+                return
+            }
+        } while consumePendingWarmUpIfIdentified()
+    }
+
+    /// Clears a pending warm-up and returns `true` when the profile has an identifier by now.
+    private func consumePendingWarmUpIfIdentified() -> Bool {
+        guard isWarmUpPending, identityTracker.snapshot().profile.isIdentified else { return false }
+        isWarmUpPending = false
+        return true
+    }
+
+    /// Reacts to a profile change: drops token state left over from an earlier identity
+    /// generation, then runs a pending warm-up if the profile is now identified.
+    private func handleIdentityChange() async {
+        let snapshot = identityTracker.snapshot()
+        discardState(before: snapshot.generation)
+        guard isWarmUpPending, provider != nil, snapshot.profile.isIdentified else { return }
+        await warmUp()
     }
 
     /// Detaches the registered provider and tears down all associated token
@@ -310,26 +427,52 @@ package actor AuthTokenManager {
     /// closure a finite upper-bound (e.g., `URLSession`'s default
     /// `timeoutIntervalForRequest` is sufficient).
     ///
+    /// A fetch cancelled because the identity generation moved while this call awaited it
+    /// is retried once for the new generation; a cancelled caller is not retried.
+    ///
     /// - Parameter mode: Latency budget for *this* call. Defaults to
     ///   ``FetchMode/interactive`` — the form-display path.
     /// - Throws: ``AuthTokenError/noProviderRegistered`` when no provider is
-    ///   registered; ``AuthTokenError/timedOut`` when the caller's budget
+    ///   registered; ``AuthTokenError/noProfileIdentifier`` when the profile has
+    ///   no identifier; ``AuthTokenError/timedOut`` when the caller's budget
     ///   elapses before the fetch completes; the provider's own error when the
     ///   provider throws; ``AuthTokenError/validationFailed(_:)`` when the
     ///   returned token fails ``JWTParser`` validation;
     ///   ``AuthTokenError/companyChanged`` when the configured company changed
     ///   while the caller was waiting on the fetch.
     package func currentToken(mode: FetchMode = .interactive) async throws -> String {
+        try await currentTokenRefresh(mode: mode).token
+    }
+
+    /// ``currentToken(mode:)`` together with the identity generation the token belongs to,
+    /// so a caller can tell later whether it is still deliverable (compare with
+    /// ``currentIdentityGeneration``).
+    package func currentTokenRefresh(mode: FetchMode = .interactive) async throws -> TokenRefresh {
         await reconcileCompany()
-        if let cachedToken, isCachedTokenValid(cachedToken) {
-            return cachedToken.rawToken
+        let snapshot = identityTracker.snapshot()
+        do {
+            return try await acquireToken(mode: mode, generation: snapshot.generation)
+        } catch is CancellationError {
+            let latest = identityTracker.snapshot()
+            guard !Task.isCancelled, latest.generation != snapshot.generation else {
+                throw CancellationError()
+            }
+            return try await acquireToken(mode: mode, generation: latest.generation)
+        }
+    }
+
+    /// Serves the cached token or awaits a fetch, both for identity `generation`.
+    private func acquireToken(mode: FetchMode, generation: UInt64) async throws -> TokenRefresh {
+        discardState(before: generation)
+        if let cachedToken, cachedToken.generation == generation, isCachedTokenValid(cachedToken.token) {
+            return TokenRefresh(token: cachedToken.token.rawToken, generation: generation)
         }
 
         guard provider != nil else {
             throw AuthTokenError.noProviderRegistered
         }
 
-        let task = inFlight?.task ?? startFetch()
+        let task = inFlightTask(for: generation) ?? startFetch(generation: generation)
         let companyID = observedCompanyID
         let token: String
         do {
@@ -339,7 +482,7 @@ package actor AuthTokenManager {
             throw error
         }
         try await throwIfCompanyChanged(since: companyID)
-        return token
+        return TokenRefresh(token: token, generation: generation)
     }
 
     /// Reconciles the current company, then throws ``AuthTokenError/companyChanged``
@@ -352,7 +495,13 @@ package actor AuthTokenManager {
         }
     }
 
-    /// Returns a stream of newly acquired token strings.
+    /// The in-flight fetch, if it is for identity `generation`.
+    private func inFlightTask(for generation: UInt64) -> Task<String, Error>? {
+        guard let inFlight, inFlight.generation == generation else { return nil }
+        return inFlight.task
+    }
+
+    /// Returns a stream of newly acquired tokens.
     ///
     /// Each call returns an independent `AsyncStream` backed by its own
     /// subscription to ``refreshSubject``; multiple concurrent subscribers are
@@ -373,23 +522,46 @@ package actor AuthTokenManager {
     /// `.send(_:)` write end must never cross the package boundary (a consumer
     /// could otherwise inject tokens to every subscriber), and an `AsyncStream`
     /// keeps this surface consistent with the manager's async/await API.
-    package func refreshes() -> AsyncStream<String> {
+    ///
+    /// Each element carries the identity generation the token was fetched for, so a consumer
+    /// can drop a token whose generation is no longer ``currentIdentityGeneration``.
+    package func refreshes() -> AsyncStream<TokenRefresh> {
         AsyncStream { [refreshSubject] continuation in
             let cancellable = refreshSubject.sink { continuation.yield($0) }
             continuation.onTermination = { _ in cancellable.cancel() }
         }
     }
 
-    /// Whether `token` is the currently cached token. `false` once the cache has been
-    /// cleared or replaced.
+    /// Whether `token` is the currently cached token of the current identity generation.
+    /// `false` once the cache has been cleared or replaced, or once a profile change has moved
+    /// the generation past the cached token's.
     package func isCurrentToken(_ token: String) -> Bool {
-        cachedToken?.rawToken == token
+        guard let cachedToken else { return false }
+        return cachedToken.token.rawToken == token
+            && cachedToken.generation == identityTracker.snapshot().generation
     }
 
-    /// Clears all token-acquisition state tied to the current user, called from
-    /// `KlaviyoSDK().resetProfile()` (e.g. on logout). Discards the cached
-    /// token, cancels the scheduled proactive refresh and its wall-clock
-    /// target, and cancels any in-flight fetch.
+    /// Publishes `refresh` on ``refreshes()`` again when it is still the cached token of the
+    /// current identity generation, so a consumer that declined or missed it receives it
+    /// again. Does nothing otherwise.
+    package func republish(_ refresh: TokenRefresh) {
+        guard let cachedToken,
+              cachedToken.token.rawToken == refresh.token,
+              cachedToken.generation == refresh.generation,
+              refresh.generation == identityTracker.snapshot().generation else { return }
+        refreshSubject.send(refresh)
+    }
+
+    /// The current identity generation: it increases whenever a profile change is classified
+    /// as a replacement by ``IdentityTransition/classify(previous:next:)`` and whenever all
+    /// token state is cleared. A token is deliverable only while its generation is current.
+    package nonisolated var currentIdentityGeneration: UInt64 {
+        identityTracker.snapshot().generation
+    }
+
+    /// Clears all token-acquisition state: discards the cached token, cancels the
+    /// scheduled proactive refresh and its wall-clock target, and cancels any in-flight
+    /// fetch. Called from ``unregisterProvider()``.
     ///
     /// Deliberately *retains* three things:
     /// - ``provider`` — it is host integration code ("how to ask my auth system
@@ -427,19 +599,64 @@ package actor AuthTokenManager {
         }
     }
 
+    /// Clears the token state left over from earlier identity generations: the cached token
+    /// with its scheduled refresh, the in-flight fetch, and a pending connectivity retry.
+    /// State bound to the current generation is kept, so a clear that arrives after a fetch
+    /// or refresh for the new profile began leaves it running. Like ``clearTokenState()``,
+    /// retains the provider.
+    package func clearReplacedProfileTokenState() async {
+        discardState(before: identityTracker.snapshot().generation)
+    }
+
+    private func disarmConnectivityRetry() {
+        connectivityRetryGeneration = nil
+    }
+
+    /// Drops every piece of token state bound to a generation earlier than `generation`.
+    private func discardState(before generation: UInt64) {
+        var discarded = false
+        if let cachedToken, cachedToken.generation < generation {
+            self.cachedToken = nil
+            refreshTask?.cancel()
+            refreshTask = nil
+            refreshAtWallClock = nil
+            activeScheduledRefreshID = nil
+            discarded = true
+        }
+        if let inFlight, inFlight.generation < generation {
+            inFlight.task.cancel()
+            self.inFlight = nil
+            discarded = true
+        }
+        if let rejectedTokenRefresh, rejectedTokenRefresh.generation < generation {
+            self.rejectedTokenRefresh = nil
+            discarded = true
+        }
+        if let connectivityRetryGeneration, connectivityRetryGeneration < generation {
+            disarmConnectivityRetry()
+            discarded = true
+        }
+        guard discarded else { return }
+        if #available(iOS 14.0, *) {
+            Logger.auth.info("AuthTokenManager: token state for replaced profile cleared")
+        }
+    }
+
     /// Cancels the in-flight fetch and scheduled refresh, then drops the cached
     /// token. Shared by ``registerProvider(_:)`` (which then installs a new
     /// provider and warms the cache) and ``clearTokenState()`` (which stops
     /// there). Does *not* touch ``provider``, ``lifecycleCancellable``, or
     /// ``refreshSubject`` — callers decide the fate of those.
     private func cancelInFlightWorkAndClearCache() {
+        identityTracker.invalidate()
         inFlight?.task.cancel()
         inFlight = nil
         refreshTask?.cancel()
         refreshTask = nil
         refreshAtWallClock = nil
         activeScheduledRefreshID = nil
-        isAwaitingConnectivityRetry = false
+        disarmConnectivityRetry()
+        isWarmUpPending = false
         rejectedTokenRefresh = nil
         cachedToken = nil
     }
@@ -453,15 +670,19 @@ package actor AuthTokenManager {
         refreshAtWallClock = nil
     }
 
-    /// Creates a new in-flight fetch task, stores it on the actor, and returns
-    /// it. Must be called from actor-isolated context.
-    private func startFetch() -> Task<String, Error> {
+    /// Creates a new in-flight fetch task for identity `generation`, stores it on the
+    /// actor, and returns it. Cancels the fetch it replaces when that one is for an earlier
+    /// generation. Must be called from actor-isolated context.
+    private func startFetch(generation: UInt64) -> Task<String, Error> {
+        if let inFlight, inFlight.generation < generation {
+            inFlight.task.cancel()
+        }
         let fetchID = UUID()
         let task = Task<String, Error> { [weak self] in
             guard let self else { throw CancellationError() }
-            return try await self.runFetch(fetchID: fetchID)
+            return try await self.runFetch(fetchID: fetchID, generation: generation)
         }
-        inFlight = (id: fetchID, task: task)
+        inFlight = InFlightFetch(id: fetchID, task: task, generation: generation)
         return task
     }
 
@@ -474,12 +695,18 @@ package actor AuthTokenManager {
     /// This is the single choke point every acquisition path shares — the eager
     /// warm-up fetch in ``registerProvider(_:)``, an interactive
     /// ``currentToken(mode:)`` call, and ``performScheduledRefresh()`` all reach
-    /// a fetch via ``startFetch()``, which only ever runs here. Because none of
-    /// them run unless the caller already determined there is no valid cached
-    /// token to serve, a connectivity-classified failure means the same thing
-    /// regardless of which path triggered it — hence connectivity-retry arming
-    /// is classified once here rather than at each call site.
-    private func runFetch(fetchID: UUID) async throws -> String {
+    /// a fetch via ``startFetch(generation:)``, which only ever runs here. Because none of
+    /// them run unless the caller already determined there is no valid cached token to
+    /// serve, a connectivity-classified failure means the same thing regardless of which
+    /// path triggered it — hence connectivity-retry arming is classified once here rather
+    /// than at each call site.
+    ///
+    /// Also the single place the provider is gated on identity: while the current profile
+    /// has no identifier this throws ``AuthTokenError/noProfileIdentifier`` without
+    /// invoking the provider or arming a retry. A fetch whose identity `generation` is no
+    /// longer current, before or after the provider call, throws a `CancellationError`
+    /// and its token is dropped.
+    private func runFetch(fetchID: UUID, generation: UInt64) async throws -> String {
         defer {
             if inFlight?.id == fetchID {
                 inFlight = nil
@@ -497,6 +724,8 @@ package actor AuthTokenManager {
             throw AuthTokenError.noProviderRegistered
         }
 
+        try checkIdentified(for: generation)
+
         do {
             let rawToken = try await provider()
             // Explicit cancellation checkpoint: if `registerProvider(_:)` cancelled
@@ -505,64 +734,88 @@ package actor AuthTokenManager {
             // ensures we never write a stale token into the cache that has since
             // been bound to a newer provider.
             try Task.checkCancellation()
-
-            switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
-            case let .success(validated):
-                cachedToken = validated
-                // A fresh token from any path obsoletes a pending connectivity
-                // wait: nothing left to retry, and the next refresh is scheduled
-                // below. Leaving it armed would fire a redundant retry on the next
-                // reachability transition.
-                isAwaitingConnectivityRetry = false
-                scheduleRefresh(for: validated)
-                refreshSubject.send(validated.rawToken)
-                if #available(iOS 14.0, *) {
-                    Logger.auth.info(
-                        """
-                        AuthTokenManager: token acquired \
-                        (iat=\(validated.issuedAt, privacy: .private), \
-                        exp=\(validated.expiresAt, privacy: .private))
-                        """
-                    )
-                }
-                return validated.rawToken
-            case let .failure(failure):
-                if #available(iOS 14.0, *) {
-                    let reason = String(describing: failure)
-                    Logger.auth.error(
-                        "AuthTokenManager: validation failure on returned token: \(reason, privacy: .public)"
-                    )
-                }
-                throw AuthTokenError.validationFailed(failure)
-            }
+            try checkCurrent(generation)
+            return try acceptToken(rawToken, generation: generation)
         } catch is CancellationError {
             throw CancellationError()
         } catch let error as AuthTokenError {
             throw error
         } catch {
+            if Task.isCancelled { throw CancellationError() }
+            handleProviderError(error, fetchID: fetchID, generation: generation)
+            throw error
+        }
+    }
+
+    /// Validates `rawToken`, caches it for `generation` and schedules its refresh.
+    private func acceptToken(_ rawToken: String, generation: UInt64) throws -> String {
+        switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
+        case let .success(validated):
+            cachedToken = (validated, generation)
+            // A fresh token from any path obsoletes a pending connectivity
+            // wait: nothing left to retry, and the next refresh is scheduled
+            // below. Leaving it armed would fire a redundant retry on the next
+            // reachability transition.
+            disarmConnectivityRetry()
+            scheduleRefresh(for: validated)
+            refreshSubject.send(TokenRefresh(token: validated.rawToken, generation: generation))
             if #available(iOS 14.0, *) {
-                let reason = String(describing: error)
-                Logger.auth.error(
-                    "AuthTokenManager: provider error: \(reason, privacy: .public)"
+                Logger.auth.info(
+                    """
+                    AuthTokenManager: token acquired \
+                    (iat=\(validated.issuedAt, privacy: .private), \
+                    exp=\(validated.expiresAt, privacy: .private))
+                    """
                 )
             }
-            // Classified and armed here (rather than at each call site) because
-            // every acquisition path — the eager warm-up fetch, an interactive
-            // `currentToken(mode:)` call, and `performScheduledRefresh()` —
-            // funnels through this method, and it only ever runs when there is
-            // no valid cached token to serve.
-            //
-            // Guarded by the same `inFlight?.id == fetchID` generation check the
-            // `defer` above uses: a fetch cancelled by a `registerProvider(_:)`
-            // swap keeps running if the host's provider closure doesn't honor
-            // cancellation (see this method's doc), and could otherwise still
-            // arm a retry for a generation that's no longer current — including
-            // after a newer fetch already succeeded — spuriously re-invoking the
-            // provider on the next reachability change.
-            if inFlight?.id == fetchID, let urlError = error as? URLError, urlError.isConnectivityError {
-                armConnectivityRetry()
+            return validated.rawToken
+        case let .failure(failure):
+            if #available(iOS 14.0, *) {
+                let reason = String(describing: failure)
+                Logger.auth.error(
+                    "AuthTokenManager: validation failure on returned token: \(reason, privacy: .public)"
+                )
             }
-            throw error
+            throw AuthTokenError.validationFailed(failure)
+        }
+    }
+
+    /// Logs a provider failure and, for a network-classified one, arms the connectivity retry.
+    ///
+    /// Arming is classified here because every acquisition path funnels through
+    /// ``runFetch(fetchID:generation:)``. It is guarded by the same `inFlight?.id == fetchID`
+    /// check as the `defer` there: a fetch cancelled by a `registerProvider(_:)` swap keeps
+    /// running if the host's provider closure doesn't honor cancellation, and must not arm
+    /// a retry for a fetch that is no longer current.
+    private func handleProviderError(_ error: Error, fetchID: UUID, generation: UInt64) {
+        if #available(iOS 14.0, *) {
+            let reason = String(describing: error)
+            Logger.auth.error(
+                "AuthTokenManager: provider error: \(reason, privacy: .public)"
+            )
+        }
+        if inFlight?.id == fetchID, let urlError = error as? URLError, urlError.isConnectivityError {
+            armConnectivityRetry(for: generation)
+        }
+    }
+
+    /// Throws `CancellationError` when `generation` is no longer the current identity generation.
+    private func checkCurrent(_ generation: UInt64) throws {
+        if identityTracker.snapshot().generation != generation {
+            throw CancellationError()
+        }
+    }
+
+    /// Throws ``AuthTokenError/noProfileIdentifier`` when the current profile has no
+    /// identifier, or `CancellationError` when `generation` is no longer current.
+    private func checkIdentified(for generation: UInt64) throws {
+        let snapshot = identityTracker.snapshot()
+        guard snapshot.generation == generation else { throw CancellationError() }
+        guard snapshot.profile.isIdentified else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.debug("AuthTokenManager: profile has no identifier; provider not invoked")
+            }
+            throw AuthTokenError.noProfileIdentifier
         }
     }
 
@@ -646,7 +899,7 @@ package actor AuthTokenManager {
     /// On failure: leaves the cached token in place — the cache only goes
     /// stale at `exp - leeway`, so a foreground transition or user fetch
     /// before then will retry. A *network-classified* failure also arms
-    /// ``isAwaitingConnectivityRetry`` — inside ``runFetch(fetchID:)`` itself,
+    /// ``isAwaitingConnectivityRetry`` — inside ``runFetch(fetchID:generation:)`` itself,
     /// not here — so the next reachability restoration re-fires this method
     /// (``handleReachabilityChange()``); other failures don't.
     ///
@@ -660,6 +913,7 @@ package actor AuthTokenManager {
     /// foreground transition leaves an in-flight refresh to complete (case 2).
     private func performScheduledRefresh() async {
         guard provider != nil else { return }
+        discardState(before: identityTracker.snapshot().generation)
         guard activeScheduledRefreshID == nil else { return }
         let refreshID = UUID()
         activeScheduledRefreshID = refreshID
@@ -679,12 +933,17 @@ package actor AuthTokenManager {
                 }
             }
         }
-        let task = inFlight?.task ?? startFetch()
+        let generation = identityTracker.snapshot().generation
+        let task = inFlightTask(for: generation) ?? startFetch(generation: generation)
         do {
             _ = try await task.value
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: refresh succeeded")
             }
+        } catch AuthTokenError.noProfileIdentifier {
+            return
+        } catch is CancellationError {
+            return
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)
@@ -726,12 +985,12 @@ package actor AuthTokenManager {
     }
 
     /// Arms the connectivity-retry wait after a network-classified token-fetch
-    /// failure — called from ``runFetch(fetchID:)``'s terminal catch, so every
+    /// failure — called from ``runFetch(fetchID:generation:)``'s terminal catch, so every
     /// acquisition path arms the same way — then defers to
     /// ``kickConnectivityRetryIfReachable()`` to retry immediately if the system
     /// *already* reports a usable path.
-    private func armConnectivityRetry() {
-        isAwaitingConnectivityRetry = true
+    private func armConnectivityRetry(for generation: UInt64) {
+        connectivityRetryGeneration = generation
         if #available(iOS 14.0, *) {
             Logger.auth.info(
                 "AuthTokenManager: network-classified token-fetch failure, awaiting connectivity"
@@ -749,12 +1008,12 @@ package actor AuthTokenManager {
     /// ``currentReachability`` here mirrors `NWPathMonitor` delivering the current
     /// path on subscribe; `nil`/unknown is treated as "no path".
     ///
-    /// Called both from ``armConnectivityRetry()`` (a fresh failure) and from
+    /// Called both from ``armConnectivityRetry(for:)`` (a fresh failure) and from
     /// ``performScheduledRefresh()``'s `defer` (a kick that raced ahead of that
     /// method's single-flight guard and backed off — see
     /// ``fireConnectivityRetryIfArmed()`` — gets a fresh, correctly-gated attempt
     /// once the guard genuinely clears). Deliberately does not re-log the "failure"
-    /// message ``armConnectivityRetry()`` does — a re-kick isn't a new failure, just
+    /// message ``armConnectivityRetry(for:)`` does — a re-kick isn't a new failure, just
     /// a delayed retry of one already logged.
     private func kickConnectivityRetryIfReachable() {
         guard let status = currentReachability(), status != .notReachable else { return }
@@ -782,7 +1041,7 @@ package actor AuthTokenManager {
     ///
     /// Backs off *without* consuming the wait while ``activeScheduledRefreshID`` is
     /// set: that guard being up means some ``performScheduledRefresh()`` run's own
-    /// fetch may have *just* failed and armed this wait (via ``runFetch(fetchID:)``)
+    /// fetch may have *just* failed and armed this wait (via ``runFetch(fetchID:generation:)``)
     /// but not yet unwound past its `defer` — since that arm now happens in a
     /// decoupled child task (the fetch's own `Task`, not `performScheduledRefresh`
     /// itself), this call can race ahead of that `defer` clearing the guard.
@@ -793,7 +1052,7 @@ package actor AuthTokenManager {
     private func fireConnectivityRetryIfArmed() async {
         guard isAwaitingConnectivityRetry else { return }
         guard activeScheduledRefreshID == nil else { return }
-        isAwaitingConnectivityRetry = false
+        disarmConnectivityRetry()
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: connectivity available, retrying refresh")
         }
@@ -815,7 +1074,7 @@ package actor AuthTokenManager {
     /// 3. No cached token (e.g. after a failed fetch) — log only, no fetch.
     /// 4. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
-        if let cached = cachedToken, !isCachedTokenValid(cached) {
+        if let cached = cachedToken, !isCachedTokenValid(cached.token) {
             discardCachedToken()
             Task { [weak self] in
                 _ = try? await self?.currentToken(mode: .background)
@@ -891,7 +1150,7 @@ package actor AuthTokenManager {
                 }
             }
             Task {
-                try? await Task.sleep(nanoseconds: timeoutNanos)
+                await timeoutSleeper(timeoutNanos)
                 let didTimeout = await resolver.resolve(.failure(AuthTokenError.timedOut))
                 if didTimeout, #available(iOS 14.0, *) {
                     Logger.auth.error(
@@ -940,7 +1199,8 @@ extension AuthTokenManager {
     /// waits on that replacement's bound instead.
     func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
         recordRejectedTokenRefreshCallForTesting()
-        if let running = rejectedTokenRefresh {
+        let generation = identityTracker.snapshot().generation
+        if let running = rejectedTokenRefresh, running.generation == generation {
             joinedRejectedTokenRefreshesForTesting += 1
             await running.task.value
             return
@@ -955,13 +1215,13 @@ extension AuthTokenManager {
             return
         }
 
-        let fetch = inFlight?.task ?? startFetch()
+        let fetch = inFlightTask(for: generation) ?? startFetch(generation: generation)
         let refreshID = UUID()
         let task = Task { [weak self] in
             guard let self else { return }
             await self.awaitReplacement(from: fetch, timeoutSeconds: timeoutSeconds, refreshID: refreshID)
         }
-        rejectedTokenRefresh = (id: refreshID, task: task)
+        rejectedTokenRefresh = RejectedTokenRefresh(id: refreshID, task: task, generation: generation)
         await task.value
     }
 
@@ -982,6 +1242,8 @@ extension AuthTokenManager {
             if #available(iOS 14.0, *) {
                 Logger.auth.info("AuthTokenManager: replaced rejected token")
             }
+        } catch AuthTokenError.noProfileIdentifier {
+            return
         } catch {
             if #available(iOS 14.0, *) {
                 Logger.auth.warning("AuthTokenManager: failed to replace rejected token")

@@ -45,7 +45,7 @@ struct AuthTokenManagerRejectedTokenTests {
         }
         // The eager warm-up fetch is now parked inside the provider.
         await fetchStarted.wait()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         let refresh = Task { await manager.refreshRejectedToken() }
         await manager.waitForRejectedTokenRefreshCallsForTesting(atLeast: 1)
@@ -181,7 +181,7 @@ struct AuthTokenManagerRejectedTokenTests {
     func withoutProviderPublishesNothing() async throws {
         let sentinel = try token("sentinel")
         let manager = makeColdManager()
-        let stream = await manager.refreshes()
+        let stream = await manager.tokens()
 
         await manager.refreshRejectedToken()
         await manager.registerProvider { sentinel }
@@ -237,7 +237,7 @@ extension AuthTokenManagerRejectedTokenTests {
         }
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
-        let refreshes = await manager.refreshes()
+        let refreshes = await manager.tokens()
         return Fixture(manager: manager, counter: counter, refreshes: refreshes)
     }
 

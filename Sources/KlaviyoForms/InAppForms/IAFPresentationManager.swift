@@ -34,7 +34,7 @@ class IAFPresentationManager {
         let viewModel: IAFWebViewModel
         let initialToken: String?
         let initialProfile: ProfileData?
-        let updates: AsyncStream<String>
+        let updates: AsyncStream<AuthTokenManager.TokenRefresh>
         let authTokenManager: AuthTokenManager
     }
 
@@ -47,10 +47,11 @@ class IAFPresentationManager {
     private var handshakeTask: Task<Void, Never>?
     private var delayedPresentationTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
+    private var tokenRequestTask: Task<Void, Never>?
     private var webViewBuildGeneration = 0
 
     /// Fetches the auth token each new webview is built with; `nil` when none is available.
-    var fetchInitialAuthToken: (AuthTokenManager) async -> String? = { authTokenManager in
+    var fetchInitialAuthToken: (AuthTokenManager) async -> AuthTokenManager.TokenRefresh? = { authTokenManager in
         await IAFPresentationManager.fetchAuthTokenBestEffort(from: authTokenManager)
     }
 
@@ -162,8 +163,9 @@ class IAFPresentationManager {
         webViewBuildGeneration += 1
         let generation = webViewBuildGeneration
         let tokenUpdates = await authTokenManager.refreshes()
+        let startGeneration = authTokenManager.currentIdentityGeneration
         let fetchedToken = await fetchInitialAuthToken(authTokenManager)
-        let authToken = await currentToken(fetchedToken, in: authTokenManager)
+        let cachedToken = await stillCachedToken(fetchedToken, in: authTokenManager)
         guard generation == webViewBuildGeneration else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Dropping superseded webview build")
@@ -171,6 +173,7 @@ class IAFPresentationManager {
             return false
         }
         let profileData = IdentityStore.shared.current
+        let authToken = deliverableToken(cachedToken, in: authTokenManager)
         if let viewModel = createFormWebView(
             apiKey: apiKey,
             profileData: profileData,
@@ -184,27 +187,56 @@ class IAFPresentationManager {
                 updates: tokenUpdates,
                 from: authTokenManager
             )
+            let fetchedGeneration = fetchedToken?.generation ?? startGeneration
+            let fetchedTokenDropped = fetchedToken != nil && authToken == nil
+            if fetchedTokenDropped || authTokenManager.currentIdentityGeneration != fetchedGeneration {
+                requestTokenForCurrentIdentity(from: authTokenManager)
+            }
         }
         setupFormLifecycleListener()
         return true
     }
 
-    /// `token` when it is still the cached token in `authTokenManager`; `nil` when a reset
-    /// or replacement cleared it during the wait.
-    private func currentToken(_ token: String?, in authTokenManager: AuthTokenManager) async -> String? {
-        guard let token, await authTokenManager.isCurrentToken(token) else { return nil }
-        return token
+    /// Starts a token fetch for the current identity generation. The fetch publishes the token
+    /// on ``AuthTokenManager/refreshes()``, which ``startTokenDelivery()`` writes to the page.
+    /// Cancelled with the page's token delivery.
+    private func requestTokenForCurrentIdentity(from authTokenManager: AuthTokenManager) {
+        tokenRequestTask = Task {
+            _ = try? await authTokenManager.currentTokenRefresh(mode: .background)
+        }
+    }
+
+    /// `refresh` when `authTokenManager` still caches its token as the current token, so a
+    /// token discarded during the wait (for instance after a rejection) is not loaded.
+    private func stillCachedToken(
+        _ refresh: AuthTokenManager.TokenRefresh?,
+        in authTokenManager: AuthTokenManager
+    ) async -> AuthTokenManager.TokenRefresh? {
+        guard let refresh, await authTokenManager.isCurrentToken(refresh.token) else { return nil }
+        return refresh
+    }
+
+    /// The token of `refresh` when its identity generation is still current in
+    /// `authTokenManager`; `nil` when a reset or replacement moved it during the wait.
+    private func deliverableToken(
+        _ refresh: AuthTokenManager.TokenRefresh?,
+        in authTokenManager: AuthTokenManager
+    ) -> String? {
+        guard let refresh, refresh.generation == authTokenManager.currentIdentityGeneration else { return nil }
+        return refresh.token
     }
 
     /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
     /// injection. Returns `nil` on any failure — the form proceeds without a token
     /// and the backend serves non-personalized content.
-    private static func fetchAuthTokenBestEffort(from authTokenManager: AuthTokenManager) async -> String? {
+    private static func fetchAuthTokenBestEffort(
+        from authTokenManager: AuthTokenManager
+    ) async -> AuthTokenManager.TokenRefresh? {
         // `currentToken()` defaults to `.interactive` mode, which applies the
         // 500ms latency budget appropriate for form display. No external timeout
         // is needed here.
         do {
-            let token = try await authTokenManager.currentToken()
+            let token = try await authTokenManager.currentTokenRefresh()
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Auth token injected at load")
             }
@@ -249,7 +281,7 @@ class IAFPresentationManager {
         for viewModel: IAFWebViewModel,
         initialToken: String?,
         initialProfile: ProfileData?,
-        updates: AsyncStream<String>,
+        updates: AsyncStream<AuthTokenManager.TokenRefresh>,
         from authTokenManager: AuthTokenManager
     ) {
         stopTokenDelivery()
@@ -270,13 +302,16 @@ class IAFPresentationManager {
         return IdentityTransition.classify(previous: previous, next: current) == .replacement
     }
 
-    /// Pushes each token from the prepared stream into its page. Skips a token equal to the
-    /// last one delivered for the page's current profile (starting from the page's initial
-    /// token and profile) unless the identity was replaced since, and any token that is no
-    /// longer the cached token. A token the page declines (see
-    /// ``IAFWebViewModel/pushAuthToken(_:)``) does not count as delivered. Cancelled by
-    /// ``prepareTokenDelivery(for:initialToken:initialProfile:updates:from:)`` and
-    /// ``destroyWebView()``. No-op when nothing is prepared.
+    /// Pushes each token from the prepared stream into its page, skipping a token equal to
+    /// the last one the page received for the page's current profile (starting from the
+    /// token and profile it was built with). After an identity replacement the next token is
+    /// always written, even if its value is identical. A token whose identity
+    /// generation is no longer current when its turn comes (an identity replacement or a
+    /// full clear came since it was acquired) is never written. A token the page declines
+    /// (see ``IAFWebViewModel/pushAuthToken(_:generation:)``) does not count as delivered.
+    /// Bound to the WebView's lifetime: cancelled and replaced by
+    /// ``prepareTokenDelivery(for:initialToken:initialProfile:updates:from:)`` and cancelled
+    /// in ``destroyWebView()``. No-op when nothing is prepared.
     func startTokenDelivery() {
         guard let pending = pendingTokenDelivery else { return }
         pendingTokenDelivery = nil
@@ -287,15 +322,14 @@ class IAFPresentationManager {
         tokenRefreshTask = Task { [weak viewModel = pending.viewModel] in
             var deliveredToken = initialToken
             var deliveredIdentity = initialProfile
-            for await token in updates {
+            for await refresh in updates {
                 guard let viewModel, !Task.isCancelled else { return }
-                if token == deliveredToken,
+                if refresh.token == deliveredToken,
                    !Self.identityChanged(from: deliveredIdentity, to: viewModel.profileData) { continue }
-                guard await authTokenManager.isCurrentToken(token) else { continue }
-                guard !Task.isCancelled else { return }
+                guard refresh.generation == authTokenManager.currentIdentityGeneration else { continue }
                 let identity = viewModel.profileData
-                guard await viewModel.pushAuthToken(token) else { continue }
-                deliveredToken = token
+                guard await viewModel.pushAuthToken(refresh.token, generation: refresh.generation) else { continue }
+                deliveredToken = refresh.token
                 deliveredIdentity = identity
             }
         }
@@ -341,6 +375,8 @@ class IAFPresentationManager {
     private func stopTokenDelivery() {
         tokenRefreshTask?.cancel()
         tokenRefreshTask = nil
+        tokenRequestTask?.cancel()
+        tokenRequestTask = nil
         pendingTokenDelivery = nil
     }
 

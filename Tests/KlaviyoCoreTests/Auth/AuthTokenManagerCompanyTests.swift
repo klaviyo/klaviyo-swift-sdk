@@ -81,7 +81,7 @@ struct AuthTokenManagerCompanyTests {
         let tokenB = try makeJWT(extraClaims: ["sub": "B"])
         let providerToken = TokenBox(tokenA)
         let calls = CallCounter()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         await manager.registerProvider {
             _ = await calls.increment()
             return await providerToken.value
@@ -108,7 +108,7 @@ struct AuthTokenManagerCompanyTests {
         let tokenB = try makeJWT(extraClaims: ["sub": "B"])
         let providerToken = TokenBox(tokenA)
         let calls = CallCounter()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         await manager.registerProvider {
             _ = await calls.increment()
             return await providerToken.value
@@ -135,7 +135,7 @@ struct AuthTokenManagerCompanyTests {
         let releaseFirst = Latch()
         let (cancellations, cancellationContinuation) = AsyncStream.makeStream(of: Void.self)
         let calls = CallCounter()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         await manager.registerProvider {
             let invocation = await calls.increment()
             if invocation == 1 {
@@ -170,7 +170,7 @@ struct AuthTokenManagerCompanyTests {
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let releaseFetch = Latch()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         let calls = await registerCountingProvider(on: manager, returning: tokenA, gate: releaseFetch)
         try await calls.waitFor(atLeast: 1)
 
@@ -192,7 +192,7 @@ struct AuthTokenManagerCompanyTests {
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let releaseFetch = Latch()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         let calls = await registerCountingProvider(on: manager, returning: tokenA, gate: releaseFetch)
         try await calls.waitFor(atLeast: 1)
 
@@ -216,7 +216,7 @@ struct AuthTokenManagerCompanyTests {
 
         let warmUpToken = try makeJWT(extraClaims: ["sub": "warm-up"])
         let releaseWarmUp = Latch()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
+        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
         let calls = await registerCountingProvider(on: manager, returning: warmUpToken, gate: releaseWarmUp)
         try await calls.waitFor(atLeast: 1)
         await releaseWarmUp.open()

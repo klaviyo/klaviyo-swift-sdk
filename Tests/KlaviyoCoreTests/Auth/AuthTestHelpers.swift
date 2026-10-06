@@ -40,6 +40,99 @@ private func base64URLEncode(_ data: Data) -> String {
         .replacingOccurrences(of: "=", with: "")
 }
 
+// MARK: - Identity
+
+/// Identity source for managers that should invoke their provider: its profile has an
+/// identifier, and it never changes, so suites running in parallel can share it.
+let identifiedIdentity: VersionedIdentityReading = IdentityStore(
+    initialIdentity: ProfileData(email: "user@example.com")
+)
+
+/// Identity source whose reads and emissions a test drives directly. ``emit(_:)`` updates
+/// the value and notifies subscribers; ``setStaleRead(_:)`` changes only what reads return.
+final class ControllableIdentity: VersionedIdentityReading, @unchecked Sendable {
+    private let lock = NSLock()
+    private let subject: CurrentValueSubject<VersionedProfile, Never>
+    private var stored: VersionedProfile
+
+    init(_ initial: VersionedProfile) {
+        stored = initial
+        subject = CurrentValueSubject(initial)
+    }
+
+    var versioned: VersionedProfile {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    var current: ProfileData {
+        versioned.profile
+    }
+
+    var publisher: AnyPublisher<ProfileData, Never> {
+        subject.map(\.profile).eraseToAnyPublisher()
+    }
+
+    var versionedPublisher: AnyPublisher<VersionedProfile, Never> {
+        subject.eraseToAnyPublisher()
+    }
+
+    func stream() -> AsyncStream<ProfileData> {
+        AsyncStream { $0.finish() }
+    }
+
+    func emit(_ value: VersionedProfile) {
+        lock.lock()
+        stored = value
+        lock.unlock()
+        subject.send(value)
+    }
+
+    func setStaleRead(_ value: VersionedProfile) {
+        lock.lock()
+        defer { lock.unlock() }
+        stored = value
+    }
+}
+
+extension AuthTokenManager {
+    /// The tokens of ``refreshes()`` without their generation. The subscription is
+    /// established before this returns.
+    func tokens() -> AsyncStream<String> {
+        let refreshes = refreshes()
+        return AsyncStream { continuation in
+            let forwarding = Task {
+                for await refresh in refreshes {
+                    continuation.yield(refresh.token)
+                }
+            }
+            continuation.onTermination = { _ in forwarding.cancel() }
+        }
+    }
+}
+
+/// Records whether the task that called ``record(_:)`` was cancelled, and lets a test await it.
+actor CancellationObservation {
+    private var value: Bool?
+    private var waiters: [CheckedContinuation<Bool, Never>] = []
+
+    func record(_ isCancelled: Bool) {
+        value = isCancelled
+        waiters.forEach { $0.resume(returning: isCancelled) }
+        waiters.removeAll()
+    }
+
+    func wait() async -> Bool {
+        if let value { return value }
+        return await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
+/// Stand-in for the manager's fetch-timeout sleep that never wakes, so a test's calls are not
+/// bound by a real-time budget.
+let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }
+
 // MARK: - Concurrency primitives
 
 /// One-shot async gate. ``wait()`` suspends until ``open()`` is called; once
@@ -293,6 +386,17 @@ func makeManager(
         lifeCycle: lifeCycle,
         currentDate: { clock.now() },
         sleep: { await gate.sleep($0) },
-        reachabilityStatus: reachabilityStatus
+        reachabilityStatus: reachabilityStatus,
+        identity: identifiedIdentity
     )
+}
+
+/// Builds a manager following `identity`, on `currentDate`, whose callers are bound by
+/// `fetchTimeoutSleep` instead of a real-time fetch budget.
+func makeUnboundedManager(
+    currentDate: @escaping () -> Date = { Date() },
+    identity: VersionedIdentityReading = identifiedIdentity,
+    fetchTimeoutSleep: @escaping @Sendable (UInt64) async -> Void = neverTimesOut
+) -> AuthTokenManager {
+    AuthTokenManager(currentDate: currentDate, identity: identity, fetchTimeoutSleep: fetchTimeoutSleep)
 }

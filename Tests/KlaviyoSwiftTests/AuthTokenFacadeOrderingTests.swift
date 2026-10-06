@@ -10,11 +10,13 @@ final class AuthTokenFacadeOrderingTests: XCTestCase {
         try await super.setUp()
         savedCoreEnvironment = environment
         environment = KlaviyoEnvironment.test()
+        IdentityStore.shared.update(ProfileData(email: "user@example.com"))
         await AuthTokenManager.shared.unregisterProvider()
     }
 
     override func tearDown() async throws {
         await AuthTokenManager.shared.unregisterProvider()
+        IdentityStore.shared.update(ProfileData())
         environment = savedCoreEnvironment
         try await super.tearDown()
     }

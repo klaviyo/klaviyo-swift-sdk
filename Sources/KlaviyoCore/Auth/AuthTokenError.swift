@@ -21,6 +21,11 @@ package enum AuthTokenError: Error, Equatable {
     /// than "auth failed".
     case noProviderRegistered
 
+    /// The profile has no identifier (email, phone number, or external ID), so the
+    /// provider was not invoked. Callers should proceed without a token, as for
+    /// ``noProviderRegistered``.
+    case noProfileIdentifier
+
     /// The provider returned a token that did not pass ``JWTParser`` validation.
     /// The associated value carries the specific reason (malformed, expired,
     /// missing claim, …).

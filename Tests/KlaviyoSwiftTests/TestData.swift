@@ -236,8 +236,6 @@ extension KlaviyoSwiftEnvironment {
             false
         }, notificationCenter: {
             MockNotificationCenter()
-        }, clearAuthTokenState: {
-            // no-op: tests that cover the auth clear install their own recorder
         })
     }
 }
