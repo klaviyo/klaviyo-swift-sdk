@@ -97,6 +97,50 @@ package actor AuthTokenManager {
     /// queue multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()``.
     private var isAwaitingConnectivityRetry = false
 
+    /// The running ``refreshRejectedToken()`` replacement, paired with the `id` that
+    /// names it so only that run clears the slot when it finishes. Overlapping calls
+    /// await `task` instead of starting their own replacement. Cleared by
+    /// ``cancelInFlightWorkAndClearCache()``.
+    private var rejectedTokenRefresh: (id: UUID, task: Task<Void, Never>)?
+
+    /// Test-only window onto ``rejectedTokenRefresh`` so suites can await a
+    /// rejected-token replacement finishing. Not package API.
+    var isRefreshingRejectedTokenForTesting: Bool {
+        rejectedTokenRefresh != nil
+    }
+
+    /// Test-only count of ``refreshRejectedToken()`` calls that joined a running
+    /// replacement instead of starting one. Not package API.
+    private(set) var joinedRejectedTokenRefreshesForTesting = 0
+
+    /// Test-only count of ``refreshRejectedToken()`` calls received. Recorded on entry,
+    /// in the same actor turn as the join decision. Not package API.
+    private(set) var rejectedTokenRefreshCallsForTesting = 0
+    private var rejectedTokenRefreshCallWaiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
+
+    /// Test-only: suspends until at least `threshold` ``refreshRejectedToken()`` calls
+    /// have been received. Not package API.
+    func waitForRejectedTokenRefreshCallsForTesting(atLeast threshold: Int) async {
+        if rejectedTokenRefreshCallsForTesting >= threshold { return }
+        await withCheckedContinuation { continuation in
+            rejectedTokenRefreshCallWaiters.append((threshold, continuation))
+        }
+    }
+
+    private func recordRejectedTokenRefreshCallForTesting() {
+        rejectedTokenRefreshCallsForTesting += 1
+        let count = rejectedTokenRefreshCallsForTesting
+        let ready = rejectedTokenRefreshCallWaiters.filter { $0.threshold <= count }
+        rejectedTokenRefreshCallWaiters.removeAll { $0.threshold <= count }
+        ready.forEach { $0.continuation.resume() }
+    }
+
+    /// Test-only: whether a proactive refresh is scheduled (``refreshTask`` or
+    /// ``refreshAtWallClock`` is set). Not package API.
+    var hasScheduledRefreshForTesting: Bool {
+        refreshTask != nil || refreshAtWallClock != nil
+    }
+
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
     /// deterministically await the wait being *armed* (which lands asynchronously
     /// in the failure path) instead of racing it with fixed yields. Not package API.
@@ -396,7 +440,17 @@ package actor AuthTokenManager {
         refreshAtWallClock = nil
         activeScheduledRefreshID = nil
         isAwaitingConnectivityRetry = false
+        rejectedTokenRefresh = nil
         cachedToken = nil
+    }
+
+    /// Drops the cached token and cancels the proactive refresh scheduled for it.
+    /// Leaves any in-flight fetch running so callers can still join it.
+    private func discardCachedToken() {
+        cachedToken = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        refreshAtWallClock = nil
     }
 
     /// Creates a new in-flight fetch task, stores it on the actor, and returns
@@ -752,19 +806,17 @@ package actor AuthTokenManager {
     /// background window will not have fired yet — and a sufficiently long
     /// background window can outlive the cached token entirely.
     ///
-    /// Three cases, in this order:
+    /// Four cases, in this order:
     /// 1. Cached token expired during backgrounding — clear cache, cancel any
     ///    pending refresh, kick off an eager fetch so a subsequent caller
     ///    isn't the one paying the round-trip.
     /// 2. Scheduled refresh time has passed but the cache is still valid —
     ///    cancel the stuck refresh task and fire the refresh immediately.
-    /// 3. Cache valid and refresh still in the future — no-op.
+    /// 3. No cached token (e.g. after a failed fetch) — log only, no fetch.
+    /// 4. Cache valid and refresh still in the future — no-op.
     private func handleForegroundTransition() async {
         if let cached = cachedToken, !isCachedTokenValid(cached) {
-            cachedToken = nil
-            refreshTask?.cancel()
-            refreshTask = nil
-            refreshAtWallClock = nil
+            discardCachedToken()
             Task { [weak self] in
                 _ = try? await self?.currentToken(mode: .background)
             }
@@ -794,6 +846,14 @@ package actor AuthTokenManager {
                 )
             }
             await performScheduledRefresh()
+            return
+        }
+        guard cachedToken != nil else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.info(
+                    "AuthTokenManager: foreground transition (case=no-cached-token)"
+                )
+            }
             return
         }
         if #available(iOS 14.0, *) {
@@ -847,5 +907,85 @@ package actor AuthTokenManager {
     private func isCachedTokenValid(_ token: ValidatedToken) -> Bool {
         let expiresAtSeconds = token.expiresAt.timeIntervalSince1970
         return currentDate().timeIntervalSince1970 < expiresAtSeconds - JWTParser.defaultLeeway
+    }
+}
+
+extension AuthTokenManager {
+    /// Replaces a token the server has rejected.
+    ///
+    /// Discards the cached token and its scheduled refresh, then makes at most one
+    /// provider call itself: it joins a fetch that is already in flight, or starts
+    /// one. Like every newly cached token, the replacement is published on
+    /// ``refreshes()`` by the fetch itself. Nothing is published when no provider is
+    /// registered, when the fetch fails, or when ``clearTokenState()`` or
+    /// ``registerProvider(_:)`` cancels the fetch mid-flight.
+    ///
+    /// Overlapping calls share one replacement: a call made while another is running
+    /// discards nothing and waits for that one to finish. ``clearTokenState()`` and
+    /// ``registerProvider(_:)`` end the sharing, so the next call starts its own.
+    ///
+    /// The wait is bounded by ``FetchMode/background``. On timeout this returns; the
+    /// fetch keeps running and still caches and publishes its token if it eventually
+    /// succeeds.
+    ///
+    /// This method never retries on its own. As with every other fetch, a
+    /// connectivity-classified provider failure arms the manager's one-shot
+    /// connectivity retry, which publishes its token on ``refreshes()`` too.
+    package func refreshRejectedToken() async {
+        await refreshRejectedToken(timeoutSeconds: FetchMode.background.rawValue)
+    }
+
+    /// ``refreshRejectedToken()`` with the wait bounded by `timeoutSeconds`
+    /// instead of ``FetchMode/background``. A call that joins a running replacement
+    /// waits on that replacement's bound instead.
+    func refreshRejectedToken(timeoutSeconds: TimeInterval) async {
+        recordRejectedTokenRefreshCallForTesting()
+        if let running = rejectedTokenRefresh {
+            joinedRejectedTokenRefreshesForTesting += 1
+            await running.task.value
+            return
+        }
+
+        discardCachedToken()
+
+        guard provider != nil else {
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: rejected token not replaced, no provider registered")
+            }
+            return
+        }
+
+        let fetch = inFlight?.task ?? startFetch()
+        let refreshID = UUID()
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.awaitReplacement(from: fetch, timeoutSeconds: timeoutSeconds, refreshID: refreshID)
+        }
+        rejectedTokenRefresh = (id: refreshID, task: task)
+        await task.value
+    }
+
+    /// Waits up to `timeoutSeconds` for `fetch`, then clears ``rejectedTokenRefresh``
+    /// if it still names `refreshID`.
+    private func awaitReplacement(
+        from fetch: Task<String, Error>,
+        timeoutSeconds: TimeInterval,
+        refreshID: UUID
+    ) async {
+        defer {
+            if rejectedTokenRefresh?.id == refreshID {
+                rejectedTokenRefresh = nil
+            }
+        }
+        do {
+            _ = try await race(fetch: fetch, timeoutSeconds: timeoutSeconds)
+            if #available(iOS 14.0, *) {
+                Logger.auth.info("AuthTokenManager: replaced rejected token")
+            }
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.auth.warning("AuthTokenManager: failed to replace rejected token")
+            }
+        }
     }
 }

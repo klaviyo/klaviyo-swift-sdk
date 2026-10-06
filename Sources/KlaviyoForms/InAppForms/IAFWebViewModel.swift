@@ -29,6 +29,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let profileData: ProfileData?
     let authToken: String?
     private let assetSource: String?
+    private let authTokenManager: AuthTokenManager
 
     private var profileUpdatesCancellable: AnyCancellable?
     let formLifecycleStream: AsyncStream<IAFLifecycleEvent>
@@ -131,13 +132,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         apiKey: String,
         profileData: ProfileData?,
         authToken: String? = nil,
-        assetSource: String? = nil
+        assetSource: String? = nil,
+        authTokenManager: AuthTokenManager = .shared
     ) {
         self.url = url
         self.apiKey = apiKey
         self.profileData = profileData
         self.authToken = authToken
         self.assetSource = assetSource
+        self.authTokenManager = authTokenManager
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
         formLifecycleStream = stream
@@ -473,28 +476,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             ()
         case .jwtMutation:
             ()
-        case .badJWT:
+        case .refreshJwt:
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("KlaviyoJS rejected the injected auth token (BadJWT)")
+                Logger.webViewLogger.info("Received 'refreshJwt' event from KlaviyoJS")
             }
-            handleBadJWT()
-        }
-    }
-
-    /// Responds to a `badJWT` rejection by dropping the now-known-bad cached
-    /// token, so it stops being handed back to every subsequent token
-    /// request for the rest of the session.
-    ///
-    /// `AuthTokenManager` only tracks a token's own `exp` claim — it has no
-    /// way to know the backend rejected a token that, by that claim, is
-    /// still unexpired. Without this, the same rejected token would keep
-    /// being served to every later WebView/form until it naturally expires
-    /// or the app restarts. This is deliberately passive: it does not
-    /// attempt to fetch or push a replacement for the currently-open form.
-    @MainActor
-    private func handleBadJWT() {
-        Task {
-            await AuthTokenManager.shared.clearTokenState()
+            Task { [authTokenManager] in
+                await authTokenManager.refreshRejectedToken()
+            }
         }
     }
 
