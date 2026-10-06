@@ -384,9 +384,12 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         await manager.registerProvider { token }
         _ = try await manager.currentToken(mode: .background)
         await makeViewModel()
+        let failedWrite = delegate.holdScript(containing: "data-klaviyo-jwt")
         delegate.failScript(containing: "data-klaviyo-jwt")
 
         await refetch()
+        await failedWrite.reached.wait()
+        await failedWrite.release.open()
         // The failed write must not count as delivered, so the same token is written next time.
         await refetch()
 
