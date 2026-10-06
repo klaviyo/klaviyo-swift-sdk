@@ -106,15 +106,17 @@ package actor AuthTokenManager {
     private var activeScheduledRefreshID: UUID?
 
     /// `true` while a token fetch has failed for a network reason and the
-    /// manager is awaiting connectivity before retrying. A single boolean (not a
-    /// task) because connectivity comes through the existing ``lifecycleCancellable``
-    /// reachability sink: a network-classified failure arms it — inside
+    /// manager is awaiting connectivity before retrying. Derived from
+    /// ``connectivityRetryGeneration`` (not a task) because connectivity comes through the
+    /// existing ``lifecycleCancellable`` reachability sink: a network-classified failure arms it — inside
     /// ``runFetch(fetchID:generation:)``, so every acquisition path shares the same arming
     /// logic (the eager warm-up fetch, an interactive ``currentToken(mode:)``
     /// call, and ``performScheduledRefresh()`` alike) — the next reachable
     /// status consumes it (``handleReachabilityChange()``), so flapping can't
     /// queue multiple retries. Cleared by ``cancelInFlightWorkAndClearCache()``.
-    private var isAwaitingConnectivityRetry = false
+    private var isAwaitingConnectivityRetry: Bool {
+        connectivityRetryGeneration != nil
+    }
 
     /// The running ``refreshRejectedToken()`` replacement, paired with the `id` that
     /// names it so only that run clears the slot when it finishes, and the identity
@@ -122,7 +124,13 @@ package actor AuthTokenManager {
     /// await `task` instead of starting their own replacement. Cleared by
     /// ``cancelInFlightWorkAndClearCache()``, and by ``discardState(before:)`` once
     /// `generation` is no longer current.
-    private var rejectedTokenRefresh: (id: UUID, generation: UInt64, task: Task<Void, Never>)?
+    private var rejectedTokenRefresh: RejectedTokenRefresh?
+
+    private struct RejectedTokenRefresh {
+        let id: UUID
+        let task: Task<Void, Never>
+        let generation: UInt64
+    }
 
     /// Test-only window onto ``rejectedTokenRefresh`` so suites can await a
     /// rejected-token replacement finishing. Not package API.
@@ -601,7 +609,6 @@ package actor AuthTokenManager {
     }
 
     private func disarmConnectivityRetry() {
-        isAwaitingConnectivityRetry = false
         connectivityRetryGeneration = nil
     }
 
@@ -983,7 +990,6 @@ package actor AuthTokenManager {
     /// ``kickConnectivityRetryIfReachable()`` to retry immediately if the system
     /// *already* reports a usable path.
     private func armConnectivityRetry(for generation: UInt64) {
-        isAwaitingConnectivityRetry = true
         connectivityRetryGeneration = generation
         if #available(iOS 14.0, *) {
             Logger.auth.info(
@@ -1215,7 +1221,7 @@ extension AuthTokenManager {
             guard let self else { return }
             await self.awaitReplacement(from: fetch, timeoutSeconds: timeoutSeconds, refreshID: refreshID)
         }
-        rejectedTokenRefresh = (id: refreshID, generation: generation, task: task)
+        rejectedTokenRefresh = RejectedTokenRefresh(id: refreshID, task: task, generation: generation)
         await task.value
     }
 
