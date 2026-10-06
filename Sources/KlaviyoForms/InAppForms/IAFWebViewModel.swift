@@ -371,8 +371,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             } else {
                 // In-app deep link: route to the host app's registered deep link handler.
-                // The host's handler can route a URL internally even if iOS cannot open its scheme.
-                // Let DeepLinkHandler choose the registered callback or the system fallback.
+                // No canOpenURL pre-check: the host's handler can route a URL internally
+                // even if iOS cannot open its scheme.
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }

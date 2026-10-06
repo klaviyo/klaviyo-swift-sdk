@@ -44,15 +44,10 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         // When / Then - the handshake is awaited directly, so no separate
         // expectation/fulfillment is needed.
         //
-        // The budget below is not the behavior under test. The handshake is mocked with
-        // zero delay, so a healthy run returns in under a millisecond and never waits on
-        // it. It is generous because scheduler stalls dominate on loaded runners: this
-        // test has failed at a 5.0s budget in CI while the 0.1s-budget test below still
-        // took 7.054 seconds of wall clock in the same job.
-        //
-        // Do not raise it much further. XCTest kills a test at its 120s
-        // executionTimeAllowance, and a stall that long is an environment problem that
-        // no budget in this file can fix.
+        // The handshake is mocked with zero delay, so this budget only bounds a hang.
+        // It is generous so a stalled scheduler on a loaded runner cannot fail the test.
+        // Do not raise it much further: XCTest kills a test at its 120s execution
+        // allowance, and a stall that long is tracked separately (MAGE-1321).
         do {
             try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
@@ -90,8 +85,8 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         // When / Then - establishHandshake must surface a timeout rather than hang.
         // The throw is awaited directly, so no separate expectation/fulfillment is needed.
         //
-        // 0.1 stays small on purpose. Expiring is the expected result here, so a loaded
-        // runner cannot fail this test by being slow, and a broken timeout fails fast.
+        // Expiring is the expected result, so a small timeout keeps this fast and
+        // immune to runner load.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")

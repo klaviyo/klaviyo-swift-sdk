@@ -411,9 +411,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
     // MARK: - Deep Link Tests (openDeepLink without `openExternally`)
 
-    /// Builds the message onsite actually sends for a "Go to app screen" CTA: the URL under the
-    /// platform-split `ios`/`android` keys, and no `openExternally` flag
-    /// (fender `deepLinkToScreenAction.ts`).
+    /// Builds the message sent for a "Go to app screen" CTA: the URL under the
+    /// platform-split `ios`/`android` keys, and no `openExternally` flag.
     private func makeDeepLinkMessage(
         url: String = "abcdcompany://notifications?utm_source=push_flow",
         formId: String? = "form123",
@@ -431,10 +430,10 @@ final class IAFWebViewModelTests: XCTestCase {
         )
     }
 
-    /// Regression: a custom scheme absent from the test bundle's `CFBundleURLTypes`
-    /// makes `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
+    /// A custom scheme absent from the test bundle's `CFBundleURLTypes` makes
+    /// `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
     /// dispatch lane, because the destination is the host app's in-process handler rather than
-    /// LaunchServices. Before the fix, this silently dropped the navigation.
+    /// LaunchServices.
     @MainActor
     func testDeepLinkWithUndeclaredSchemeStillDispatches() throws {
         // Given - a spy registered as the inbound-dispatch target
@@ -460,11 +459,13 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(dispatchedURL, url)
     }
 
-    /// The CTA lifecycle event must fire for deep links too. The previous early return suppressed
-    /// it whenever `canOpenURL` was false, which made this failure mode harder to diagnose.
+    /// The CTA lifecycle event must fire for deep links too, including schemes iOS cannot open.
     @MainActor
     func testDeepLinkWithUndeclaredSchemeFiresLifecycleEvent() throws {
-        // Given
+        // Given - a spy so the deep link is not routed to a dispatcher left by another suite
+        EventDispatcher.shared.register(SpyDispatcher())
+        defer { EventDispatcher.shared.reset() }
+
         var receivedEvent: FormLifecycleEvent?
         IAFPresentationManager.shared.registerFormLifecycleHandler { event in
             receivedEvent = event
