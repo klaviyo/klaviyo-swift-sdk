@@ -28,6 +28,33 @@ final class EncodableTests: XCTestCase {
         assertSnapshot(matching: createEventPayload, as: .json(KlaviyoEnvironment.encoder))
     }
 
+    /// Encodes a `CreateEventPayload` and returns its `data.attributes` object.
+    private func encodedEventAttributes(value: Double? = nil, valueCurrency: String? = nil) throws -> [String: Any] {
+        let payload = CreateEventPayload(data: CreateEventPayload.Event(
+            name: "test",
+            anonymousId: "anon-id",
+            value: value,
+            valueCurrency: valueCurrency
+        ))
+        let json = try JSONSerialization.jsonObject(with: testEncoder.encode(payload))
+        let root = try XCTUnwrap(json as? [String: Any])
+        let data = try XCTUnwrap(root["data"] as? [String: Any])
+        return try XCTUnwrap(data["attributes"] as? [String: Any])
+    }
+
+    func testEventPayloadOmitsValueCurrencyWhenNil() throws {
+        let attributes = try encodedEventAttributes()
+        XCTAssertNil(attributes["value_currency"])
+        XCTAssertNil(attributes["valueCurrency"])
+        XCTAssertNil(attributes["value"])
+    }
+
+    func testEventPayloadEncodesValueCurrency() throws {
+        let attributes = try encodedEventAttributes(value: 9.99, valueCurrency: "USD")
+        XCTAssertEqual(attributes["value"] as? Double, 9.99)
+        XCTAssertEqual(attributes["value_currency"] as? String, "USD")
+    }
+
     func testTokenPayload() throws {
         let tokenPayload = PushTokenPayload(
             pushToken: "foo",

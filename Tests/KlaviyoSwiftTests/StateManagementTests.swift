@@ -643,6 +643,35 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
+    func testEnqueueEventCarriesValueAndCurrencyIntoPayload() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let event = Event(name: .customEvent("Placed Order"), value: 9.99, valueCurrency: "CAD")
+        await store.send(.enqueueEvent(event)) {
+            try $0.enqueueRequest(
+                request: KlaviyoRequest(
+                    endpoint: .createEvent(
+                        XCTUnwrap($0.apiKey),
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: event.metric.name.value,
+                                properties: event.properties,
+                                anonymousId: initialState.anonymousId!,
+                                value: 9.99,
+                                valueCurrency: "CAD",
+                                time: event.time,
+                                uniqueId: event.uniqueId,
+                                pushToken: initialState.pushTokenData!.pushToken
+                            )
+                        )
+                    )
+                )
+            )
+        }
+    }
+
+    @MainActor
     func testEnqueueEventWhenInitilizingSendsEvent() async throws {
         let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
         BadgeManager.setBadgeCountSpy = { count in
