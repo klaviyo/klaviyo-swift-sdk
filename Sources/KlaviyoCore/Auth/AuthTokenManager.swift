@@ -234,7 +234,7 @@ package actor AuthTokenManager {
 
     /// Sleep primitive that bounds a caller's wait in ``race(fetch:timeoutSeconds:)``.
     /// Injected so tests can run without a real-time budget; defaults to
-    /// `Task.sleep(nanoseconds:)`.
+    /// `Task.sleep(nanoseconds:)`. Used exclusively for testing.
     private let timeoutSleeper: @Sendable (UInt64) async -> Void
 
     /// Current network reachability, consulted when arming a connectivity wait so a
