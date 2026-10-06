@@ -46,6 +46,7 @@ public struct CreateEventPayload: Equatable, Codable {
             public let profile: Profile
             public let time: Date
             public let value: Double?
+            public let valueCurrency: String?
             public let uniqueId: String
             public init(name: String,
                         properties: [String: Any]? = nil,
@@ -54,11 +55,13 @@ public struct CreateEventPayload: Equatable, Codable {
                         externalId: String? = nil,
                         anonymousId: String? = nil,
                         value: Double? = nil,
+                        valueCurrency: String? = nil,
                         time: Date? = nil,
                         uniqueId: String? = nil) {
                 metric = Metric(name: name)
                 self.properties = AnyCodable(properties ?? [:])
                 self.value = value
+                self.valueCurrency = valueCurrency
                 self.time = time ?? environment.date()
                 self.uniqueId = uniqueId ?? environment.uuid().uuidString
                 profile = Profile(
@@ -77,6 +80,7 @@ public struct CreateEventPayload: Equatable, Codable {
                 case profile
                 case time
                 case value
+                case valueCurrency = "value_currency"
                 case uniqueId = "unique_id"
             }
         }
@@ -90,6 +94,7 @@ public struct CreateEventPayload: Equatable, Codable {
                     externalId: String? = nil,
                     anonymousId: String? = nil,
                     value: Double? = nil,
+                    valueCurrency: String? = nil,
                     time: Date? = nil,
                     uniqueId: String? = nil,
                     pushToken: String? = nil) {
@@ -101,6 +106,7 @@ public struct CreateEventPayload: Equatable, Codable {
                 externalId: externalId,
                 anonymousId: anonymousId,
                 value: value,
+                valueCurrency: valueCurrency,
                 time: time,
                 uniqueId: uniqueId
             )

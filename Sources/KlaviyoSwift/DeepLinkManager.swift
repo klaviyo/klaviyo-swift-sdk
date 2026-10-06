@@ -58,8 +58,8 @@ enum DeepLinkManager {
 
 // MARK: - Test-only hooks
 
-// TEST-ONLY. The members below exist solely so the reducer / facade test suites
-// can observe deep-link invocations and restore state between tests.
+/// TEST-ONLY. The members below exist solely so the reducer / facade test suites
+/// can observe deep-link invocations and restore state between tests.
 extension DeepLinkManager {
     /// When non-nil, called by `openDeepLink(_:)` instead of the production path.
     /// Reset to nil after each test via `resetToProduction()`.

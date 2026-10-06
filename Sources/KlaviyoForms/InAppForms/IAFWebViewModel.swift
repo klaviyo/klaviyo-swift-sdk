@@ -323,12 +323,32 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             }
         case let .trackProfileEvent(data):
-            if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let metricName = jsonEventData["metric"] as? String {
-                EventDispatcher.shared.dispatch(
-                    .createEvent(Event(name: .customEvent(metricName), properties: jsonEventData))
-                )
+            guard let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let metricName = envelope["metric"] as? String, !metricName.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "trackProfileEvent payload is malformed or has no metric name — skipping event")
+                }
+                return
             }
+
+            let properties = envelope["properties"] as? [String: Any]
+            if properties == nil {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "trackProfileEvent payload has no properties object — sending event without them")
+                }
+            }
+
+            EventDispatcher.shared.dispatch(
+                .createEvent(Event(
+                    name: .customEvent(metricName),
+                    properties: properties,
+                    value: envelope["value"] as? Double,
+                    valueCurrency: envelope["value_currency"] as? String,
+                    uniqueId: envelope["unique_id"] as? String
+                ))
+            )
         case let .trackAggregateEvent(data):
             EventDispatcher.shared.dispatch(.aggregateEvent(data))
         case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
