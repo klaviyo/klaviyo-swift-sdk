@@ -43,8 +43,8 @@ final class MobileInboxRegistrationTests: XCTestCase {
         MobileInboxRegistration(group: group ?? temp.group, defaults: defaults)
     }
 
-    private func enablement() -> InboxEnablement {
-        InboxConfigStore(appGroupIdentifier: groupId, group: temp.group).enablement()
+    private func enablement(of identifier: String? = nil) -> InboxEnablement {
+        InboxConfigStore(appGroupIdentifier: identifier ?? groupId, group: temp.group).enablement()
     }
 
     func testNothingIsWrittenBeforeRegister() {
@@ -105,13 +105,55 @@ final class MobileInboxRegistrationTests: XCTestCase {
         XCTAssertFalse(logs.warnings.isEmpty)
     }
 
-    func testUnregisterTargetsTheMostRecentlyRegisteredGroup() {
+    func testSwitchingGroupsTurnsOffThePreviousGroup() {
+        let registration = makeRegistration()
+        registration.register(MobileInboxConfig(appGroupIdentifier: "group.old", localRetentionLimit: 10))
+        registration.register(MobileInboxConfig(appGroupIdentifier: "group.new", localRetentionLimit: 20))
+        XCTAssertEqual(enablement(of: "group.old"), .disabled)
+        XCTAssertEqual(enablement(of: "group.new"), .enabled(localRetentionLimit: 20))
+        XCTAssertEqual(defaults.string(forKey: MobileInboxRegistration.groupPointerKey), "group.new")
+    }
+
+    func testUnregisterAfterSwitchingGroupsLeavesNoGroupEnabled() {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig(appGroupIdentifier: "group.old"))
         registration.register(MobileInboxConfig(appGroupIdentifier: "group.new"))
         registration.unregister()
-        let newGroup = InboxConfigStore(appGroupIdentifier: "group.new", group: temp.group)
-        XCTAssertEqual(newGroup.enablement(), .disabled)
+        XCTAssertEqual(enablement(of: "group.old"), .disabled)
+        XCTAssertEqual(enablement(of: "group.new"), .disabled)
+    }
+
+    func testReRegisteringTheSameGroupDoesNotTurnItOff() {
+        let registration = makeRegistration()
+        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 10))
+        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 10))
+        XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 10))
+    }
+
+    func testSwitchingGroupsWhenThePreviousGroupIsUnreachableStillRegistersTheNewOne() {
+        makeRegistration().register(MobileInboxConfig(appGroupIdentifier: "group.old"))
+        let onlyNewReachable = InboxAppGroup { [temp] identifier in
+            identifier == "group.new" ? temp?.group.containerURL(identifier) : nil
+        }
+        makeRegistration(group: onlyNewReachable)
+            .register(MobileInboxConfig(appGroupIdentifier: "group.new", localRetentionLimit: 20))
+        XCTAssertEqual(enablement(of: "group.new"), .enabled(localRetentionLimit: 20))
+        XCTAssertEqual(defaults.string(forKey: MobileInboxRegistration.groupPointerKey), "group.new")
+    }
+
+    func testSwitchingGroupsKeepsThePointerWhenThePreviousGroupCannotBeTurnedOff() throws {
+        let registration = makeRegistration()
+        registration.register(MobileInboxConfig(appGroupIdentifier: "group.old"))
+        // A regular file where the "KlaviyoInbox" directory is expected makes the write fail.
+        let oldStore = InboxConfigStore(appGroupIdentifier: "group.old", group: temp.group)
+        try FileManager.default.removeItem(at: XCTUnwrap(oldStore.directoryURL))
+        try Data("x".utf8).write(to: XCTUnwrap(oldStore.directoryURL))
+
+        registration.register(MobileInboxConfig(appGroupIdentifier: "group.new"))
+
+        XCTAssertEqual(enablement(of: "group.new"), .neverRegistered, "new group must not be enabled")
+        XCTAssertEqual(defaults.string(forKey: MobileInboxRegistration.groupPointerKey), "group.old")
+        XCTAssertFalse(logs.errors.isEmpty)
     }
 
     func testUnregisterWhenGroupBecameUnreachableLogsAndDoesNotCrash() {

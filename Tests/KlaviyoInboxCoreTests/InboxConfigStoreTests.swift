@@ -108,6 +108,16 @@ final class InboxConfigStoreTests: XCTestCase {
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
+    func testVersionBelowOneReadsAsNeverRegisteredAndIsKept() throws {
+        for version in [0, -1] {
+            try writeRaw(#"{"version":\#(version),"enabled":true,"localRetentionLimit":10}"#)
+            let store = makeStore()
+            XCTAssertEqual(store.enablement(), .neverRegistered, "version \(version)")
+            XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
+        }
+        XCTAssertFalse(logs.errors.isEmpty)
+    }
+
     func testRegisterRepairsCorruptFile() throws {
         try writeRaw("garbage")
         let store = makeStore()

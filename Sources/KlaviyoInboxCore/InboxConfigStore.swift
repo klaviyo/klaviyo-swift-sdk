@@ -103,8 +103,8 @@ package final class InboxConfigStore {
         }
         do {
             let record = try JSONDecoder().decode(InboxConfigRecord.self, from: data)
-            guard record.version <= InboxConfigRecord.currentVersion else {
-                InboxLog.error("Mobile Inbox settings version \(record.version) is newer than supported.")
+            guard (1...InboxConfigRecord.currentVersion).contains(record.version) else {
+                InboxLog.error("Mobile Inbox settings version \(record.version) is not supported.")
                 return .unusable
             }
             return .record(record)
