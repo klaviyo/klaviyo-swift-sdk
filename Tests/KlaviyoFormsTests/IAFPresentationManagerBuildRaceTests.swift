@@ -16,6 +16,7 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
     private let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-1")
     private var provider: ScriptedTokenProvider!
     private var authTokenManager: AuthTokenManager!
+    private var fetchBudget: Latch!
     private var presentationManager: IAFPresentationManager!
 
     override func setUp() async throws {
@@ -24,7 +25,8 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
         resetPresentationManagerStores()
         IdentityStore.shared.update(profileA)
         provider = ScriptedTokenProvider()
-        authTokenManager = makeUnboundedAuthTokenManager()
+        fetchBudget = Latch()
+        authTokenManager = try makeAuthTokenManager(fetchBudget: XCTUnwrap(fetchBudget))
         let provider = try XCTUnwrap(provider)
         await authTokenManager.registerProvider { try await provider.provide() }
         presentationManager = IAFPresentationManager(viewController: nil)
@@ -40,6 +42,7 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
         resetPresentationManagerStores()
         presentationManager = nil
         authTokenManager = nil
+        fetchBudget = nil
         provider = nil
         try await super.tearDown()
     }
@@ -78,6 +81,48 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
         assertProfileBeforeToken(in: identityScripts, email: profileB.email ?? "", token: incomingToken)
         let invocations = await provider.invocationCount
         XCTAssertEqual(invocations, 2)
+    }
+
+    func testReplacementAfterInitialFetchTimesOutDeliversIncomingToken() async throws {
+        let provider = try XCTUnwrap(provider)
+        let authTokenManager = try XCTUnwrap(authTokenManager)
+        let presentationManager = try XCTUnwrap(presentationManager)
+        try await awaitBounded("warm-up fetch") {
+            await provider.waitFor(invocations: 1)
+            _ = try await authTokenManager.currentTokenRefresh(mode: .background)
+        }
+        await authTokenManager.clearTokenState()
+        let initialFetch = await provider.hold(invocation: 2)
+        let build = Task {
+            try await presentationManager.createFormWebViewAndListen(
+                apiKey: "abc123",
+                authTokenManager: authTokenManager
+            )
+        }
+        try await awaitBounded("initial fetch") { await provider.waitFor(invocations: 2) }
+
+        await fetchBudget.open()
+        _ = try await awaitBounded("webview build") { try await build.value }
+
+        let viewModel = try XCTUnwrap(presentationManager.viewModel)
+        XCTAssertEqual(viewModel.profileData, profileA)
+        XCTAssertNil(viewModel.authToken)
+        let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+        presentationManager.startTokenDelivery()
+
+        IdentityStore.shared.update(profileB)
+        await initialFetch.open()
+        await delegate.awaitScript(containing: "data-klaviyo-jwt")
+
+        let mintedOutgoing = await provider.token(2)
+        let outgoingToken = try XCTUnwrap(mintedOutgoing)
+        let mintedIncoming = await provider.token(3)
+        let incomingToken = try XCTUnwrap(mintedIncoming)
+        XCTAssertEqual(delegate.authTokenScripts.count, 1)
+        XCTAssertTrue(delegate.authTokenScripts[0].contains(incomingToken))
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(outgoingToken) })
+        assertProfileBeforeToken(in: delegate.evaluatedScripts, email: profileB.email ?? "", token: incomingToken)
     }
 
     // MARK: - Helpers

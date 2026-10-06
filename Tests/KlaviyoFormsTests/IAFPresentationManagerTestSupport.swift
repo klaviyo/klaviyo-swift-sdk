@@ -11,6 +11,10 @@ import XCTest
 /// Upper bound for waits on state that is expected to change.
 let presentationEventTimeout: TimeInterval = 10
 
+/// Upper bound for ``XCTestCase/awaitBounded(_:timeout:file:line:_:)``, which only exists to
+/// fail a test whose awaited work never finishes.
+let hangSafeguard: TimeInterval = 60
+
 /// Resets the global stores the presentation manager reads.
 func resetPresentationManagerStores() {
     IdentityStore.shared.reset()
@@ -41,6 +45,31 @@ extension XCTestCase {
     ) async {
         let held = await waitUntil(timeout: timeout, condition)
         XCTAssertTrue(held, "condition not met within \(timeout)s", file: file, line: line)
+    }
+
+    /// Runs `operation` and returns its result. When it has not finished within `timeout`,
+    /// fails the test, cancels it and throws `TimeoutError.timeout` without waiting for it, so
+    /// work that ignores cancellation cannot hang the test.
+    @MainActor
+    func awaitBounded<T>(
+        _ description: String,
+        timeout: TimeInterval = hangSafeguard,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ operation: @escaping @MainActor () async throws -> T
+    ) async throws -> T {
+        let finished = XCTestExpectation(description: description)
+        let task = Task { @MainActor () async throws -> T in
+            defer { finished.fulfill() }
+            return try await operation()
+        }
+        let result = await XCTWaiter.fulfillment(of: [finished], timeout: timeout)
+        guard result == .completed else {
+            task.cancel()
+            XCTFail("\(description) did not finish within \(timeout)s", file: file, line: line)
+            throw TimeoutError.timeout
+        }
+        return try await task.value
     }
 }
 

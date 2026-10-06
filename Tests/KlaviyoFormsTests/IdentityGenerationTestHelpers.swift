@@ -18,6 +18,15 @@ func makeUnboundedAuthTokenManager() -> AuthTokenManager {
     )
 }
 
+/// An `AuthTokenManager` like ``makeUnboundedAuthTokenManager()``, except that every caller's
+/// fetch budget elapses once `fetchBudget` opens.
+func makeAuthTokenManager(fetchBudget: Latch) -> AuthTokenManager {
+    AuthTokenManager(
+        currentDate: { environment.date() },
+        fetchTimeoutSleep: { _ in await fetchBudget.wait() }
+    )
+}
+
 /// Makes `manager` fetch and cache a valid token tagged with `subject`, and returns it with the
 /// identity generation it was cached for. The current profile must have an identifier.
 func cacheTestToken(
