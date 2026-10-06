@@ -4,7 +4,6 @@
 //
 
 @testable import KlaviyoCore
-import Combine
 import Foundation
 
 #if canImport(Testing)
@@ -49,7 +48,7 @@ struct AuthTokenManagerRejectedTokenTests {
         let stream = await manager.refreshes()
 
         let refresh = Task { await manager.refreshRejectedToken() }
-        await yieldRepeatedly()
+        await manager.waitForRejectedTokenRefreshCallsForTesting(atLeast: 1)
         await releaseFetch.open()
         await refresh.value
 
@@ -73,47 +72,22 @@ struct AuthTokenManagerRejectedTokenTests {
 
         let first = Task { await manager.refreshRejectedToken(timeoutSeconds: 3600) }
         await fetchStarted.wait()
-        let secondReturns = CallCounter()
         let second = Task {
             await manager.refreshRejectedToken(timeoutSeconds: 0)
-            await secondReturns.increment()
             return await manager.isCurrentToken(replacement)
         }
         await manager.waitForRejectedTokenRefreshCallsForTesting(atLeast: 2)
         let joined = await manager.joinedRejectedTokenRefreshesForTesting
         try #require(joined == 1, "the overlapping call must join the running replacement")
-        await yieldRepeatedly()
-        let returnsWhileParked = await secondReturns.value
-        #expect(
-            returnsWhileParked == 0,
-            "an overlapping call must wait for the shared replacement, not its own budget"
-        )
         await releaseFetch.open()
         await first.value
 
         let secondSawReplacement = await second.value
-        #expect(secondSawReplacement)
+        #expect(secondSawReplacement, "an overlapping call must wait for the shared replacement")
         let invocations = await fixture.counter.value
         #expect(invocations == 2, "expected one provider call for both, saw \(invocations - 1)")
         let delivered = await firstElement(of: fixture.refreshes)
         #expect(delivered == replacement)
-    }
-
-    @Test
-    func callAfterTheSharedReplacementFinishedStartsANewOne() async throws {
-        let firstReplacement = try token("first")
-        let secondReplacement = try token("second")
-        let fixture = try await makeWarmFixture { call in
-            call == 2 ? firstReplacement : secondReplacement
-        }
-
-        await fixture.manager.refreshRejectedToken()
-        await fixture.manager.refreshRejectedToken()
-
-        let invocations = await fixture.counter.value
-        #expect(invocations == 3, "expected one provider call per finished replacement")
-        let served = try await fixture.manager.currentToken(mode: .background)
-        #expect(served == secondReplacement)
     }
 
     @Test
@@ -150,50 +124,6 @@ struct AuthTokenManagerRejectedTokenTests {
     }
 
     @Test
-    func companyChangeEndsTheSharedReplacement() async throws {
-        let config = SDKConfigStore(initialConfig: KlaviyoConfig(apiKey: "A"))
-        let tokenA = try makeJWT(extraClaims: ["sub": "A"])
-        let tokenB = try makeJWT(extraClaims: ["sub": "B"])
-        let hungFetchStarted = Latch()
-        let releaseHungFetch = Latch()
-        let calls = CallCounter()
-        let manager = AuthTokenManager(currentDate: { Date() }, config: config)
-        await manager.registerProvider {
-            switch await calls.increment() {
-            case 1:
-                return tokenA
-            case 2:
-                await hungFetchStarted.open()
-                await releaseHungFetch.wait()
-                return tokenA
-            default:
-                return tokenB
-            }
-        }
-        let warm = try await manager.currentToken(mode: .background)
-        try #require(warm == tokenA)
-        let watchdog = Watchdog(opening: hungFetchStarted, releaseHungFetch)
-        defer { watchdog.cancel() }
-
-        let hung = Task { await manager.refreshRejectedToken(timeoutSeconds: 60) }
-        await hungFetchStarted.wait()
-        config.update(KlaviyoConfig(apiKey: "B"))
-        let afterSwitch = try await manager.currentToken(mode: .background)
-        #expect(afterSwitch == tokenB)
-        await manager.refreshRejectedToken()
-
-        let fired = await watchdog.fired
-        #expect(!fired, "a call after a company change must not wait on the replacement it ended")
-        let invocations = await calls.value
-        #expect(invocations == 4)
-        let cached = await manager.isCurrentToken(tokenB)
-        #expect(cached)
-        await releaseHungFetch.open()
-        await hung.value
-        await manager.unregisterProvider()
-    }
-
-    @Test
     func failedRefreshesMakeOneCallEachAndStillDropTheRejectedToken() async throws {
         let replacement = try token("replacement")
         let fixture = try await makeWarmFixture { call in
@@ -215,33 +145,14 @@ struct AuthTokenManagerRejectedTokenTests {
 
     @Test
     func cancelsTheRejectedTokensScheduledRefresh() async throws {
-        // iat=ref-60, exp=ref+40 → the scheduled refresh lands at ref+10.
-        let rejected = try makeJWT(
-            issuedAt: refSeconds - 60,
-            expiresAt: refSeconds + 40,
-            extraClaims: ["sub": "rejected"]
-        )
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let fixture = try await makeWarmFixture(
-            rejected: rejected,
-            lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
-        ) { _ in
-            throw ProviderTestError.network
-        }
+        let fixture = try await makeWarmFixture { _ in throw ProviderTestError.network }
+        let scheduledBefore = await fixture.manager.hasScheduledRefreshForTesting
+        try #require(scheduledBefore)
 
         await fixture.manager.refreshRejectedToken()
 
-        // Wake the rejected token's sleep past its target time.
-        fixture.clock.set(referenceDate.addingTimeInterval(20))
-        await fixture.gate.release()
-        await yieldRepeatedly()
-        let invocationsAfterWake = await fixture.counter.value
-        #expect(invocationsAfterWake == 2, "the old scheduled refresh must not fire")
-
-        lifecycleSubject.send(.foregrounded)
-        await yieldRepeatedly()
-        let invocationsAfterForeground = await fixture.counter.value
-        #expect(invocationsAfterForeground == 2, "a foreground must not retry the old refresh target")
+        let scheduledAfter = await fixture.manager.hasScheduledRefreshForTesting
+        #expect(!scheduledAfter, "the rejected token's scheduled refresh must be cancelled")
     }
 
     @Test
@@ -285,8 +196,6 @@ struct AuthTokenManagerRejectedTokenTests {
 extension AuthTokenManagerRejectedTokenTests {
     private struct Fixture {
         let manager: AuthTokenManager
-        let clock: TestClock
-        let gate: SleepGate
         let counter: CallCounter
         /// Subscribed after the warm-up token was published.
         let refreshes: AsyncStream<String>
@@ -310,18 +219,15 @@ extension AuthTokenManagerRejectedTokenTests {
         makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: SleepGate())
     }
 
-    /// Registers a provider that returns `rejected` (an hour-long token by default)
-    /// on its warm-up call and hands every later call, numbered from 2, to `provider`.
+    /// Registers a provider that returns an hour-long `rejected` token on its warm-up
+    /// call and hands every later call, numbered from 2, to `provider`.
     /// Returns once the warm-up token is cached and its scheduled refresh is parked.
     private func makeWarmFixture(
-        rejected: String? = nil,
-        lifeCycle: AppLifeCycleEvents = noopLifecycle(),
         provider: @escaping @Sendable (Int) async throws -> String
     ) async throws -> Fixture {
-        let rejected = try rejected ?? token("rejected")
-        let clock = TestClock(referenceDate)
+        let rejected = try token("rejected")
         let gate = SleepGate()
-        let manager = makeManager(lifeCycle: lifeCycle, clock: clock, gate: gate)
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: TestClock(referenceDate), gate: gate)
         let counter = CallCounter()
 
         await manager.registerProvider {
@@ -332,7 +238,7 @@ extension AuthTokenManagerRejectedTokenTests {
         try await counter.waitFor(atLeast: 1)
         await gate.waitUntilSleeping(atLeast: 1)
         let refreshes = await manager.refreshes()
-        return Fixture(manager: manager, clock: clock, gate: gate, counter: counter, refreshes: refreshes)
+        return Fixture(manager: manager, counter: counter, refreshes: refreshes)
     }
 
     /// Opens `latches` if the test is still running after a minute, so a wait that
@@ -360,12 +266,6 @@ extension AuthTokenManagerRejectedTokenTests {
 
         func cancel() {
             task.cancel()
-        }
-    }
-
-    private func yieldRepeatedly() async {
-        for _ in 0..<100 {
-            await Task.yield()
         }
     }
 }

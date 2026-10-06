@@ -135,6 +135,12 @@ package actor AuthTokenManager {
         ready.forEach { $0.continuation.resume() }
     }
 
+    /// Test-only: whether a proactive refresh is scheduled (``refreshTask`` or
+    /// ``refreshAtWallClock`` is set). Not package API.
+    var hasScheduledRefreshForTesting: Bool {
+        refreshTask != nil || refreshAtWallClock != nil
+    }
+
     /// Test-only window onto ``isAwaitingConnectivityRetry`` so suites can
     /// deterministically await the wait being *armed* (which lands asynchronously
     /// in the failure path) instead of racing it with fixed yields. Not package API.
