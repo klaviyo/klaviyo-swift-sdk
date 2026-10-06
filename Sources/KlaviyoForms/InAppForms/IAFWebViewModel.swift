@@ -387,8 +387,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// Never writes a token ahead of the profile it belongs to. While an identity
     /// replacement's profile write and token-state clear are running, waits for them and
     /// then writes `token` only if `generation` is still the manager's current identity
-    /// generation. Declines when ``IdentityStore`` already holds an identity that replaces the
-    /// page's profile.
+    /// generation and the manager still caches `token` as its current token, so a token
+    /// discarded while its push was queued (for instance by a rejection) is never written.
+    /// Declines when ``IdentityStore`` already holds an identity that replaces the page's
+    /// profile.
     ///
     /// `async` so the caller can await it and apply refreshes in arrival order.
     /// The token value is never logged — only the success/failure of the update.
@@ -397,12 +399,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     @discardableResult
     func pushAuthToken(_ token: String, generation: UInt64) async -> Bool {
-        guard generation == authTokenManager.currentIdentityGeneration else { return false }
+        guard await isDeliverable(token, generation: generation) else { return false }
         var awaitedReplacement: Task<Bool, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
             _ = await replacement.value
             awaitedReplacement = replacement
-            guard generation == authTokenManager.currentIdentityGeneration else { return false }
+            guard await isDeliverable(token, generation: generation) else { return false }
         }
         guard !isPageBehindIdentityStore else {
             if #available(iOS 14.0, *) {
@@ -428,6 +430,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             }
             return false
         }
+    }
+
+    /// `true` while `generation` is the manager's current identity generation and the manager
+    /// still caches `token` as its current token.
+    @MainActor
+    private func isDeliverable(_ token: String, generation: UInt64) async -> Bool {
+        guard generation == authTokenManager.currentIdentityGeneration else { return false }
+        return await authTokenManager.isCurrentToken(token)
     }
 
     // MARK: - handle WKWebView events

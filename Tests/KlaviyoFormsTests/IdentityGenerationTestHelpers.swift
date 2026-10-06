@@ -18,6 +18,17 @@ func makeUnboundedAuthTokenManager() -> AuthTokenManager {
     )
 }
 
+/// Makes `manager` fetch and cache a valid token tagged with `subject`, and returns it with the
+/// identity generation it was cached for. The current profile must have an identifier.
+func cacheTestToken(
+    subject: String,
+    in manager: AuthTokenManager
+) async throws -> AuthTokenManager.TokenRefresh {
+    let token = try makeTestJWT(subject: subject, validAt: environment.date())
+    await manager.registerProvider { token }
+    return try await manager.currentTokenRefresh(mode: .background)
+}
+
 /// Stand-in for the manager's fetch-timeout sleep that never wakes, so a test's calls are not
 /// bound by a real-time budget.
 let neverTimesOut: @Sendable (UInt64) async -> Void = { _ in await Latch().wait() }

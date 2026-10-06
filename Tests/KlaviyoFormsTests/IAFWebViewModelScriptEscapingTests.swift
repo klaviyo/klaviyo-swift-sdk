@@ -90,13 +90,14 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
             viewModel.delegate = delegate
 
             await delegate.awaitScript(containing: Self.profileAttribute)
-            await viewModel.pushAuthToken(value, generation: authTokenManager.currentIdentityGeneration)
+            let cached = try await cacheTestToken(subject: value, in: authTokenManager)
+            await viewModel.pushAuthToken(cached.token, generation: cached.generation)
             let page = try JavaScriptPage()
             for script in delegate.evaluatedScripts {
                 try page.run(script)
             }
 
-            try assertAttributes(of: page, profile: profile, token: value, value)
+            try assertAttributes(of: page, profile: profile, token: cached.token, value)
             IdentityStore.shared.reset()
         }
     }

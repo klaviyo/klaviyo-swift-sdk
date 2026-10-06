@@ -209,7 +209,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         let profileWrite = delegate.holdScript(containing: "anon-new")
         IdentityStore.shared.update(incomingProfile)
         await profileWrite.reached.wait()
-        let heldToken = try makeTestJWT(subject: "held", validAt: clock.now())
+        let heldToken = try await manager.currentToken(mode: .background)
         let incomingGeneration = manager.currentIdentityGeneration
         let held = Task { await self.viewModel.pushAuthToken(heldToken, generation: incomingGeneration) }
         await Task.yield()
@@ -275,20 +275,43 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         assertOnlyTokenPushed(otherFetchToken, afterProfileWriteContaining: "anon-new")
     }
 
-    func testPushIsDeclinedWhileIdentityStoreIsAheadOfPage() async throws {
+    func testPushWhileIdentityStoreIsAheadOfPageIsNeverWrittenAheadOfProfile() async throws {
         let outgoingToken = try await registerProviderAndWarmCache()
         await makeViewModel(authToken: outgoingToken)
-        let staleToken = try makeTestJWT(subject: "stale", validAt: clock.now())
 
         IdentityStore.shared.update(incomingProfile)
-        let wasWritten = await viewModel.pushAuthToken(staleToken, generation: manager.currentIdentityGeneration)
+        let incoming = try await manager.currentTokenRefresh(mode: .background)
+        await viewModel.pushAuthToken(incoming.token, generation: incoming.generation)
 
-        XCTAssertFalse(wasWritten)
-        XCTAssertEqual(viewModel.authToken, outgoingToken)
         await awaitProfileUpdate(writing: "anon-new")
-        let incomingToken = try await awaitDelivery(ofInvocation: 2)
-        assertOnlyTokenPushed(incomingToken, afterProfileWriteContaining: "anon-new")
-        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(staleToken) })
+        await delegate.waitForScript(containing: incoming.token)
+        let scripts = delegate.evaluatedScripts
+        let profileIndex = try XCTUnwrap(scripts.firstIndex {
+            $0.contains("data-klaviyo-profile") && $0.contains("anon-new")
+        })
+        let tokenIndex = try XCTUnwrap(scripts.firstIndex { $0.contains(incoming.token) })
+        XCTAssertLessThan(profileIndex, tokenIndex)
+        XCTAssertFalse(scripts.contains { $0.contains(outgoingToken) })
+    }
+
+    // MARK: - Rejected tokens
+
+    func testTokenRejectedBeforeItsQueuedDeliveryIsNeverWritten() async throws {
+        let replacementFetch = await provider.hold(invocation: 2)
+        try await registerProvider()
+        await makeViewModel(startingDelivery: false)
+        let queuedToken = try await manager.currentToken(mode: .background)
+
+        viewModel.receiveRefreshJwt()
+        await manager.waitForRejectedTokenRefreshCallsForTesting(atLeast: 1)
+        await provider.waitFor(invocations: 2)
+        presentationManager.startTokenDelivery()
+        await replacementFetch.open()
+
+        let replacementToken = try await awaitDelivery(ofInvocation: 2)
+        XCTAssertEqual(delegate.authTokenScripts.count, 1)
+        XCTAssertTrue(delegate.authTokenScripts.first?.contains(replacementToken) ?? false)
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(queuedToken) })
     }
 
     // MARK: - Updates that keep the token
@@ -480,7 +503,11 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
 extension IAFWebViewModelIdentityChangeTests {
     /// Builds a page holding `profileData` and `authToken` and starts token delivery to it
     /// through ``presentationManager``, as a completed handshake does.
-    private func makeViewModel(profileData: ProfileData? = outgoingProfile, authToken: String? = nil) async {
+    private func makeViewModel(
+        profileData: ProfileData? = outgoingProfile,
+        authToken: String? = nil,
+        startingDelivery: Bool = true
+    ) async {
         let updates = await manager.refreshes()
         let viewModel = IAFWebViewModel(
             url: URL(string: "https://example.com")!,
@@ -500,7 +527,9 @@ extension IAFWebViewModelIdentityChangeTests {
             updates: updates,
             from: manager
         )
-        presentationManager.startTokenDelivery()
+        if startingDelivery {
+            presentationManager.startTokenDelivery()
+        }
     }
 
     private func registerProvider() async throws {
