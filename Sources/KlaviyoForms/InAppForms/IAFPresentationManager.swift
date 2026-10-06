@@ -165,6 +165,7 @@ class IAFPresentationManager {
         let tokenUpdates = await authTokenManager.refreshes()
         let startGeneration = authTokenManager.currentIdentityGeneration
         let fetchedToken = await fetchInitialAuthToken(authTokenManager)
+        let cachedToken = await stillCachedToken(fetchedToken, in: authTokenManager)
         guard generation == webViewBuildGeneration else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Dropping superseded webview build")
@@ -172,7 +173,7 @@ class IAFPresentationManager {
             return false
         }
         let profileData = IdentityStore.shared.current
-        let authToken = deliverableToken(fetchedToken, in: authTokenManager)
+        let authToken = deliverableToken(cachedToken, in: authTokenManager)
         if let viewModel = createFormWebView(
             apiKey: apiKey,
             profileData: profileData,
@@ -187,7 +188,8 @@ class IAFPresentationManager {
                 from: authTokenManager
             )
             let fetchedGeneration = fetchedToken?.generation ?? startGeneration
-            if authTokenManager.currentIdentityGeneration != fetchedGeneration {
+            let fetchedTokenDropped = fetchedToken != nil && authToken == nil
+            if fetchedTokenDropped || authTokenManager.currentIdentityGeneration != fetchedGeneration {
                 requestTokenForCurrentIdentity(from: authTokenManager)
             }
         }
@@ -202,6 +204,16 @@ class IAFPresentationManager {
         tokenRequestTask = Task {
             _ = try? await authTokenManager.currentTokenRefresh(mode: .background)
         }
+    }
+
+    /// `refresh` when `authTokenManager` still caches its token as the current token, so a
+    /// token discarded during the wait (for instance after a rejection) is not loaded.
+    private func stillCachedToken(
+        _ refresh: AuthTokenManager.TokenRefresh?,
+        in authTokenManager: AuthTokenManager
+    ) async -> AuthTokenManager.TokenRefresh? {
+        guard let refresh, await authTokenManager.isCurrentToken(refresh.token) else { return nil }
+        return refresh
     }
 
     /// The token of `refresh` when its identity generation is still current in

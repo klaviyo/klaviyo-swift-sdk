@@ -125,6 +125,42 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
         assertProfileBeforeToken(in: delegate.evaluatedScripts, email: profileB.email ?? "", token: incomingToken)
     }
 
+    func testTokenRejectedDuringBuildIsNotLoadedAndReplacementIsDelivered() async throws {
+        presentationManager.fetchInitialAuthToken = { authTokenManager in
+            let refresh = try? await authTokenManager.currentTokenRefresh(mode: .background)
+            await authTokenManager.refreshRejectedToken()
+            return refresh
+        }
+
+        let presentationManager = try XCTUnwrap(presentationManager)
+        let authTokenManager = try XCTUnwrap(authTokenManager)
+        try await awaitBounded("webview build") {
+            try await presentationManager.createFormWebViewAndListen(
+                apiKey: "abc123",
+                authTokenManager: authTokenManager
+            )
+        }
+        let viewModel = try XCTUnwrap(presentationManager.viewModel)
+        let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+        let mintedRejected = await provider.token(1)
+        let rejectedToken = try XCTUnwrap(mintedRejected)
+        let loadSources = viewModel.loadScripts?.map(\.source) ?? []
+        XCTAssertNil(viewModel.authToken)
+        XCTAssertFalse(loadSources.contains { $0.contains(rejectedToken) })
+
+        presentationManager.startTokenDelivery()
+        await delegate.awaitScript(containing: "data-klaviyo-jwt")
+
+        let mintedReplacement = await provider.token(2)
+        let replacementToken = try XCTUnwrap(mintedReplacement)
+        XCTAssertEqual(delegate.authTokenScripts.count, 1)
+        XCTAssertTrue(delegate.authTokenScripts[0].contains(replacementToken))
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(rejectedToken) })
+        let invocations = await provider.invocationCount
+        XCTAssertEqual(invocations, 2)
+    }
+
     // MARK: - Helpers
 
     private func assertProfileBeforeToken(
