@@ -47,7 +47,7 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
         // The handshake is mocked with zero delay, so this budget only bounds a hang.
         // It is generous so a stalled scheduler on a loaded runner cannot fail the test.
         // Do not raise it much further: XCTest kills a test at its 120s execution
-        // allowance, and a stall that long is tracked separately (MAGE-1321).
+        // allowance, and a stall that long is a separate, tracked problem.
         do {
             try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
