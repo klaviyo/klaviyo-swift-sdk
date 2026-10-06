@@ -42,6 +42,10 @@ struct KlaviyoSwiftEnvironment {
     /// Injected so tests can substitute a mock without the app-bundle context that
     /// `UNUserNotificationCenter.current()` requires.
     var notificationCenter: @MainActor () -> any UserNotificationCenterProtocol
+    /// Clears the auth-token cache and cancels any scheduled refresh tied to the outgoing
+    /// profile, without waiting for it to finish. The provider is retained — see
+    /// ``AuthTokenManager/clearTokenState()``.
+    var clearAuthTokenState: () -> Void
 
     static let production: KlaviyoSwiftEnvironment = {
         let store = Store.production
@@ -91,6 +95,11 @@ struct KlaviyoSwiftEnvironment {
             },
             notificationCenter: {
                 UNUserNotificationCenter.current()
+            },
+            clearAuthTokenState: {
+                Task {
+                    await AuthTokenManager.shared.clearTokenState()
+                }
             }
         )
     }()
