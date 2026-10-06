@@ -60,7 +60,14 @@ package actor AuthTokenManager {
 
     /// Most recently validated token, if any, and the identity generation it was fetched
     /// under. Cleared whenever ``registerProvider(_:)`` runs.
-    private var cachedToken: (token: ValidatedToken, generation: UInt64)?
+    private var cachedToken: CachedToken?
+
+    /// The cached token and the identity generation it was fetched under.
+    private struct CachedToken {
+        let token: ValidatedToken
+        let generation: UInt64
+    }
+
     private var observedCompanyID: String?
     private var companyCancellable: AnyCancellable?
     private let config: ConfigReading
@@ -751,7 +758,7 @@ package actor AuthTokenManager {
     private func acceptToken(_ rawToken: String, generation: UInt64) throws -> String {
         switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
         case let .success(validated):
-            cachedToken = (validated, generation)
+            cachedToken = CachedToken(token: validated, generation: generation)
             // A fresh token from any path obsoletes a pending connectivity
             // wait: nothing left to retry, and the next refresh is scheduled
             // below. Leaving it armed would fire a redundant retry on the next
