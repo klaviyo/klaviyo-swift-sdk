@@ -297,19 +297,29 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
     func testRefreshJwtPushesReplacementToLiveWebViewOnce() async throws {
         let rejected = try makeToken("rejected")
         let replacement = try makeToken("replacement")
+        let sentinel = try makeToken("sentinel")
         let counter = InvocationCounter()
         let live = try await makeLiveWebView(showing: rejected) {
-            await counter.increment() == 1 ? rejected : replacement
+            switch await counter.increment() {
+            case 1: return rejected
+            case 2: return replacement
+            default: return sentinel
+            }
         }
 
         live.viewModel.receiveRefreshJwt()
-
-        try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
-        await Task.yield()
-        XCTAssertEqual(jwtScripts(live.delegate).count, 1)
-        XCTAssertTrue(jwtScripts(live.delegate)[0].contains(replacement))
+        await assertEventually { !self.jwtScripts(live.delegate).isEmpty }
+        await assertEventually { await !live.authTokenManager.isRefreshingRejectedTokenForTesting }
         let invocations = await counter.value
         XCTAssertEqual(invocations, 2, "expected exactly one provider call for the signal")
+
+        live.viewModel.receiveRefreshJwt()
+        await assertEventually { self.jwtScripts(live.delegate).contains { $0.contains(sentinel) } }
+
+        let scripts = jwtScripts(live.delegate)
+        XCTAssertEqual(scripts.count, 2, "the replacement must be pushed exactly once")
+        XCTAssertTrue(scripts.first?.contains(replacement) == true)
+        XCTAssertTrue(scripts.last?.contains(sentinel) == true)
         live.manager.destroyWebView()
     }
 
@@ -332,10 +342,8 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
 
         live.viewModel.receiveRefreshJwt()
 
-        try await waitUntil { !self.jwtScripts(live.delegate).isEmpty }
-        await Task.yield()
+        await assertEventually { self.jwtScripts(live.delegate).contains { $0.contains(sentinel) } }
         XCTAssertEqual(jwtScripts(live.delegate).count, 1, "the repeated token must not be pushed again")
-        XCTAssertTrue(jwtScripts(live.delegate)[0].contains(sentinel))
         live.manager.destroyWebView()
     }
 
