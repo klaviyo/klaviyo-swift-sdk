@@ -275,23 +275,20 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         assertOnlyTokenPushed(otherFetchToken, afterProfileWriteContaining: "anon-new")
     }
 
-    func testPushWhileIdentityStoreIsAheadOfPageIsNeverWrittenAheadOfProfile() async throws {
+    func testPushIsDeclinedWhileIdentityStoreIsAheadOfPage() async throws {
         let outgoingToken = try await registerProviderAndWarmCache()
         await makeViewModel(authToken: outgoingToken)
+        let staleToken = try makeTestJWT(subject: "stale", validAt: clock.now())
 
         IdentityStore.shared.update(incomingProfile)
-        let incoming = try await manager.currentTokenRefresh(mode: .background)
-        await viewModel.pushAuthToken(incoming.token, generation: incoming.generation)
+        let wasWritten = await viewModel.pushAuthToken(staleToken, generation: manager.currentIdentityGeneration)
 
+        XCTAssertFalse(wasWritten)
+        XCTAssertEqual(viewModel.authToken, outgoingToken)
         await awaitProfileUpdate(writing: "anon-new")
-        await delegate.waitForScript(containing: incoming.token)
-        let scripts = delegate.evaluatedScripts
-        let profileIndex = try XCTUnwrap(scripts.firstIndex {
-            $0.contains("data-klaviyo-profile") && $0.contains("anon-new")
-        })
-        let tokenIndex = try XCTUnwrap(scripts.firstIndex { $0.contains(incoming.token) })
-        XCTAssertLessThan(profileIndex, tokenIndex)
-        XCTAssertFalse(scripts.contains { $0.contains(outgoingToken) })
+        let incomingToken = try await awaitDelivery(ofInvocation: 2)
+        assertOnlyTokenPushed(incomingToken, afterProfileWriteContaining: "anon-new")
+        XCTAssertFalse(delegate.evaluatedScripts.contains { $0.contains(staleToken) })
     }
 
     // MARK: - Rejected tokens

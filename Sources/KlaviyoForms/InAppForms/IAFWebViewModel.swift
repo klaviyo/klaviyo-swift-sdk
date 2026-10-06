@@ -399,7 +399,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     @discardableResult
     func pushAuthToken(_ token: String, generation: UInt64) async -> Bool {
-        guard await isDeliverable(token, generation: generation) else { return false }
+        guard !isPageBehindIdentityStore,
+              await isDeliverable(token, generation: generation) else { return false }
         var awaitedReplacement: Task<Bool, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
             _ = await replacement.value
