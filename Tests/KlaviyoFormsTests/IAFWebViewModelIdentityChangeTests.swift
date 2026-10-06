@@ -276,8 +276,8 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
             to: ProfileData(email: "old@example.com", anonymousId: "anon-other"),
             writing: "anon-other"
         )
-        try await refetch()
-        try await refetch()
+        await refetch()
+        await refetch()
         await delegate.waitForScript(containing: sentinel)
 
         let invocations = await counter.value
@@ -316,7 +316,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         let outgoingToken = try await registerProviderAndWarmCache()
         await makeViewModel(authToken: outgoingToken)
 
-        try await refetch()
+        await refetch()
         let refreshedToken = try await awaitDelivery(ofInvocation: 2)
 
         let tokenScripts = loadScriptSources(containing: "data-klaviyo-jwt")
@@ -386,9 +386,9 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         await makeViewModel()
         delegate.failScript(containing: "data-klaviyo-jwt")
 
-        try await refetch()
+        await refetch()
         // The failed write must not count as delivered, so the same token is written next time.
-        try await refetch()
+        await refetch()
 
         await delegate.waitForScript(containing: token)
         XCTAssertEqual(delegate.authTokenScripts.count, 1)
@@ -438,9 +438,14 @@ extension IAFWebViewModelIdentityChangeTests {
     }
 
     /// Drops the cached token and fetches a new one, which the fetch publishes to delivery.
-    private func refetch() async throws {
+    /// Returns once the new token is published, with no wall-clock bound on the wait.
+    private func refetch() async {
+        let updates = await manager.refreshes()
         await manager.clearTokenState()
-        _ = try await manager.currentToken(mode: .background)
+        Task { [manager] in _ = try? await manager?.currentToken(mode: .background) }
+        for await _ in updates {
+            return
+        }
     }
 
     private func minted(
