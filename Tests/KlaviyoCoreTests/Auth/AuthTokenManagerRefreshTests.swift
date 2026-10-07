@@ -1359,6 +1359,14 @@ struct AuthTokenManagerRefreshTests {
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
         try await counter.waitFor(atLeast: 3)
         await awaitConnectivityWaitArmed(manager)
+        for _ in 0..<1000 {
+            await Task.yield()
+        }
+        let invocationsWhileHeld = await counter.value
+        #expect(
+            invocationsWhileHeld == 3,
+            "a failed retry must hold for the next notification, saw \(invocationsWhileHeld)"
+        )
 
         // The next notification retries again (invocation 4), which succeeds and
         // broadcasts. This exercises the re-arm-after-failure path.
