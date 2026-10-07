@@ -157,6 +157,16 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             return
         }
 
+        let enableOnsiteDebugLogging = WKUserScript(
+            source: """
+            localStorage.debug = "*";
+            localStorage.debug_filter = "*";
+            """,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        webView.configuration.userContentController.addUserScript(enableOnsiteDebugLogging)
+
         // Injects script at start of document, before any other scripts would load
         let strHandoff = "{\"bridgeName\":\"consoleMessageHandler\", \"linkConsole\":true}" // arguments to invoke with the JS bridge
 
