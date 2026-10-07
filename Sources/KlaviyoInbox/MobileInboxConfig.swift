@@ -14,7 +14,8 @@ public struct MobileInboxConfig: Equatable, Sendable {
 
     /// The App Group shared by your app and its Notification Service Extension. Mobile Inbox keeps
     /// its settings and messages there. It may be the same group you use for badge counts, or a
-    /// different one.
+    /// different one. Set it once: changing it after registering isn't supported, and the previous
+    /// group is not turned off.
     public let appGroupIdentifier: String
 
     /// How many messages are kept on the device, between 1 and 500. Values outside that range are

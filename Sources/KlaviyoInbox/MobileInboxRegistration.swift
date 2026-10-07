@@ -28,7 +28,13 @@ final class MobileInboxRegistration {
 
     func register(_ configuration: MobileInboxConfig) {
         MobileInboxLogging.install()
-        guard disablePreviousGroup(unless: configuration.appGroupIdentifier) else { return }
+        if let previous = defaults.string(forKey: Self.groupPointerKey),
+           previous != configuration.appGroupIdentifier {
+            InboxLog.warning(
+                "App Group changed from \(previous) to \(configuration.appGroupIdentifier). " +
+                    "Changing it after registering isn't supported; \(previous) is not turned off."
+            )
+        }
         let store = InboxConfigStore(appGroupIdentifier: configuration.appGroupIdentifier, group: group)
         do {
             try store.enable(localRetentionLimit: configuration.localRetentionLimit)
@@ -50,25 +56,5 @@ final class MobileInboxRegistration {
         } catch {
             InboxLog.error("unregisterFromMobileInbox failed; Mobile Inbox may still be on (\(error)).")
         }
-    }
-
-    /// Turns off the group remembered from an earlier registration when the app switches groups, so
-    /// `unregister()` (which only knows the latest group) can't leave the earlier one capturing.
-    /// An unreachable earlier group is already unreadable, so it doesn't block the new registration.
-    /// Returns `false` only when the earlier group exists but couldn't be turned off; the pointer
-    /// then still names it, so a later `unregister()` can retry.
-    private func disablePreviousGroup(unless newIdentifier: String) -> Bool {
-        guard let previous = defaults.string(forKey: Self.groupPointerKey), previous != newIdentifier else {
-            return true
-        }
-        do {
-            try InboxConfigStore(appGroupIdentifier: previous, group: group).disable()
-        } catch InboxConfigError.groupUnavailable {
-            InboxLog.warning("Previous App Group \(previous) is unavailable; nothing to turn off there.")
-        } catch {
-            InboxLog.error("registerForMobileInbox could not turn off the previous App Group (\(error)).")
-            return false
-        }
-        return true
     }
 }
