@@ -1352,16 +1352,75 @@ struct AuthTokenManagerRefreshTests {
         let stream = await manager.tokens()
 
         // Restore connectivity. The transition fires the retry (invocation 3),
-        // which also fails — re-arming the wait. Because the path is still
-        // satisfied, the re-armed wait retries again at once (invocation 4), which
-        // succeeds and broadcasts. This exercises the re-arm-after-failure path.
+        // which also fails — re-arming the wait. Even though the path is still
+        // satisfied, the re-armed wait holds for the next notification rather than
+        // retrying at once.
         reachability.set(.reachableViaWiFi)
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        try await counter.waitFor(atLeast: 3)
+        await awaitConnectivityWaitArmed(manager)
+
+        // The next notification retries again (invocation 4), which succeeds and
+        // broadcasts. This exercises the re-arm-after-failure path.
         lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
 
         let delivered = await firstElement(of: stream)
         #expect(
             delivered == secondToken,
             "a network-failed retry must re-arm and recover"
+        )
+    }
+
+    @Test
+    func persistentConnectivityFailureOnReachablePathWaitsForNotification() async throws {
+        // The provider always fails with a connectivity error while the system keeps
+        // reporting a usable path and emits no reachability events. A failure allows
+        // one immediate retry; when that retry fails too, the manager must wait for a
+        // reachability notification instead of looping on the reachable path.
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        let lifecycle = AppLifeCycleEvents(lifeCycleEvents: { lifecycleSubject.eraseToAnyPublisher() })
+        let manager = makeManager(
+            lifeCycle: lifecycle,
+            clock: TestClock(referenceDate),
+            gate: SleepGate(),
+            reachabilityStatus: { .reachableViaWiFi }
+        )
+        let counter = CallCounter()
+
+        await manager.registerProvider {
+            await counter.increment()
+            throw URLError(.networkConnectionLost)
+        }
+
+        // Warm-up fails (invocation 1); the arm-time path check retries once at once
+        // (invocation 2), which fails and re-arms the wait.
+        try await counter.waitFor(atLeast: 2)
+        await awaitConnectivityWaitArmed(manager)
+        for _ in 0..<1000 {
+            await Task.yield()
+        }
+
+        let invocationsWithoutNotification = await counter.value
+        #expect(
+            invocationsWithoutNotification == 2,
+            "a reachable path must allow a single immediate retry, saw \(invocationsWithoutNotification)"
+        )
+        let isAwaiting = await manager.isAwaitingConnectivityRetryForTesting
+        #expect(isAwaiting, "the failed immediate retry must leave the wait armed")
+
+        // A reachability notification fires a fresh attempt (invocation 3). It fails
+        // too, and the wait holds again for the next notification.
+        lifecycleSubject.send(.reachabilityChanged(status: .reachableViaWiFi))
+        try await counter.waitFor(atLeast: 3)
+        await awaitConnectivityWaitArmed(manager)
+        for _ in 0..<1000 {
+            await Task.yield()
+        }
+
+        let invocationsAfterNotification = await counter.value
+        #expect(
+            invocationsAfterNotification == 3,
+            "a reachability notification must trigger one fresh attempt, saw \(invocationsAfterNotification)"
         )
     }
 
