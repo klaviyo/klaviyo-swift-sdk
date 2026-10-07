@@ -174,6 +174,14 @@ package actor AuthTokenManager {
     /// The identity generation whose failed fetch armed ``isAwaitingConnectivityRetry``.
     private var connectivityRetryGeneration: UInt64?
 
+    /// The identity generation whose connectivity retry has already run. While it matches
+    /// ``connectivityRetryGeneration``, ``kickConnectivityRetryIfReachable()`` is a no-op, so a
+    /// failed retry re-arms and waits for the next reachability notification instead of
+    /// retrying again at once on a stable reachable path. Set by
+    /// ``fireConnectivityRetryIfArmed()``; cleared by a reachability notification and when a
+    /// token is accepted.
+    private var usedConnectivityRetryGeneration: UInt64?
+
     /// `true` while a warm-up fetch from ``registerProvider(_:)`` was gated because the
     /// profile had no identifier; the next change that identifies the profile runs it.
     private var isWarmUpPending = false
@@ -764,6 +772,7 @@ package actor AuthTokenManager {
             // below. Leaving it armed would fire a redundant retry on the next
             // reachability transition.
             disarmConnectivityRetry()
+            usedConnectivityRetryGeneration = nil
             scheduleRefresh(for: validated)
             refreshSubject.send(TokenRefresh(token: validated.rawToken, generation: generation))
             if #available(iOS 14.0, *) {
@@ -1022,7 +1031,13 @@ package actor AuthTokenManager {
     /// once the guard genuinely clears). Deliberately does not re-log the "failure"
     /// message ``armConnectivityRetry(for:)`` does — a re-kick isn't a new failure, just
     /// a delayed retry of one already logged.
+    ///
+    /// A no-op once a retry has already run for the armed generation (see
+    /// ``usedConnectivityRetryGeneration``): a failure allows one immediate retry, and after
+    /// that only a reachability notification retries again, so a persistently failing provider
+    /// on a reachable path can't drive a self-triggered loop.
     private func kickConnectivityRetryIfReachable() {
+        guard connectivityRetryGeneration != usedConnectivityRetryGeneration else { return }
         guard let status = currentReachability(), status != .notReachable else { return }
         if #available(iOS 14.0, *) {
             Logger.auth.info(
@@ -1036,8 +1051,13 @@ package actor AuthTokenManager {
     /// only a *trigger* — its payload status is ignored because ``AppLifeCycleEvents``
     /// coerces an unknown read to `.reachableViaWWAN`. Re-reads the live status and
     /// fires only on a genuine path; a no-op when no wait is armed.
+    ///
+    /// Clears ``usedConnectivityRetryGeneration`` first: each notification grants a fresh
+    /// retry, including when ``fireConnectivityRetryIfArmed()`` backs off and leaves the wait
+    /// for ``performScheduledRefresh()``'s `defer` to re-kick.
     private func handleReachabilityChange() async {
         guard let status = currentReachability(), status != .notReachable else { return }
+        usedConnectivityRetryGeneration = nil
         await fireConnectivityRetryIfArmed()
     }
 
@@ -1056,10 +1076,15 @@ package actor AuthTokenManager {
     /// retrying, because the `performScheduledRefresh()` call below would just
     /// bounce off its own still-set guard. Backing off instead leaves the wait
     /// armed for that method's `defer` to re-kick once its guard is genuinely clear.
+    ///
+    /// Records the armed generation in ``usedConnectivityRetryGeneration`` before retrying, so
+    /// if this retry fails the re-armed wait holds for the next reachability notification
+    /// instead of retrying at once.
     private func fireConnectivityRetryIfArmed() async {
-        guard isAwaitingConnectivityRetry else { return }
+        guard let generation = connectivityRetryGeneration else { return }
         guard activeScheduledRefreshID == nil else { return }
         disarmConnectivityRetry()
+        usedConnectivityRetryGeneration = generation
         if #available(iOS 14.0, *) {
             Logger.auth.info("AuthTokenManager: connectivity available, retrying refresh")
         }
