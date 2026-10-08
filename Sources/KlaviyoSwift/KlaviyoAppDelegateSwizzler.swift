@@ -89,7 +89,7 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
             return nil
         }
 
-        #if DEBUG
+        #if DEBUG || KLAVIYO_TESTING
         /// Resets logical swizzle state for test isolation.
         /// ObjC runtime method exchanges are permanent — callers must use a unique class per test.
         func reset() {
@@ -243,7 +243,7 @@ final class KlaviyoAppDelegateSwizzler: NSObject, @unchecked Sendable {
         return false
     }
 
-    #if DEBUG
+    #if DEBUG || KLAVIYO_TESTING
 
     // MARK: - Test hooks
 

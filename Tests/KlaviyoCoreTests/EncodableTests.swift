@@ -62,7 +62,11 @@ final class EncodableTests: XCTestCase {
             background: "AVAILABLE",
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
         )
-        assertSnapshot(matching: tokenPayload, as: .json(KlaviyoEnvironment.encoder))
+        assertSnapshot(
+            matching: tokenPayload,
+            as: .json(KlaviyoEnvironment.encoder),
+            named: buildConfigurationSnapshotName
+        )
     }
 
     func testUnregisterTokenPayload() throws {
@@ -83,6 +87,6 @@ final class EncodableTests: XCTestCase {
             profile: ProfilePayload(email: "foo", phoneNumber: "foo", anonymousId: "foo")
         )
         let request = KlaviyoRequest(endpoint: .registerPushToken("foo", tokenPayload))
-        assertSnapshot(matching: request, as: .json)
+        assertSnapshot(matching: request, as: .json, named: buildConfigurationSnapshotName)
     }
 }

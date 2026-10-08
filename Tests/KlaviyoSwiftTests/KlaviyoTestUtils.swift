@@ -136,6 +136,12 @@ extension AppContextInfo {
                            deviceId: "fe-fi-fo-fum")
 }
 
+#if DEBUG
+let buildConfigurationSnapshotName = "debug"
+#else
+let buildConfigurationSnapshotName = "release"
+#endif
+
 extension StateChangePublisher {
     static let test = { () -> StateChangePublisher in
         StateChangePublisher.debouncedPublisher = { publisher in

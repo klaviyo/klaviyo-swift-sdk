@@ -44,6 +44,10 @@ final class EncodableTests: XCTestCase {
             queue: [request],
             requestsInFlight: [request]
         )
-        assertSnapshot(matching: klaviyoState, as: .json(KlaviyoEnvironment.encoder))
+        assertSnapshot(
+            matching: klaviyoState,
+            as: .json(KlaviyoEnvironment.encoder),
+            named: buildConfigurationSnapshotName
+        )
     }
 }
