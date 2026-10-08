@@ -13,11 +13,12 @@ public struct MobileInboxConfig: Equatable, Sendable {
     public static let defaultLocalRetentionLimit = InboxLimits.defaultRetention
 
     /// The App Group shared by your app and its Notification Service Extension, the same one
-    /// you use for badge counts. Mobile Inbox keeps its settings and messages there.
+    /// you use for badge counts. Mobile Inbox keeps its configuration there.
     public let appGroupIdentifier: String
 
-    /// How many messages are kept on the device, between 1 and 500. Values outside that range are
-    /// clamped and a warning is logged. When the limit is exceeded, the oldest messages are removed.
+    /// How many messages are kept on the device, between 1 and 500 (default 100). Values outside that
+    /// range are clamped and a warning is logged. When the limit is exceeded, the oldest messages are
+    /// removed.
     public let localRetentionLimit: Int
 
     public init(

@@ -61,6 +61,6 @@ final class KlaviyoInboxExtensionSDKTests: XCTestCase {
 
     func testMalformedFileFailsClosed() throws {
         try writeFixture("not json")
-        XCTAssertEqual(lookup(), .neverRegistered)
+        XCTAssertEqual(lookup(), .disabled)
     }
 }

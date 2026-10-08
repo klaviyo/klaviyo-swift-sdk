@@ -9,9 +9,6 @@ import Foundation
 import KlaviyoInboxCore
 
 /// Turns Mobile Inbox capture on and off by writing the shared configuration file.
-///
-/// `unregisterFromMobileInbox()` takes no arguments, so the group used at registration is
-/// remembered in app-private `UserDefaults` and read back by `unregister()`, including after a relaunch.
 final class MobileInboxRegistration {
     static let groupPointerKey = "klaviyo.inbox.appGroupIdentifier"
 
@@ -28,12 +25,9 @@ final class MobileInboxRegistration {
 
     func register(_ configuration: MobileInboxConfig) {
         MobileInboxLogging.install()
-        if let previous = defaults.string(forKey: Self.groupPointerKey),
-           previous != configuration.appGroupIdentifier {
-            InboxLog.warning(
-                "App Group changed from \(previous) to \(configuration.appGroupIdentifier). " +
-                    "Changing it after registering isn't supported; \(previous) is not turned off."
-            )
+        if let existing = defaults.string(forKey: Self.groupPointerKey),
+           existing != configuration.appGroupIdentifier {
+            InboxLog.error("App Group \(existing) is already registered for Mobile Inbox.")
         }
         let store = InboxConfigStore(appGroupIdentifier: configuration.appGroupIdentifier, group: group)
         do {
@@ -45,6 +39,8 @@ final class MobileInboxRegistration {
         defaults.set(configuration.appGroupIdentifier, forKey: Self.groupPointerKey)
     }
 
+    /// `unregisterFromMobileInbox()` takes no arguments, so this looks up the App Group used at
+    /// registration, which is kept in app-private `UserDefaults`.
     func unregister() {
         MobileInboxLogging.install()
         guard let appGroupIdentifier = defaults.string(forKey: Self.groupPointerKey) else {

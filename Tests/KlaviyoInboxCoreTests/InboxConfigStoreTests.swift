@@ -92,27 +92,27 @@ final class InboxConfigStoreTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: expected.path))
     }
 
-    func testCorruptFileReadsAsNeverRegisteredAndIsKept() throws {
+    func testCorruptFileReadsAsDisabledAndIsKept() throws {
         try writeRaw("{ this is not json")
         let store = makeStore()
-        XCTAssertEqual(store.enablement(), .neverRegistered)
+        XCTAssertEqual(store.enablement(), .disabled)
         XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
-    func testNewerVersionReadsAsNeverRegisteredAndIsKept() throws {
+    func testNewerVersionReadsAsDisabledAndIsKept() throws {
         try writeRaw(#"{"version":999,"enabled":true,"localRetentionLimit":10}"#)
         let store = makeStore()
-        XCTAssertEqual(store.enablement(), .neverRegistered)
+        XCTAssertEqual(store.enablement(), .disabled)
         XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
-    func testVersionBelowOneReadsAsNeverRegisteredAndIsKept() throws {
+    func testVersionBelowOneReadsAsDisabledAndIsKept() throws {
         for version in [0, -1] {
             try writeRaw(#"{"version":\#(version),"enabled":true,"localRetentionLimit":10}"#)
             let store = makeStore()
-            XCTAssertEqual(store.enablement(), .neverRegistered, "version \(version)")
+            XCTAssertEqual(store.enablement(), .disabled, "version \(version)")
             XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
         }
         XCTAssertFalse(logs.errors.isEmpty)

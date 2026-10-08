@@ -105,19 +105,18 @@ final class MobileInboxRegistrationTests: XCTestCase {
         XCTAssertFalse(logs.warnings.isEmpty)
     }
 
-    func testRegisteringADifferentGroupWarnsAndLeavesThePreviousGroupAlone() {
+    func testRegisteringADifferentGroupLogsAnErrorAndLeavesThePreviousGroupAlone() {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig(appGroupIdentifier: "group.old"))
-        XCTAssertTrue(logs.warnings.isEmpty, "the first registration has nothing to warn about")
+        XCTAssertTrue(logs.errors.isEmpty, "the first registration has nothing to report")
 
         registration.register(MobileInboxConfig(appGroupIdentifier: "group.new"))
 
-        XCTAssertEqual(logs.warnings.count, 1)
-        XCTAssertTrue(logs.warnings.first?.message.contains("group.old") ?? false)
+        XCTAssertEqual(logs.errors.count, 1)
         XCTAssertEqual(
             InboxConfigStore(appGroupIdentifier: "group.old", group: temp.group).enablement(),
             .enabled(localRetentionLimit: 100),
-            "switching groups is unsupported, so the previous group is deliberately not touched"
+            "changing groups is unsupported, so the previous group is deliberately not touched"
         )
     }
 
@@ -125,7 +124,7 @@ final class MobileInboxRegistrationTests: XCTestCase {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig(appGroupIdentifier: groupId))
         registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 20))
-        XCTAssertTrue(logs.warnings.isEmpty)
+        XCTAssertTrue(logs.errors.isEmpty)
     }
 
     func testUnregisterTargetsTheMostRecentlyRegisteredGroup() {

@@ -11,16 +11,10 @@ import Foundation
 ///
 /// The app is the only writer. Writes replace the file atomically, so a concurrent reader (the
 /// Notification Service Extension) sees either the previous or the new record, never a partial
-/// one. Reading never throws: anything unusable reads as `.neverRegistered`, so capture fails closed.
+/// one. Reading never throws: an unusable file reads as `.disabled`, so capture fails closed.
 package final class InboxConfigStore {
     package static let directoryName = "KlaviyoInbox"
     package static let fileName = "klaviyo-inbox-config.json"
-
-    private enum ReadResult {
-        case absent
-        case record(InboxConfigRecord)
-        case unusable
-    }
 
     private let appGroupIdentifier: String
     private let group: InboxAppGroup
@@ -46,13 +40,9 @@ package final class InboxConfigStore {
             InboxLog.error("App Group \(appGroupIdentifier) is unavailable; Mobile Inbox is off.")
             return .neverRegistered
         }
-        switch readRecord(at: fileURL) {
-        case .absent, .unusable:
-            return .neverRegistered
-        case let .record(record):
-            guard record.enabled else { return .disabled }
-            return .enabled(localRetentionLimit: InboxLimits.clampedRetention(record.localRetentionLimit))
-        }
+        guard let record = readRecord(at: fileURL) else { return .neverRegistered }
+        guard record.enabled else { return .disabled }
+        return .enabled(localRetentionLimit: InboxLimits.clampedRetention(record.localRetentionLimit))
     }
 
     package func enable(localRetentionLimit: Int) throws {
@@ -77,10 +67,7 @@ package final class InboxConfigStore {
         writeLock.lock()
         defer { writeLock.unlock() }
 
-        var existing: InboxConfigRecord?
-        if case let .record(record) = readRecord(at: fileURL) {
-            existing = record
-        }
+        let existing = readRecord(at: fileURL)
         do {
             try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(makeRecord(existing))
@@ -91,26 +78,29 @@ package final class InboxConfigStore {
         }
     }
 
-    private func readRecord(at fileURL: URL) -> ReadResult {
+    /// The persisted record, nil when the file is absent, or a disabled record when it is unusable
+    /// (logged), so capture fails closed.
+    private func readRecord(at fileURL: URL) -> InboxConfigRecord? {
+        let unusable = InboxConfigRecord(enabled: false, localRetentionLimit: InboxLimits.defaultRetention)
         let data: Data
         do {
             data = try Data(contentsOf: fileURL)
         } catch let error as CocoaError where [.fileReadNoSuchFile, .fileNoSuchFile].contains(error.code) {
-            return .absent
+            return nil
         } catch {
             InboxLog.error("Unable to read Mobile Inbox settings: \(error.localizedDescription)")
-            return .unusable
+            return unusable
         }
         do {
             let record = try JSONDecoder().decode(InboxConfigRecord.self, from: data)
             guard (1...InboxConfigRecord.currentVersion).contains(record.version) else {
                 InboxLog.error("Mobile Inbox settings version \(record.version) is not supported.")
-                return .unusable
+                return unusable
             }
-            return .record(record)
+            return record
         } catch {
             InboxLog.error("Unable to decode Mobile Inbox settings: \(error.localizedDescription)")
-            return .unusable
+            return unusable
         }
     }
 }
