@@ -242,4 +242,96 @@ final class InboxPayloadParserTests: XCTestCase {
         XCTAssertTrue(try actions(#""oops""#).isEmpty)
         XCTAssertTrue(try actions("[]").isEmpty)
     }
+
+    // MARK: Badge, transport, raw payload
+
+    func testFullPayloadBadgeAndTransport() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
+        let expectedBadge = InboxBadge(apsBadge: 3, config: "set_count", value: 5, notificationCount: 7)
+        XCTAssertEqual(record.badge, expectedBadge)
+        XCTAssertEqual(
+            record.transport,
+            InboxTransportFlags(
+                mutableContent: true, contentAvailable: false, priority: "10", sound: "default"
+            )
+        )
+    }
+
+    func testNoBadgeKeysMeansNilBadgeAndEmptyTransport() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal()))
+        XCTAssertNil(record.badge)
+        XCTAssertEqual(record.transport, InboxTransportFlags())
+    }
+
+    func testEachBadgeKeyAloneProducesABadge() throws {
+        let cases: [(String, InboxBadge)] = [
+            (#""aps": {"badge": 4}"#, InboxBadge(apsBadge: 4)),
+            (#""badge_config": "increment_one""#, InboxBadge(config: "increment_one")),
+            (#""badge_value": "8""#, InboxBadge(value: 8)),
+            (#""notification_count": 2"#, InboxBadge(notificationCount: 2))
+        ]
+        for (members, expected) in cases {
+            let badge = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(members))).badge
+            XCTAssertEqual(badge, expected, members)
+        }
+    }
+
+    func testTransportFlagsAcceptBooleansAndNumbers() throws {
+        let asBools = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(
+            #""aps": {"mutable-content": true, "content-available": false}"#
+        )))
+        XCTAssertEqual(asBools.transport.mutableContent, true)
+        XCTAssertEqual(asBools.transport.contentAvailable, false)
+        let asNumbers = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(
+            #""aps": {"mutable-content": 1, "content-available": 1}"#
+        )))
+        XCTAssertEqual(asNumbers.transport.mutableContent, true)
+        XCTAssertEqual(asNumbers.transport.contentAvailable, true)
+    }
+
+    func testSoundThatIsADictionaryIsNotRecordedAsATypedValue() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""aps": {"sound": {"name": "x"}}"#)))
+        XCTAssertNil(record.transport.sound)
+    }
+
+    func testRawPayloadKeepsEverythingExceptTheDeviceToken() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
+        let raw = try XCTUnwrap(JSONSerialization.jsonObject(with: record.rawPayload) as? [String: Any])
+        let body = try XCTUnwrap(raw["body"] as? [String: Any])
+        let metadata = try XCTUnwrap(body["_k"] as? [String: Any])
+        XCTAssertNil(metadata["pt"])
+        XCTAssertEqual(metadata["$flow"] as? String, "F1")
+        XCTAssertEqual(raw["priority"] as? String, "10")
+        XCTAssertNotNil(raw["aps"])
+        let buttons = body["action_buttons"] as? [Any]
+        XCTAssertEqual(buttons?.count, 3, "unmapped buttons survive in the raw payload")
+    }
+
+    func testUnmappedAliasesSurviveOnlyInTheRawPayload() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""m": "alias", "c": 1, "t": 2"#)))
+        let raw = try XCTUnwrap(JSONSerialization.jsonObject(with: record.rawPayload) as? [String: Any])
+        XCTAssertEqual(raw["m"] as? String, "alias")
+        XCTAssertNil(record.sentAt, "the non-normative `t` alias is never read into a typed field")
+    }
+
+    func testAttributionRawPropertiesDropTheDeviceTokenAndKeepTheRest() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
+        let properties = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any]
+        )
+        XCTAssertNil(properties["pt"])
+        XCTAssertEqual(properties["tm"] as? String, tm)
+        XCTAssertEqual(properties["$flow"] as? String, "F1")
+    }
+
+    func testPayloadWithUnrepresentableValuesStillParses() throws {
+        let userInfo: [AnyHashable: Any] = [
+            "body": ["_k": ["tm": "t", "pt": "x"]],
+            "weird": [Double.nan, Data([1]), Date(timeIntervalSince1970: 0)],
+            7: "non-string key"
+        ]
+        let record = try XCTUnwrap(InboxPayloadParser.parse(userInfo: userInfo, receivedAt: received))
+        XCTAssertNotNil(try JSONSerialization.jsonObject(with: record.rawPayload) as? [String: Any])
+        XCTAssertEqual(record.attribution.transmissionID, "t")
+    }
 }

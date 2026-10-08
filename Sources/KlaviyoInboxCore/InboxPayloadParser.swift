@@ -29,6 +29,14 @@ package enum InboxPayloadParser {
         static let id = "id"
         static let label = "label"
         static let action = "action"
+        static let badge = "badge"
+        static let badgeConfig = "badge_config"
+        static let badgeValue = "badge_value"
+        static let notificationCount = "notification_count"
+        static let mutableContent = "mutable-content"
+        static let contentAvailable = "content-available"
+        static let priority = "priority"
+        static let sound = "sound"
     }
 
     /// Whether the payload carries Klaviyo `_k` metadata, regardless of whether it is usable.
@@ -44,7 +52,8 @@ package enum InboxPayloadParser {
             return nil
         }
         let payload = InboxPayload.dictionary(userInfo) ?? [:]
-        let alert = alertText(from: InboxPayload.dictionary(payload[Key.aps]))
+        let aps = InboxPayload.dictionary(payload[Key.aps])
+        let alert = alertText(from: aps)
 
         return InboxRecord(
             attribution: InboxAttribution(
@@ -59,7 +68,10 @@ package enum InboxPayloadParser {
             customData: customData(from: payload[Key.keyValuePairs]),
             actions: actions(from: InboxPayload.dictionary(payload[Key.body])),
             sentAt: InboxPayload.date(metadata[Key.timestamp]),
-            receivedAt: receivedAt
+            receivedAt: receivedAt,
+            badge: badge(from: payload, aps: aps),
+            transport: transport(from: payload, aps: aps),
+            rawPayload: InboxPayload.snapshot(userInfo)
         )
     }
 
@@ -78,6 +90,28 @@ package enum InboxPayloadParser {
         let title = InboxPayload.string(dictionary?[Key.title])
         let body = InboxPayload.string(dictionary?[Key.body])
         return (title, body)
+    }
+
+    /// `nil` when no badge key is present, so a payload that never mentions the badge stays nil.
+    private static func badge(from payload: [String: Any], aps: [String: Any]?) -> InboxBadge? {
+        let badge = InboxBadge(
+            apsBadge: InboxPayload.int(aps?[Key.badge]),
+            config: InboxPayload.string(payload[Key.badgeConfig]),
+            value: InboxPayload.int(payload[Key.badgeValue]),
+            notificationCount: InboxPayload.int(payload[Key.notificationCount])
+        )
+        let hasAnyValue = badge.apsBadge != nil || badge.config != nil
+            || badge.value != nil || badge.notificationCount != nil
+        return hasAnyValue ? badge : nil
+    }
+
+    private static func transport(from payload: [String: Any], aps: [String: Any]?) -> InboxTransportFlags {
+        InboxTransportFlags(
+            mutableContent: InboxPayload.bool(aps?[Key.mutableContent]),
+            contentAvailable: InboxPayload.bool(aps?[Key.contentAvailable]),
+            priority: InboxPayload.string(payload[Key.priority]),
+            sound: aps?[Key.sound] as? String
+        )
     }
 
     private static func defaultDestination(from payload: [String: Any]) -> InboxDestination {
