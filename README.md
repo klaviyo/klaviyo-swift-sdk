@@ -909,7 +909,7 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 > ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
 
-Personalized forms use a JWT to let Klaviyo Onsite fetch the identified profile's data from the Profiles API. Your backend must mint a fresh JWT for the signed-in user, including a matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider does not receive profile information.
+Personalized forms use a JWT to show content for the signed-in profile. Your backend must mint a fresh JWT for the signed-in user, including a matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider is responsible for returning a token for that user.
 
 After initializing the SDK, register a provider that fetches a token from your backend:
 
@@ -920,7 +920,7 @@ sdk.registerAuthTokenProvider {
 }
 ```
 
-Register the provider once and keep it registered across profile changes. The SDK calls it only when the profile has an email, phone number, or external ID, and fetches a new token when needed. Bound the backend request with a timeout. If the user is logged out or the request cannot reach your backend, throw promptly; do not wait for connectivity or retry inside the provider. Preserve the underlying network error so the SDK can retry after connectivity returns.
+Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Preserve network errors so the SDK can retry after connectivity returns.
 
 On logout, clear the SDK profile:
 
@@ -928,7 +928,7 @@ On logout, clear the SDK profile:
 sdk.resetProfile()
 ```
 
-This clears the current identity and its token from an open form. Unregistering the provider alone does not clear the token already displayed by the page.
+This clears the current user's identity and token from an open form.
 
 #### In-App Forms Session Configuration
 
