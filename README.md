@@ -675,7 +675,7 @@ First, you need to register your URL scheme with iOS. This tells the operating s
 
 Replace `{your_url_scheme}` with the scheme you want your app to respond to, and `{your_bundle_identifier}` with your app's bundle identifier. You can also add this entry from the **Info** tab of your app target in Xcode. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
 
-`CFBundleURLTypes` is what tells iOS to route your URL scheme to your app. `LSApplicationQueriesSchemes` is unrelated; it only controls which schemes your app may query with `UIApplication.canOpenURL`.
+`CFBundleURLTypes` is what tells iOS to route your URL scheme to your app.
 
 #### Step 2: Handle the deep links in your app
 
