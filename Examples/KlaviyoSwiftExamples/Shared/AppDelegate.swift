@@ -48,9 +48,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .registerGeofencing() // STEP2B: register for in geofencing
             .registerFormLifecycleHandler { event in
                 // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions
-                // This handler is called whenever a form is shown, dismissed, or a CTA is clicked
+                // Track form interactions and accept or reject forms before display
 
                 switch event {
+                case let .formWillDisplay(_, _, formType, continuation):
+                    print("🎨 [Form Lifecycle] Form Will Display: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
+                    print("   Form Type: \(formType)")
+                    // To block a form, uncomment this example and set your form ID:
+                    // if event.formId == "FORM_ID_TO_BLOCK" {
+                    //     continuation.reject()
+                    //     return
+                    // }
+                    continuation.accept()
                 case .formShown:
                     print("🎨 [Form Lifecycle] Form Shown: \(event.formId)")
                     print("   Form Name: \(event.formName)")
