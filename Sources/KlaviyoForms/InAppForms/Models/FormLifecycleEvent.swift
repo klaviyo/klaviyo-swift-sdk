@@ -7,6 +7,51 @@
 
 import Foundation
 
+/// A thread-safe continuation for responding to a form display query.
+///
+/// Call ``accept()`` to allow the form to display, or ``reject()`` to block it.
+/// Only the first call takes effect; subsequent calls are ignored.
+///
+/// If neither is called within the SDK's timeout window, the form will be
+/// allowed to display (fail-open behavior).
+public final class FormDisplayContinuation: @unchecked Sendable {
+    private let callback: (Bool) -> Void
+    private let lock = NSLock()
+    private var responded = false
+
+    init(callback: @escaping (Bool) -> Void) {
+        self.callback = callback
+    }
+
+    /// Allow the form to display.
+    public func accept() {
+        respond(allowed: true)
+    }
+
+    /// Block the form from displaying.
+    public func reject() {
+        respond(allowed: false)
+    }
+
+    /// Whether a response has already been sent.
+    var hasResponded: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return responded
+    }
+
+    @discardableResult
+    private func respond(allowed: Bool) -> Bool {
+        lock.lock()
+        let alreadyResponded = responded
+        if !alreadyResponded { responded = true }
+        lock.unlock()
+        guard !alreadyResponded else { return false }
+        callback(allowed)
+        return true
+    }
+}
+
 /// Events in the lifecycle of an in-app form that can be observed.
 ///
 /// Each case carries the contextual data relevant to that event, including
@@ -29,10 +74,16 @@ import Foundation
 ///             "formId": formId,
 ///             "buttonLabel": buttonLabel
 ///         ])
+///     case .formWillDisplay(let formId, let formName, let formType, let continuation):
+///         if shouldBlockForm(formId) {
+///             continuation.reject()
+///         } else {
+///             continuation.accept()
+///         }
 ///     }
 /// }
 /// ```
-public enum FormLifecycleEvent: Equatable, Sendable {
+public enum FormLifecycleEvent: Sendable {
     /// Triggered when a form is shown to the user.
     ///
     /// Fired after the SDK has initiated form presentation.
@@ -60,12 +111,27 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     ///   system URLs.
     case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
+    /// Triggered when a form is about to be displayed, allowing the host app
+    /// to accept or reject the display.
+    ///
+    /// Call ``FormDisplayContinuation/accept()`` to allow the form to display,
+    /// or ``FormDisplayContinuation/reject()`` to block it.
+    /// If neither is called within the SDK's timeout window, the form will be
+    /// allowed to display (fail-open behavior).
+    ///
+    /// - `formType`: The type of form (e.g. "POPUP", "FLYOUT", "FULLSCREEN").
+    /// - `continuation`: The continuation to call with the accept/reject decision.
+    case formWillDisplay(
+        formId: String, formName: String, formType: String, continuation: FormDisplayContinuation
+    )
+
     /// The unique identifier of the form that triggered this event.
     public var formId: String {
         switch self {
         case let .formShown(formId, _),
              let .formDismissed(formId, _),
-             let .formCtaClicked(formId, _, _, _):
+             let .formCtaClicked(formId, _, _, _),
+             let .formWillDisplay(formId, _, _, _):
             return formId
         }
     }
@@ -75,7 +141,8 @@ public enum FormLifecycleEvent: Equatable, Sendable {
         switch self {
         case let .formShown(_, formName),
              let .formDismissed(_, formName),
-             let .formCtaClicked(_, formName, _, _):
+             let .formCtaClicked(_, formName, _, _),
+             let .formWillDisplay(_, formName, _, _):
             return formName
         }
     }
@@ -86,6 +153,28 @@ public enum FormLifecycleEvent: Equatable, Sendable {
         case .formShown: return "formShown"
         case .formDismissed: return "formDismissed"
         case .formCtaClicked: return "formCtaClicked"
+        case .formWillDisplay: return "formWillDisplay"
+        }
+    }
+}
+
+/// Compares event metadata, excluding the display continuation.
+extension FormLifecycleEvent: Equatable {
+    public static func ==(left: FormLifecycleEvent, right: FormLifecycleEvent) -> Bool {
+        switch (left, right) {
+        case let (.formShown(leftId, leftName), .formShown(rightId, rightName)):
+            return leftId == rightId && leftName == rightName
+        case let (.formDismissed(leftId, leftName), .formDismissed(rightId, rightName)):
+            return leftId == rightId && leftName == rightName
+        case let (.formCtaClicked(leftId, leftName, leftLabel, leftUrl),
+                  .formCtaClicked(rightId, rightName, rightLabel, rightUrl)):
+            return leftId == rightId && leftName == rightName
+                && leftLabel == rightLabel && leftUrl == rightUrl
+        case let (.formWillDisplay(leftId, leftName, leftType, _),
+                  .formWillDisplay(rightId, rightName, rightType, _)):
+            return leftId == rightId && leftName == rightName && leftType == rightType
+        default:
+            return false
         }
     }
 }

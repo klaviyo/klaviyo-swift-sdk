@@ -13,6 +13,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case formsDataLoaded
     case formWillAppear(formId: String?, formName: String?, layout: FormLayout?)
     case formDisappeared(formId: String?, formName: String?)
+    case formWillOpenQuery(formId: String, formName: String, formType: String)
     case trackProfileEvent(Data)
     case trackAggregateEvent(Data)
     case openDeepLink(url: URL?, formId: String?, formName: String?, buttonLabel: String?, openExternally: Bool)
@@ -32,6 +33,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case formsDataLoaded
         case formWillAppear
         case formDisappeared
+        case formWillOpenQuery
         case trackProfileEvent
         case trackAggregateEvent
         case openDeepLink
@@ -56,6 +58,13 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case .formDisappeared:
             let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
+        case .formWillOpenQuery:
+            let payload = try? container.decode(FormWillOpenQueryPayload.self, forKey: .data)
+            self = .formWillOpenQuery(
+                formId: payload?.formId ?? "",
+                formName: payload?.formName ?? "",
+                formType: payload?.formType ?? ""
+            )
         case .trackProfileEvent:
             let decodedData = try container.decode(AnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
@@ -115,6 +124,12 @@ extension IAFNativeBridgeEvent {
         let openExternally: Bool?
     }
 
+    struct FormWillOpenQueryPayload: Decodable {
+        let formId: String?
+        let formName: String?
+        let formType: String?
+    }
+
     struct AbortPayload: Decodable {
         let reason: String
     }
@@ -152,6 +167,7 @@ extension IAFNativeBridgeEvent {
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
+            .formWillOpenQuery(formId: "", formName: "", formType: ""),
             .trackProfileEvent(Data()),
             .trackAggregateEvent(Data()),
             .openDeepLink(url: nil, formId: nil, formName: nil, buttonLabel: nil, openExternally: false),
@@ -167,6 +183,7 @@ extension IAFNativeBridgeEvent {
         case .formsDataLoaded: return 1
         case .formWillAppear: return 2
         case .formDisappeared: return 1
+        case .formWillOpenQuery: return 1
         case .trackProfileEvent: return 1
         case .trackAggregateEvent: return 1
         case .openDeepLink: return 3
@@ -184,6 +201,7 @@ extension IAFNativeBridgeEvent {
         case .formsDataLoaded: return "formsDataLoaded"
         case .formWillAppear: return "formWillAppear"
         case .formDisappeared: return "formDisappeared"
+        case .formWillOpenQuery: return "formWillOpenQuery"
         case .trackProfileEvent: return "trackProfileEvent"
         case .trackAggregateEvent: return "trackAggregateEvent"
         case .openDeepLink: return "openDeepLink"

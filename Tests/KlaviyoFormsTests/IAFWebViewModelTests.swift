@@ -155,7 +155,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"formWillOpenQuery","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -440,6 +440,192 @@ final class IAFWebViewModelTests: XCTestCase {
         }
         XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
         XCTAssertEqual(event.properties["foo"] as? String, "bar")
+    }
+
+    // MARK: - Form Will Open Query Tests
+
+    @MainActor
+    func testFormWillOpenQueryNoHandler_FailsOpen() async throws {
+        // Given — no lifecycle handler registered (default state)
+        IAFPresentationManager.shared.unregisterFormLifecycleHandler()
+
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillOpenQuery",
+              "data": {
+                "formId": "noHandler123",
+                "formName": "No Handler Form",
+                "formType": "POPUP"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Allow the internal Task to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Then — should send continuation with allowed: true (fail-open)
+        XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled, "Should have evaluated JS to send continuation")
+        let script = try XCTUnwrap(mockDelegate.evaluatedScripts.first)
+        XCTAssertTrue(
+            script.contains("formWillOpenContinuation"),
+            "Script should dispatch formWillOpenContinuation event"
+        )
+        XCTAssertTrue(script.contains("\"answer\":true") || script.contains("\"answer\" : true"),
+                      "Script should contain answer:true for fail-open")
+    }
+
+    @MainActor
+    func testFormWillOpenQueryWithHandler_CreatesContinuationAndInvokesHandler() async throws {
+        // Given
+        let handlerExpectation = XCTestExpectation(description: "Lifecycle handler should be invoked")
+        var receivedEvent: FormLifecycleEvent?
+
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+            handlerExpectation.fulfill()
+        }
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillOpenQuery",
+              "data": {
+                "formId": "gated123",
+                "formName": "Gated Form",
+                "formType": "FULLSCREEN"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Then
+        await fulfillment(of: [handlerExpectation], timeout: 5.0)
+        let event = try XCTUnwrap(receivedEvent)
+        if case let .formWillDisplay(formId, formName, formType, _) = event {
+            XCTAssertEqual(formId, "gated123")
+            XCTAssertEqual(formName, "Gated Form")
+            XCTAssertEqual(formType, "FULLSCREEN")
+        } else {
+            XCTFail("Expected formWillDisplay event, got \(event)")
+        }
+
+        // Cleanup
+        IAFPresentationManager.shared.unregisterFormLifecycleHandler()
+    }
+
+    @MainActor
+    func testSendFormWillOpenContinuation_ProducesCorrectJSWithJSONEncoding() async throws {
+        // Given
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            if case let .formWillDisplay(_, _, _, continuation) = event {
+                continuation.accept()
+            }
+        }
+
+        // When
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {
+              "type": "formWillOpenQuery",
+              "data": {
+                "formId": "json-test-123",
+                "formName": "JSON Test",
+                "formType": "POPUP"
+              }
+            }
+            """
+        )
+        viewModel.handleScriptMessage(scriptMessage)
+
+        // Allow the internal Tasks to complete
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        // Then
+        XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled)
+        let script = try XCTUnwrap(mockDelegate.evaluatedScripts.first)
+        XCTAssertTrue(script.contains("formWillOpenContinuation"))
+        XCTAssertTrue(script.contains("json-test-123"))
+        XCTAssertTrue(script.contains("\"answer\":true") || script.contains("\"answer\" : true"))
+
+        // Cleanup
+        IAFPresentationManager.shared.unregisterFormLifecycleHandler()
+    }
+
+    @MainActor
+    func testSendFormWillOpenContinuation_SpecialCharactersInFormId() async throws {
+        // Given — formIds with characters that would break manual escaping
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+
+        let specialFormIds = [
+            "form'with'quotes",
+            "form\\with\\backslashes",
+            "form\nwith\nnewlines",
+            "form\"with\"doublequotes",
+            "form\u{2028}line\u{2029}separators"
+        ]
+
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            if case let .formWillDisplay(_, _, _, continuation) = event {
+                continuation.reject()
+            }
+        }
+
+        for formId in specialFormIds {
+            mockDelegate.evaluatedScripts.removeAll()
+            mockDelegate.evaluateJavaScriptCalled = false
+
+            let escapedFormId = formId
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+                .replacingOccurrences(of: "\n", with: "\\n")
+                .replacingOccurrences(of: "\u{2028}", with: "\\u2028")
+                .replacingOccurrences(of: "\u{2029}", with: "\\u2029")
+
+            let scriptMessage = MockWKScriptMessage(
+                name: "KlaviyoNativeBridge",
+                body: """
+                {
+                  "type": "formWillOpenQuery",
+                  "data": {
+                    "formId": "\(escapedFormId)",
+                    "formName": "Special Form",
+                    "formType": "POPUP"
+                  }
+                }
+                """
+            )
+            viewModel.handleScriptMessage(scriptMessage)
+
+            try await Task.sleep(nanoseconds: 200_000_000)
+
+            XCTAssertTrue(mockDelegate.evaluateJavaScriptCalled,
+                          "Should have sent JS for formId: \(formId)")
+            let script = try XCTUnwrap(mockDelegate.evaluatedScripts.first,
+                                       "Should have captured script for formId: \(formId)")
+            XCTAssertTrue(script.contains("formWillOpenContinuation"),
+                          "Script should contain event name for formId: \(formId)")
+            XCTAssertTrue(script.contains("\"answer\":false") || script.contains("\"answer\" : false"),
+                          "Script should contain answer:false for formId: \(formId)")
+        }
+
+        // Cleanup
+        IAFPresentationManager.shared.unregisterFormLifecycleHandler()
     }
 }
 
