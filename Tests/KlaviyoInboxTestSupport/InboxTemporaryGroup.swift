@@ -18,12 +18,22 @@ package final class InboxTemporaryGroup {
             .appendingPathComponent("klaviyo-inbox-tests-\(UUID().uuidString)", isDirectory: true)
     }
 
+    /// The identifier a host would have in its `klaviyo_app_group` Info.plist entry.
+    package static let identifier = "group.com.example.app"
+
     package var group: InboxAppGroup {
         let root = root
-        return InboxAppGroup { root.appendingPathComponent($0, isDirectory: true) }
+        return InboxAppGroup(
+            identifier: { Self.identifier },
+            containerURL: { root.appendingPathComponent($0, isDirectory: true) }
+        )
     }
 
-    package static let unreachable = InboxAppGroup { _ in nil }
+    /// An identifier is configured but the container can't be reached (entitlement missing).
+    package static let unreachable = InboxAppGroup(identifier: { identifier }, containerURL: { _ in nil })
+
+    /// No `klaviyo_app_group` entry in Info.plist.
+    package static let missingIdentifier = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
 
     package func remove() {
         try? FileManager.default.removeItem(at: root)

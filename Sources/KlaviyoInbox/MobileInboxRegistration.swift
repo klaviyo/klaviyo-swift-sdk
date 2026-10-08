@@ -8,47 +8,35 @@
 import Foundation
 import KlaviyoInboxCore
 
-/// Turns Mobile Inbox capture on and off by writing the shared configuration file.
+/// Turns Mobile Inbox capture on and off by writing the shared configuration file in the App Group
+/// named by the `klaviyo_app_group` Info.plist entry.
 final class MobileInboxRegistration {
-    static let groupPointerKey = "klaviyo.inbox.appGroupIdentifier"
-
-    /// Replaced in tests. Production reads the real App Group and `UserDefaults.standard`.
+    /// Replaced in tests. Production reads the real App Group.
     static var current = MobileInboxRegistration()
 
-    private let group: InboxAppGroup
-    private let defaults: UserDefaults
+    private let store: InboxConfigStore
 
-    init(group: InboxAppGroup = .system, defaults: UserDefaults = .standard) {
-        self.group = group
-        self.defaults = defaults
+    init(group: InboxAppGroup = .system) {
+        store = InboxConfigStore(group: group)
     }
 
     func register(_ configuration: MobileInboxConfig) {
         MobileInboxLogging.install()
-        if let existing = defaults.string(forKey: Self.groupPointerKey),
-           existing != configuration.appGroupIdentifier {
-            InboxLog.error("App Group \(existing) is already registered for Mobile Inbox.")
-        }
-        let store = InboxConfigStore(appGroupIdentifier: configuration.appGroupIdentifier, group: group)
         do {
             try store.enable(localRetentionLimit: configuration.localRetentionLimit)
         } catch {
             InboxLog.error("registerForMobileInbox failed; Mobile Inbox stays off (\(error)).")
-            return
         }
-        defaults.set(configuration.appGroupIdentifier, forKey: Self.groupPointerKey)
     }
 
-    /// `unregisterFromMobileInbox()` takes no arguments, so this looks up the App Group used at
-    /// registration, which is kept in app-private `UserDefaults`.
     func unregister() {
         MobileInboxLogging.install()
-        guard let appGroupIdentifier = defaults.string(forKey: Self.groupPointerKey) else {
+        guard store.enablement() != .neverRegistered else {
             InboxLog.warning("unregisterFromMobileInbox called but Mobile Inbox was never registered.")
             return
         }
         do {
-            try InboxConfigStore(appGroupIdentifier: appGroupIdentifier, group: group).disable()
+            try store.disable()
         } catch {
             InboxLog.error("unregisterFromMobileInbox failed; Mobile Inbox may still be on (\(error)).")
         }

@@ -16,19 +16,27 @@ package final class InboxConfigStore {
     package static let directoryName = "KlaviyoInbox"
     package static let fileName = "klaviyo-inbox-config.json"
 
-    private let appGroupIdentifier: String
     private let group: InboxAppGroup
     private let writeLock = NSLock()
 
-    package init(appGroupIdentifier: String, group: InboxAppGroup = .system) {
-        self.appGroupIdentifier = appGroupIdentifier
+    package init(group: InboxAppGroup = .system) {
         self.group = group
     }
 
     package var directoryURL: URL? {
-        guard !appGroupIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        return group.containerURL(appGroupIdentifier)?
-            .appendingPathComponent(Self.directoryName, isDirectory: true)
+        guard let identifier = group.identifier()?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !identifier.isEmpty else {
+            InboxLog.error(
+                "No \(InboxAppGroup.infoDictionaryKey) entry in Info.plist; Mobile Inbox needs the App Group " +
+                    "shared with your Notification Service Extension."
+            )
+            return nil
+        }
+        guard let container = group.containerURL(identifier) else {
+            InboxLog.error("App Group \(identifier) is unreachable; check the App Groups capability.")
+            return nil
+        }
+        return container.appendingPathComponent(Self.directoryName, isDirectory: true)
     }
 
     package var fileURL: URL? {
@@ -36,10 +44,7 @@ package final class InboxConfigStore {
     }
 
     package func enablement() -> InboxEnablement {
-        guard let fileURL else {
-            InboxLog.error("App Group \(appGroupIdentifier) is unavailable; Mobile Inbox is off.")
-            return .neverRegistered
-        }
+        guard let fileURL else { return .neverRegistered }
         guard let record = readRecord(at: fileURL) else { return .neverRegistered }
         guard record.enabled else { return .disabled }
         return .enabled(localRetentionLimit: InboxLimits.clampedRetention(record.localRetentionLimit))
@@ -61,7 +66,6 @@ package final class InboxConfigStore {
 
     private func update(_ makeRecord: (InboxConfigRecord?) -> InboxConfigRecord) throws {
         guard let directoryURL, let fileURL else {
-            InboxLog.error("App Group \(appGroupIdentifier) is unavailable; cannot save Inbox settings.")
             throw InboxConfigError.groupUnavailable
         }
         writeLock.lock()

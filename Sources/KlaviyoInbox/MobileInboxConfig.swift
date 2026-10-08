@@ -12,21 +12,15 @@ public struct MobileInboxConfig: Equatable, Sendable {
     /// The number of messages kept on the device when `localRetentionLimit` isn't specified.
     public static let defaultLocalRetentionLimit = InboxLimits.defaultRetention
 
-    /// The App Group shared by your app and its Notification Service Extension, the same one
-    /// you use for badge counts. Mobile Inbox keeps its configuration there.
-    public let appGroupIdentifier: String
-
     /// How many messages are kept on the device, between 1 and 500 (default 100). Values outside that
     /// range are clamped and a warning is logged. When the limit is exceeded, the oldest messages are
     /// removed.
     public let localRetentionLimit: Int
 
-    public init(
-        appGroupIdentifier: String,
-        localRetentionLimit: Int = MobileInboxConfig.defaultLocalRetentionLimit
-    ) {
+    /// Mobile Inbox keeps its configuration in the App Group named by the `klaviyo_app_group` entry
+    /// in your Info.plist: the same one you set up for badge counts.
+    public init(localRetentionLimit: Int = MobileInboxConfig.defaultLocalRetentionLimit) {
         MobileInboxLogging.install()
-        self.appGroupIdentifier = appGroupIdentifier
         let clamped = InboxLimits.clampedRetention(localRetentionLimit)
         if clamped != localRetentionLimit {
             InboxLog.warning(

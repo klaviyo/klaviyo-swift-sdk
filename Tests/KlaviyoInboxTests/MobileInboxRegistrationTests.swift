@@ -15,36 +15,30 @@ import XCTest
 private struct TestSDK: KlaviyoSDKModule {}
 
 final class MobileInboxRegistrationTests: XCTestCase {
-    private let groupId = "group.com.example.app"
     private var temp: InboxTemporaryGroup!
-    private var defaultsSuite: String!
-    private var defaults: UserDefaults!
     private var logs: InboxLogRecorder!
     private var savedCurrent: MobileInboxRegistration!
 
     override func setUp() {
         super.setUp()
         temp = InboxTemporaryGroup()
-        defaultsSuite = "klaviyo-inbox-tests-\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: defaultsSuite)
         logs = InboxLogRecorder()
         savedCurrent = MobileInboxRegistration.current
     }
 
     override func tearDown() {
         MobileInboxRegistration.current = savedCurrent
-        defaults.removePersistentDomain(forName: defaultsSuite)
         temp.remove()
         logs = nil
         super.tearDown()
     }
 
     private func makeRegistration(group: InboxAppGroup? = nil) -> MobileInboxRegistration {
-        MobileInboxRegistration(group: group ?? temp.group, defaults: defaults)
+        MobileInboxRegistration(group: group ?? temp.group)
     }
 
     private func enablement() -> InboxEnablement {
-        InboxConfigStore(appGroupIdentifier: groupId, group: temp.group).enablement()
+        InboxConfigStore(group: temp.group).enablement()
     }
 
     func testNothingIsWrittenBeforeRegister() {
@@ -54,43 +48,40 @@ final class MobileInboxRegistrationTests: XCTestCase {
     }
 
     func testRegisterEnablesWithConfiguredLimit() {
-        makeRegistration().register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 30))
+        makeRegistration().register(MobileInboxConfig(localRetentionLimit: 30))
         XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 30))
-        XCTAssertEqual(defaults.string(forKey: MobileInboxRegistration.groupPointerKey), groupId)
     }
 
     func testRegisterAgainOverwritesLimit() {
         let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 30))
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 60))
+        registration.register(MobileInboxConfig(localRetentionLimit: 30))
+        registration.register(MobileInboxConfig(localRetentionLimit: 60))
         XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 60))
     }
 
     func testRegisterWithUnreachableGroupPersistsNothingAndLogs() {
         makeRegistration(group: InboxTemporaryGroup.unreachable)
-            .register(MobileInboxConfig(appGroupIdentifier: groupId))
-        XCTAssertNil(defaults.string(forKey: MobileInboxRegistration.groupPointerKey))
+            .register(MobileInboxConfig())
         XCTAssertEqual(enablement(), .neverRegistered)
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
-    func testRegisterWithEmptyIdentifierPersistsNothingAndLogs() {
-        makeRegistration().register(MobileInboxConfig(appGroupIdentifier: ""))
-        XCTAssertNil(defaults.string(forKey: MobileInboxRegistration.groupPointerKey))
+    func testRegisterWithoutInfoPlistEntryPersistsNothingAndLogs() {
+        makeRegistration(group: InboxTemporaryGroup.missingIdentifier).register(MobileInboxConfig())
         XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
     func testUnregisterDisables() {
         let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId))
+        registration.register(MobileInboxConfig())
         registration.unregister()
         XCTAssertEqual(enablement(), .disabled)
     }
 
     func testUnregisterAfterRelaunchStillDisables() {
-        makeRegistration().register(MobileInboxConfig(appGroupIdentifier: groupId))
-        // A fresh coordinator over the same defaults stands in for a new launch.
+        makeRegistration().register(MobileInboxConfig())
+        // A fresh coordinator stands in for a new launch.
         makeRegistration().unregister()
         XCTAssertEqual(enablement(), .disabled)
     }
@@ -105,55 +96,24 @@ final class MobileInboxRegistrationTests: XCTestCase {
         XCTAssertFalse(logs.warnings.isEmpty)
     }
 
-    func testRegisteringADifferentGroupLogsAnErrorAndLeavesThePreviousGroupAlone() {
-        let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: "group.old"))
-        XCTAssertTrue(logs.errors.isEmpty, "the first registration has nothing to report")
-
-        registration.register(MobileInboxConfig(appGroupIdentifier: "group.new"))
-
-        XCTAssertEqual(logs.errors.count, 1)
-        XCTAssertEqual(
-            InboxConfigStore(appGroupIdentifier: "group.old", group: temp.group).enablement(),
-            .enabled(localRetentionLimit: 100),
-            "changing groups is unsupported, so the previous group is deliberately not touched"
-        )
-    }
-
-    func testReRegisteringTheSameGroupDoesNotWarn() {
-        let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId))
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 20))
-        XCTAssertTrue(logs.errors.isEmpty)
-    }
-
-    func testUnregisterTargetsTheMostRecentlyRegisteredGroup() {
-        let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: "group.old"))
-        registration.register(MobileInboxConfig(appGroupIdentifier: "group.new"))
-        registration.unregister()
-        let newGroup = InboxConfigStore(appGroupIdentifier: "group.new", group: temp.group)
-        XCTAssertEqual(newGroup.enablement(), .disabled)
-    }
-
     func testUnregisterWhenGroupBecameUnreachableLogsAndDoesNotCrash() {
-        makeRegistration().register(MobileInboxConfig(appGroupIdentifier: groupId))
+        makeRegistration().register(MobileInboxConfig())
         makeRegistration(group: InboxTemporaryGroup.unreachable).unregister()
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
     func testRegisterAfterUnregisterReEnables() {
         let registration = makeRegistration()
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 10))
+        registration.register(MobileInboxConfig(localRetentionLimit: 10))
         registration.unregister()
-        registration.register(MobileInboxConfig(appGroupIdentifier: groupId, localRetentionLimit: 10))
+        registration.register(MobileInboxConfig(localRetentionLimit: 10))
         XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 10))
     }
 
     func testPublicAPIChainsAndReturnsSameType() {
         MobileInboxRegistration.current = makeRegistration()
         let sdk = TestSDK()
-        let configuration = MobileInboxConfig(appGroupIdentifier: groupId)
+        let configuration = MobileInboxConfig()
         let afterRegister = sdk.registerForMobileInbox(configuration: configuration)
         XCTAssertTrue(type(of: afterRegister) == TestSDK.self)
         XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 100))
@@ -167,7 +127,7 @@ final class MobileInboxRegistrationTests: XCTestCase {
         KlaviyoLogConfig.shared.isLoggingEnabled = false
         defer { KlaviyoLogConfig.shared.isLoggingEnabled = true }
         makeRegistration(group: InboxTemporaryGroup.unreachable)
-            .register(MobileInboxConfig(appGroupIdentifier: groupId))
+            .register(MobileInboxConfig())
         XCTAssertTrue(logs.errors.isEmpty, "logging disabled must silence Inbox logs too")
     }
 }

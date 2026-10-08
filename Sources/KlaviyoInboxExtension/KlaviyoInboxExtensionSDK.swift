@@ -14,12 +14,9 @@ import KlaviyoInboxCore
 public enum KlaviyoInboxExtensionSDK {}
 
 extension KlaviyoInboxExtensionSDK {
-    /// Whether Mobile Inbox is enabled for `appGroupIdentifier`, read from the App Group alone. Needs
-    /// no running app and no initialized SDK.
-    package static func enablement(
-        appGroupIdentifier: String,
-        group: InboxAppGroup = .system
-    ) -> InboxEnablement {
-        InboxConfigStore(appGroupIdentifier: appGroupIdentifier, group: group).enablement()
+    /// Whether Mobile Inbox is enabled, read from the App Group named by the extension's
+    /// `klaviyo_app_group` Info.plist entry. Needs no running app and no initialized SDK.
+    package static func enablement(group: InboxAppGroup = .system) -> InboxEnablement {
+        InboxConfigStore(group: group).enablement()
     }
 }

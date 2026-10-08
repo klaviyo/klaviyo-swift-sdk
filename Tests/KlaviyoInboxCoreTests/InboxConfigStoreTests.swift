@@ -11,7 +11,7 @@ import KlaviyoInboxTestSupport
 import XCTest
 
 final class InboxConfigStoreTests: XCTestCase {
-    private let groupId = "group.com.example.app"
+    private let groupId = InboxTemporaryGroup.identifier
     private var temp: InboxTemporaryGroup!
     private var logs: InboxLogRecorder!
 
@@ -29,7 +29,7 @@ final class InboxConfigStoreTests: XCTestCase {
     }
 
     private func makeStore(group: InboxAppGroup? = nil) -> InboxConfigStore {
-        InboxConfigStore(appGroupIdentifier: groupId, group: group ?? temp.group)
+        InboxConfigStore(group: group ?? temp.group)
     }
 
     private func writeRaw(_ contents: String) throws {
@@ -141,15 +141,22 @@ final class InboxConfigStoreTests: XCTestCase {
         }
     }
 
-    func testEmptyIdentifierIsUnavailableAndTouchesNothing() {
-        for identifier in ["", "   "] {
-            let store = InboxConfigStore(appGroupIdentifier: identifier, group: temp.group)
+    func testMissingOrBlankInfoPlistEntryIsUnavailableAndTouchesNothing() {
+        let blank = temp.group
+        let groups = [
+            InboxTemporaryGroup.missingIdentifier,
+            InboxAppGroup(identifier: { "" }, containerURL: blank.containerURL),
+            InboxAppGroup(identifier: { "   " }, containerURL: blank.containerURL)
+        ]
+        for group in groups {
+            let store = makeStore(group: group)
             XCTAssertEqual(store.enablement(), .neverRegistered)
             XCTAssertThrowsError(try store.enable(localRetentionLimit: 10)) {
                 XCTAssertEqual($0 as? InboxConfigError, .groupUnavailable)
             }
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
+        XCTAssertFalse(logs.errors.isEmpty)
     }
 
     func testWriteFailureThrowsWriteFailed() throws {

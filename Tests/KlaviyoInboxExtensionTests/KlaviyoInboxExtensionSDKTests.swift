@@ -15,7 +15,7 @@ import XCTest
 /// in this process. Fixtures are written by hand so the on-disk format is pinned independently of
 /// the writer.
 final class KlaviyoInboxExtensionSDKTests: XCTestCase {
-    private let groupId = "group.com.example.app"
+    private let groupId = InboxTemporaryGroup.identifier
     private var temp: InboxTemporaryGroup!
 
     override func setUp() {
@@ -38,7 +38,7 @@ final class KlaviyoInboxExtensionSDKTests: XCTestCase {
     }
 
     private func lookup(group: InboxAppGroup? = nil) -> InboxEnablement {
-        KlaviyoInboxExtensionSDK.enablement(appGroupIdentifier: groupId, group: group ?? temp.group)
+        KlaviyoInboxExtensionSDK.enablement(group: group ?? temp.group)
     }
 
     func testInstalledButNeverRegistered() {
@@ -57,6 +57,10 @@ final class KlaviyoInboxExtensionSDKTests: XCTestCase {
 
     func testUnreachableGroupIsTreatedAsNeverRegistered() {
         XCTAssertEqual(lookup(group: InboxTemporaryGroup.unreachable), .neverRegistered)
+    }
+
+    func testMissingInfoPlistEntryIsTreatedAsNeverRegistered() {
+        XCTAssertEqual(lookup(group: InboxTemporaryGroup.missingIdentifier), .neverRegistered)
     }
 
     func testMalformedFileFailsClosed() throws {

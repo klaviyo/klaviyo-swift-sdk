@@ -15,7 +15,7 @@ extension KlaviyoSDKModule {
     /// Call it again to change the configuration; a changed ``MobileInboxConfig`` takes effect the
     /// next time this is called.
     ///
-    /// - Parameter configuration: The App Group and retention settings.
+    /// - Parameter configuration: The retention settings.
     /// - Returns: The same instance, for chaining.
     @discardableResult
     public func registerForMobileInbox(configuration: MobileInboxConfig) -> Self {
