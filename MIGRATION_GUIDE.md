@@ -3,6 +3,14 @@
 
 This guide outlines how developers can migrate from older versions of our SDK to newer ones.
 
+## Migrating to v5.5.0
+
+### In-App Forms
+
+`formCtaClicked` now fires for in-app deep links even when the link could not be opened, not only
+when navigation succeeds. If you use this event as a "navigation happened" signal, you may see it
+for dead links. This already matched how the event behaved for external URLs.
+
 ## Migrating to v5.4.0
 
 ### Automatic Push Integration Flags (opt-in)

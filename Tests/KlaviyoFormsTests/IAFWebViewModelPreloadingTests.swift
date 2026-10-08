@@ -1,5 +1,5 @@
 //
-//  IAFWebViewModelTests.swift
+//  IAFWebViewModelPreloadingTests.swift
 //  klaviyo-swift-sdk
 //
 //  Created by Andrew Balmer on 2/6/25.
@@ -37,21 +37,22 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
     /// Tests scenario in which a `formWillAppear` event is emitted before the timeout is reached.
     @MainActor
-    func testPreloadWebsiteSuccess() async throws {
+    func testPreloadWebsiteSuccess() async {
         // Given
         delegate.handshakeResult = .handshakeEstablished(delay: 0)
-        let expectation = XCTestExpectation(description: "Preloading website succeeds")
 
-        // When
+        // When / Then - the handshake is awaited directly, so no separate
+        // expectation/fulfillment is needed.
+        //
+        // The handshake is mocked with zero delay, so this budget only bounds a hang.
+        // It is generous so a stalled scheduler on a loaded runner cannot fail the test.
+        // Do not raise it much further: XCTest kills a test at its 120s execution
+        // allowance, and a stall that long is a separate, tracked problem.
         do {
-            try await viewModel.establishHandshake(timeout: 5.0)
-            expectation.fulfill()
+            try await viewModel.establishHandshake(timeout: 30.0)
         } catch {
             XCTFail("Expected success, but got error: \(error)")
         }
-
-        // Then
-        await fulfillment(of: [expectation], timeout: 2.0)
     }
 
     /// Tests scenario in which the timeout is reached before the `formWillAppear` event is emitted.
@@ -62,6 +63,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When / Then - establishHandshake must surface a timeout. The throw is
         // awaited directly, so no separate expectation/fulfillment is needed.
+        //
+        // 0.1 must stay well under the 1.0 mock delay above. Raising it past that
+        // inverts the race and the test stops asserting anything.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")
@@ -80,6 +84,9 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
 
         // When / Then - establishHandshake must surface a timeout rather than hang.
         // The throw is awaited directly, so no separate expectation/fulfillment is needed.
+        //
+        // Expiring is the expected result, so a small timeout keeps this fast and
+        // immune to runner load.
         do {
             try await viewModel.establishHandshake(timeout: 0.1)
             XCTFail("Expected timeout error, but succeeded")

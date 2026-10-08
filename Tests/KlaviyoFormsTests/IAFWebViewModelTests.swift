@@ -11,18 +11,20 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
-// Test-specific subclass that overrides navigation policy to allow all navigation
-// This is required to get these unit tests to pass
+/// Test-specific subclass that overrides navigation policy to allow all navigation
+/// This is required to get these unit tests to pass
 private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         .allow
     }
 }
 
-// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+/// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
 private final class SpyDispatcher: EventDispatching {
     private(set) var received: [InboundCommand] = []
-    func dispatch(_ command: InboundCommand) { received.append(command) }
+    func dispatch(_ command: InboundCommand) {
+        received.append(command)
+    }
 }
 
 final class IAFWebViewModelTests: XCTestCase {
@@ -78,7 +80,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - SDK Attribute Tests
 
     @MainActor
-    func testInjectSdkNameAttribute() async throws {
+    func testInjectSdkNameAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
@@ -88,7 +90,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectSdkVersionAttribute() async throws {
+    func testInjectSdkVersionAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
@@ -100,7 +102,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Environment Tests
 
     @MainActor
-    func testInjectFormsDataEnvironmentAttribute() async throws {
+    func testInjectFormsDataEnvironmentAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
@@ -110,7 +112,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectFormsDataEnvironmentSetToWeb() async throws {
+    func testInjectFormsDataEnvironmentSetToWeb() throws {
         // Given
         environment.formsDataEnvironment = { .web }
 
@@ -130,7 +132,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Handshake Tests
 
     @MainActor
-    func testInjectHandshakeAttribute() async throws {
+    func testInjectHandshakeAttribute() throws {
         // When
         viewModel.initializeLoadScripts()
         let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
@@ -168,7 +170,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Klaviyo JS Tests
 
     @MainActor
-    func testInjectKlaviyoJsScript() async throws {
+    func testInjectKlaviyoJsScript() {
         // When
         viewModel.initializeLoadScripts()
         let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
@@ -182,7 +184,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Event Handling Tests
 
     @MainActor
-    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
+    func testFormWillAppearYieldsPresentLifecycleEvent() async {
         // When - simulate a form will appear script message
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -201,13 +203,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
-            if case .present = event { return true }
+            if case .present = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+    func testFormDisappearedYieldsDismissLifecycleEvent() async {
         // When - simulate a form disappeared script message with formId and formName
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -226,13 +230,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
-            if case .dismiss = event { return true }
+            if case .dismiss = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async {
         // When - simulate a formWillAppear with empty data (no formId/formName)
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -248,13 +254,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then - .present should still be yielded
         await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
-            if case .present = event { return true }
+            if case .present = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async {
         // When - simulate a formDisappeared with empty data
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -270,13 +278,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then - .dismiss should still be yielded
         await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
-            if case .dismiss = event { return true }
+            if case .dismiss = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testAbortEventYieldsAbortLifecycleEvent() async throws {
+    func testAbortEventYieldsAbortLifecycleEvent() async {
         // Given
         let abortReason = "test abort reason"
 
@@ -297,7 +307,9 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("abort", from: viewModel.formLifecycleStream) { event in
-            if case .abort = event { return true }
+            if case .abort = event {
+                return true
+            }
             return false
         }
     }
@@ -327,7 +339,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlFiresLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlFiresLifecycleEvent() {
         // Given
         var receivedEvent: FormLifecycleEvent?
         IAFPresentationManager.shared.registerFormLifecycleHandler { event in
@@ -362,7 +374,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -378,7 +390,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -394,7 +406,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -407,6 +419,90 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
+    }
+
+    // MARK: - Deep Link Tests (openDeepLink without `openExternally`)
+
+    /// Builds the message sent for a "Go to app screen" CTA: the URL under the
+    /// platform-split `ios`/`android` keys, and no `openExternally` flag.
+    private func makeDeepLinkMessage(
+        url: String = "abcdcompany://notifications?utm_source=push_flow",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Go"
+    ) -> MockWKScriptMessage {
+        var data: [String: String] = ["ios": url, "android": url]
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataJson) } }"
+        )
+    }
+
+    /// A custom scheme absent from the test bundle's `CFBundleURLTypes` makes
+    /// `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
+    /// dispatch lane, because the destination is the host app's in-process handler rather than
+    /// LaunchServices.
+    @MainActor
+    func testDeepLinkWithUndeclaredSchemeStillDispatches() throws {
+        // Given - a spy registered as the inbound-dispatch target
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
+        )
+
+        // When - JS sends the deep link CTA message
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then - the deep link is dispatched even though `canOpenURL` is false
+        guard case let .deepLink(dispatchedURL)? = spyDispatcher.received.first else {
+            XCTFail("Expected a .deepLink command, got \(spyDispatcher.received)")
+            return
+        }
+        XCTAssertEqual(dispatchedURL, url)
+    }
+
+    /// The CTA lifecycle event must fire for deep links too, including schemes iOS cannot open.
+    @MainActor
+    func testDeepLinkWithUndeclaredSchemeFiresLifecycleEvent() throws {
+        // Given - a spy so the deep link is not routed to a dispatcher left by another suite
+        EventDispatcher.shared.register(SpyDispatcher())
+        defer { EventDispatcher.shared.reset() }
+
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
+        }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
+        )
+
+        // When
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then
+        guard case let .formCtaClicked(formId, formName, buttonLabel, deepLinkUrl) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Go")
+        XCTAssertEqual(deepLinkUrl, url)
     }
 
     // MARK: - trackProfileEvent Tests
