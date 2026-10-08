@@ -23,7 +23,9 @@ extension Logger {
 extension Logger {
     /// Logger for ``Codable`` events (JSON encoding & decoding)
     static var codableLogger: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Encoding/Decoding") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled
+            ? Logger(category: "Encoding/Decoding")
+            : Logger(OSLog.disabled)
     }
 
     /// Logger for state events that run through the reducer

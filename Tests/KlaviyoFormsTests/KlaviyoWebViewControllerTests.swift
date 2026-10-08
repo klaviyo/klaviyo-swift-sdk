@@ -70,6 +70,29 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
         // Then
         XCTAssertEqual(mockController.removedMessageHandlers, messageHandlers, "All message handlers should be removed when the KlaviyoWebViewController is deallocated")
     }
+
+    /// Test that console relay cleanup uses the configuration captured when the WebView controller was created.
+    @MainActor
+    func testConsoleMessageHandlerIsRemovedWhenLoggingIsDisabledAfterCreation() async throws {
+        let previousLoggingState = WebConsoleLoggingConfig.shared.isEnabled
+        WebConsoleLoggingConfig.shared.isEnabled = true
+        defer { WebConsoleLoggingConfig.shared.isEnabled = previousLoggingState }
+
+        let config = WKWebViewConfiguration()
+        let mockController = MockWKUserContentController()
+        config.userContentController = mockController
+
+        let viewModel = MockIAFWebViewModel(url: URL(string: "https://www.google.com")!)
+        var viewController: KlaviyoWebViewController? = KlaviyoWebViewController(viewModel: viewModel) {
+            WKWebView(frame: .zero, configuration: config)
+        }
+        viewController?.preloadUrl()
+
+        WebConsoleLoggingConfig.shared.isEnabled = false
+        viewController = nil
+
+        XCTAssertTrue(mockController.removedMessageHandlers.contains("consoleMessageHandler"))
+    }
 }
 
 final class IAFWebViewModelScriptTests: XCTestCase {

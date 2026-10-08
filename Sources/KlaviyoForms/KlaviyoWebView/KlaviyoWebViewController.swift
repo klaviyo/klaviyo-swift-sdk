@@ -11,10 +11,6 @@ import OSLog
 import UIKit
 import WebKit
 
-private var webConsoleLoggingEnabled: Bool {
-    WebConsoleLoggingConfig.shared.isEnabled
-}
-
 @MainActor
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
@@ -40,6 +36,7 @@ private func createDefaultWebView() -> WKWebView {
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
+    private let webConsoleLoggingEnabled = WebConsoleLoggingConfig.shared.isEnabled
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
     private var addedMessageHandlers: Set<String> = []
 
@@ -65,7 +62,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
             addedMessageHandlers.remove($0)
         }
-        if webConsoleLoggingEnabled {
+        if addedMessageHandlers.contains("consoleMessageHandler") {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
             addedMessageHandlers.remove("consoleMessageHandler")
         }
@@ -152,13 +149,11 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         let source: String
         if enabled {
             source = """
-            localStorage.debug = "*";
             localStorage.debug_filter = "*";
             """
         } else {
             source = """
             localStorage.removeItem("debug");
-            localStorage.removeItem("debug_filter");
             """
         }
 
@@ -189,7 +184,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         dedupeInsertMessageHandler("consoleMessageHandler")
 
         let relayConfirmation = WKUserScript(
-            source: "console.log('[Klaviyo] WebView console relay installed');",
+            source: "console.log('WebView console relay installed');",
             injectionTime: .atDocumentStart,
             forMainFrameOnly: false
         )

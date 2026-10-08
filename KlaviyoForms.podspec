@@ -15,6 +15,7 @@ Pod::Spec.new do |s|
   s.resource_bundles = {
     'KlaviyoFormsResources' => [
       'Sources/KlaviyoForms/InAppForms/Assets/*.{html}',
+      'Sources/KlaviyoForms/KlaviyoWebView/Resources/Scripts/*.js',
       'Tests/KlaviyoFormsTests/Assets/*.{html}'
     ]
   }
