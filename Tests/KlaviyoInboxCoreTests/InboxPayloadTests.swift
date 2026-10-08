@@ -52,6 +52,16 @@ final class InboxPayloadTests: XCTestCase {
         XCTAssertNil(InboxPayload.int(NSNull()))
     }
 
+    func testIntRejectsOutOfRangeFiniteDoublesWithoutTrapping() {
+        XCTAssertNil(InboxPayload.int(1e30))
+        XCTAssertNil(InboxPayload.int(-1e30))
+        XCTAssertNil(InboxPayload.int(NSNumber(value: 1e30)))
+        XCTAssertNil(InboxPayload.int(Double(Int.max)))
+        XCTAssertEqual(InboxPayload.int(3), 3)
+        XCTAssertEqual(InboxPayload.int(3.7), 3)
+        XCTAssertEqual(InboxPayload.int(" 5 "), 5)
+    }
+
     func testBoolAcceptsBoolAndZeroOne() {
         XCTAssertEqual(InboxPayload.bool(true), true)
         XCTAssertEqual(InboxPayload.bool(1), true)

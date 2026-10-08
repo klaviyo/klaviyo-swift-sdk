@@ -46,8 +46,8 @@ package enum InboxPayload {
 
     package static func int(_ value: Any?) -> Int? {
         if let int = value as? Int { return int }
-        if let double = value as? Double { return double.isFinite ? Int(double) : nil }
-        if let number = value as? NSNumber { return number.doubleValue.isFinite ? number.intValue : nil }
+        if let double = value as? Double { return intClamped(double) }
+        if let number = value as? NSNumber { return intClamped(number.doubleValue) }
         if let string = value as? String {
             let trimmed = string.trimmingCharacters(in: .whitespaces)
             return Int(trimmed)
@@ -105,6 +105,13 @@ package enum InboxPayload {
     private static func epoch(_ number: Double) -> Date {
         // Anything past year ~5138 in seconds is milliseconds.
         Date(timeIntervalSince1970: number > 1e11 ? number / 1000 : number)
+    }
+
+    /// Truncates toward zero like `Int(_:)`, but returns `nil` instead of trapping when the value
+    /// is non-finite or outside `Int.min...Int.max`. The capture path must never crash the NSE.
+    private static func intClamped(_ double: Double) -> Int? {
+        guard double.isFinite else { return nil }
+        return Int(exactly: double.rounded(.towardZero))
     }
 
     /// Recursively converts a value into something `JSONSerialization` accepts: string keys only,
