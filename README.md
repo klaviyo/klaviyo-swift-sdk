@@ -909,7 +909,7 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 > ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
 
-Personalized forms use a JWT to show content for the signed-in profile. Your backend must mint a fresh JWT for the signed-in user, including a matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider is responsible for returning a token for that user.
+Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The JWT must include the user's matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
 
 After initializing the SDK, register a provider that fetches a token from your backend:
 
