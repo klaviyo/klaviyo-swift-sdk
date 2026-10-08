@@ -157,4 +157,89 @@ final class InboxPayloadParserTests: XCTestCase {
     func testReceivedAtComesFromTheCallerNotThePayload() throws {
         XCTAssertEqual(try XCTUnwrap(parse(InboxPayloadFixtures.full)).receivedAt, received)
     }
+
+    // MARK: Action buttons
+
+    private func actions(_ buttons: String) throws -> [InboxAction] {
+        let json = #"{"body": {"_k": {"tm": "t"}, "action_buttons": \#(buttons)}}"#
+        return try XCTUnwrap(parse(json)).actions
+    }
+
+    func testActionsKeepPayloadOrderAndUnknownTypesInPlace() throws {
+        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
+        XCTAssertEqual(record.actions, [
+            try InboxAction(id: "a1", label: "Shop", destination: .deepLink(url("myapp://sale"))),
+            InboxAction(id: "a2", label: "Later", destination: .unknown("snooze")),
+            try InboxAction(id: "a3", label: "Web", destination: .openUrl(url("https://example.com")))
+        ])
+    }
+
+    func testOpenAppButtonHasNoUrl() throws {
+        XCTAssertEqual(
+            try actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#),
+            [InboxAction(id: "a", label: "Open", destination: .openApp)]
+        )
+    }
+
+    func testNullUrlIsTreatedAsAbsent() throws {
+        XCTAssertEqual(
+            try actions(#"[{"id": "a", "action": "open_app", "label": "Open", "url": null}]"#).count,
+            1
+        )
+    }
+
+    func testKnownActionsWithInvalidUrlCombinationsAreDropped() throws {
+        let buttons = """
+        [
+          {"id": "1", "action": "open_app", "label": "x", "url": "myapp://nope"},
+          {"id": "2", "action": "deep_link", "label": "x"},
+          {"id": "3", "action": "open_url", "label": "x"},
+          {"id": "4", "action": "open_url", "label": "x", "url": "javascript:alert(1)"},
+          {"id": "5", "action": "open_url", "label": "x", "url": "smsto:123"},
+          {"id": "6", "action": "open_app", "label": "kept"}
+        ]
+        """
+        XCTAssertEqual(try actions(buttons).map(\.id), ["6"])
+    }
+
+    func testMalformedEntriesAreSkippedWithoutDroppingNeighbours() throws {
+        let buttons = """
+        [
+          "not a dictionary",
+          null,
+          {"id": "", "action": "open_app", "label": "empty id"},
+          {"id": "x", "action": "open_app", "label": ""},
+          {"id": "y", "label": "no action"},
+          {"label": "no id", "action": "open_app"},
+          {"id": "ok", "action": "open_app", "label": "Fine"}
+        ]
+        """
+        XCTAssertEqual(try actions(buttons).map(\.id), ["ok"])
+    }
+
+    func testAtMostThreeActionsAreKeptInOrder() throws {
+        let buttons = (1...5)
+            .map { #"{"id": "\#($0)", "action": "open_app", "label": "B\#($0)"}"# }
+            .joined(separator: ",")
+        XCTAssertEqual(try actions("[\(buttons)]").map(\.id), ["1", "2", "3"])
+    }
+
+    func testDroppedButtonsDoNotCountTowardTheCap() throws {
+        let buttons = """
+        [
+          {"id": "bad", "action": "deep_link", "label": "x"},
+          {"id": "1", "action": "open_app", "label": "x"},
+          {"id": "2", "action": "open_app", "label": "x"},
+          {"id": "3", "action": "open_app", "label": "x"},
+          {"id": "4", "action": "open_app", "label": "x"}
+        ]
+        """
+        XCTAssertEqual(try actions(buttons).map(\.id), ["1", "2", "3"])
+    }
+
+    func testMissingOrNonArrayActionButtonsMeansNoActions() throws {
+        XCTAssertTrue(try XCTUnwrap(parse(InboxPayloadFixtures.minimal())).actions.isEmpty)
+        XCTAssertTrue(try actions(#""oops""#).isEmpty)
+        XCTAssertTrue(try actions("[]").isEmpty)
+    }
 }

@@ -25,6 +25,10 @@ package enum InboxPayloadParser {
         static let richMedia = "rich-media"
         static let richMediaType = "rich-media-type"
         static let keyValuePairs = "key_value_pairs"
+        static let actionButtons = "action_buttons"
+        static let id = "id"
+        static let label = "label"
+        static let action = "action"
     }
 
     /// Whether the payload carries Klaviyo `_k` metadata, regardless of whether it is usable.
@@ -53,6 +57,7 @@ package enum InboxPayloadParser {
             mediaURL: InboxPayload.string(payload[Key.richMedia]).flatMap { URL(string: $0) },
             mediaType: InboxPayload.string(payload[Key.richMediaType]),
             customData: customData(from: payload[Key.keyValuePairs]),
+            actions: actions(from: InboxPayload.dictionary(payload[Key.body])),
             sentAt: InboxPayload.date(metadata[Key.timestamp]),
             receivedAt: receivedAt
         )
@@ -94,5 +99,37 @@ package enum InboxPayloadParser {
             if let string = InboxPayload.stringified(element) { result[key] = string }
         }
         return result
+    }
+
+    private static func actions(from body: [String: Any]?) -> [InboxAction] {
+        guard let entries = body?[Key.actionButtons] as? [Any] else { return [] }
+        var result: [InboxAction] = []
+        for entry in entries {
+            guard result.count < maxActions else { break }
+            guard let button = InboxPayload.dictionary(entry),
+                  let id = InboxPayload.string(button[Key.id]), !id.isEmpty,
+                  let label = InboxPayload.string(button[Key.label]), !label.isEmpty,
+                  let action = InboxPayload.string(button[Key.action]),
+                  let destination = destination(action: action, url: InboxPayload.string(button[Key.url]))
+            else { continue }
+            result.append(InboxAction(id: id, label: label, destination: destination))
+        }
+        return result
+    }
+
+    /// `nil` drops the button. Unknown action types are kept: they carry no URL semantics to validate.
+    private static func destination(action: String, url: String?) -> InboxDestination? {
+        guard let type = InboxActionType(rawValue: action) else { return .unknown(action) }
+        switch type {
+        case .openApp:
+            return url == nil ? .openApp : nil
+        case .deepLink:
+            return url.flatMap { URL(string: $0) }.map(InboxDestination.deepLink)
+        case .openUrl:
+            guard let url = url.flatMap({ URL(string: $0) }), InboxURLSchemeAllowlist.isAllowed(url) else {
+                return nil
+            }
+            return .openUrl(url)
+        }
     }
 }
