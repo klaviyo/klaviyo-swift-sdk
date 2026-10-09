@@ -11,10 +11,6 @@ import OSLog
 import UIKit
 import WebKit
 
-private var webConsoleLoggingEnabled: Bool {
-    ProcessInfo.processInfo.environment["WEB_CONSOLE_LOGGING"] == "1"
-}
-
 @MainActor
 private func createDefaultWebView() -> WKWebView {
     let config = WKWebViewConfiguration()
@@ -40,6 +36,7 @@ private func createDefaultWebView() -> WKWebView {
 
 class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDelegate {
     private let webView: WKWebView
+    private let webConsoleLoggingEnabled = WebConsoleLoggingConfig.shared.isEnabled
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
     private var addedMessageHandlers: Set<String> = []
 
@@ -65,12 +62,10 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             webView.configuration.userContentController.removeScriptMessageHandler(forName: $0)
             addedMessageHandlers.remove($0)
         }
-        #if DEBUG
-        if webConsoleLoggingEnabled {
+        if addedMessageHandlers.contains("consoleMessageHandler") {
             webView.configuration.userContentController.removeScriptMessageHandler(forName: "consoleMessageHandler")
             addedMessageHandlers.remove("consoleMessageHandler")
         }
-        #endif
     }
 
     @available(*, unavailable)
@@ -144,14 +139,32 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
             dedupeInsertMessageHandler($0)
         }
 
-        #if DEBUG
+        configureOnsiteDebugLogging(enabled: webConsoleLoggingEnabled)
         if webConsoleLoggingEnabled {
             injectConsoleLoggingScript()
         }
-        #endif
     }
 
-    #if DEBUG
+    private func configureOnsiteDebugLogging(enabled: Bool) {
+        let source: String
+        if enabled {
+            source = """
+            localStorage.debug_filter = "*";
+            """
+        } else {
+            source = """
+            localStorage.removeItem("debug");
+            """
+        }
+
+        let script = WKUserScript(
+            source: source,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        webView.configuration.userContentController.addUserScript(script)
+    }
+
     private func injectConsoleLoggingScript() {
         guard let consoleHandlerScript = try? ResourceLoader.getResourceContents(path: "consoleHandler", type: "js") else {
             return
@@ -169,8 +182,14 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
         webView.configuration.userContentController.addUserScript(script)
         dedupeInsertMessageHandler("consoleMessageHandler")
+
+        let relayConfirmation = WKUserScript(
+            source: "console.log('WebView console relay installed');",
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: false
+        )
+        webView.configuration.userContentController.addUserScript(relayConfirmation)
     }
-    #endif
 
     private func dedupeInsertMessageHandler(_ handlerName: String) {
         if !addedMessageHandlers.contains(handlerName) {
@@ -248,7 +267,6 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
 extension KlaviyoWebViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        #if DEBUG
         if message.name == "consoleMessageHandler" {
             if #available(iOS 14.0, *) {
                 guard let jsonString = message.body as? String else { return }
@@ -264,24 +282,23 @@ extension KlaviyoWebViewController: WKScriptMessageHandler {
         } else {
             viewModel.handleScriptMessage(message)
         }
-        #else
-        viewModel.handleScriptMessage(message)
-        #endif
     }
 
-    #if DEBUG
     @available(iOS 14.0, *)
     private func handleJsConsoleMessage(_ consoleMessage: WebViewConsoleRelayMessage) {
         switch consoleMessage.level {
         case .log:
             Logger.webViewConsoleLogger.log("\(consoleMessage.message)")
+        case .info:
+            Logger.webViewConsoleLogger.info("\(consoleMessage.message)")
+        case .debug:
+            Logger.webViewConsoleLogger.debug("\(consoleMessage.message)")
         case .warn:
             Logger.webViewConsoleLogger.warning("\(consoleMessage.message)")
         case .error:
             Logger.webViewConsoleLogger.error("\(consoleMessage.message)")
         }
     }
-    #endif
 }
 
 // MARK: - Script Delegate Wrapper

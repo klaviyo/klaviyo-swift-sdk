@@ -14,6 +14,6 @@ extension Logger {
 
     /// Logs events related to location services.
     static var geoservices: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(subsystem: subsystem, category: "geoservices") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(subsystem: subsystem, category: "Geoservices") : Logger(OSLog.disabled)
     }
 }
