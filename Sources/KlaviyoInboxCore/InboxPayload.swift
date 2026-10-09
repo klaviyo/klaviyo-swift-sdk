@@ -57,7 +57,8 @@ package enum InboxPayload {
 
     package static func bool(_ value: Any?) -> Bool? {
         if let bool = value as? Bool { return bool }
-        guard let int = value as? Int ?? (value as? NSNumber)?.intValue else { return nil }
+        guard let double = (value as? Int).map(Double.init) ?? (value as? NSNumber)?.doubleValue,
+              let int = intClamped(double) else { return nil }
         return int != 0
     }
 

@@ -11,8 +11,9 @@ import XCTest
 
 final class InboxRecordTests: XCTestCase {
     func testRecordSurvivesAJSONRoundTrip() throws {
+        let rawProperties = Data(#"{"tm":"tm-1"}"#.utf8)
         let record = try InboxRecord(
-            attribution: InboxAttribution(transmissionID: "tm-1", rawProperties: Data(#"{"tm":"tm-1"}"#.utf8)),
+            attribution: InboxAttribution(transmissionID: "tm-1", rawProperties: rawProperties),
             title: "Title",
             body: "Body",
             defaultDestination: .deepLink(XCTUnwrap(URL(string: "myapp://home"))),
@@ -21,7 +22,11 @@ final class InboxRecordTests: XCTestCase {
             customData: ["k": "v"],
             actions: [
                 InboxAction(id: "a", label: "A", destination: .openApp),
-                try InboxAction(id: "b", label: "B", destination: .openUrl(XCTUnwrap(URL(string: "https://x.com")))),
+                try InboxAction(
+                    id: "b",
+                    label: "B",
+                    destination: .openUrl(XCTUnwrap(URL(string: "https://x.com")))
+                ),
                 InboxAction(id: "c", label: "C", destination: .unknown("snooze"))
             ],
             sentAt: Date(timeIntervalSince1970: 100),
