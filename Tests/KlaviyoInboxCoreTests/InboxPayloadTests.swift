@@ -66,9 +66,16 @@ final class InboxPayloadTests: XCTestCase {
         XCTAssertEqual(InboxPayload.bool(true), true)
         XCTAssertEqual(InboxPayload.bool(1), true)
         XCTAssertEqual(InboxPayload.bool(0), false)
+        XCTAssertEqual(InboxPayload.bool(2), true)
         XCTAssertEqual(InboxPayload.bool(NSNumber(value: true)), true)
         XCTAssertNil(InboxPayload.bool("yes"))
         XCTAssertNil(InboxPayload.bool(nil))
+    }
+
+    func testBoolRejectsNonFiniteAndOutOfRangeNumbers() {
+        XCTAssertNil(InboxPayload.bool(NSNumber(value: 1e30)))
+        XCTAssertNil(InboxPayload.bool(Double.nan))
+        XCTAssertNil(InboxPayload.bool(-1e30))
     }
 
     func testDateAcceptsISOWithAndWithoutFractionsAndEpochSecondsAndMilliseconds() {

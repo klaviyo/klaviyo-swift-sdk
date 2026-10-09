@@ -98,7 +98,12 @@ package struct InboxBadge: Equatable, Codable {
     package var value: Int?
     package var notificationCount: Int?
 
-    package init(apsBadge: Int? = nil, config: String? = nil, value: Int? = nil, notificationCount: Int? = nil) {
+    package init(
+        apsBadge: Int? = nil,
+        config: String? = nil,
+        value: Int? = nil,
+        notificationCount: Int? = nil
+    ) {
         self.apsBadge = apsBadge
         self.config = config
         self.value = value
