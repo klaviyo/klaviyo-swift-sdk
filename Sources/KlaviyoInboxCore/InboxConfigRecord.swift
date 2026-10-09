@@ -33,6 +33,6 @@ package enum InboxEnablement: Equatable {
 }
 
 package enum InboxConfigError: Error, Equatable {
-    case groupUnavailable
+    case appGroupUnavailable
     case writeFailed
 }

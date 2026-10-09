@@ -66,7 +66,7 @@ package final class InboxConfigStore {
 
     private func update(_ makeRecord: (InboxConfigRecord?) -> InboxConfigRecord) throws {
         guard let directoryURL, let fileURL else {
-            throw InboxConfigError.groupUnavailable
+            throw InboxConfigError.appGroupUnavailable
         }
         writeLock.lock()
         defer { writeLock.unlock() }

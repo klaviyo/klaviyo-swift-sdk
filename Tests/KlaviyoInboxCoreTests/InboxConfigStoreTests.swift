@@ -131,13 +131,13 @@ final class InboxConfigStoreTests: XCTestCase {
         XCTAssertFalse(logs.errors.isEmpty)
     }
 
-    func testUnreachableGroupWritesThrowGroupUnavailable() {
+    func testUnreachableGroupWritesThrowAppGroupUnavailable() {
         let store = makeStore(group: InboxTemporaryGroup.unreachable)
         XCTAssertThrowsError(try store.enable(localRetentionLimit: 10)) {
-            XCTAssertEqual($0 as? InboxConfigError, .groupUnavailable)
+            XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
         }
         XCTAssertThrowsError(try store.disable()) {
-            XCTAssertEqual($0 as? InboxConfigError, .groupUnavailable)
+            XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
         }
     }
 
@@ -152,7 +152,7 @@ final class InboxConfigStoreTests: XCTestCase {
             let store = makeStore(group: group)
             XCTAssertEqual(store.enablement(), .neverRegistered)
             XCTAssertThrowsError(try store.enable(localRetentionLimit: 10)) {
-                XCTAssertEqual($0 as? InboxConfigError, .groupUnavailable)
+                XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
             }
         }
         XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
