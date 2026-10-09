@@ -151,7 +151,12 @@ let package = Package(
         ),
         .testTarget(
             name: "KlaviyoInboxCoreTests",
-            dependencies: ["KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
+            dependencies: [
+                "KlaviyoInboxCore",
+                "KlaviyoInboxTestSupport",
+                // Test-only: lets the parity tests compare against the KlaviyoCore copies.
+                "KlaviyoCore"
+            ]
         ),
         .target(
             name: "KlaviyoInboxExtension",
