@@ -76,7 +76,7 @@ class IAFPresentationManager {
 
     private init() {}
 
-    #if DEBUG
+    #if DEBUG || KLAVIYO_TESTING
     package init(viewController: KlaviyoWebViewController?) {
         self.viewController = viewController
     }
