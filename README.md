@@ -914,26 +914,34 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 > ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
 
-Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The JWT must include the user's matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
+Personalized forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is by
+supplying a JSON Web Token (JWT).
 
-After initializing the SDK, register a provider that fetches a token from your backend:
+On your backend, add an authenticated endpoint that mints a fresh JWT for the signed-in user. Keep the signing
+credentials on your server. The JWT must include the user's `email` and valid `iat` and `exp` claims.
+
+After initializing the SDK, register a provider once. The SDK calls it whenever it needs a token and handles caching
+and refresh for you.
 
 ```swift
-let sdk = KlaviyoSDK()
-sdk.registerAuthTokenProvider {
+KlaviyoSDK().registerAuthTokenProvider {
+    // Your backend call. Give it a timeout.
     try await authService.fetchKlaviyoJWT()
 }
 ```
 
-Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Preserve network errors so the SDK can retry after connectivity returns.
+The provider should:
 
-On logout, clear the SDK profile:
+- Return a newly minted token for the user set on the SDK profile. The provider receives no profile information, so
+  keep the SDK profile in sync with the signed-in user (see [Profile Identification](#profile-identification)).
+- Finish in bounded time. The SDK does not time out the provider, and a call that never returns blocks later token
+  fetches.
+- Throw right away when no user is signed in or the request fails. Don't wait or retry inside the provider.
+- Rethrow `URLError`s as-is, without wrapping them, so the SDK can retry when connectivity returns.
 
-```swift
-sdk.resetProfile()
-```
-
-This clears the current user's identity and token from an open form.
+On logout, call `KlaviyoSDK().resetProfile()` to clear the user's identity and token. Don't use
+`unregisterAuthTokenProvider()` for logout: it only stops future token requests, and a form that is already open keeps
+the old token until it expires.
 
 #### In-App Forms Session Configuration
 
