@@ -6,22 +6,22 @@
 //
 
 import KlaviyoInboxCore
-import XCTest
 
-final class InboxLimitsTests: XCTestCase {
-    func testClampsToRange() {
-        XCTAssertEqual(InboxLimits.clampedRetention(Int.min), 1)
-        XCTAssertEqual(InboxLimits.clampedRetention(-5), 1)
-        XCTAssertEqual(InboxLimits.clampedRetention(0), 1)
-        XCTAssertEqual(InboxLimits.clampedRetention(1), 1)
-        XCTAssertEqual(InboxLimits.clampedRetention(100), 100)
-        XCTAssertEqual(InboxLimits.clampedRetention(500), 500)
-        XCTAssertEqual(InboxLimits.clampedRetention(501), 500)
-        XCTAssertEqual(InboxLimits.clampedRetention(Int.max), 500)
+#if canImport(Testing)
+import Testing
+
+struct InboxLimitsTests {
+    @Test(arguments: [
+        (Int.min, 1), (-5, 1), (0, 1), (1, 1), (100, 100), (500, 500), (501, 500), (Int.max, 500)
+    ])
+    func clampsToRange(requested: Int, expected: Int) {
+        #expect(InboxLimits.clampedRetention(requested) == expected)
     }
 
-    func testDefaultIsInsideRange() {
-        XCTAssertEqual(InboxLimits.defaultRetention, 100)
-        XCTAssertTrue(InboxLimits.retentionRange.contains(InboxLimits.defaultRetention))
+    @Test
+    func defaultIsInsideRange() {
+        #expect(InboxLimits.defaultRetention == 100)
+        #expect(InboxLimits.retentionRange.contains(InboxLimits.defaultRetention))
     }
 }
+#endif

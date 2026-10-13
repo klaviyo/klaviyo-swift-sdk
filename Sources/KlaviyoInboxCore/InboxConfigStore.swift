@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Reads and writes the Mobile Inbox configuration file in an App Group container.
 ///
@@ -26,14 +27,15 @@ package final class InboxConfigStore {
     package var directoryURL: URL? {
         guard let identifier = group.identifier()?.trimmingCharacters(in: .whitespacesAndNewlines),
               !identifier.isEmpty else {
-            InboxLog.error(
-                "No \(InboxAppGroup.infoDictionaryKey) entry in Info.plist; Mobile Inbox needs the App Group " +
-                    "shared with your Notification Service Extension."
-            )
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxConfig.error("No \(InboxAppGroup.infoDictionaryKey, privacy: .public) entry in Info.plist; Mobile Inbox needs the App Group shared with your Notification Service Extension.")
+            }
             return nil
         }
         guard let container = group.containerURL(identifier) else {
-            InboxLog.error("App Group \(identifier) is unreachable; check the App Groups capability.")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxConfig.error("App Group \(identifier, privacy: .public) is unreachable; check the App Groups capability.")
+            }
             return nil
         }
         return container.appendingPathComponent(Self.directoryName, isDirectory: true)
@@ -77,7 +79,9 @@ package final class InboxConfigStore {
             let data = try JSONEncoder().encode(makeRecord(existing))
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            InboxLog.error("Unable to save Mobile Inbox settings: \(error.localizedDescription)")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxConfig.error("Unable to save Mobile Inbox settings: \(error, privacy: .public)")
+            }
             throw InboxConfigError.writeFailed
         }
     }
@@ -92,18 +96,24 @@ package final class InboxConfigStore {
         } catch let error as CocoaError where [.fileReadNoSuchFile, .fileNoSuchFile].contains(error.code) {
             return nil
         } catch {
-            InboxLog.error("Unable to read Mobile Inbox settings: \(error.localizedDescription)")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxConfig.error("Unable to read Mobile Inbox settings: \(error, privacy: .public)")
+            }
             return unusable
         }
         do {
             let record = try JSONDecoder().decode(InboxConfigRecord.self, from: data)
             guard (1...InboxConfigRecord.currentVersion).contains(record.version) else {
-                InboxLog.error("Mobile Inbox settings version \(record.version) is not supported.")
+                if #available(iOS 14.0, *) {
+                    Logger.mobileInboxConfig.error("Mobile Inbox settings version \(record.version) is not supported.")
+                }
                 return unusable
             }
             return record
         } catch {
-            InboxLog.error("Unable to decode Mobile Inbox settings: \(error.localizedDescription)")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxConfig.error("Unable to decode Mobile Inbox settings: \(error, privacy: .public)")
+            }
             return unusable
         }
     }

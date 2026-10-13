@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoInboxCore
+import OSLog
 
 /// Turns Mobile Inbox capture on and off by writing the shared configuration file in the App Group
 /// named by the `klaviyo_app_group` Info.plist entry.
@@ -21,24 +22,28 @@ final class MobileInboxRegistration {
     }
 
     func register(_ configuration: MobileInboxConfig) {
-        MobileInboxLogging.install()
         do {
             try store.enable(localRetentionLimit: configuration.localRetentionLimit)
         } catch {
-            InboxLog.error("registerForMobileInbox failed; Mobile Inbox stays off (\(error)).")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInbox.error("registerForMobileInbox failed; Mobile Inbox stays off (\(error, privacy: .public)).")
+            }
         }
     }
 
     func unregister() {
-        MobileInboxLogging.install()
         guard store.enablement() != .neverRegistered else {
-            InboxLog.warning("unregisterFromMobileInbox called but Mobile Inbox was never registered.")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInbox.warning("unregisterFromMobileInbox called but Mobile Inbox was never registered.")
+            }
             return
         }
         do {
             try store.disable()
         } catch {
-            InboxLog.error("unregisterFromMobileInbox failed; Mobile Inbox may still be on (\(error)).")
+            if #available(iOS 14.0, *) {
+                Logger.mobileInbox.error("unregisterFromMobileInbox failed; Mobile Inbox may still be on (\(error, privacy: .public)).")
+            }
         }
     }
 }

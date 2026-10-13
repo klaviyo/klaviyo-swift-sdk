@@ -10,27 +10,21 @@ import Foundation
 import KlaviyoCore
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+
+#if canImport(Testing)
+import Testing
 
 private struct TestSDK: KlaviyoSDKModule {}
 
-final class MobileInboxRegistrationTests: XCTestCase {
-    private var temp: InboxTemporaryGroup!
-    private var logs: InboxLogRecorder!
-    private var savedCurrent: MobileInboxRegistration!
+/// `.serialized` because the public API tests swap the shared `MobileInboxRegistration.current`.
+@Suite(.serialized)
+final class MobileInboxRegistrationTests {
+    private let temp = InboxTemporaryGroup()
+    private let savedCurrent = MobileInboxRegistration.current
 
-    override func setUp() {
-        super.setUp()
-        temp = InboxTemporaryGroup()
-        logs = InboxLogRecorder()
-        savedCurrent = MobileInboxRegistration.current
-    }
-
-    override func tearDown() {
+    deinit {
         MobileInboxRegistration.current = savedCurrent
         temp.remove()
-        logs = nil
-        super.tearDown()
     }
 
     private func makeRegistration(group: InboxAppGroup? = nil) -> MobileInboxRegistration {
@@ -41,93 +35,84 @@ final class MobileInboxRegistrationTests: XCTestCase {
         InboxConfigStore(group: temp.group).enablement()
     }
 
-    func testNothingIsWrittenBeforeRegister() {
+    @Test
+    func nothingIsWrittenBeforeRegister() {
         _ = makeRegistration()
-        XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
-        XCTAssertEqual(enablement(), .neverRegistered)
+        #expect(!FileManager.default.fileExists(atPath: temp.root.path))
+        #expect(enablement() == .neverRegistered)
     }
 
-    func testRegisterEnablesWithConfiguredLimit() {
+    @Test
+    func registerEnablesWithConfiguredLimit() {
         makeRegistration().register(MobileInboxConfig(localRetentionLimit: 30))
-        XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 30))
+        #expect(enablement() == .enabled(localRetentionLimit: 30))
     }
 
-    func testRegisterAgainOverwritesLimit() {
+    @Test
+    func registerAgainOverwritesLimit() {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig(localRetentionLimit: 30))
         registration.register(MobileInboxConfig(localRetentionLimit: 60))
-        XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 60))
+        #expect(enablement() == .enabled(localRetentionLimit: 60))
     }
 
-    func testRegisterWithUnreachableGroupPersistsNothingAndLogs() {
-        makeRegistration(group: InboxTemporaryGroup.unreachable)
-            .register(MobileInboxConfig())
-        XCTAssertEqual(enablement(), .neverRegistered)
-        XCTAssertFalse(logs.errors.isEmpty)
+    @Test(arguments: [InboxTemporaryGroup.unreachable, InboxTemporaryGroup.missingIdentifier])
+    func registerWithUnavailableGroupPersistsNothing(group: InboxAppGroup) {
+        makeRegistration(group: group).register(MobileInboxConfig())
+        #expect(!FileManager.default.fileExists(atPath: temp.root.path))
+        #expect(enablement() == .neverRegistered)
     }
 
-    func testRegisterWithoutInfoPlistEntryPersistsNothingAndLogs() {
-        makeRegistration(group: InboxTemporaryGroup.missingIdentifier).register(MobileInboxConfig())
-        XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
-        XCTAssertFalse(logs.errors.isEmpty)
-    }
-
-    func testUnregisterDisables() {
+    @Test
+    func unregisterDisables() {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig())
         registration.unregister()
-        XCTAssertEqual(enablement(), .disabled)
+        #expect(enablement() == .disabled)
     }
 
-    func testUnregisterAfterRelaunchStillDisables() {
+    @Test
+    func unregisterAfterRelaunchStillDisables() {
         makeRegistration().register(MobileInboxConfig())
         // A fresh coordinator stands in for a new launch.
         makeRegistration().unregister()
-        XCTAssertEqual(enablement(), .disabled)
+        #expect(enablement() == .disabled)
     }
 
-    func testUnregisterWithoutPriorRegisterIsANoOpThatWarns() {
+    @Test
+    func unregisterWithoutPriorRegisterIsANoOp() {
         makeRegistration().unregister()
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: temp.root.path),
-            "must not create any file or directory"
-        )
-        XCTAssertEqual(enablement(), .neverRegistered)
-        XCTAssertFalse(logs.warnings.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: temp.root.path), "must not create any file or directory")
+        #expect(enablement() == .neverRegistered)
     }
 
-    func testUnregisterWhenGroupBecameUnreachableLogsAndDoesNotCrash() {
-        makeRegistration().register(MobileInboxConfig())
+    @Test
+    func unregisterWhenGroupBecameUnreachableLeavesStateUntouched() {
+        makeRegistration().register(MobileInboxConfig(localRetentionLimit: 10))
         makeRegistration(group: InboxTemporaryGroup.unreachable).unregister()
-        XCTAssertFalse(logs.errors.isEmpty)
+        #expect(enablement() == .enabled(localRetentionLimit: 10))
     }
 
-    func testRegisterAfterUnregisterReEnables() {
+    @Test
+    func registerAfterUnregisterReEnables() {
         let registration = makeRegistration()
         registration.register(MobileInboxConfig(localRetentionLimit: 10))
         registration.unregister()
         registration.register(MobileInboxConfig(localRetentionLimit: 10))
-        XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 10))
+        #expect(enablement() == .enabled(localRetentionLimit: 10))
     }
 
-    func testPublicAPIChainsAndReturnsSameType() {
+    @Test
+    func publicAPIChainsAndReturnsSameType() {
         MobileInboxRegistration.current = makeRegistration()
         let sdk = TestSDK()
-        let configuration = MobileInboxConfig()
-        let afterRegister = sdk.registerForMobileInbox(configuration: configuration)
-        XCTAssertTrue(type(of: afterRegister) == TestSDK.self)
-        XCTAssertEqual(enablement(), .enabled(localRetentionLimit: 100))
+        let afterRegister = sdk.registerForMobileInbox(configuration: MobileInboxConfig())
+        #expect(type(of: afterRegister) == TestSDK.self)
+        #expect(enablement() == .enabled(localRetentionLimit: 100))
 
         let afterUnregister = afterRegister.unregisterFromMobileInbox()
-        XCTAssertTrue(type(of: afterUnregister) == TestSDK.self)
-        XCTAssertEqual(enablement(), .disabled)
-    }
-
-    func testLoggingFollowsTheSDKWideSwitch() {
-        KlaviyoLogConfig.shared.isLoggingEnabled = false
-        defer { KlaviyoLogConfig.shared.isLoggingEnabled = true }
-        makeRegistration(group: InboxTemporaryGroup.unreachable)
-            .register(MobileInboxConfig())
-        XCTAssertTrue(logs.errors.isEmpty, "logging disabled must silence Inbox logs too")
+        #expect(type(of: afterUnregister) == TestSDK.self)
+        #expect(enablement() == .disabled)
     }
 }
+#endif

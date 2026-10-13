@@ -8,24 +8,16 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
 
-final class InboxConfigStoreTests: XCTestCase {
+#if canImport(Testing)
+import Testing
+
+final class InboxConfigStoreTests {
     private let groupId = InboxTemporaryGroup.identifier
-    private var temp: InboxTemporaryGroup!
-    private var logs: InboxLogRecorder!
+    private let temp = InboxTemporaryGroup()
 
-    override func setUp() {
-        super.setUp()
-        temp = InboxTemporaryGroup()
-        logs = InboxLogRecorder()
-    }
-
-    override func tearDown() {
+    deinit {
         temp.remove()
-        logs = nil
-        temp = nil
-        super.tearDown()
     }
 
     private func makeStore(group: InboxAppGroup? = nil) -> InboxConfigStore {
@@ -34,171 +26,150 @@ final class InboxConfigStoreTests: XCTestCase {
 
     private func writeRaw(_ contents: String) throws {
         let store = makeStore()
-        let directory = try XCTUnwrap(store.directoryURL)
+        let directory = try #require(store.directoryURL)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data(contents.utf8).write(to: XCTUnwrap(store.fileURL))
+        try Data(contents.utf8).write(to: #require(store.fileURL))
     }
 
-    func testNeverRegisteredWhenNothingWritten() {
-        XCTAssertEqual(makeStore().enablement(), .neverRegistered)
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: temp.root.path),
-            "reading must not create anything"
-        )
-        XCTAssertTrue(logs.errors.isEmpty)
+    @Test
+    func neverRegisteredWhenNothingWritten() {
+        #expect(makeStore().enablement() == .neverRegistered)
+        #expect(!FileManager.default.fileExists(atPath: temp.root.path), "reading must not create anything")
     }
 
-    func testEnableThenReadFromSecondInstance() throws {
+    @Test
+    func enableThenReadFromSecondInstance() throws {
         try makeStore().enable(localRetentionLimit: 42)
-        XCTAssertEqual(makeStore().enablement(), .enabled(localRetentionLimit: 42))
+        #expect(makeStore().enablement() == .enabled(localRetentionLimit: 42))
     }
 
-    func testDisableAfterEnableKeepsFileAndRetention() throws {
+    @Test
+    func disableAfterEnableKeepsFileAndRetention() throws {
         let store = makeStore()
         try store.enable(localRetentionLimit: 42)
         try store.disable()
-        XCTAssertEqual(makeStore().enablement(), .disabled)
-        let data = try Data(contentsOf: XCTUnwrap(store.fileURL))
+        #expect(makeStore().enablement() == .disabled)
+        let data = try Data(contentsOf: #require(store.fileURL))
         let record = try JSONDecoder().decode(InboxConfigRecord.self, from: data)
-        XCTAssertEqual(record, InboxConfigRecord(enabled: false, localRetentionLimit: 42))
+        #expect(record == InboxConfigRecord(enabled: false, localRetentionLimit: 42))
     }
 
-    func testDisableWithoutPriorRecordIsDisabledNotNeverRegistered() throws {
+    @Test
+    func disableWithoutPriorRecordIsDisabledNotNeverRegistered() throws {
         try makeStore().disable()
-        XCTAssertEqual(makeStore().enablement(), .disabled)
+        #expect(makeStore().enablement() == .disabled)
     }
 
-    func testEnableClampsOutOfRangeLimit() throws {
+    @Test(arguments: [(0, 1), (-5, 1), (9999, 500)])
+    func enableClampsOutOfRangeLimit(requested: Int, expected: Int) throws {
         let store = makeStore()
-        try store.enable(localRetentionLimit: 0)
-        XCTAssertEqual(store.enablement(), .enabled(localRetentionLimit: 1))
-        try store.enable(localRetentionLimit: 9999)
-        XCTAssertEqual(store.enablement(), .enabled(localRetentionLimit: 500))
+        try store.enable(localRetentionLimit: requested)
+        #expect(store.enablement() == .enabled(localRetentionLimit: expected))
     }
 
-    func testReadClampsHandWrittenOutOfRangeLimit() throws {
+    @Test
+    func readClampsHandWrittenOutOfRangeLimit() throws {
         try writeRaw(#"{"version":1,"enabled":true,"localRetentionLimit":9999}"#)
-        XCTAssertEqual(makeStore().enablement(), .enabled(localRetentionLimit: 500))
+        #expect(makeStore().enablement() == .enabled(localRetentionLimit: 500))
     }
 
-    func testStoresFileInsideInboxDirectoryOfTheGroup() throws {
+    @Test
+    func storesFileInsideInboxDirectoryOfTheGroup() throws {
         let store = makeStore()
         try store.enable(localRetentionLimit: 10)
         let expected = temp.root
             .appendingPathComponent(groupId, isDirectory: true)
             .appendingPathComponent("KlaviyoInbox", isDirectory: true)
             .appendingPathComponent("klaviyo-inbox-config.json")
-        XCTAssertEqual(store.fileURL?.standardizedFileURL, expected.standardizedFileURL)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: expected.path))
+        #expect(store.fileURL?.standardizedFileURL == expected.standardizedFileURL)
+        #expect(FileManager.default.fileExists(atPath: expected.path))
     }
 
-    func testCorruptFileReadsAsDisabledAndIsKept() throws {
-        try writeRaw("{ this is not json")
+    /// Unusable files read as disabled (capture fails closed) and are left in place.
+    @Test(arguments: [
+        "{ this is not json",
+        #"{"version":999,"enabled":true,"localRetentionLimit":10}"#,
+        #"{"version":0,"enabled":true,"localRetentionLimit":10}"#,
+        #"{"version":-1,"enabled":true,"localRetentionLimit":10}"#
+    ])
+    func unusableFileReadsAsDisabledAndIsKept(contents: String) throws {
+        try writeRaw(contents)
         let store = makeStore()
-        XCTAssertEqual(store.enablement(), .disabled)
-        XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
-        XCTAssertFalse(logs.errors.isEmpty)
+        #expect(store.enablement() == .disabled)
+        let fileURL = try #require(store.fileURL)
+        #expect(FileManager.default.fileExists(atPath: fileURL.path))
     }
 
-    func testNewerVersionReadsAsDisabledAndIsKept() throws {
-        try writeRaw(#"{"version":999,"enabled":true,"localRetentionLimit":10}"#)
-        let store = makeStore()
-        XCTAssertEqual(store.enablement(), .disabled)
-        XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
-        XCTAssertFalse(logs.errors.isEmpty)
-    }
-
-    func testVersionBelowOneReadsAsDisabledAndIsKept() throws {
-        for version in [0, -1] {
-            try writeRaw(#"{"version":\#(version),"enabled":true,"localRetentionLimit":10}"#)
-            let store = makeStore()
-            XCTAssertEqual(store.enablement(), .disabled, "version \(version)")
-            XCTAssertTrue(try FileManager.default.fileExists(atPath: XCTUnwrap(store.fileURL).path))
-        }
-        XCTAssertFalse(logs.errors.isEmpty)
-    }
-
-    func testRegisterRepairsCorruptFile() throws {
+    @Test
+    func registerRepairsCorruptFile() throws {
         try writeRaw("garbage")
         let store = makeStore()
         try store.enable(localRetentionLimit: 7)
-        XCTAssertEqual(store.enablement(), .enabled(localRetentionLimit: 7))
+        #expect(store.enablement() == .enabled(localRetentionLimit: 7))
     }
 
-    func testUnreachableGroupReadsAsNeverRegisteredAndLogs() {
+    @Test
+    func unreachableGroupReadsAsNeverRegistered() {
+        #expect(makeStore(group: InboxTemporaryGroup.unreachable).enablement() == .neverRegistered)
+    }
+
+    @Test
+    func unreachableGroupWritesThrowAppGroupUnavailable() {
         let store = makeStore(group: InboxTemporaryGroup.unreachable)
-        XCTAssertEqual(store.enablement(), .neverRegistered)
-        XCTAssertFalse(logs.errors.isEmpty)
+        #expect(throws: InboxConfigError.appGroupUnavailable) { try store.enable(localRetentionLimit: 10) }
+        #expect(throws: InboxConfigError.appGroupUnavailable) { try store.disable() }
     }
 
-    func testUnreachableGroupWritesThrowAppGroupUnavailable() {
-        let store = makeStore(group: InboxTemporaryGroup.unreachable)
-        XCTAssertThrowsError(try store.enable(localRetentionLimit: 10)) {
-            XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
+    @Test(arguments: ["missing", "empty", "blank"])
+    func missingOrBlankInfoPlistEntryIsUnavailableAndTouchesNothing(kind: String) {
+        let containerURL = temp.group.containerURL
+        let group: InboxAppGroup
+        switch kind {
+        case "missing": group = InboxTemporaryGroup.missingIdentifier
+        case "empty": group = InboxAppGroup(identifier: { "" }, containerURL: containerURL)
+        default: group = InboxAppGroup(identifier: { "   " }, containerURL: containerURL)
         }
-        XCTAssertThrowsError(try store.disable()) {
-            XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
-        }
+        let store = makeStore(group: group)
+        #expect(store.enablement() == .neverRegistered)
+        #expect(throws: InboxConfigError.appGroupUnavailable) { try store.enable(localRetentionLimit: 10) }
+        #expect(!FileManager.default.fileExists(atPath: temp.root.path))
     }
 
-    func testMissingOrBlankInfoPlistEntryIsUnavailableAndTouchesNothing() {
-        let blank = temp.group
-        let groups = [
-            InboxTemporaryGroup.missingIdentifier,
-            InboxAppGroup(identifier: { "" }, containerURL: blank.containerURL),
-            InboxAppGroup(identifier: { "   " }, containerURL: blank.containerURL)
-        ]
-        for group in groups {
-            let store = makeStore(group: group)
-            XCTAssertEqual(store.enablement(), .neverRegistered)
-            XCTAssertThrowsError(try store.enable(localRetentionLimit: 10)) {
-                XCTAssertEqual($0 as? InboxConfigError, .appGroupUnavailable)
-            }
-        }
-        XCTAssertFalse(FileManager.default.fileExists(atPath: temp.root.path))
-        XCTAssertFalse(logs.errors.isEmpty)
-    }
-
-    func testWriteFailureThrowsWriteFailed() throws {
+    @Test
+    func writeFailureThrowsWriteFailed() throws {
         // A regular file where the "KlaviyoInbox" directory should be makes createDirectory fail.
         let groupDirectory = temp.root.appendingPathComponent(groupId, isDirectory: true)
         try FileManager.default.createDirectory(at: groupDirectory, withIntermediateDirectories: true)
         try Data("x".utf8).write(to: groupDirectory.appendingPathComponent("KlaviyoInbox"))
-        XCTAssertThrowsError(try makeStore().enable(localRetentionLimit: 10)) {
-            XCTAssertEqual($0 as? InboxConfigError, .writeFailed)
-        }
+        let store = makeStore()
+        #expect(throws: InboxConfigError.writeFailed) { try store.enable(localRetentionLimit: 10) }
     }
 
-    func testConcurrentReadsNeverSeeAPartialRecord() throws {
+    @Test
+    func concurrentReadsNeverSeeAPartialRecord() throws {
         let writer = makeStore()
         try writer.enable(localRetentionLimit: 10)
-        let allowed: Set<String> = ["enabled10", "enabled20", "disabled"]
+        let fileURL = try #require(writer.fileURL)
         let lock = NSLock()
-        var unexpected: [InboxEnablement] = []
+        var undecodable = 0
 
         DispatchQueue.concurrentPerform(iterations: 400) { index in
-            if index % 4 == 0 {
-                try? writer.enable(localRetentionLimit: index % 8 == 0 ? 10 : 20)
-            } else if index % 4 == 1 {
-                try? writer.disable()
-            } else {
-                let state = self.makeStore().enablement()
-                let label: String
-                switch state {
-                case .enabled(10): label = "enabled10"
-                case .enabled(20): label = "enabled20"
-                case .disabled: label = "disabled"
-                default: label = "other"
-                }
-                if !allowed.contains(label) {
+            switch index % 4 {
+            case 0: try? writer.enable(localRetentionLimit: index % 8 == 0 ? 10 : 20)
+            case 1: try? writer.disable()
+            default:
+                // Decode the raw file: `enablement()` would mask a torn write as `.disabled`.
+                let decoded = (try? Data(contentsOf: fileURL))
+                    .flatMap { try? JSONDecoder().decode(InboxConfigRecord.self, from: $0) }
+                if decoded == nil {
                     lock.lock()
-                    unexpected.append(state)
+                    undecodable += 1
                     lock.unlock()
                 }
             }
         }
 
-        XCTAssertTrue(unexpected.isEmpty, "unexpected states: \(unexpected)")
-        XCTAssertTrue(logs.errors.isEmpty, "a partial write would log a decode error: \(logs.errors)")
+        #expect(undecodable == 0, "atomic writes must never expose a partial record")
     }
 }
+#endif

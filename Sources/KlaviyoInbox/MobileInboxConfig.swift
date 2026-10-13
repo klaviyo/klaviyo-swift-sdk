@@ -6,6 +6,7 @@
 //
 
 import KlaviyoInboxCore
+import OSLog
 
 /// Configuration for Mobile Inbox. Pass it to `registerForMobileInbox(configuration:)`.
 public struct MobileInboxConfig: Equatable, Sendable {
@@ -20,12 +21,11 @@ public struct MobileInboxConfig: Equatable, Sendable {
     /// Mobile Inbox keeps its configuration in the App Group named by the `klaviyo_app_group` entry
     /// in your Info.plist: the same one you set up for badge counts.
     public init(localRetentionLimit: Int = MobileInboxConfig.defaultLocalRetentionLimit) {
-        MobileInboxLogging.install()
         let clamped = InboxLimits.clampedRetention(localRetentionLimit)
         if clamped != localRetentionLimit {
-            InboxLog.warning(
-                "localRetentionLimit \(localRetentionLimit) is outside 1...500; using \(clamped)."
-            )
+            if #available(iOS 14.0, *) {
+                Logger.mobileInbox.warning("localRetentionLimit \(localRetentionLimit) is outside 1...500; using \(clamped).")
+            }
         }
         self.localRetentionLimit = clamped
     }
