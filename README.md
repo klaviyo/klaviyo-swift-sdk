@@ -655,24 +655,29 @@ URL schemes are a simple way to enable deep linking in your app. Here's how to s
 
 #### Step 1: Register the URL scheme
 
-First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
-
-#### Step 2: Whitelist Your URL Scheme
-
-Next, you need to whitelist your URL scheme in your app's `Info.plist` file. This allows your app to open deep links from push notifications.
-
-To do this, add the following to your `Info.plist`:
+First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. You do this by adding a `CFBundleURLTypes` entry to your app's `Info.plist`:
 
 ```xml
-<key>LSApplicationQueriesSchemes</key>
+<key>CFBundleURLTypes</key>
 <array>
-    <string>{your_url_scheme}</string>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>{your_bundle_identifier}</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>{your_url_scheme}</string>
+        </array>
+    </dict>
 </array>
 ```
 
-Replace `{your_url_scheme}` with the URL scheme you registered in Step 1.
+Replace `{your_url_scheme}` with the scheme you want your app to respond to, and `{your_bundle_identifier}` with your app's bundle identifier. You can also add this entry from the **Info** tab of your app target in Xcode. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
 
-#### Step 3: Handle the deep links in your app
+`CFBundleURLTypes` is what tells iOS to route your URL scheme to your app.
+
+#### Step 2: Handle the deep links in your app
 
 Finally, you need to add code to your app to process incoming URLs and navigate to the correct content. The implementation differs depending on whether your app uses SwiftUI or UIKit for its lifecycle.
 
