@@ -920,7 +920,16 @@ sdk.registerAuthTokenProvider {
 }
 ```
 
-Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Let the original `URLError` propagate without wrapping it. The SDK retries after connectivity returns only for a `URLError` with the code `.notConnectedToInternet`, `.networkConnectionLost`, `.dataNotAllowed` or `.internationalRoamingOff`. It does not retry timeouts or any other failure. It fetches again the next time it needs a token. The SDK does not report provider errors to your app. They appear only in the SDK logs.
+Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Return a freshly issued token on every call. Do not return a token cached from an earlier call. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Let the original `URLError` propagate without wrapping it. The SDK retries after connectivity returns only for a `URLError` with the code `.notConnectedToInternet`, `.networkConnectionLost`, `.dataNotAllowed` or `.internationalRoamingOff`. It does not retry timeouts or any other failure. It fetches again the next time it needs a token. The SDK does not report provider errors to your app. They appear only in the SDK logs.
+
+Registering again replaces the previous provider and discards the cached token. If a form is open and the profile is identified, registering also delivers a token to that form. The SDK applies `registerAuthTokenProvider` and `unregisterAuthTokenProvider` calls asynchronously, in the order you make them, so the last call wins.
+
+The SDK handles these cases for you:
+
+- The provider is never called while the profile is anonymous, that is, while it has no external ID, email or phone number.
+- When the user changes to a different person, the SDK discards the old token and fetches a new one. A compatible identifier change, such as adding a phone number to a profile that already has an email, keeps the current token.
+- The SDK refreshes the token before it expires, fetches again after connectivity returns, and fetches a replacement when a form reports that its token was rejected.
+- When a form is about to load, the SDK waits up to 500 ms for a token. If your provider is slower, the form loads without one and receives the token as soon as it arrives. A form that loads without a token still works, but it is not personalized.
 
 On logout, clear the SDK profile:
 
@@ -928,9 +937,9 @@ On logout, clear the SDK profile:
 sdk.resetProfile()
 ```
 
-This clears the current user's identity and token from an open form.
+This discards the current user's token and stops the SDK from fetching one until a new user is identified.
 
-To turn personalization off without logging out, call `sdk.unregisterAuthTokenProvider()`. This stops all provider calls and discards the SDK's cached token.
+To turn personalization off without logging out, call `sdk.unregisterAuthTokenProvider()`. This stops all provider calls and discards the SDK's cached token. It does not remove a token that an open form already holds. That token keeps working until it expires, so do not use `unregisterAuthTokenProvider()` to log a user out.
 
 #### In-App Forms Session Configuration
 
