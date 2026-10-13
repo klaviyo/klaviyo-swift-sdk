@@ -312,13 +312,15 @@ final class TestReachability: @unchecked Sendable {
 /// they simply never resume.
 actor SleepGate {
     private var enteredCount = 0
+    private(set) var durations: [UInt64] = []
     private var parked: [CheckedContinuation<Void, Never>] = []
     private var pendingReleases = 0
     private var entryWaiters: [(threshold: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
-    /// Injected as the manager's `sleep` closure. Duration is ignored — virtual
-    /// time is driven by the paired ``TestClock``.
-    func sleep(_: UInt64) async {
+    /// Injected as the manager's `sleep` closure. Virtual time is driven by
+    /// the paired ``TestClock``.
+    func sleep(_ nanoseconds: UInt64) async {
+        durations.append(nanoseconds)
         enteredCount += 1
         entryWaiters = entryWaiters.compactMap { waiter in
             if enteredCount >= waiter.threshold {
