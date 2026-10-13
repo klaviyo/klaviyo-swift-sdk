@@ -909,7 +909,7 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 > ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
 
-Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The JWT must include the user's matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
+Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The SDK requires valid `iat` and `exp` claims and rejects a token that expires within 30 seconds of receipt. Klaviyo also requires the JWT to carry the signed-in user's matching `email` claim. The SDK does not check the `email` claim. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
 
 After initializing the SDK, register a provider that fetches a token from your backend:
 
@@ -920,7 +920,7 @@ sdk.registerAuthTokenProvider {
 }
 ```
 
-Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Preserve network errors so the SDK can retry after connectivity returns.
+Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Let the original `URLError` propagate without wrapping it. The SDK retries after connectivity returns only for a `URLError` with the code `.notConnectedToInternet`, `.networkConnectionLost`, `.dataNotAllowed` or `.internationalRoamingOff`. It does not retry timeouts or any other failure. It fetches again the next time it needs a token. The SDK does not report provider errors to your app. They appear only in the SDK logs.
 
 On logout, clear the SDK profile:
 
@@ -929,6 +929,8 @@ sdk.resetProfile()
 ```
 
 This clears the current user's identity and token from an open form.
+
+To turn personalization off without logging out, call `sdk.unregisterAuthTokenProvider()`. This stops all provider calls and discards the SDK's cached token.
 
 #### In-App Forms Session Configuration
 
