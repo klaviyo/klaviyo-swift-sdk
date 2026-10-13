@@ -909,7 +909,7 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 > ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
 
-Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The SDK requires valid `iat` and `exp` claims and rejects a token that expires within 30 seconds of receipt. Klaviyo also requires the JWT to carry the signed-in user's matching `email` claim. The SDK does not check the `email` claim. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
+Before integrating, set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server; the app should request the JWT from this endpoint. The JWT must include the user's matching `email` claim and valid `iat` and `exp` claims. Keep the profile identifiers in the SDK in sync with the signed-in user; the token provider should return a token for that same user.
 
 After initializing the SDK, register a provider that fetches a token from your backend:
 
@@ -920,16 +920,7 @@ sdk.registerAuthTokenProvider {
 }
 ```
 
-Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Return a freshly issued token on every call. Do not return a token cached from an earlier call. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Let the original `URLError` propagate without wrapping it. The SDK retries after connectivity returns only for a `URLError` with the code `.notConnectedToInternet`, `.networkConnectionLost`, `.dataNotAllowed` or `.internationalRoamingOff`. It does not retry timeouts or any other failure. It fetches again the next time it needs a token. The SDK does not report provider errors to your app. They appear only in the SDK logs.
-
-Registering again replaces the previous provider and discards the cached token. If a form is open and the profile is identified, registering also delivers a token to that form. The SDK applies `registerAuthTokenProvider` and `unregisterAuthTokenProvider` calls asynchronously, in the order you make them, so the last call wins.
-
-The SDK handles these cases for you:
-
-- The provider is never called while the profile is anonymous, that is, while it has no external ID, email or phone number.
-- When the user changes to a different person, the SDK discards the old token and fetches a new one. A compatible identifier change, such as adding a phone number to a profile that already has an email, keeps the current token.
-- The SDK refreshes the token before it expires, fetches again after connectivity returns, and fetches a replacement when a form reports that its token was rejected.
-- When a form is about to load, the SDK waits up to 500 ms for a token. If your provider is slower, the form loads without one and receives the token as soon as it arrives. A form that loads without a token still works, but it is not personalized.
+Register the provider once and keep it registered across profile changes. The SDK calls it when a profile is identified and fetches a new token when needed. Set a timeout on the backend request. If the user is logged out or the request fails, throw promptly instead of waiting or retrying inside the provider. Let the original `URLError` propagate without wrapping it. The SDK retries after connectivity returns only for `.notConnectedToInternet`, `.networkConnectionLost`, `.dataNotAllowed` and `.internationalRoamingOff`.
 
 On logout, clear the SDK profile:
 
@@ -939,7 +930,7 @@ sdk.resetProfile()
 
 This discards the current user's token and stops the SDK from fetching one until a new user is identified.
 
-To turn personalization off without logging out, call `sdk.unregisterAuthTokenProvider()`. This stops all provider calls and discards the SDK's cached token. It does not remove a token that an open form already holds. That token keeps working until it expires, so do not use `unregisterAuthTokenProvider()` to log a user out.
+`unregisterAuthTokenProvider()` turns personalization off. It is not a logout, because a form that is already open keeps its token until it expires.
 
 #### In-App Forms Session Configuration
 
