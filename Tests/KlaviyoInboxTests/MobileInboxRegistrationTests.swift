@@ -56,11 +56,13 @@ final class MobileInboxRegistrationTests {
         #expect(enablement() == .enabled(localRetentionLimit: 60))
     }
 
-    @Test(arguments: [InboxTemporaryGroup.unreachable, InboxTemporaryGroup.missingIdentifier])
-    func registerWithUnavailableGroupPersistsNothing(group: InboxAppGroup) {
-        makeRegistration(group: group).register(MobileInboxConfig())
-        #expect(!FileManager.default.fileExists(atPath: temp.root.path))
-        #expect(enablement() == .neverRegistered)
+    @Test
+    func registerWithUnavailableGroupPersistsNothing() {
+        for group in InboxTemporaryGroup.unavailable {
+            makeRegistration(group: group).register(MobileInboxConfig())
+            #expect(!FileManager.default.fileExists(atPath: temp.root.path))
+            #expect(enablement() == .neverRegistered)
+        }
     }
 
     @Test

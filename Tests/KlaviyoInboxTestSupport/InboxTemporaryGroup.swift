@@ -35,6 +35,11 @@ package final class InboxTemporaryGroup {
     /// No `klaviyo_app_group` entry in Info.plist.
     package static let missingIdentifier = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
 
+    /// Every way a group can be unavailable. Tests loop over this instead of using
+    /// `@Test(arguments:)`: `InboxAppGroup` holds closures, so it has no stable argument ID and
+    /// the Xcode 16.x Swift Testing bridge crashes with "No test reporter for test case".
+    package static let unavailable = [unreachable, missingIdentifier]
+
     package func remove() {
         try? FileManager.default.removeItem(at: root)
     }
