@@ -66,6 +66,8 @@ struct LoginView: View {
                                     .autocapitalization(.none)
                                     .disableAutocorrection(true)
                                     .font(.body)
+                                    .lineLimit(1)
+                                    .frame(height: 44)
                             }
                         }
                     }
