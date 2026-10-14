@@ -912,12 +912,12 @@ Note that the In-App Forms will automatically respond if/when the API key and/or
 
 #### Personalized Forms Authentication
 
-> ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later and must be enabled for your Klaviyo account.
+> ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later.
 
 Personalized forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is by
 supplying a JSON Web Token (JWT).
 
-On your backend, add an authenticated endpoint that mints a fresh JWT for the signed-in user. Keep the signing
+On your own backend, add an authenticated endpoint that mints a fresh JWT for the signed-in user. Keep the signing
 credentials on your server. The JWT must include the user's `email` and valid `iat` and `exp` claims.
 
 After initializing the SDK, register a provider once. The SDK calls it whenever it needs a token and handles caching
@@ -925,8 +925,9 @@ and refresh for you.
 
 ```swift
 KlaviyoSDK().registerAuthTokenProvider {
-    // Your backend call. Give it a timeout.
-    try await authService.fetchKlaviyoJWT()
+    // Your logic for fetching a JWT from your auth service.
+    // Return the JWT as a `String`
+    // Include a timeout
 }
 ```
 
@@ -939,9 +940,10 @@ The provider should:
 - Throw right away when no user is signed in or the request fails. Don't wait or retry inside the provider.
 - Rethrow `URLError`s as-is, without wrapping them, so the SDK can retry when connectivity returns.
 
-On logout, call `KlaviyoSDK().resetProfile()` to clear the user's identity and token. Don't use
-`unregisterAuthTokenProvider()` for logout: it only stops future token requests, and a form that is already open keeps
-the old token until it expires.
+On logout, call `KlaviyoSDK().resetProfile()` to clear the user's identity and token.
+
+To turn personalization off, call `KlaviyoSDK().unregisterAuthTokenProvider()`. Don't use it for logout: it only stops
+future token requests, and a form that is already open keeps the old token until it expires.
 
 #### In-App Forms Session Configuration
 
