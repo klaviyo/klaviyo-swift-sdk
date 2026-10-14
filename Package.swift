@@ -50,6 +50,14 @@ let package = Package(
             linkerSettings: [.linkedFramework("UIKit")]
         ),
         .target(
+            name: "KlaviyoFoundation",
+            path: "Sources/KlaviyoFoundation"
+        ),
+        .testTarget(
+            name: "KlaviyoFoundationTests",
+            dependencies: ["KlaviyoFoundation"]
+        ),
+        .target(
             name: "KlaviyoCore",
             dependencies: [
                 .product(name: "AnyCodable", package: "AnyCodable")
