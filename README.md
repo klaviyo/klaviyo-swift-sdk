@@ -45,9 +45,9 @@
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
-    - [Personalized Forms Authentication](#personalized-forms-authentication)
     - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
@@ -910,41 +910,6 @@ KlaviyoSDK().registerForInAppForms()
 
 Note that the In-App Forms will automatically respond if/when the API key and/or the profile data changes. You do not need to re-register.
 
-#### Personalized Forms Authentication
-
-> ℹ️ Personalized Forms authentication requires SDK version 5.5.0 or later.
-
-Personalized forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is by
-supplying a JSON Web Token (JWT).
-
-On your own backend, add an authenticated endpoint that mints a fresh JWT for the signed-in user. Keep the signing
-credentials on your server. The JWT must include the user's `email` and valid `iat` and `exp` claims.
-
-After initializing the SDK, register a provider once. The SDK calls it whenever it needs a token and handles caching
-and refresh for you.
-
-```swift
-KlaviyoSDK().registerAuthTokenProvider {
-    // Your logic for fetching a JWT from your auth service.
-    // Return the JWT as a `String`
-    // Include a timeout
-}
-```
-
-The provider should:
-
-- Return a newly minted token for the user set on the SDK profile. The provider receives no profile information, so
-  keep the SDK profile in sync with the signed-in user (see [Profile Identification](#profile-identification)).
-- Finish in bounded time. The SDK does not time out the provider, and a call that never returns blocks later token
-  fetches.
-- Throw right away when no user is signed in or the request fails. Don't wait or retry inside the provider.
-- Rethrow `URLError`s as-is, without wrapping them, so the SDK can retry when connectivity returns.
-
-On logout, call `KlaviyoSDK().resetProfile()` to clear the user's identity and token.
-
-To turn personalization off, call `KlaviyoSDK().unregisterAuthTokenProvider()`. Don't use it for logout: it only stops
-future token requests, and a form that is already open keeps the old token until it expires.
-
 #### In-App Forms Session Configuration
 
 A "session" is considered to be a logical unit of user engagement with the app, defined as a series of foreground interactions that occur within a continuous or near-continuous time window. This is an important concept for In-App Forms, as we want to ensure that a user will not see a form multiple times within a single session.
@@ -970,6 +935,45 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Personalized Forms Authentication
+
+> **Note:** Personalized Forms authentication requires SDK version `5.5.0` or later and must be enabled for your Klaviyo account.
+
+Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
+
+Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
+
+After initializing the SDK, register a provider that fetches a token from your backend:
+
+```swift
+KlaviyoSDK().registerAuthTokenProvider {
+    // Replace with your own call. Apply a timeout to the request.
+    try await authService.fetchKlaviyoJWT()
+}
+```
+
+Register the provider once and keep it registered across profile changes.
+
+On logout, clear the SDK profile:
+
+```swift
+KlaviyoSDK().resetProfile()
+```
+
+A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
+
+#### Provider requirements
+
+The SDK does not time out your provider, so your code must:
+
+- **Return or throw exactly once.** Return the JWT or throw an error for each call to the provider.
+  The SDK calls the provider whenever it needs a fresh token, on a background task.
+- **Report errors by throwing.** The SDK catches errors thrown from the provider, so throw instead of
+  returning an empty or placeholder token.
+- **Bound your own work.** Apply a timeout to every network call. A provider that never returns blocks later token fetches until you register, unregister or reset the profile.
+- **Fail fast.** If you cannot produce a token, for example when no user is signed in, throw instead of waiting or retrying.
+- **Pass on the original network error.** The SDK retries after reconnect when the provider throws a `URLError`, so rethrow the original `URLError` without wrapping it.
 
 ### Monitoring Form Lifecycle Events
 
