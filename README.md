@@ -45,7 +45,7 @@
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
-    - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
