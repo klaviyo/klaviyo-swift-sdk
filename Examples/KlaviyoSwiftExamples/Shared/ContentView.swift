@@ -140,27 +140,11 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("In-app form personalization")
-                    .font(.headline)
-                SecureField("Paste a JWT", text: $appState.pastedJWT)
-                    .textFieldStyle(.roundedBorder)
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                Toggle("Enable auth token provider", isOn: $appState.isAuthTokenProviderEnabled)
-                Text(appState.isAuthTokenProviderEnabled ? "Provider enabled." : "Provider disabled.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            .padding()
-
-            Group {
-                if appState.isLoggedIn {
-                    MenuView()
-                } else {
-                    LoginView()
-                }
+        Group {
+            if appState.isLoggedIn {
+                MenuView()
+            } else {
+                LoginView()
             }
         }
         .onAppear {

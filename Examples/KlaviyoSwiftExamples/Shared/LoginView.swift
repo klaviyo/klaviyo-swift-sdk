@@ -56,6 +56,17 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .font(.body)
+
+                            Toggle("Enable auth token provider", isOn: $appState.isAuthTokenProviderEnabled)
+                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+
+                            if appState.isAuthTokenProviderEnabled {
+                                SecureField("Paste a JWT", text: $appState.pastedJWT)
+                                    .textFieldStyle(.roundedBorder)
+                                    .autocapitalization(.none)
+                                    .disableAutocorrection(true)
+                                    .font(.body)
+                            }
                         }
                     }
 
