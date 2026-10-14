@@ -3,7 +3,32 @@ import SwiftUI
 
 // MARK: - AppState
 
+@MainActor
 class AppState: ObservableObject {
+    private enum AuthTokenProviderError: Error {
+        case missingToken
+    }
+
+    @Published var pastedJWT = ""
+    @Published var isAuthTokenProviderEnabled = false {
+        didSet {
+            guard isAuthTokenProviderEnabled != oldValue else { return }
+            if isAuthTokenProviderEnabled {
+                KlaviyoSDK().registerAuthTokenProvider { [weak self] in
+                    // Fetch a fresh JWT from your authentication server here.
+                    guard let self else { throw AuthTokenProviderError.missingToken }
+                    return try await MainActor.run {
+                        let token = self.pastedJWT.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !token.isEmpty else { throw AuthTokenProviderError.missingToken }
+                        return token
+                    }
+                }
+            } else {
+                KlaviyoSDK().unregisterAuthTokenProvider()
+            }
+        }
+    }
+
     @Published var isLoggedIn: Bool {
         didSet {
             UserDefaults.standard.set(isLoggedIn, forKey: "isLoggedIn")
@@ -115,11 +140,27 @@ struct ContentView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Group {
-            if appState.isLoggedIn {
-                MenuView()
-            } else {
-                LoginView()
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("In-app form personalization")
+                    .font(.headline)
+                SecureField("Paste a JWT", text: $appState.pastedJWT)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                Toggle("Enable auth token provider", isOn: $appState.isAuthTokenProviderEnabled)
+                Text(appState.isAuthTokenProviderEnabled ? "Provider enabled." : "Provider disabled.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding()
+
+            Group {
+                if appState.isLoggedIn {
+                    MenuView()
+                } else {
+                    LoginView()
+                }
             }
         }
         .onAppear {
