@@ -22,6 +22,14 @@ let package = Package(
         .library(
             name: "KlaviyoLocation",
             targets: ["KlaviyoLocation"]
+        ),
+        .library(
+            name: "KlaviyoInbox",
+            targets: ["KlaviyoInbox"]
+        ),
+        .library(
+            name: "KlaviyoInboxExtension",
+            targets: ["KlaviyoInboxExtension"]
         )
     ],
     dependencies: [
@@ -130,6 +138,42 @@ let package = Package(
                 "KlaviyoSwift",
                 "KlaviyoCore",
                 "KlaviyoLocation"
+            ]
+        ),
+        .target(
+            name: "KlaviyoInboxCore",
+            path: "Sources/KlaviyoInboxCore"
+        ),
+        .target(
+            name: "KlaviyoInboxTestSupport",
+            dependencies: ["KlaviyoInboxCore"],
+            path: "Tests/KlaviyoInboxTestSupport"
+        ),
+        .testTarget(
+            name: "KlaviyoInboxCoreTests",
+            dependencies: ["KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
+        ),
+        .target(
+            name: "KlaviyoInboxExtension",
+            dependencies: ["KlaviyoInboxCore"],
+            path: "Sources/KlaviyoInboxExtension"
+        ),
+        .testTarget(
+            name: "KlaviyoInboxExtensionTests",
+            dependencies: ["KlaviyoInboxExtension", "KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
+        ),
+        .target(
+            name: "KlaviyoInbox",
+            dependencies: ["KlaviyoCore", "KlaviyoInboxCore"],
+            path: "Sources/KlaviyoInbox"
+        ),
+        .testTarget(
+            name: "KlaviyoInboxTests",
+            dependencies: [
+                "KlaviyoInbox",
+                "KlaviyoCore",
+                "KlaviyoInboxCore",
+                "KlaviyoInboxTestSupport"
             ]
         )
     ]
