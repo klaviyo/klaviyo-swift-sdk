@@ -109,8 +109,20 @@ final class InboxConfigStoreTests {
     }
 
     @Test
-    func unreachableGroupReadsAsNeverRegistered() {
-        #expect(makeStore(group: InboxTemporaryGroup.unreachable).enablement() == .neverRegistered)
+    func unreachableGroupReadsAsUnavailable() {
+        #expect(makeStore(group: InboxTemporaryGroup.unreachable).enablement() == .unavailable)
+    }
+
+    @Test
+    func unreadableFileReadsAsUnavailable() throws {
+        // A directory where the config file should be fails to read with an error other than
+        // "no such file".
+        let store = makeStore()
+        try FileManager.default.createDirectory(
+            at: #require(store.fileURL),
+            withIntermediateDirectories: true
+        )
+        #expect(store.enablement() == .unavailable)
     }
 
     @Test
@@ -130,9 +142,28 @@ final class InboxConfigStoreTests {
         default: group = InboxAppGroup(identifier: { "   " }, containerURL: containerURL)
         }
         let store = makeStore(group: group)
-        #expect(store.enablement() == .neverRegistered)
+        #expect(store.enablement() == .unavailable)
         #expect(throws: InboxConfigError.appGroupUnavailable) { try store.enable(localRetentionLimit: 10) }
         #expect(!FileManager.default.fileExists(atPath: temp.root.path))
+    }
+
+    /// The simulator neither enforces nor reports protection classes (`.protectionKey` reads back nil),
+    /// so the applied class can only be verified on a device. This pins the class that is requested
+    /// and that writing over a directory created with a different class still succeeds.
+    @Test
+    func requestsTheProtectionClassTheExtensionCanReadWhileLocked() throws {
+        #expect(InboxConfigStore.fileProtection == .completeUntilFirstUserAuthentication)
+        #expect(InboxConfigStore.writeOptions.contains(.atomic))
+        #expect(InboxConfigStore.writeOptions.contains(.completeFileProtectionUntilFirstUserAuthentication))
+
+        let store = makeStore()
+        try FileManager.default.createDirectory(
+            at: #require(store.directoryURL),
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
+        try store.enable(localRetentionLimit: 10)
+        #expect(store.enablement() == .enabled(localRetentionLimit: 10))
     }
 
     @Test

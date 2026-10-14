@@ -27,9 +27,15 @@ package struct InboxConfigRecord: Codable, Equatable {
 }
 
 package enum InboxEnablement: Equatable {
+    /// Reachable App Group with no config file: the app has not called `registerForMobileInbox`.
     case neverRegistered
     case enabled(localRetentionLimit: Int)
+    /// The app opted out, or the file is corrupt or from an unsupported version.
     case disabled
+    /// The state could not be determined: the `klaviyo_app_group` Info.plist entry is missing, the
+    /// App Group is unreachable, or the file exists but cannot be read (for example while the device
+    /// is locked). Distinct from `.disabled` so callers can tell a setup problem from an opt-out.
+    case unavailable
 }
 
 package enum InboxConfigError: Error, Equatable {

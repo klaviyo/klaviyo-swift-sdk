@@ -51,9 +51,9 @@ final class KlaviyoInboxExtensionSDKTests {
     }
 
     @Test
-    func unavailableGroupIsTreatedAsNeverRegistered() {
+    func unavailableGroupIsReportedAsUnavailable() {
         for group in InboxTemporaryGroup.unavailable {
-            #expect(lookup(group: group) == .neverRegistered)
+            #expect(lookup(group: group) == .unavailable)
         }
     }
 }

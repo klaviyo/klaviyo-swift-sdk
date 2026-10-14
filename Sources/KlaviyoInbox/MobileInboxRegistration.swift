@@ -32,6 +32,7 @@ final class MobileInboxRegistration {
     }
 
     func unregister() {
+        // `.unavailable` falls through so `disable()` surfaces the real cause in the error log below.
         guard store.enablement() != .neverRegistered else {
             if #available(iOS 14.0, *) {
                 Logger.mobileInbox.warning("unregisterFromMobileInbox called but Mobile Inbox was never registered.")
