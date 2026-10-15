@@ -807,7 +807,7 @@ package actor AuthTokenManager {
         if #available(iOS 14.0, *) {
             let reason = String(describing: error)
             Logger.auth.error(
-                "AuthTokenManager: provider error: \(reason, privacy: .public)"
+                "Auth token provider error: \(reason)"
             )
         }
         if inFlight?.id == fetchID, let urlError = error as? URLError, urlError.isConnectivityError {
