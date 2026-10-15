@@ -97,21 +97,52 @@ struct MenuView: View {
         .sheet(isPresented: $showingPushLog) {
             PushLogView()
         }
-        .sheet(isPresented: $showingAuthSettings) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("Auth token provider")
-                        .font(.headline)
-                        .accessibilityAddTraits(.isHeader)
+        .disabled(showingAuthSettings)
+        .accessibilityHidden(showingAuthSettings)
+        .overlay {
+            ZStack(alignment: .bottom) {
+                if showingAuthSettings {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                        .onTapGesture { showingAuthSettings = false }
+                        .accessibilityHidden(true)
+                        .transition(.opacity)
 
-                    AuthTokenProviderSettings()
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 20) {
+                            HStack {
+                                Text("Auth token provider")
+                                    .font(.headline)
+                                    .accessibilityAddTraits(.isHeader)
+
+                                Spacer()
+
+                                Button {
+                                    showingAuthSettings = false
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .contentShape(Rectangle())
+                                }
+                                .accessibilityLabel("Close auth token provider settings")
+                            }
+
+                            AuthTokenProviderSettings()
+                        }
+                    }
+                    .frame(maxHeight: 220)
+                    .padding()
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
+                    .padding(.horizontal)
+                    .padding(.bottom, 8)
+                    .accessibilityAddTraits(.isModal)
+                    .accessibilityAction(.escape) { showingAuthSettings = false }
+                    .transition(.move(edge: .bottom))
                 }
-                .padding()
-                .padding(.top)
             }
-            .presentationDetents([.height(220), .medium])
-            .presentationDragIndicator(.visible)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         }
+        .animation(.easeInOut, value: showingAuthSettings)
     }
 
     private func loadMenuItems() {

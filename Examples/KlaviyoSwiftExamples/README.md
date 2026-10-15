@@ -34,7 +34,7 @@ All three apps in this repository share the auth token provider toggle below the
 
 For a repeatable manual check, configure a live personalized in-app form to trigger on the **Added to Cart** metric. Enable the provider, paste a fresh JWT for the matching profile, log in as that profile, then tap **Add to Cart** on a menu item. That action emits **Added to Cart** after identification, so you can trigger the form when the JWT is available.
 
-While logged in, tap the zipcode/email footer with the lock icon to open the auth token provider drawer. It contains the same toggle and pasted JWT field as the welcome screen. Paste a fresh token there without logging out; dismissing and reopening the drawer preserves the current value. You can also disable and re-enable the provider from the drawer.
+While logged in, tap the zipcode/email footer with the lock icon to open the auth token provider drawer. The drawer slides over the menu within the same screen; tap its close button or the dimmed background to dismiss it. It contains the same toggle and pasted JWT field as the welcome screen. Paste a fresh token there without logging out; dismissing and reopening the drawer preserves the current value. You can also disable and re-enable the provider from the drawer.
 
 The registered provider reads the current field value each time the SDK requests a token. Editing the field does not register the provider again or invalidate a token the SDK has already cached. Empty or whitespace-only input makes the provider throw an error without including the token in the error.
 
