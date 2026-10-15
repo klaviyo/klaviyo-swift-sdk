@@ -3,7 +3,31 @@ import SwiftUI
 
 // MARK: - AppState
 
+@MainActor
 class AppState: ObservableObject {
+    private enum AuthTokenProviderError: Error {
+        case missingToken
+    }
+
+    @Published var pastedJWT = ""
+    @Published var isAuthTokenProviderEnabled = false
+
+    func setAuthTokenProvider(enabled: Bool) {
+        if enabled {
+            KlaviyoSDK().registerAuthTokenProvider { [weak self] in
+                // Fetch a fresh JWT from your authentication server here.
+                guard let self else { throw AuthTokenProviderError.missingToken }
+                return try await MainActor.run {
+                    let token = self.pastedJWT.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !token.isEmpty else { throw AuthTokenProviderError.missingToken }
+                    return token
+                }
+            }
+        } else {
+            KlaviyoSDK().unregisterAuthTokenProvider()
+        }
+    }
+
     @Published var isLoggedIn: Bool {
         didSet {
             UserDefaults.standard.set(isLoggedIn, forKey: "isLoggedIn")
