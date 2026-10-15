@@ -93,7 +93,9 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
     }
 
     func testScalarAndBulkReplacementsGiveTheSameTokenOutcome() async throws {
-        for applyChange in [{ KlaviyoCommands.setEmail("b@x.com") }, { KlaviyoCommands.enqueueProfile(Profile(email: "b@x.com")) }] {
+        func applyScalarChange() { KlaviyoCommands.setEmail("b@x.com") }
+        func applyBulkChange() { KlaviyoCommands.enqueueProfile(Profile(email: "b@x.com")) }
+        for applyChange in [applyScalarChange, applyBulkChange] {
             let outgoingToken = try await startIdentifiedStore()
 
             applyChange()
