@@ -20,8 +20,8 @@ final class ActionTypeTests: XCTestCase {
     }
 
     func testUnknownOrDifferentlyCasedRawValuesAreNil() {
-        for raw in ["", "OPEN_URL", "openUrl", "open-url", "intent"] {
-            XCTAssertNil(ActionType(rawValue: raw), "\(raw) must not map to an ActionType")
+        for value in ["", "OPEN_URL", "openUrl", "open-url", "intent"] {
+            XCTAssertNil(ActionType(rawValue: value), "\(value) must not map to an ActionType")
         }
     }
 
