@@ -938,9 +938,9 @@ Note that after unregistering, the next call to `registerForInAppForms()` will b
 
 ### Personalized Forms Authentication
 
->  ℹ️ Personalized Forms Authentication is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.
+>  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.
 >
->  ℹ️ Personalized Forms Authentication is available in SDK version `5.5.0` and higher.
+>  ℹ️ Personalization is available in SDK version `5.5.0` and higher.
 
 Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
 
