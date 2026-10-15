@@ -149,7 +149,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
         let source: String
         if enabled {
             source = """
-            localStorage.debug_filter = "*";
+            localStorage.debug = "*";
             """
         } else {
             source = """
