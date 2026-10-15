@@ -56,6 +56,8 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .font(.body)
+
+                            AuthTokenProviderSettings()
                         }
                     }
 
@@ -122,4 +124,28 @@ struct LoginView: View {
 #Preview {
     LoginView()
         .environmentObject(AppState())
+}
+
+struct AuthTokenProviderSettings: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Enable auth token provider", isOn: $appState.isAuthTokenProviderEnabled)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: appState.isAuthTokenProviderEnabled) {
+                    appState.setAuthTokenProvider(enabled: $0)
+                }
+
+            if appState.isAuthTokenProviderEnabled {
+                SecureField("Paste a JWT", text: $appState.pastedJWT)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .font(.body)
+                    .lineLimit(1)
+                    .frame(height: 44)
+            }
+        }
+    }
 }

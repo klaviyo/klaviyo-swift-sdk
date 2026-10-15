@@ -45,8 +45,9 @@
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
-    - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
@@ -934,6 +935,45 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Personalized Forms Authentication
+
+> **Note:** Personalized Forms authentication requires SDK version `5.5.0` or later and must be enabled for your Klaviyo account.
+
+Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
+
+Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
+
+After initializing the SDK, register a provider that fetches a token from your backend:
+
+```swift
+KlaviyoSDK().registerAuthTokenProvider {
+    // Replace with your own call. Apply a timeout to the request.
+    try await authService.fetchKlaviyoJWT()
+}
+```
+
+Register the provider once and keep it registered across profile changes.
+
+On logout, clear the SDK profile:
+
+```swift
+KlaviyoSDK().resetProfile()
+```
+
+A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
+
+#### Provider requirements
+
+The SDK does not time out your provider, so your code must:
+
+- **Return or throw exactly once.** Return the JWT or throw an error for each call to the provider.
+  The SDK calls the provider whenever it needs a fresh token, on a background task.
+- **Report errors by throwing.** The SDK catches errors thrown from the provider, so throw instead of
+  returning an empty or placeholder token.
+- **Bound your own work.** Apply a timeout to every network call. A provider that never returns blocks later token fetches until you register, unregister or reset the profile.
+- **Fail fast.** If you cannot produce a token, for example when no user is signed in, throw instead of waiting or retrying.
+- **Pass on the original network error.** The SDK retries after reconnect when the provider throws a `URLError`, so rethrow the original `URLError` without wrapping it.
 
 ### Monitoring Form Lifecycle Events
 

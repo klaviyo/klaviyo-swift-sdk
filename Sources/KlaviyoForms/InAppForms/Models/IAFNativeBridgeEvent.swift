@@ -22,6 +22,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case lifecycleEvent
     case profileEvent
     case profileMutation
+    case jwtMutation
+    case refreshJwt
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -41,6 +43,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case lifecycleEvent
         case profileEvent
         case profileMutation
+        case jwtMutation
+        case refreshJwt
     }
 
     init(from decoder: Decoder) throws {
@@ -87,6 +91,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .profileEvent
         case .profileMutation:
             self = .profileMutation
+        case .jwtMutation:
+            self = .jwtMutation
+        case .refreshJwt:
+            self = .refreshJwt
         }
     }
 }
@@ -121,7 +129,7 @@ extension IAFNativeBridgeEvent {
 }
 
 extension IAFNativeBridgeEvent {
-    public static var handshake: String {
+    static var handshake: String {
         struct HandshakeData: Codable {
             var type: String
             var version: Int
@@ -159,7 +167,9 @@ extension IAFNativeBridgeEvent {
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
-            .profileMutation
+            .profileMutation,
+            .jwtMutation,
+            .refreshJwt
         ]
     }
 
@@ -177,6 +187,8 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return 1
         case .profileEvent: return 1
         case .profileMutation: return 1
+        case .jwtMutation: return 1
+        case .refreshJwt: return 1
         }
     }
 
@@ -194,6 +206,8 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return "lifecycleEvent"
         case .profileEvent: return "profileEvent"
         case .profileMutation: return "profileMutation"
+        case .jwtMutation: return "jwtMutation"
+        case .refreshJwt: return "refreshJwt"
         }
     }
 }

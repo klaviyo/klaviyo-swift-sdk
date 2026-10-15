@@ -689,9 +689,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     endpoint: .createEvent(
@@ -754,9 +751,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueAggregateEvent(data), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     endpoint: .aggregateEvent(
@@ -940,9 +934,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
             $0.enqueueRequest(request: request)
         }
 
@@ -989,14 +980,8 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = email
             $0.enqueueRequest(request: profileRequest)
-        }
-
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
             $0.enqueueRequest(request: subscriptionRequest)
         }
 
@@ -1026,19 +1011,14 @@ class StateManagementTests: XCTestCase {
             $0.pendingRequests = [.subscription(subscription), .setEmail(email)]
         }
 
+        // FIFO: subscription replays before setEmail, so identifier validation fails.
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        // FIFO: subscription replays before setEmail, so identifier validation fails.
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS)
-        await fulfillment(of: [expectation])
-
-        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = email
             $0.enqueueRequest(request: profileRequest)
         }
+        await fulfillment(of: [expectation])
 
         XCTAssertFalse(
             store.state.queue.contains { request in
