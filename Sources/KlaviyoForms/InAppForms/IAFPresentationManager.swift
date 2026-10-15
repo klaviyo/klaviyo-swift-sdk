@@ -138,7 +138,7 @@ class IAFPresentationManager {
         let viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData, assetSource: assetSource)
         self.viewModel = viewModel
         viewController = KlaviyoWebViewController(viewModel: viewModel)
-        viewController?.modalPresentationStyle = .overCurrentContext
+        viewController?.modalPresentationStyle = .overFullScreen
     }
 
     // MARK: - Form Lifecycle Listener Setup
