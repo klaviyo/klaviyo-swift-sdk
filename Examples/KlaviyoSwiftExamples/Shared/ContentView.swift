@@ -10,22 +10,21 @@ class AppState: ObservableObject {
     }
 
     @Published var pastedJWT = ""
-    @Published var isAuthTokenProviderEnabled = false {
-        didSet {
-            guard isAuthTokenProviderEnabled != oldValue else { return }
-            if isAuthTokenProviderEnabled {
-                KlaviyoSDK().registerAuthTokenProvider { [weak self] in
-                    // Fetch a fresh JWT from your authentication server here.
-                    guard let self else { throw AuthTokenProviderError.missingToken }
-                    return try await MainActor.run {
-                        let token = self.pastedJWT.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !token.isEmpty else { throw AuthTokenProviderError.missingToken }
-                        return token
-                    }
+    @Published var isAuthTokenProviderEnabled = false
+
+    func setAuthTokenProvider(enabled: Bool) {
+        if enabled {
+            KlaviyoSDK().registerAuthTokenProvider { [weak self] in
+                // Fetch a fresh JWT from your authentication server here.
+                guard let self else { throw AuthTokenProviderError.missingToken }
+                return try await MainActor.run {
+                    let token = self.pastedJWT.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !token.isEmpty else { throw AuthTokenProviderError.missingToken }
+                    return token
                 }
-            } else {
-                KlaviyoSDK().unregisterAuthTokenProvider()
             }
+        } else {
+            KlaviyoSDK().unregisterAuthTokenProvider()
         }
     }
 

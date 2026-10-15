@@ -7,6 +7,7 @@ struct MenuView: View {
     @State private var showingMap = false
     @State private var showingCheckout = false
     @State private var showingPushLog = false
+    @State private var showingAuthSettings = false
 
     var body: some View {
         NavigationStack {
@@ -51,17 +52,29 @@ struct MenuView: View {
 
                     Spacer()
 
-                    VStack(alignment: .center) {
-                        Text("Zipcode: \(appState.userZipcode)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    Button {
+                        showingAuthSettings = true
+                    } label: {
+                        HStack {
+                            Image(systemName: appState.isAuthTokenProviderEnabled ? "lock.fill" : "lock.open")
 
-                        Text("Email: \(appState.userEmail)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                            VStack(alignment: .center) {
+                                Text("Zipcode: \(appState.userZipcode)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+
+                                Text("Email: \(appState.userEmail)")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .frame(minHeight: 44)
+                        .fixedSize(horizontal: true, vertical: false)
                     }
-                    .padding(.horizontal)
-                    .fixedSize(horizontal: true, vertical: false)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Zipcode: \(appState.userZipcode), Email: \(appState.userEmail)")
+                    .accessibilityHint("Opens auth token provider settings to edit the JWT.")
 
                     Spacer()
 
@@ -83,6 +96,21 @@ struct MenuView: View {
         }
         .sheet(isPresented: $showingPushLog) {
             PushLogView()
+        }
+        .sheet(isPresented: $showingAuthSettings) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Auth token provider")
+                        .font(.headline)
+                        .accessibilityAddTraits(.isHeader)
+
+                    AuthTokenProviderSettings()
+                }
+                .padding()
+                .padding(.top)
+            }
+            .presentationDetents([.height(220), .medium])
+            .presentationDragIndicator(.visible)
         }
     }
 
