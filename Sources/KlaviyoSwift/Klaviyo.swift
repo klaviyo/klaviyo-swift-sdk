@@ -11,6 +11,7 @@ import Foundation
 import KlaviyoAutomaticPushBootstrap
 #endif
 import KlaviyoCore
+import KlaviyoFoundation
 import OSLog
 import UIKit
 

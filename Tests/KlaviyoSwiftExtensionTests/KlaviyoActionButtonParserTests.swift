@@ -7,6 +7,7 @@
 
 @testable import KlaviyoSwiftExtension
 import Foundation
+import KlaviyoFoundation
 import XCTest
 
 class KlaviyoActionButtonParserTests: XCTestCase {

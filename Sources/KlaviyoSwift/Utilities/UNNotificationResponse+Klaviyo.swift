@@ -11,6 +11,7 @@
 
 import Foundation
 import KlaviyoCore
+import KlaviyoFoundation
 import OSLog
 import UserNotifications
 

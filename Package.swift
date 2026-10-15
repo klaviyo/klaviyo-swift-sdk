@@ -78,6 +78,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AnyCodable", package: "AnyCodable"),
                 "KlaviyoCore",
+                "KlaviyoFoundation",
                 "KlaviyoAutomaticPushBootstrap"
             ],
             path: "Sources/KlaviyoSwift",
@@ -100,7 +101,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoForms",
-            dependencies: ["KlaviyoCore"],
+            dependencies: ["KlaviyoCore", "KlaviyoFoundation"],
             path: "Sources/KlaviyoForms",
             resources: [
                 .process("InAppForms/Assets"),
@@ -122,15 +123,14 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwiftExtension",
-            dependencies: [],
+            dependencies: ["KlaviyoFoundation"],
             path: "Sources/KlaviyoSwiftExtension"
         ),
         .testTarget(
             name: "KlaviyoSwiftExtensionTests",
             dependencies: [
                 "KlaviyoSwiftExtension",
-                // Test-only: lets the allowlist parity test compare against the KlaviyoCore copy.
-                "KlaviyoCore"
+                "KlaviyoFoundation"
             ]
         ),
         .target(
