@@ -32,6 +32,8 @@ This [example](SPMExample/SPMExampleAutomatic) mirrors the SPM Example but opts 
 
 All three apps share the auth token provider toggle below the email input on the welcome screen. Enable it to reveal the pasted JWT field. Configure your public API key, paste a JWT for the profile you will log in as, and use the existing login controls to identify that profile. When switching profiles, paste that profile's freshly issued JWT before changing the identified profile; the SDK may invoke the provider immediately. Logout resets the SDK profile; the provider stays registered until you turn it off. The token and toggle are kept only in memory and reset when the app restarts.
 
+For a repeatable manual check, configure a live personalized in-app form to trigger on the **Added to Cart** metric. Enable the provider, paste a fresh JWT for the matching profile, log in as that profile, then tap **Add to Cart** on a menu item. That action emits **Added to Cart** after identification, so you can trigger the form when the JWT is available.
+
 The registered provider reads the current field value each time the SDK requests a token. Editing the field does not register the provider again or invalidate a token the SDK has already cached. Empty or whitespace-only input makes the provider throw an error without including the token in the error.
 
 A pasted static JWT demonstrates initial personalization. To exercise refresh, replace the field value with a freshly issued JWT before the next provider call. For a real integration, replace the example closure with a request to your authentication server that returns a fresh JWT on every invocation; the source marks that spot with `Fetch a fresh JWT from your authentication server here.`
