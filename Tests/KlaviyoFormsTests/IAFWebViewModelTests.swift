@@ -11,8 +11,8 @@ import KlaviyoCore
 import WebKit
 import XCTest
 
-// Test-specific subclass that overrides navigation policy to allow all navigation
-// This is required to get these unit tests to pass
+/// Test-specific subclass that overrides navigation policy to allow all navigation
+/// This is required to get these unit tests to pass
 private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     override func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         .allow
@@ -67,7 +67,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - SDK Attribute Tests
 
     @MainActor
-    func testInjectSdkNameAttribute() async throws {
+    func testInjectSdkNameAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkNameScript = viewModel.findScript(containing: ["data-sdk-name", "swift"])
@@ -77,7 +77,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectSdkVersionAttribute() async throws {
+    func testInjectSdkVersionAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let sdkVersionScript = viewModel.findScript(containing: ["data-sdk-version", "0.0.1"])
@@ -89,7 +89,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Environment Tests
 
     @MainActor
-    func testInjectFormsDataEnvironmentAttribute() async throws {
+    func testInjectFormsDataEnvironmentAttribute() {
         // When
         viewModel.initializeLoadScripts()
         let environmentScript = viewModel.findScript(containing: "data-forms-data-environment")
@@ -119,7 +119,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Handshake Tests
 
     @MainActor
-    func testInjectHandshakeAttribute() async throws {
+    func testInjectHandshakeAttribute() throws {
         // When
         viewModel.initializeLoadScripts()
         let handshakeScript = viewModel.findScript(containing: "data-native-bridge-handshake")
@@ -144,7 +144,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -154,10 +154,38 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(actualHandshakeData, expectedHandshakeData)
     }
 
+    // MARK: - Auth Token Tests
+
+    @MainActor
+    func testInjectAuthTokenAttribute() async throws {
+        // Given
+        let dummyToken = "header.payload.signature"
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
+        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil, authToken: dummyToken)
+
+        // When
+        viewModel.initializeLoadScripts()
+        let authTokenScript = viewModel.findScript(containing: ["data-klaviyo-jwt", dummyToken])
+
+        // Then
+        XCTAssertNotNil(authTokenScript, "Auth token script should be injected when authToken is provided")
+    }
+
+    @MainActor
+    func testAuthTokenScriptNotInjectedWhenTokenIsNil() {
+        // When (default viewModel from setUp has authToken: nil)
+        viewModel.initializeLoadScripts()
+        let authTokenScript = viewModel.findScript(containing: "data-klaviyo-jwt")
+
+        // Then
+        XCTAssertNil(authTokenScript, "Auth token script should not be injected when authToken is nil")
+    }
+
     // MARK: - Klaviyo JS Tests
 
     @MainActor
-    func testInjectKlaviyoJsScript() async throws {
+    func testInjectKlaviyoJsScript() {
         // When
         viewModel.initializeLoadScripts()
         let klaviyoJsScript = viewModel.findScript(containing: ["klaviyoJS", "static.klaviyo.com/onsite/js/klaviyo.js"])
@@ -265,7 +293,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testAbortEventYieldsAbortLifecycleEvent() async throws {
+    func testAbortEventYieldsAbortLifecycleEvent() async {
         // Given
         let abortReason = "test abort reason"
 
@@ -430,6 +458,41 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
         XCTAssertEqual(event.properties["foo"] as? String, "bar")
     }
+
+    // MARK: - Token Refresh Tests
+
+    @MainActor
+    func testPushAuthTokenUpdatesWebView() async throws {
+        // Given — a view model with a wired-up delegate
+        let (viewModel, delegate, manager) = try await makeTokenViewModel()
+
+        // When — a refreshed token is pushed (driven by the presentation
+        // manager's refresh subscription in production)
+        let refreshed = try await cacheTestToken(subject: "refreshed", in: manager)
+        await viewModel.pushAuthToken(refreshed.token, generation: refreshed.generation)
+
+        // Then — it is applied as a data-klaviyo-jwt update carrying the token
+        let script = try XCTUnwrap(delegate.authTokenScripts.first)
+        XCTAssertTrue(script.contains(refreshed.token), "Pushed token should update data-klaviyo-jwt with the new value")
+    }
+
+    @MainActor
+    func testPushAuthTokenAppliesUpdatesInOrder() async throws {
+        // Given
+        let (viewModel, delegate, manager) = try await makeTokenViewModel()
+
+        // When — two tokens are pushed sequentially
+        let first = try await cacheTestToken(subject: "first", in: manager)
+        await viewModel.pushAuthToken(first.token, generation: first.generation)
+        let second = try await cacheTestToken(subject: "second", in: manager)
+        await viewModel.pushAuthToken(second.token, generation: second.generation)
+
+        // Then — both are applied, in order
+        let scripts = delegate.authTokenScripts
+        XCTAssertEqual(scripts.count, 2)
+        XCTAssertTrue(scripts[0].contains(first.token))
+        XCTAssertTrue(scripts[1].contains(second.token))
+    }
 }
 
 extension IAFWebViewModel {
@@ -447,5 +510,29 @@ extension IAFWebViewModel {
                 script.source.contains(text)
             }
         }
+    }
+}
+
+// MARK: - Token refresh test helpers
+
+extension IAFWebViewModelTests {
+    /// Builds a view model with a wired-up mock delegate and its own token manager, so
+    /// `pushAuthToken` tests can observe the resulting `evaluateJavaScript` calls.
+    @MainActor
+    private func makeTokenViewModel() async throws -> (IAFWebViewModel, MockIAFWebViewDelegate, AuthTokenManager) {
+        let profile = ProfileData(email: "token@example.com", anonymousId: "anon-token")
+        IdentityStore.shared.update(profile)
+        let manager = makeUnboundedAuthTokenManager()
+        addTeardownBlock { await manager.unregisterProvider() }
+        let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
+        let viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: "abc123",
+            profileData: profile,
+            authTokenManager: manager
+        )
+        let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = delegate
+        return (viewModel, delegate, manager)
     }
 }
