@@ -9,6 +9,15 @@ import OSLog
 import UIKit
 
 public class DeepLinkHandler {
+    private let openSystemURL: @MainActor (URL) async -> Bool
+
+    /// The system opener is injectable so routing can be verified without launching another app.
+    package init(
+        openSystemURL: @escaping @MainActor (URL) async -> Bool = { await UIApplication.shared.open($0) }
+    ) {
+        self.openSystemURL = openSystemURL
+    }
+
     // MARK: - Custom Deep Link Handler
 
     private var customDeepLinkHandler: (@MainActor (URL) -> Void)?
@@ -58,7 +67,7 @@ public class DeepLinkHandler {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Opening external URL: '\(url.absoluteString, privacy: .private)' (bypassing custom deep link handler)")
         }
-        await Self.openWithUIApplicationAPI(url)
+        await openWithUIApplicationAPI(url)
     }
 
     /// Attempts to route a Universal Link using the host application's Scene Delegate or App Delegate link handlers
@@ -78,15 +87,15 @@ public class DeepLinkHandler {
             }
 
             if ["http", "https"].contains(url.scheme?.lowercased()) {
-                await Self.openWithFallbackHandler(url: url)
+                await openWithFallbackHandler(url: url)
             } else {
-                await Self.openWithUIApplicationAPI(url)
+                await openWithUIApplicationAPI(url)
             }
         }
     }
 
     @MainActor
-    private static func openWithFallbackHandler(url: URL) async {
+    private func openWithFallbackHandler(url: URL) async {
         if !KlaviyoEnvironment.isWrapperSDK {
             if #available(iOS 14.0, *) {
                 Logger.navigation.warning("""
@@ -99,10 +108,14 @@ public class DeepLinkHandler {
         }
 
         // First try to route with the App Delegate
-        if await routeWithAppDelegate(url: url) { return }
+        if await Self.routeWithAppDelegate(url: url) {
+            return
+        }
 
         // If that fails, try to route with the Scene Delegate
-        if await routeWithSceneSessionActivation(url: url) { return }
+        if await Self.routeWithSceneSessionActivation(url: url) {
+            return
+        }
 
         // If that fails, fall back to opening with `UIApplication.shared.open(_:)`
         await openWithUIApplicationAPI(url)
@@ -200,12 +213,12 @@ public class DeepLinkHandler {
     /// Fallback that attempts to open the URL using ``UIApplication.shared.open(_:)``.
     @MainActor
     @discardableResult
-    private static func openWithUIApplicationAPI(_ url: URL) async -> Bool {
+    private func openWithUIApplicationAPI(_ url: URL) async -> Bool {
         if #available(iOS 14.0, *) {
             Logger.navigation.info("Attempting to handle link via UIApplication API.")
         }
 
-        if await UIApplication.shared.open(url) {
+        if await openSystemURL(url) {
             if #available(iOS 14.0, *) {
                 Logger.navigation.info("Successfully opened link via UIApplication API.")
             }

@@ -71,4 +71,9 @@ extension Logger {
     static var notifications: Logger {
         KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Notifications") : Logger(OSLog.disabled)
     }
+
+    /// Logger for authentication token parsing and validation
+    static var auth: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Auth") : Logger(OSLog.disabled)
+    }
 }

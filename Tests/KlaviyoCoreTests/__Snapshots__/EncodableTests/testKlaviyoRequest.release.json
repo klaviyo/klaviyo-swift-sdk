@@ -13,12 +13,12 @@
               "app_version" : "1.2.3",
               "device_id" : "fe-fi-fo-fum",
               "device_model" : "jPhone 1,1",
-              "environment" : "debug",
+              "environment" : "release",
               "klaviyo_sdk" : "swift",
               "manufacturer" : "Orange",
               "os_name" : "iOS",
               "os_version" : "1.1.1",
-              "sdk_version" : "5.4.2"
+              "sdk_version" : "5.5.0"
             },
             "enablement_status" : "AUTHORIZED",
             "platform" : "ios",
