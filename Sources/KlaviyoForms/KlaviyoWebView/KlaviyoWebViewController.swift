@@ -29,10 +29,13 @@ private func createDefaultWebView() -> WKWebView {
     webView.isOpaque = false
     webView.scrollView.contentInsetAdjustmentBehavior = .never
 
+    // The iOS 26 SDK (Xcode 26 / Swift 6.2) is required to reference `topEdgeEffect`
+    #if compiler(>=6.2)
     if #available(iOS 26.0, *) {
         // Prevent the system scroll edge effect from blurring the top of the form
         webView.scrollView.topEdgeEffect.isHidden = true
     }
+    #endif
 
     #if DEBUG
     if #available(iOS 16.4, *) {
