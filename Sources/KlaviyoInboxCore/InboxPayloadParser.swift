@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoFoundation
 
 /// Normalizes a delivered Klaviyo push `userInfo` into an `InboxRecord`. Pure and total: it never
 /// throws, and anything it cannot read becomes `nil` or is skipped.
@@ -120,7 +121,7 @@ package enum InboxPayloadParser {
             return .deepLink(url)
         }
         if let string = InboxPayload.string(payload[Key.webURL]), !string.isEmpty,
-           let url = URL(string: string), InboxURLSchemeAllowlist.isAllowed(url) {
+           let url = URL(string: string), url.hasAllowedOpenUrlScheme {
             return .openUrl(url)
         }
         return .openApp
@@ -153,14 +154,14 @@ package enum InboxPayloadParser {
 
     /// `nil` drops the button. Unknown action types are kept: they carry no URL semantics to validate.
     private static func destination(action: String, url: String?) -> InboxDestination? {
-        guard let type = InboxActionType(rawValue: action) else { return .unknown(action) }
+        guard let type = ActionType(rawValue: action) else { return .unknown(action) }
         switch type {
         case .openApp:
             return url == nil ? .openApp : nil
         case .deepLink:
             return url.flatMap { URL(string: $0) }.map(InboxDestination.deepLink)
         case .openUrl:
-            guard let url = url.flatMap({ URL(string: $0) }), InboxURLSchemeAllowlist.isAllowed(url) else {
+            guard let url = url.flatMap({ URL(string: $0) }), url.hasAllowedOpenUrlScheme else {
                 return nil
             }
             return .openUrl(url)

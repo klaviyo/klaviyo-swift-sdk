@@ -63,7 +63,8 @@ final class KlaviyoInboxExtensionSDKTests {
         try InboxConfigStore(group: temp.group).enable(localRetentionLimit: 100)
     }
 
-    func testCaptureHandsAnEnabledPushToTheSink() async throws {
+    @Test
+    func captureHandsAnEnabledPushToTheSink() async throws {
         try enable()
         let sink = RecordingInboxCaptureSink()
         let capture = InboxCapture(group: temp.group, sink: sink)
@@ -71,22 +72,24 @@ final class KlaviyoInboxExtensionSDKTests {
             userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full),
             using: capture
         )
-        XCTAssertEqual(result, .captured)
-        XCTAssertEqual(sink.records.count, 1)
+        #expect(result == .captured)
+        #expect(sink.records.count == 1)
     }
 
-    func testCaptureBeforeRegistrationDoesNothing() async {
+    @Test
+    func captureBeforeRegistrationDoesNothing() async {
         let sink = RecordingInboxCaptureSink()
         let capture = InboxCapture(group: temp.group, sink: sink)
         let result = await KlaviyoInboxExtensionSDK.capture(
             userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full),
             using: capture
         )
-        XCTAssertEqual(result, .skipped)
-        XCTAssertTrue(sink.records.isEmpty)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
     }
 
-    func testPublicCaptureNeverCrashesWithoutAnAppGroup() async {
+    @Test
+    func publicCaptureNeverCrashesWithoutAnAppGroup() async {
         // The test host has no `klaviyo_app_group` entry, so this must skip quietly.
         await KlaviyoInboxExtensionSDK.capture(
             userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full)

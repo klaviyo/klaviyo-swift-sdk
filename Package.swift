@@ -150,6 +150,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoInboxCore",
+            dependencies: ["KlaviyoFoundation"],
             path: "Sources/KlaviyoInboxCore"
         ),
         .target(
@@ -159,12 +160,7 @@ let package = Package(
         ),
         .testTarget(
             name: "KlaviyoInboxCoreTests",
-            dependencies: [
-                "KlaviyoInboxCore",
-                "KlaviyoInboxTestSupport",
-                // Test-only: lets the parity tests compare against the KlaviyoCore copies.
-                "KlaviyoCore"
-            ]
+            dependencies: ["KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
         ),
         .target(
             name: "KlaviyoInboxExtension",
@@ -173,7 +169,12 @@ let package = Package(
         ),
         .testTarget(
             name: "KlaviyoInboxExtensionTests",
-            dependencies: ["KlaviyoInboxExtension", "KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
+            dependencies: [
+                "KlaviyoInboxExtension",
+                "KlaviyoInboxCore",
+                "KlaviyoInboxTestSupport",
+                "KlaviyoFoundation"
+            ]
         ),
         .target(
             name: "KlaviyoInbox",

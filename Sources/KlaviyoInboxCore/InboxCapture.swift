@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 package enum InboxCaptureResult: Equatable {
     case captured
@@ -51,14 +52,16 @@ package struct InboxCapture {
     package func capture(userInfo: [AnyHashable: Any]) async -> InboxCaptureResult {
         guard case .enabled = store.enablement() else { return .skipped }
         guard let record = InboxPayloadParser.parse(userInfo: userInfo, receivedAt: now()) else {
-            if InboxPayloadParser.hasKlaviyoMetadata(userInfo) {
-                InboxLog.warning("Klaviyo push has no usable _k.tm; not captured to Mobile Inbox.")
+            if InboxPayloadParser.hasKlaviyoMetadata(userInfo), #available(iOS 14.0, *) {
+                Logger.mobileInboxCapture.warning("Klaviyo push has no usable _k.tm; not captured to Mobile Inbox.")
             }
             return .skipped
         }
         let result = await sink.capture(record)
-        if result == .failed {
-            InboxLog.error("Mobile Inbox could not store a captured push; the notification is unaffected.")
+        if result == .failed, #available(iOS 14.0, *) {
+            Logger.mobileInboxCapture.error(
+                "Mobile Inbox could not store a captured push; the notification is unaffected."
+            )
         }
         return result
     }

@@ -13,18 +13,15 @@ import XCTest
 final class InboxCaptureTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private var temp: InboxTemporaryGroup!
-    private var logs: InboxLogRecorder!
 
     override func setUp() {
         super.setUp()
         temp = InboxTemporaryGroup()
-        logs = InboxLogRecorder()
     }
 
     override func tearDown() {
         temp.remove()
         temp = nil
-        logs = nil
         super.tearDown()
     }
 
@@ -80,35 +77,24 @@ final class InboxCaptureTests: XCTestCase {
         let result = await makeCapture(sink: sink).capture(userInfo: ["aps": ["alert": "hi"]])
         XCTAssertEqual(result, .skipped)
         XCTAssertTrue(sink.records.isEmpty)
-        XCTAssertTrue(logs.warnings.isEmpty)
-        XCTAssertTrue(logs.errors.isEmpty)
     }
 
-    func testKlaviyoPushWithoutTransmissionIDIsSkippedWithAWarning() async throws {
+    func testKlaviyoPushWithoutTransmissionIDIsSkipped() async throws {
         try register()
         let sink = RecordingInboxCaptureSink()
         let userInfo = InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"$flow": "F1"}}}"#)
         let result = await makeCapture(sink: sink).capture(userInfo: userInfo)
         XCTAssertEqual(result, .skipped)
         XCTAssertTrue(sink.records.isEmpty)
-        XCTAssertEqual(logs.warnings.count, 1)
     }
 
     func testSinkResultsPassThrough() async throws {
         try register()
-        for expected in [InboxCaptureResult.duplicate, .skipped, .captured] {
+        for expected in [InboxCaptureResult.duplicate, .skipped, .captured, .failed] {
             let sink = RecordingInboxCaptureSink(result: expected)
             let result = await makeCapture(sink: sink).capture(userInfo: klaviyoPush)
             XCTAssertEqual(result, expected)
         }
-    }
-
-    func testSinkFailureIsLoggedAndReturned() async throws {
-        try register()
-        let sink = RecordingInboxCaptureSink(result: .failed)
-        let result = await makeCapture(sink: sink).capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .failed)
-        XCTAssertEqual(logs.errors.count, 1)
     }
 
     func testCapturingTheSamePushTwiceHandsTheSinkTwoRecordsForItToDeduplicate() async throws {
