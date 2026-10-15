@@ -42,8 +42,9 @@ jobs:
       - name: Validate podspecs
         run: |
           echo "Validating all podspecs in dependency order..."
+          pod lib lint KlaviyoFoundation.podspec --allow-warnings
           pod lib lint KlaviyoCore.podspec --allow-warnings
-          pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings
+          pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoSwift.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoForms.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoLocation.podspec --allow-warnings --include-podspecs='*.podspec'
@@ -107,6 +108,9 @@ jobs:
           }
 
           # Publish in dependency order with polling for CDN propagation
+          publish_pod KlaviyoFoundation.podspec KlaviyoFoundation
+          wait_for_pod_availability "KlaviyoFoundation" "$VERSION"
+
           publish_pod KlaviyoCore.podspec KlaviyoCore
           wait_for_pod_availability "KlaviyoCore" "$VERSION"
 
