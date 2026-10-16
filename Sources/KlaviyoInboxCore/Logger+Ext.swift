@@ -22,4 +22,6 @@ extension Logger {
 extension Logger {
     /// Logger for the Mobile Inbox configuration shared between the app and the Notification Service Extension.
     static let mobileInboxConfig = Logger(category: "Mobile Inbox Config")
+    /// Logger for capturing delivered pushes in the Notification Service Extension.
+    static let mobileInboxCapture = Logger(category: "Mobile Inbox Capture")
 }

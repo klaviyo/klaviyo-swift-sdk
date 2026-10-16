@@ -56,5 +56,44 @@ final class KlaviyoInboxExtensionSDKTests {
             #expect(lookup(group: group) == .unavailable)
         }
     }
+
+    // MARK: Capture
+
+    private func enable() throws {
+        try InboxConfigStore(group: temp.group).enable(localRetentionLimit: 100)
+    }
+
+    @Test
+    func captureHandsAnEnabledPushToTheSink() async throws {
+        try enable()
+        let sink = RecordingInboxCaptureSink()
+        let capture = InboxCapture(group: temp.group, sink: sink)
+        let result = await KlaviyoInboxExtensionSDK.capture(
+            userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full),
+            using: capture
+        )
+        #expect(result == .captured)
+        #expect(sink.records.count == 1)
+    }
+
+    @Test
+    func captureBeforeRegistrationDoesNothing() async {
+        let sink = RecordingInboxCaptureSink()
+        let capture = InboxCapture(group: temp.group, sink: sink)
+        let result = await KlaviyoInboxExtensionSDK.capture(
+            userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full),
+            using: capture
+        )
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
+    }
+
+    @Test
+    func publicCaptureNeverCrashesWithoutAnAppGroup() async {
+        // The test host has no `klaviyo_app_group` entry, so this must skip quietly.
+        await KlaviyoInboxExtensionSDK.capture(
+            userInfo: InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full)
+        )
+    }
 }
 #endif
