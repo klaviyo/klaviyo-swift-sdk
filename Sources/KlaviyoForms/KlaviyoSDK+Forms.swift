@@ -58,11 +58,33 @@ extension KlaviyoSDKModule {
     @MainActor
     @discardableResult
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
+        FormsPreviewTokenStore.shared.apply(configuration)
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
             }
         }
+        return self
+    }
+
+    /// Sets a forms preview token to load draft forms instead of your published forms, or clears
+    /// it to return to published forms without restarting the app.
+    ///
+    /// A preview token is a short-lived credential generated from the Klaviyo form editor for
+    /// on-device testing of draft forms. It is not for production use: never ship a preview
+    /// token in a release build. The token is held in memory only, is never persisted or logged,
+    /// and is cleared automatically when the preview ends or expires. A malformed token is
+    /// ignored with a warning and clears any previous token.
+    ///
+    /// May be called before or after ``registerForInAppForms(configuration:)``. If forms are
+    /// already loaded, the new token takes effect immediately.
+    ///
+    /// - Parameter token: The preview token, or `nil` (or an empty string) to clear it.
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func setFormsPreviewToken(_ token: String?) -> Self {
+        FormsPreviewTokenStore.shared.setToken(token)
         return self
     }
 
@@ -143,6 +165,7 @@ extension KlaviyoSDKModule {
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig(), assetSource: String) {
+        FormsPreviewTokenStore.shared.apply(configuration)
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(
