@@ -23,10 +23,11 @@ final class FormsPreviewTokenStore {
 
     init() {}
 
-    /// Returns `token` when it is a well-formed preview token, and `nil` when it is `nil`,
-    /// empty or whitespace. A malformed token returns `nil` with a warning that omits its value.
+    /// Returns `token` without surrounding whitespace when it is a well-formed preview token,
+    /// and `nil` when it is `nil`, empty or whitespace. A malformed token returns `nil` with a
+    /// warning that omits its value.
     static func validate(_ token: String?) -> String? {
-        guard let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard let token = token?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else {
             return nil
         }
         guard token.range(of: tokenPattern, options: .regularExpression) != nil else {
