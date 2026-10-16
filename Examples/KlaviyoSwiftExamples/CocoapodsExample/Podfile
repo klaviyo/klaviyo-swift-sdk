@@ -1,8 +1,11 @@
+source 'https://github.com/klaviyo/klaviyo-ios-podspecs.git'
+source 'https://cdn.cocoapods.org/'
+
 platform :ios, '13.0'
 use_frameworks!
 
 target 'CocoapodsExample' do
-  pod 'KlaviyoSwift', '5.5.0'
+  pod 'KlaviyoSwift', '5.5.0', :source => 'https://github.com/klaviyo/klaviyo-ios-podspecs.git'
   pod 'KlaviyoForms', '5.5.0'
   pod 'KlaviyoLocation', '5.5.0'
 end
