@@ -36,7 +36,7 @@ final class KlaviyoNotificationCenterDelegateSwizzler: NSObject, @unchecked Send
             return nil
         }
 
-        #if DEBUG
+        #if DEBUG || KLAVIYO_TESTING
         func reset(setterSelector: Selector, installedIMP: IMP) {
             lock.lock()
             let installedHooks = Array(installations.values)
@@ -80,7 +80,7 @@ final class KlaviyoNotificationCenterDelegateSwizzler: NSObject, @unchecked Send
         method_setImplementation(setterMethod, donorIMP)
     }
 
-    #if DEBUG
+    #if DEBUG || KLAVIYO_TESTING
     static func _performInstallForTesting(on hostClass: AnyClass) {
         performInstall(on: hostClass)
     }
