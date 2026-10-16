@@ -27,9 +27,10 @@ final class FormsPreviewTokenStoreTests: XCTestCase {
     }
 
     func testSurroundingWhitespaceIsTrimmed() {
-        for padded in [validPreviewToken + "\n", "  " + validPreviewToken + " ", "\t" + validPreviewToken] {
+        let padded: [String] = ["\(validPreviewToken)\n", "  \(validPreviewToken) ", "\t\(validPreviewToken)"]
+        for token in padded {
             store.clear()
-            store.setToken(padded)
+            store.setToken(token)
             XCTAssertEqual(store.token, validPreviewToken)
         }
     }
@@ -43,12 +44,15 @@ final class FormsPreviewTokenStoreTests: XCTestCase {
     }
 
     func testMalformedTokensAreDroppedAndClearThePreviousToken() {
-        let malformed = [
-            String(validPreviewToken.dropLast()),
+        let shortToken = String(validPreviewToken.dropLast())
+        let head = String(validPreviewToken.prefix(20))
+        let tail = String(validPreviewToken.dropFirst(21))
+        let malformed: [String] = [
+            shortToken,
             validPreviewToken + "a",
-            String(validPreviewToken.dropLast()) + "=",
+            shortToken + "=",
             String(validPreviewToken.dropLast(2)) + "'>",
-            String(validPreviewToken.prefix(20)) + " " + validPreviewToken.dropFirst(21)
+            head + " " + tail
         ]
         for token in malformed {
             store.setToken(otherPreviewToken)
