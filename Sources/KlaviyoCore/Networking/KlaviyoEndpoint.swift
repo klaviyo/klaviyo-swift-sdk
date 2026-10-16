@@ -153,11 +153,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     }
 
     var revision: String {
-        if case .fetchGeofences = self {
-            return "2026-01-15.pre"
-        } else {
-            return "2026-01-15"
-        }
+        "2026-07-15"
     }
 
     func body() throws -> Data? {

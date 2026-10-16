@@ -55,7 +55,7 @@
   }
 
   function unlinkConsole() {
-    ["log", "warn", "error"].forEach(function (method) {
+    ["log", "info", "debug", "warn", "error"].forEach(function (method) {
       var bckKey = "_" + method
       console[method] = console[bckKey];
       delete console[bckKey]
@@ -66,7 +66,7 @@
    * Send all console output to native layer
    */
   if (!!window.WebViewBridge.opts.linkConsole) {
-    ["log", "warn", "error"].forEach(function (method) {
+    ["log", "info", "debug", "warn", "error"].forEach(function (method) {
       var _method = console[method];
       var bckKey = "_" + method
       console[bckKey] = _method

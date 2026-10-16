@@ -23,17 +23,19 @@ extension Logger {
 extension Logger {
     /// Logger for ``Codable`` events (JSON encoding & decoding)
     static var codableLogger: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Encoding/Decoding Logger") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled
+            ? Logger(category: "Encoding/Decoding")
+            : Logger(OSLog.disabled)
     }
 
     /// Logger for state events that run through the reducer
     static var stateLogger: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "State logger") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "State") : Logger(OSLog.disabled)
     }
 
     /// Logger for notification events.
     static var notifications: Logger {
-        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Notifications logger") : Logger(OSLog.disabled)
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Notifications") : Logger(OSLog.disabled)
     }
 
     /// Logger for app navigation and deep linking events

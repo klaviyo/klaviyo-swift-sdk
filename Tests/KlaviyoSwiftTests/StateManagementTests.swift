@@ -643,6 +643,35 @@ class StateManagementTests: XCTestCase {
     }
 
     @MainActor
+    func testEnqueueEventCarriesValueAndCurrencyIntoPayload() async throws {
+        let initialState = INITIALIZED_TEST_STATE()
+        let store = TestStore(initialState: initialState, reducer: KlaviyoReducer())
+
+        let event = Event(name: .customEvent("Placed Order"), value: 9.99, valueCurrency: "CAD")
+        await store.send(.enqueueEvent(event)) {
+            try $0.enqueueRequest(
+                request: KlaviyoRequest(
+                    endpoint: .createEvent(
+                        XCTUnwrap($0.apiKey),
+                        CreateEventPayload(
+                            data: CreateEventPayload.Event(
+                                name: event.metric.name.value,
+                                properties: event.properties,
+                                anonymousId: initialState.anonymousId!,
+                                value: 9.99,
+                                valueCurrency: "CAD",
+                                time: event.time,
+                                uniqueId: event.uniqueId,
+                                pushToken: initialState.pushTokenData!.pushToken
+                            )
+                        )
+                    )
+                )
+            )
+        }
+    }
+
+    @MainActor
     func testEnqueueEventWhenInitilizingSendsEvent() async throws {
         let setBadgeExpectation = expectation(description: "BadgeManager.setBadgeCount(0) called on start")
         BadgeManager.setBadgeCountSpy = { count in
@@ -660,9 +689,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueEvent(event), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     endpoint: .createEvent(
@@ -725,9 +751,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueAggregateEvent(data), timeout: TIMEOUT_NANOSECONDS) {
             try $0.enqueueRequest(
                 request: KlaviyoRequest(
                     endpoint: .aggregateEvent(
@@ -911,9 +934,6 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
             $0.enqueueRequest(request: request)
         }
 
@@ -960,14 +980,8 @@ class StateManagementTests: XCTestCase {
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = email
             $0.enqueueRequest(request: profileRequest)
-        }
-
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS) {
             $0.enqueueRequest(request: subscriptionRequest)
         }
 
@@ -997,19 +1011,14 @@ class StateManagementTests: XCTestCase {
             $0.pendingRequests = [.subscription(subscription), .setEmail(email)]
         }
 
+        // FIFO: subscription replays before setEmail, so identifier validation fails.
         await store.send(.completeInitialization(initialState)) {
             $0.pendingRequests = []
             $0.initalizationState = .initialized
-        }
-
-        // FIFO: subscription replays before setEmail, so identifier validation fails.
-        await store.receive(.enqueueSubscription(subscription), timeout: TIMEOUT_NANOSECONDS)
-        await fulfillment(of: [expectation])
-
-        await store.receive(.setEmail(email), timeout: TIMEOUT_NANOSECONDS) {
             $0.email = email
             $0.enqueueRequest(request: profileRequest)
         }
+        await fulfillment(of: [expectation])
 
         XCTAssertFalse(
             store.state.queue.contains { request in
