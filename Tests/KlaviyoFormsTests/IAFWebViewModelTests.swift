@@ -19,10 +19,12 @@ private class TestKlaviyoWebViewController: KlaviyoWebViewController {
     }
 }
 
-// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
+/// Captures inbound commands dispatched through the Core `EventDispatcher` lane.
 private final class SpyDispatcher: EventDispatching {
     private(set) var received: [InboundCommand] = []
-    func dispatch(_ command: InboundCommand) { received.append(command) }
+    func dispatch(_ command: InboundCommand) {
+        received.append(command)
+    }
 }
 
 final class IAFWebViewModelTests: XCTestCase {
@@ -99,7 +101,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testInjectFormsDataEnvironmentSetToWeb() async throws {
+    func testInjectFormsDataEnvironmentSetToWeb() throws {
         // Given
         environment.formsDataEnvironment = { .web }
 
@@ -144,7 +146,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":1},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -199,7 +201,7 @@ final class IAFWebViewModelTests: XCTestCase {
     // MARK: - Event Handling Tests
 
     @MainActor
-    func testFormWillAppearYieldsPresentLifecycleEvent() async throws {
+    func testFormWillAppearYieldsPresentLifecycleEvent() async {
         // When - simulate a form will appear script message
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -218,13 +220,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
-            if case .present = event { return true }
+            if case .present = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissLifecycleEvent() async throws {
+    func testFormDisappearedYieldsDismissLifecycleEvent() async {
         // When - simulate a form disappeared script message with formId and formName
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -243,13 +247,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
-            if case .dismiss = event { return true }
+            if case .dismiss = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async throws {
+    func testFormWillAppearYieldsPresentEvenWithMissingMetadata() async {
         // When - simulate a formWillAppear with empty data (no formId/formName)
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -265,13 +271,15 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then - .present should still be yielded
         await assertLifecycleEvent("present", from: viewModel.formLifecycleStream) { event in
-            if case .present = event { return true }
+            if case .present = event {
+                return true
+            }
             return false
         }
     }
 
     @MainActor
-    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async throws {
+    func testFormDisappearedYieldsDismissEvenWithMissingMetadata() async {
         // When - simulate a formDisappeared with empty data
         let scriptMessage = MockWKScriptMessage(
             name: "KlaviyoNativeBridge",
@@ -287,7 +295,9 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then - .dismiss should still be yielded
         await assertLifecycleEvent("dismiss", from: viewModel.formLifecycleStream) { event in
-            if case .dismiss = event { return true }
+            if case .dismiss = event {
+                return true
+            }
             return false
         }
     }
@@ -314,7 +324,9 @@ final class IAFWebViewModelTests: XCTestCase {
 
         // Then
         await assertLifecycleEvent("abort", from: viewModel.formLifecycleStream) { event in
-            if case .abort = event { return true }
+            if case .abort = event {
+                return true
+            }
             return false
         }
     }
@@ -344,7 +356,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlFiresLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlFiresLifecycleEvent() {
         // Given
         var receivedEvent: FormLifecycleEvent?
         IAFPresentationManager.shared.registerFormLifecycleHandler { event in
@@ -379,7 +391,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithoutFormMetadataSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -395,7 +407,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithMissingUrlSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -411,7 +423,7 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
-    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() async throws {
+    func testHandleOpenExternalUrlWithDisallowedSchemeSkipsLifecycleEvent() {
         // Given
         var lifecycleEventFired = false
         IAFPresentationManager.shared.registerFormLifecycleHandler { _ in
@@ -426,37 +438,295 @@ final class IAFWebViewModelTests: XCTestCase {
         XCTAssertFalse(lifecycleEventFired, "Blocked scheme should skip navigation and lifecycle event")
     }
 
+    // MARK: - Deep Link Tests (openDeepLink without `openExternally`)
+
+    /// Builds the message sent for a "Go to app screen" CTA: the URL under the
+    /// platform-split `ios`/`android` keys, and no `openExternally` flag.
+    private func makeDeepLinkMessage(
+        url: String = "abcdcompany://notifications?utm_source=push_flow",
+        formId: String? = "form123",
+        formName: String? = "Newsletter",
+        buttonLabel: String? = "Go"
+    ) -> MockWKScriptMessage {
+        var data: [String: String] = ["ios": url, "android": url]
+        data["formId"] = formId
+        data["formName"] = formName
+        data["buttonLabel"] = buttonLabel
+        let dataJson = data.map { "\"\($0.key)\": \"\($0.value)\"" }.joined(separator: ", ")
+        return MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"openDeepLink\", \"data\": { \(dataJson) } }"
+        )
+    }
+
+    /// A custom scheme absent from the test bundle's `CFBundleURLTypes` makes
+    /// `UIApplication.shared.canOpenURL` return false. The deep link must still reach the
+    /// dispatch lane, because the destination is the host app's in-process handler rather than
+    /// LaunchServices.
     @MainActor
-    func testTrackProfileEventDispatchesCreateEvent() throws {
+    func testDeepLinkWithUndeclaredSchemeStillDispatches() throws {
         // Given - a spy registered as the inbound-dispatch target
         let spyDispatcher = SpyDispatcher()
         EventDispatcher.shared.register(spyDispatcher)
         defer { EventDispatcher.shared.reset() }
 
-        // When - JS sends a trackProfileEvent bridge message
-        let scriptMessage = MockWKScriptMessage(
-            name: "KlaviyoNativeBridge",
-            body: """
-            {
-              "type": "trackProfileEvent",
-              "data": {
-                "metric": "Viewed Product",
-                "foo": "bar"
-              }
-            }
-            """
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
         )
-        viewModel.handleScriptMessage(scriptMessage)
 
-        // Then - it routes through the EventDispatcher lane as .createEvent (no KlaviyoSwift dependency)
-        guard spyDispatcher.received.count == 1 else {
-            return XCTFail("expected 1 command, got \(spyDispatcher.received.count)")
+        // When - JS sends the deep link CTA message
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then - the deep link is dispatched even though `canOpenURL` is false
+        guard case let .deepLink(dispatchedURL)? = spyDispatcher.received.first else {
+            XCTFail("Expected a .deepLink command, got \(spyDispatcher.received)")
+            return
         }
-        guard case let .createEvent(event) = spyDispatcher.received[0] else {
-            return XCTFail("expected .createEvent, got \(spyDispatcher.received[0])")
+        XCTAssertEqual(dispatchedURL, url)
+    }
+
+    /// The CTA lifecycle event must fire for deep links too, including schemes iOS cannot open.
+    @MainActor
+    func testDeepLinkWithUndeclaredSchemeFiresLifecycleEvent() throws {
+        // Given - a spy so the deep link is not routed to a dispatcher left by another suite
+        EventDispatcher.shared.register(SpyDispatcher())
+        defer { EventDispatcher.shared.reset() }
+
+        var receivedEvent: FormLifecycleEvent?
+        IAFPresentationManager.shared.registerFormLifecycleHandler { event in
+            receivedEvent = event
         }
-        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        // Guard the premise: if this scheme were declared, the test would pass vacuously.
+        let url = try XCTUnwrap(URL(string: "abcdcompany://notifications?utm_source=push_flow"))
+        XCTAssertFalse(
+            UIApplication.shared.canOpenURL(url),
+            "Premise broken: 'abcdcompany' must not be declared in the test bundle for this to regress"
+        )
+
+        // When
+        viewModel.handleScriptMessage(makeDeepLinkMessage())
+
+        // Then
+        guard case let .formCtaClicked(formId, formName, buttonLabel, deepLinkUrl) = receivedEvent else {
+            XCTFail("Expected formCtaClicked, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "form123")
+        XCTAssertEqual(formName, "Newsletter")
+        XCTAssertEqual(buttonLabel, "Go")
+        XCTAssertEqual(deepLinkUrl, url)
+    }
+
+    // MARK: - trackProfileEvent Tests
+
+    /// Sends a `trackProfileEvent` bridge message carrying `data`, and returns every command
+    /// that reached the Core `EventDispatcher`.
+    @MainActor
+    private func sendTrackProfileEvent(data: String) -> [InboundCommand] {
+        let spyDispatcher = SpyDispatcher()
+        EventDispatcher.shared.register(spyDispatcher)
+        defer { EventDispatcher.shared.reset() }
+
+        viewModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: "{ \"type\": \"trackProfileEvent\", \"data\": \(data) }"
+        ))
+
+        return spyDispatcher.received
+    }
+
+    /// The `Event` dispatched for a `trackProfileEvent` message, or `nil` if the message
+    /// produced anything other than exactly one `.createEvent` command.
+    @MainActor
+    private func createdEvent(from data: String) -> Event? {
+        let received = sendTrackProfileEvent(data: data)
+        guard received.count == 1, case let .createEvent(event) = received[0] else { return nil }
+        return event
+    }
+
+    @MainActor
+    func testTrackProfileEventFlattensNestedProperties() throws {
+        // Given/When - the payload onsite sends: a metric plus a nested property object
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": {
+            "form_id": "1",
+            "form_version_id": 2,
+            "channel_type": "IN_APP",
+            "foo": "bar"
+          }
+        }
+        """))
+
+        // Then - the nested object becomes the event's properties, flat and unwrapped
+        XCTAssertEqual(event.metric.name, .customEvent("Form completed by profile"))
+        XCTAssertEqual(event.properties["form_id"] as? String, "1")
+        XCTAssertEqual(event.properties["form_version_id"] as? Int, 2)
+        XCTAssertEqual(event.properties["channel_type"] as? String, "IN_APP")
         XCTAssertEqual(event.properties["foo"] as? String, "bar")
+        XCTAssertEqual(event.properties.count, 4)
+        XCTAssertNil(event.properties["metric"], "envelope keys must not become event properties")
+        XCTAssertNil(event.properties["properties"], "properties must be flattened, not nested")
+    }
+
+    @MainActor
+    func testTrackProfileEventIgnoresHoistedSiblings() throws {
+        // Given/When - the nested object plus the same keys repeated at the top level
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": {
+            "form_id": "1",
+            "form_version_id": 2,
+            "channel_type": "IN_APP"
+          },
+          "form_id": "1",
+          "form_version_id": 2,
+          "channel_type": "IN_APP"
+        }
+        """))
+
+        // Then - only the nested object is read; the top-level duplicates change nothing
+        XCTAssertEqual(event.properties["form_id"] as? String, "1")
+        XCTAssertEqual(event.properties["form_version_id"] as? Int, 2)
+        XCTAssertEqual(event.properties["channel_type"] as? String, "IN_APP")
+        XCTAssertEqual(event.properties.count, 3)
+    }
+
+    @MainActor
+    func testTrackProfileEventHonorsValueAndUniqueId() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Placed Order",
+          "properties": { "form_id": "1" },
+          "value": 9.99,
+          "unique_id": "form-event-1"
+        }
+        """))
+
+        // Then - both ride the top level of the envelope, not the property bag
+        XCTAssertEqual(event.value, 9.99)
+        XCTAssertEqual(event.uniqueId, "form-event-1")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertNil(event.properties["value"])
+        XCTAssertNil(event.properties["unique_id"])
+    }
+
+    @MainActor
+    func testTrackProfileEventHonorsValueCurrency() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Placed Order",
+          "properties": { "form_id": "1" },
+          "value": 9.99,
+          "value_currency": "CAD"
+        }
+        """))
+
+        // Then - the currency rides the top level of the envelope, not the property bag
+        XCTAssertEqual(event.value, 9.99)
+        XCTAssertEqual(event.valueCurrency, "CAD")
+        XCTAssertEqual(event.properties.count, 1)
+        XCTAssertNil(event.properties["value_currency"])
+    }
+
+    @MainActor
+    func testTrackProfileEventOmitsValueCurrencyWhenAbsent() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": 9.99 }
+        """))
+
+        // Then
+        XCTAssertNil(event.valueCurrency)
+    }
+
+    @MainActor
+    func testTrackProfileEventAcceptsIntegerValue() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": 10 }
+        """))
+
+        // Then
+        XCTAssertEqual(event.value, 10)
+    }
+
+    @MainActor
+    func testTrackProfileEventIgnoresNonNumericValue() throws {
+        // Given/When - `value` is a string, a shape the v2 contract (`value?: number`) does not allow
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Placed Order", "properties": {}, "value": "9.99" }
+        """))
+
+        // Then - the event still dispatches, without a value
+        XCTAssertNil(event.value)
+    }
+
+    @MainActor
+    func testTrackProfileEventDefaultsValueAndUniqueIdWhenAbsent() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form completed by profile",
+          "properties": { "form_id": "1" }
+        }
+        """))
+
+        // Then - no value, and a generated unique id (fixed by the test environment)
+        XCTAssertNil(event.value)
+        XCTAssertEqual(event.uniqueId, "00000000-0000-0000-0000-000000000001")
+    }
+
+    @MainActor
+    func testTrackProfileEventWithFlatPayloadDropsTopLevelKeys() throws {
+        // Given/When - a flat payload, with no nested property object
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Viewed Product",
+          "foo": "bar"
+        }
+        """))
+
+        // Then - the metric is still tracked, but top-level keys are not event properties
+        XCTAssertEqual(event.metric.name, .customEvent("Viewed Product"))
+        XCTAssertTrue(event.properties.isEmpty)
+    }
+
+    @MainActor
+    func testTrackProfileEventWithNonObjectPropertiesStillDispatches() throws {
+        // Given/When
+        let event = try XCTUnwrap(createdEvent(from: """
+        { "metric": "Form completed by profile", "properties": "nope" }
+        """))
+
+        // Then
+        XCTAssertEqual(event.metric.name, .customEvent("Form completed by profile"))
+        XCTAssertTrue(event.properties.isEmpty)
+    }
+
+    @MainActor
+    func testTrackProfileEventWithoutUsableMetricDispatchesNothing() {
+        // Given/When/Then - a metric that is missing, non-string, or empty produces no event
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "properties": { "form_id": "1" } }
+        """).isEmpty, "a payload with no metric must not produce an event")
+
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "metric": 42, "properties": { "form_id": "1" } }
+        """).isEmpty, "a non-string metric must not produce an event")
+
+        XCTAssertTrue(sendTrackProfileEvent(data: """
+        { "metric": "", "properties": { "form_id": "1" } }
+        """).isEmpty, "an empty metric must not produce an event")
     }
 
     // MARK: - Token Refresh Tests

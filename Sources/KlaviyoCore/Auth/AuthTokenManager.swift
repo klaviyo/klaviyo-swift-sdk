@@ -807,7 +807,7 @@ package actor AuthTokenManager {
         if #available(iOS 14.0, *) {
             let reason = String(describing: error)
             Logger.auth.error(
-                "AuthTokenManager: provider error: \(reason, privacy: .public)"
+                "Auth token provider error: \(reason)"
             )
         }
         if inFlight?.id == fetchID, let urlError = error as? URLError, urlError.isConnectivityError {
@@ -878,6 +878,8 @@ package actor AuthTokenManager {
         }
     }
 
+    private static let maxRefreshSleepSeconds: TimeInterval = 24 * 60 * 60
+
     /// Sleeps until `target` wall-clock time, then fires
     /// ``performScheduledRefresh()``. The loop re-reads ``currentDate()`` on
     /// every wakeup rather than trusting that the ``sleeper`` slept the full
@@ -886,10 +888,8 @@ package actor AuthTokenManager {
     /// backgrounded duration. Re-checking the clock self-corrects — the next
     /// wakeup observes the post-jump time and exits.
     ///
-    /// Not a polling loop. Each iteration sleeps the *full* remaining
-    /// duration, so in the happy path the body runs at most ~2–3 times across
-    /// the entire scheduled window (one long sleep, then a final short
-    /// iteration that observes `remaining <= 0` and breaks).
+    /// Each iteration sleeps for the remaining duration, up to one day, then
+    /// rechecks the wall clock before sleeping again or refreshing.
     ///
     /// ``refreshAtWallClock`` is deliberately *not* cleared before the attempt, so
     /// a fired refresh that fails while the token is still valid leaves the target
@@ -899,7 +899,8 @@ package actor AuthTokenManager {
         while !Task.isCancelled {
             let remaining = target.timeIntervalSince(currentDate())
             if remaining <= 0 { break }
-            await sleeper(UInt64(remaining * 1_000_000_000))
+            let sleepSeconds = min(remaining, Self.maxRefreshSleepSeconds)
+            await sleeper(UInt64(sleepSeconds * 1_000_000_000))
         }
         guard !Task.isCancelled else { return }
         await performScheduledRefresh()

@@ -526,12 +526,32 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             }
         case let .trackProfileEvent(data):
-            if let jsonEventData = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-               let metricName = jsonEventData["metric"] as? String {
-                EventDispatcher.shared.dispatch(
-                    .createEvent(Event(name: .customEvent(metricName), properties: jsonEventData))
-                )
+            guard let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let metricName = envelope["metric"] as? String, !metricName.isEmpty else {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "trackProfileEvent payload is malformed or has no metric name — skipping event")
+                }
+                return
             }
+
+            let properties = envelope["properties"] as? [String: Any]
+            if properties == nil {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning(
+                        "trackProfileEvent payload has no properties object — sending event without them")
+                }
+            }
+
+            EventDispatcher.shared.dispatch(
+                .createEvent(Event(
+                    name: .customEvent(metricName),
+                    properties: properties,
+                    value: envelope["value"] as? Double,
+                    valueCurrency: envelope["value_currency"] as? String,
+                    uniqueId: envelope["unique_id"] as? String
+                ))
+            )
         case let .trackAggregateEvent(data):
             EventDispatcher.shared.dispatch(.aggregateEvent(data))
         case let .openDeepLink(url, formId, formName, buttonLabel, openExternally):
@@ -574,19 +594,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 }
             } else {
                 // In-app deep link: route to the host app's registered deep link handler.
-                if UIApplication.shared.canOpenURL(url) {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
-                    }
-                    EventDispatcher.shared.dispatch(.deepLink(url))
-                } else {
-                    if #available(iOS 14.0, *) {
-                        Logger.webViewLogger.warning("Unable to open the URL '\(url, privacy: .private)'. This may be because a) the device does not have an installed app registered to handle the URL's scheme, or b) you haven't declared the URL's scheme in your Info.plist file")
-                    }
-                    // No navigation occurred — skip the formCtaClicked lifecycle event below,
-                    // consistent with its "fired after the SDK has initiated navigation" contract.
-                    return
+                // No canOpenURL pre-check: the host's handler can route a URL internally
+                // even if iOS cannot open its scheme.
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.info("Attempting to open URL '\(url, privacy: .private)'")
                 }
+                EventDispatcher.shared.dispatch(.deepLink(url))
             }
 
             // 3. Invoke lifecycle handler when form identity fields are present. Both deep

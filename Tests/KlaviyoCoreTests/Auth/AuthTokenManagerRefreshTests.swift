@@ -131,6 +131,56 @@ struct AuthTokenManagerRefreshTests {
         #expect(cached == secondToken)
     }
 
+    @Test
+    func farFutureRefreshSleepsInBoundedIntervalsAndRechecksClock() async throws {
+        let token = try makeJWT(issuedAt: 1_700_000_000_000, expiresAt: 1_700_003_600_000)
+        let refreshDate = Date(timeIntervalSince1970: 1_700_003_240_000)
+        let refreshedToken = try makeJWT(
+            issuedAt: refreshDate.timeIntervalSince1970,
+            expiresAt: refreshDate.timeIntervalSince1970 + 3600
+        )
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        let counter = CallCounter()
+        await manager.registerProvider {
+            await counter.increment() == 1 ? token : refreshedToken
+        }
+        await gate.waitUntilSleeping()
+        let firstDurations = await gate.durations
+        #expect(firstDurations == [86_400_000_000_000])
+
+        clock.advance(by: 86_400)
+        await gate.release()
+        await gate.waitUntilSleeping(atLeast: 2)
+        let repeatedDurations = await gate.durations
+        let callsBeforeTarget = await counter.value
+        #expect(repeatedDurations == [86_400_000_000_000, 86_400_000_000_000])
+        #expect(callsBeforeTarget == 1)
+
+        let stream = await manager.tokens()
+        clock.set(refreshDate)
+        await gate.release()
+        let delivered = await firstElement(of: stream)
+        #expect(delivered == refreshedToken)
+        await manager.unregisterProvider()
+        await gate.release()
+    }
+
+    @Test
+    func refreshWithinSleepBoundUsesExactRemainingInterval() async throws {
+        let token = try makeJWT(issuedAt: refSeconds, expiresAt: refSeconds + 3600)
+        let clock = TestClock(referenceDate)
+        let gate = SleepGate()
+        let manager = makeManager(lifeCycle: noopLifecycle(), clock: clock, gate: gate)
+        await manager.registerProvider { token }
+        await gate.waitUntilSleeping()
+        let durations = await gate.durations
+        #expect(durations == [3_240_000_000_000])
+        await manager.unregisterProvider()
+        await gate.release()
+    }
+
     // MARK: - Foreground transitions
 
     @Test
