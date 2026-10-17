@@ -40,7 +40,7 @@ jobs:
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
       - name: Notify Slack
-        if: always()
+        if: success() || failure()
         continue-on-error: true
         uses: ./.github/actions/notify-slack-publish
         with:
