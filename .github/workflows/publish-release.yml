@@ -1,0 +1,155 @@
+# Publishes an SDK release behind a `release` environment approval.
+#
+# prepare: preflight checks, then finds or creates a draft GitHub release with generated notes.
+# publish: after approval, publishes the draft (creating the tag) and dispatches the downstream
+#          workflows at the tag. Releases published with GITHUB_TOKEN don't fire `release: published`
+#          or tag-push triggers, so downstream workflows are started with workflow_dispatch.
+#
+# Usage: gh workflow run publish-release.yml -f version=X.Y.Z [-f ref=<branch-or-sha>]
+
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (X.Y.Z)
+        required: true
+        type: string
+      ref:
+        description: Branch or commit to release (defaults to the default branch)
+        required: false
+        type: string
+
+concurrency:
+  group: publish-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  GH_REPO: ${{ github.repository }}
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  prepare:
+    name: Prepare release draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      checks: read
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      draft_url: ${{ steps.draft.outputs.url }}
+    steps:
+      - name: Validate version format
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must be X.Y.Z, got '$VERSION'"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.repository.default_branch }}
+
+      - name: Resolve commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Check tag does not exist
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "::error::tag $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Check version in code
+        run: ./scripts/check-version.sh "$VERSION"
+
+      - name: Check CI is green on commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          runs=$(gh api --paginate "repos/$GH_REPO/commits/$SHA/check-runs" \
+            --jq '.check_runs[] | select(.name != "Prepare release draft" and .name != "Publish release")
+                  | "\(.status)|\(.conclusion)|\(.name)"')
+          if [ -z "$runs" ]; then
+            echo "::error::no check runs found on $SHA"
+            exit 1
+          fi
+          bad=$(echo "$runs" | grep -vE '^completed\|(success|skipped|neutral)\|' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::CI is not green on $SHA"
+            echo "$bad"
+            exit 1
+          fi
+          echo "✅ $(echo "$runs" | wc -l | tr -d ' ') check runs green on $SHA"
+
+      - name: Find or create draft release
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          if is_draft=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$is_draft" != "true" ]; then
+              echo "::error::release $VERSION is already published"
+              exit 1
+            fi
+            echo "Reusing existing draft for $VERSION; notes left as-is"
+          else
+            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA"
+          fi
+          url=$(gh release view "$VERSION" --json url --jq .url)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release $VERSION awaiting approval"
+            echo "- Draft: $url"
+            echo "- Commit: \`$SHA\`"
+            echo "Review and edit the draft notes, then approve the \`publish\` job."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "⏳ Swift SDK ${{ inputs.version }} release awaiting approval"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "⏳ *Swift SDK ${{ inputs.version }} release awaiting approval*\n*Draft:* <${{ steps.draft.outputs.url }}|Review release notes>\n*Started by:* ${{ github.actor }}\n*Approve:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow run>"
+
+  publish:
+    name: Publish release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Publish draft and create tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: gh release edit "$VERSION" --draft=false --target "$SHA"
+
+      - name: Dispatch downstream workflows at tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run spm-verify.yml --ref "$VERSION" -f tag="$VERSION"
+          gh workflow run swift-release.yml --ref "$VERSION"
+          gh workflow run cocoapods-publish.yml --ref "$VERSION" -f version="$VERSION"
+          {
+            echo "### Released $VERSION"
+            echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
+            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, swift-release.yml, cocoapods-publish.yml"
+            echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
+          } >> "$GITHUB_STEP_SUMMARY"
