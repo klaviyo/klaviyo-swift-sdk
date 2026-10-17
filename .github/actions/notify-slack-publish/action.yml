@@ -1,0 +1,47 @@
+name: Notify Slack of publish result
+description: Posts a Slack message summarizing a publish or verification job (success or failure).
+inputs:
+  webhook:
+    description: Slack incoming webhook URL
+    required: true
+  result:
+    description: "'success' or 'failure' — drives icon and headline"
+    required: true
+  package:
+    description: "Human-readable package label (e.g. 'Swift SDK (SPM)')"
+    required: true
+  action_label:
+    description: "What was attempted (e.g. 'verify', 'publish')"
+    required: false
+    default: publish
+  version_label:
+    description: Version string to show in the message (e.g. release tag)
+    required: false
+    default: manual
+  release_url:
+    description: Optional link to the GitHub release
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - uses: slackapi/slack-github-action@v2.1.1
+      with:
+        webhook: ${{ inputs.webhook }}
+        webhook-type: incoming-webhook
+        payload: |
+          text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }} ${{ inputs.version_label }}: ${{ inputs.action_label }} ${{ inputs.result == 'success' && 'succeeded' || 'failed' }}"
+          blocks:
+            - type: "header"
+              text:
+                type: "plain_text"
+                text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }} ${{ inputs.version_label }}: ${{ inputs.action_label }} ${{ inputs.result == 'success' && 'succeeded' || 'failed' }}"
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "*Repository:* ${{ github.repository }}\n*Package:* ${{ inputs.package }}\n*Tag:* `${{ inputs.version_label }}`${{ inputs.release_url != '' && format('\n*Release:* <{0}|View release>', inputs.release_url) || '' }}\n*Author:* ${{ github.actor }}"
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
