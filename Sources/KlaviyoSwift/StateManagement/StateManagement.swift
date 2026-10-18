@@ -634,6 +634,7 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
+            EventBus.shared.reset()
             state.reset()
             return .none
 

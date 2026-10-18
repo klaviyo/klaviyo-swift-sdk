@@ -1,5 +1,6 @@
 @testable import KlaviyoCore
 @testable import KlaviyoForms
+import WebKit
 import XCTest
 
 @MainActor
@@ -183,5 +184,118 @@ final class InAppFormsRecoveryTests: XCTestCase {
         await release.open()
         let installed = try await build.value
         XCTAssertFalse(installed)
+    }
+
+    func testCancelledForegroundCompletionCannotSupersedeJWTWaitingRetry() async throws {
+        try await assertForegroundCannotSupersedeRetry(cancelForeground: true, failJavaScript: false)
+    }
+
+    func testCancelledForegroundErrorCannotSupersedeJWTWaitingRetry() async throws {
+        try await assertForegroundCannotSupersedeRetry(cancelForeground: true, failJavaScript: true)
+    }
+
+    func testReplacedForegroundCompletionCannotSupersedeJWTWaitingRetry() async throws {
+        try await assertForegroundCannotSupersedeRetry(cancelForeground: false, failJavaScript: false)
+    }
+
+    func testAlreadyCancelledBuildLeavesJWTWaitingRetryIntact() async throws {
+        let arrived = Latch()
+        let release = Latch()
+        var fetches = 0
+        var failures = 0
+        manager.initializeIAF(configuration: InAppFormsConfig(loadTimeout: 300, onFailure: { failures += 1 }))
+        manager.fetchInitialAuthToken = { _ in
+            fetches += 1
+            if fetches == 1 {
+                await arrived.open()
+                await release.wait()
+            }
+            return nil
+        }
+        let retry = Task { try await manager.createFormWebViewAndListen(apiKey: "company") }
+        await arrived.wait()
+        let cancelled = Task { try await manager.createFormWebViewAndListen(apiKey: "company") }
+        cancelled.cancel()
+        let cancelledInstalled = try await cancelled.value
+        XCTAssertFalse(cancelledInstalled)
+        XCTAssertEqual(fetches, 1)
+        await release.open()
+        let installed = try await retry.value
+        XCTAssertTrue(installed)
+        try manager.handleHandshakeFailure(for: XCTUnwrap(manager.viewModel))
+        XCTAssertEqual(failures, 1)
+    }
+
+    private func assertForegroundCannotSupersedeRetry(
+        cancelForeground: Bool,
+        failJavaScript: Bool
+    ) async throws {
+        var oldFailures = 0
+        var retryFailures = 0
+        manager.makeViewController = { HeldLifecycleWebViewController(hosting: $0) }
+        manager.initializeIAF(configuration: InAppFormsConfig(
+            loadTimeout: 300,
+            onFailure: { oldFailures += 1 }
+        ))
+        try await manager.createFormWebViewAndListen(apiKey: "company")
+        let oldController = try XCTUnwrap(manager.viewController as? HeldLifecycleWebViewController)
+        let oldModel = try XCTUnwrap(manager.viewModel)
+        oldModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge", body: #"{"type":"handShook","data":{}}"#
+        ))
+        let script = "dispatchLifecycleEvent('foreground')"
+        let hold = oldController.scripts.holdScript(containing: script)
+        if failJavaScript { oldController.scripts.failScript(containing: script) }
+        let foreground = Task { await manager.handleAppLifecycleEvent(.foregrounded) }
+        try await awaitBounded("foreground JavaScript suspended") { await hold.reached.wait() }
+
+        manager.destroyWebviewAndListeners()
+        if cancelForeground { foreground.cancel() }
+        manager.initializeIAF(configuration: InAppFormsConfig(
+            loadTimeout: 0.01, eventReplayWindow: 0, onFailure: { retryFailures += 1 }
+        ))
+        let arrived = Latch()
+        let release = Latch()
+        var fetches = 0
+        manager.fetchInitialAuthToken = { _ in
+            fetches += 1
+            if fetches == 1 {
+                await arrived.open()
+                await release.wait()
+            }
+            return nil
+        }
+        let retry = Task { try await manager.createFormWebViewAndListen(apiKey: "company") }
+        try await awaitBounded("retry JWT suspended") { await arrived.wait() }
+        await hold.release.open()
+        try await awaitBounded("obsolete foreground completed") { await foreground.value }
+        XCTAssertEqual(fetches, 1)
+        await release.open()
+        let installed = try await retry.value
+        XCTAssertTrue(installed)
+        XCTAssertNotNil(manager.viewModel)
+        let notified = await waitUntil(timeout: 1) { retryFailures == 1 }
+        XCTAssertTrue(notified, "Retry must retain its accepted timeout and failure handler")
+        XCTAssertEqual(oldFailures, 0)
+        XCTAssertNil(manager.viewController)
+    }
+}
+
+@MainActor
+private final class HeldLifecycleWebViewController: KlaviyoWebViewController {
+    let scripts: MockIAFWebViewDelegate
+
+    init(hosting model: IAFWebViewModel) {
+        scripts = MockIAFWebViewDelegate(viewModel: model)
+        super.init(viewModel: model, webViewFactory: { InertWebView() })
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func evaluateJavaScript(_ script: String) async throws -> Any? {
+        try await scripts.evaluateJavaScript(script)
     }
 }

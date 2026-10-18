@@ -166,6 +166,7 @@ class IAFPresentationManager {
         apiKey: String,
         authTokenManager: AuthTokenManager = .shared
     ) async throws -> Bool {
+        guard !Task.isCancelled else { return false }
         tearDownFormWebView()
         webViewBuildGeneration += 1
         let generation = webViewBuildGeneration
@@ -662,18 +663,21 @@ class IAFPresentationManager {
     }
 
     private func handleForegrounded() async throws {
+        let generation = webViewBuildGeneration
         try await handleLifecycleEvent("foreground")
+        guard !Task.isCancelled, generation == webViewBuildGeneration else { return }
         if lastBackgrounded != nil {
-            if isSessionExpired {
+            let sessionExpired = isSessionExpired
+            // Consume the handled transition so a later foreground without a real
+            // background isn't mis-read as expired.
+            lastBackgrounded = nil
+            if sessionExpired {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("App session has exceeded timeout duration; re-initializing IAF")
                 }
                 tearDownFormWebView()
                 try await initializeFormWithAPIKey()
             }
-            // Consume the handled transition so a later foreground without a real
-            // background isn't mis-read as expired.
-            lastBackgrounded = nil
         } else {
             // When opening Notification/Control Center, the system will not dispatch a `backgrounded` event,
             // but it will dispatch a `foregrounded` event when Notification/Control Center is dismissed.
