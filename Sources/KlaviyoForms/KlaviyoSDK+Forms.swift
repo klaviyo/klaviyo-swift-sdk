@@ -62,6 +62,26 @@ extension KlaviyoSDKModule {
         return self
     }
 
+    /// Requests a form by ID, overriding automatic targeting and timing rules.
+    ///
+    /// Register for In-App Forms first. Calls without an active Forms runtime, including during
+    /// the initial authentication wait or after a load failure, are dropped. While forms data loads,
+    /// only the latest request is retained for less than the active configuration's
+    /// ``InAppFormsConfig/eventReplayWindow``. Zero disables waiting; ready requests still dispatch.
+    /// Blank IDs are ignored. Nonblank IDs are passed unchanged, including surrounding whitespace.
+    ///
+    /// Every ready request is forwarded, including repeated IDs and requests while a form is visible.
+    /// The form must be available to the active company.
+    /// Onsite controls presentation; this method does not guarantee that a form will display.
+    /// - Parameter formId: The ID of the form to request.
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func openForm(_ formId: String) -> Self {
+        IAFPresentationManager.shared.openForm(formId)
+        return self
+    }
+
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
     @discardableResult

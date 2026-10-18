@@ -215,6 +215,18 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Loading
 
     @MainActor
+    func openForm(_ formId: String) async {
+        guard !isInvalidated, !Task.isCancelled else { return }
+        do {
+            _ = try await delegate?.evaluateJavaScript("window.openForm(\(formId.javaScriptStringLiteral))")
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Error requesting manual form via Klaviyo.JS: \(error)")
+            }
+        }
+    }
+
+    @MainActor
     func establishHandshake(timeout: TimeInterval) async throws {
         guard !isInvalidated else { throw CancellationError() }
         guard let delegate else {
@@ -511,7 +523,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private func handleNativeBridgeEvent(_ event: IAFNativeBridgeEvent) {
         switch event {
         case .formsDataLoaded:
-            ()
+            formLifecycleContinuation.yield(.formsDataLoaded)
         case let .formWillAppear(formId, formName, layout):
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'formWillAppear' event from KlaviyoJS")

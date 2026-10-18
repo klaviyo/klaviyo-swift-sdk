@@ -14,6 +14,19 @@ import Testing
 
 struct IAFNativeBridgeEventTests {
     @Test
+    func negotiatesDataReadinessWithoutAdvertisingTheLocalOpenCommand() throws {
+        let data = Data(IAFNativeBridgeEvent.handshake.utf8)
+        let messages = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let ready = try #require(messages.first { $0["type"] as? String == "formsDataLoaded" })
+        #expect(ready["version"] as? Int == 1)
+        #expect(!messages.contains { $0["type"] as? String == "openForm" })
+        let decoded = try JSONDecoder().decode(
+            IAFNativeBridgeEvent.self, from: Data(#"{"type":"formsDataLoaded","data":{}}"#.utf8)
+        )
+        #expect(decoded == .formsDataLoaded)
+    }
+
+    @Test
     func handshakeCreated() throws {
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
@@ -28,7 +41,7 @@ struct IAFNativeBridgeEventTests {
         let actualHandshake = IAFNativeBridgeEvent.handshake
         let actualData = try #require(actualHandshake.data(using: .utf8))
         let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
-        #expect(actualHandshakeData == expectedHandshakeData)
+        #expect(actualHandshakeData.filter { $0.type != "formsDataLoaded" } == expectedHandshakeData)
     }
 
     @Test

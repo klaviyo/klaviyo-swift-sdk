@@ -40,6 +40,14 @@ class IAFPresentationManager {
 
     private var pendingTokenDelivery: PendingTokenDelivery?
 
+    private struct PendingForm {
+        let formId: String
+        let origin: EventBus.Origin
+    }
+
+    private var pendingForm: PendingForm?
+    private var formsDataLoaded = false
+
     private var configuration: InAppFormsConfig?
     private var assetSource: String?
 
@@ -119,6 +127,47 @@ class IAFPresentationManager {
     }
 
     // MARK: - Initialization & Setup
+
+    func openForm(_ formId: String) {
+        guard !formId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Cannot open a form with a blank ID.")
+            }
+            return
+        }
+        guard isInitializingOrInitialized, let viewModel, viewController != nil,
+              viewModel.apiKey == SDKConfigStore.shared.current.apiKey else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Cannot open a form without an active Forms runtime.")
+            }
+            return
+        }
+        let request = PendingForm(
+            formId: formId,
+            origin: EventBus.shared.captureOrigin(
+                apiKey: viewModel.apiKey, identity: IdentityStore.shared.current
+            )
+        )
+        if formsDataLoaded {
+            dispatchOpenForm(request, from: viewModel)
+        } else if attemptReplayWindow > 0 {
+            pendingForm = request
+        }
+    }
+
+    private func dispatchOpenForm(
+        _ request: PendingForm,
+        from model: IAFWebViewModel,
+        within replayWindow: TimeInterval? = nil
+    ) {
+        Task { @MainActor [weak self] in
+            guard let self, isInitializingOrInitialized, viewModel === model, viewController != nil,
+                  model.apiKey == SDKConfigStore.shared.current.apiKey else { return }
+            EventBus.shared.updateContext(apiKey: model.apiKey, identity: IdentityStore.shared.current)
+            guard EventBus.shared.isCurrent(request.origin, within: replayWindow) else { return }
+            await model.openForm(request.formId)
+        }
+    }
 
     func initializeIAF(configuration: InAppFormsConfig, assetSource: String? = nil) {
         self.configuration = configuration
@@ -440,6 +489,14 @@ class IAFPresentationManager {
             Logger.webViewLogger.info("Handling '\(event.rawValue, privacy: .public)' form lifecycle event")
         }
         switch event {
+        case .formsDataLoaded:
+            guard let viewModel, viewModel.apiKey == SDKConfigStore.shared.current.apiKey else { return }
+            formsDataLoaded = true
+            let request = pendingForm
+            pendingForm = nil
+            if let request {
+                dispatchOpenForm(request, from: viewModel, within: attemptReplayWindow)
+            }
         case .handShook:
             attemptIsPending = false
             attemptFailureHandler = nil
@@ -756,6 +813,8 @@ class IAFPresentationManager {
     // MARK: - Cleanup & Destruction
 
     func destroyWebView() {
+        pendingForm = nil
+        formsDataLoaded = false
         // Cancel before the guard: `viewController` may already have been cleared
         // elsewhere (e.g. a failed presentation) while the token-refresh task is
         // still running, so gating the cancel on `viewController` would leak it.
