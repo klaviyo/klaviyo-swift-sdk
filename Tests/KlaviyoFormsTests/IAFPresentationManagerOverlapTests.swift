@@ -327,7 +327,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         let foregroundBuild = Task { await manager.handleAppLifecycleEvent(.foregrounded) }
         await waitForParkedBuilds(2)
 
-        await gate.releaseAll()
+        await gate.releaseNewest()
         await foregroundBuild.value
         let secondInstalled = await waitUntil { self.activeViewModel?.apiKey == "second-key" }
         XCTAssertTrue(secondInstalled)
@@ -335,6 +335,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
             self.lifecycleObserver != nil && self.lifecycleObserver !== firstObserver
         }
         XCTAssertTrue(observationRestarted, "Lifecycle observation not restarted after the API key change")
+        await gate.releaseAll()
         completeActiveHandshake()
         await settle()
 

@@ -206,6 +206,9 @@ class IAFPresentationManager {
             return false
         }
         setupFormLifecycleListener()
+        if isInitializingOrInitialized {
+            startLifecycleObservation()
+        }
         return true
     }
 
@@ -591,10 +594,7 @@ class IAFPresentationManager {
                     Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
                 }
                 do {
-                    let installed = try await self.createFormWebViewAndListen(apiKey: apiKey)
-                    if installed, !Task.isCancelled, isInitializingOrInitialized {
-                        startLifecycleObservation()
-                    }
+                    try await self.createFormWebViewAndListen(apiKey: apiKey)
                 } catch {
                     failAttempt(generation: webViewBuildGeneration)
                 }
@@ -613,10 +613,7 @@ class IAFPresentationManager {
         profileEventsTask = nil
 
         do {
-            let installed = try await createFormWebViewAndListen(apiKey: apiKey)
-            if installed, !Task.isCancelled, isInitializingOrInitialized {
-                startLifecycleObservation()
-            }
+            try await createFormWebViewAndListen(apiKey: apiKey)
         } catch {
             failAttempt(generation: webViewBuildGeneration)
             if #available(iOS 14.0, *) {
