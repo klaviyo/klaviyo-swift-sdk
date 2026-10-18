@@ -18,7 +18,7 @@ package final class FormsPreviewTokenStore {
     package static let shared = FormsPreviewTokenStore()
 
     /// The format onsite-in-app-forms accepts for a preview token.
-    private static let tokenPattern = "^[A-Za-z0-9_-]{43}$"
+    private nonisolated static let tokenPattern = "^[A-Za-z0-9_-]{43}$"
 
     /// The current valid preview token, or `nil` when forms load normally. Publishes only
     /// when the value changes.
@@ -33,7 +33,7 @@ package final class FormsPreviewTokenStore {
     /// Returns `token` without surrounding whitespace when it is a well-formed preview token,
     /// and `nil` when it is `nil`, empty or whitespace. A malformed token returns `nil` with a
     /// warning that omits its value.
-    package static func validate(_ token: String?) -> String? {
+    package nonisolated static func validate(_ token: String?) -> String? {
         guard let token = token?.trimmingCharacters(in: .whitespacesAndNewlines), !token.isEmpty else {
             return nil
         }
