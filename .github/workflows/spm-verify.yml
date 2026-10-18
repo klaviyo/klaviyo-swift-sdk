@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: spm-verify-${{ github.event.release.tag_name || inputs.tag }}
@@ -31,12 +32,20 @@ jobs:
           sparse-checkout: |
             .github/actions
             scripts/spm-verify.sh
+            scripts/check-ci-green.sh
           sparse-checkout-cone-mode: false
 
       - name: Select Xcode 16.4
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
+      - name: Check iOS SDK CI passed on ${{ env.TAG }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: ./scripts/check-ci-green.sh "$TAG"
+
       - name: Resolve and build ${{ env.TAG }}
+        if: success() || failure()
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
       - name: Notify Slack
@@ -47,6 +56,6 @@ jobs:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           result: ${{ job.status == 'success' && 'success' || 'failure' }}
           package: Swift SDK (SPM)
-          action_label: SPM resolve + build
+          action_label: CI check + SPM resolve + build
           version_label: ${{ env.TAG }}
           release_url: ${{ env.RELEASE_URL }}
