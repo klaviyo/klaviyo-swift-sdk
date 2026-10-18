@@ -46,6 +46,27 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    @MainActor
+    func testInvalidationRemovesHandlersScriptsAndDelegatesBeforeDeallocation() {
+        let config = WKWebViewConfiguration()
+        let contentController = MockWKUserContentController()
+        config.userContentController = contentController
+        let webView = InertWebView(frame: .zero, configuration: config)
+        let model = MockIAFWebViewModel(url: URL(fileURLWithPath: "/InAppFormsTemplate.html"))
+        model.messageHandlers = ["KlaviyoNativeBridge"]
+        model.loadScripts = [WKUserScript(
+            source: "void(0)", injectionTime: .atDocumentEnd, forMainFrameOnly: true
+        )]
+        let controller = KlaviyoWebViewController(viewModel: model, webViewFactory: { webView })
+        controller.preloadUrl()
+        controller.invalidate()
+        XCTAssertTrue(contentController.removedMessageHandlers.contains("KlaviyoNativeBridge"))
+        XCTAssertTrue(contentController.userScripts.isEmpty)
+        XCTAssertNil(webView.navigationDelegate)
+        XCTAssertNil(webView.uiDelegate)
+        XCTAssertNil(model.delegate)
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor

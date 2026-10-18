@@ -12,18 +12,20 @@ import OSLog
 
 class ProfileEventObserver {
     private var cancellable: AnyCancellable?
-    private var eventsContinuation: AsyncStream<Event>.Continuation?
-    private let stream: AsyncStream<Event>
+    private var eventsContinuation: AsyncStream<EventBus.Delivery>.Continuation?
+    private let stream: AsyncStream<EventBus.Delivery>
 
-    var eventsStream: AsyncStream<Event> { stream }
-
-    init() {
-        (stream, eventsContinuation) = AsyncStream.makeStream(of: Event.self)
+    var eventsStream: AsyncStream<EventBus.Delivery> {
+        stream
     }
 
-    func startObserving() {
+    init() {
+        (stream, eventsContinuation) = AsyncStream.makeStream(of: EventBus.Delivery.self)
+    }
+
+    func startObserving(replayWindow: TimeInterval = 10) {
         guard cancellable == nil else { return }
-        cancellable = EventBus.shared.eventPublisher()
+        cancellable = EventBus.shared.formEventPublisher(replayWindow: replayWindow)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] event in
                 guard let self else { return }

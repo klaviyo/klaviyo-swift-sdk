@@ -39,12 +39,12 @@ final class EventBuffer {
     /// Creates a new event buffer with specified limits.
     /// - Parameters:
     ///   - maxBufferSize: Maximum number of events to keep (default: 10)
-    ///   - maxBufferAge: Maximum age of events to keep in seconds (default: 10)
+    ///   - maxBufferAge: Maximum age of events to keep in seconds (default: 30)
     ///   - clock: Monotonic clock source. Injectable so tests can advance time deterministically;
     ///     defaults to `ProcessInfo.processInfo.systemUptime`.
     init(
         maxBufferSize: Int = 10,
-        maxBufferAge: TimeInterval = 10,
+        maxBufferAge: TimeInterval = 30,
         clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     ) {
         self.maxBufferSize = maxBufferSize
@@ -54,9 +54,18 @@ final class EventBuffer {
 
     // MARK: - Public Methods
 
+    var currentTime: TimeInterval {
+        clock()
+    }
+
     /// Adds an event to the buffer, maintaining size and age limits.
     /// - Parameter event: The event to buffer
     func buffer(_ event: Event) {
+        buffer(event, arrivedAt: clock())
+    }
+
+    func buffer(_ event: Event, arrivedAt: TimeInterval) {
+        let event = Self.copy(event)
         if #available(iOS 14.0, *) {
             Logger.eventBuffer.info("📤 Buffering event: \(event.metric.name.value, privacy: .public)")
         }
@@ -67,9 +76,10 @@ final class EventBuffer {
 
             // Clean old events from buffer (using monotonic clock to avoid issues with device clock changes)
             self.buffer = self.buffer.filter { currentTime - $0.timestamp < self.maxBufferAge }
+            guard currentTime - arrivedAt < self.maxBufferAge else { return }
 
             // Add new event
-            self.buffer.append(BufferedEvent(event: event, timestamp: currentTime))
+            self.buffer.append(BufferedEvent(event: event, timestamp: arrivedAt))
 
             // Keep only last N events
             if self.buffer.count > self.maxBufferSize {
@@ -82,14 +92,14 @@ final class EventBuffer {
         }
     }
 
-    /// Gets recent events from the buffer (within maxBufferAge).
+    /// Gets events younger than `maxAge`, bounded by the buffer's retention limit.
     /// - Returns: Array of buffered events that haven't expired
-    func getRecentEvents() -> [Event] {
+    func getRecentEvents(maxAge: TimeInterval = 10) -> [Event] {
         queue.sync {
             let currentTime = clock()
             let recentEvents = buffer
-                .filter { currentTime - $0.timestamp < maxBufferAge }
-                .map(\.event)
+                .filter { currentTime - $0.timestamp < min(maxBufferAge, maxAge) }
+                .map { Self.copy($0.event) }
 
             if #available(iOS 14.0, *) {
                 if recentEvents.isEmpty {
@@ -104,6 +114,23 @@ final class EventBuffer {
 
             return recentEvents
         }
+    }
+
+    static func copy(_ event: Event) -> Event {
+        func copyValue(_ value: Any) -> Any {
+            if let dictionary = value as? [String: Any] { return dictionary.mapValues(copyValue) }
+            if let array = value as? [Any] { return array.map(copyValue) }
+            return (value as? NSCopying)?.copy(with: nil) ?? value
+        }
+        return Event(
+            name: event.metric.name,
+            properties: event.properties.mapValues(copyValue),
+            identifiers: event.identifiers,
+            value: event.value,
+            valueCurrency: event.valueCurrency,
+            time: event.time,
+            uniqueId: event.uniqueId
+        )
     }
 
     /// Clears all events from the buffer.

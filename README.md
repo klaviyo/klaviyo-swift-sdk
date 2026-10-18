@@ -925,6 +925,36 @@ let config = InAppFormsConfig(sessionTimeoutDuration: 1800)
 KlaviyoSDK().registerForInAppForms(configuration: config)
 ```
 
+#### Loading failures and recent events
+
+`loadTimeout` sets a positive, finite budget in seconds from preloading the page through the JavaScript handshake, after the initial best-effort JWT wait. Omitting it or passing an invalid value preserves the existing SDK network timeout (10 seconds by default). This is separate from session expiration.
+
+`eventReplayWindow` selects recent analytics history after the handshake. It defaults to 10 seconds and is bounded to 0–30 seconds; 0 disables history while keeping live observation. History retains at most 10 events, with original IDs, timestamps, and arrival order. Changing the API key, resetting the profile, or replacing an identified profile clears incompatible history. Anonymous-to-identified continuity and compatible profile enrichment keep history.
+
+```swift
+@MainActor
+func registerForms(retriesRemaining: Int = 1) {
+    let config = InAppFormsConfig(
+        loadTimeout: 15,
+        eventReplayWindow: 10,
+        onFailure: {
+            print("In-App Forms initialization failed")
+            // Optional host-managed retry, bounded to one additional attempt:
+            // guard retriesRemaining > 0 else { return }
+            // Task { @MainActor in
+            //     try? await Task.sleep(nanoseconds: 5_000_000_000)
+            //     registerForms(retriesRemaining: retriesRemaining - 1)
+            // }
+        }
+    )
+    KlaviyoSDK().registerForInAppForms(configuration: config)
+}
+```
+
+`onFailure` runs once on the main thread after complete teardown for a terminal failure before the handshake, including timeout, required page/resource failure, fatal main-document navigation, renderer termination, or a JavaScript Abort. It also applies to automatic session/API-key rebuilds. It does not run for explicit unregister, superseded attempts, missing best-effort JWT, no eligible form, or post-handshake health failures. A post-handshake JavaScript Abort silently unregisters forms. The SDK does not automatically retry a failed initialization; the host can register again immediately from the callback.
+
+Each attempt captures its accepted configuration before waiting for the JWT. Swift ignores duplicate registration, including its configuration and callback, until forms are unregistered or initialization fails. This callback and replay configuration do not promise display, readiness notifications, or guaranteed event delivery.
+
 ### Unregistering from In-App Forms
 
 If at any point you need to prevent the SDK from displaying In-App Forms, e.g. when the user logs out, you may call:

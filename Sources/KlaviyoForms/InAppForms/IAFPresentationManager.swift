@@ -49,6 +49,11 @@ class IAFPresentationManager {
     private var tokenRefreshTask: Task<Void, Never>?
     private var tokenRequestTask: Task<Void, Never>?
     private var webViewBuildGeneration = 0
+    private var rebuildTask: Task<Void, Never>?
+    private var attemptReplayWindow: TimeInterval = 10
+    private var attemptFailureHandler: (() -> Void)?
+    private var attemptIsPending = false
+    private var attemptTimeout: TimeInterval = NetworkSession.networkTimeout.seconds
 
     /// Fetches the auth token each new webview is built with; `nil` when none is available.
     var fetchInitialAuthToken: (AuthTokenManager) async -> AuthTokenManager.TokenRefresh? = { authTokenManager in
@@ -134,9 +139,10 @@ class IAFPresentationManager {
         companyEventsTask = Task { [weak self] in
             guard let self, let eventsStream = companyObserver?.eventsStream else { return }
             for await event in eventsStream {
+                guard !Task.isCancelled else { return }
                 switch event {
                 case let .apiKeyUpdated(key):
-                    reinitializeIAFForNewAPIKey(key, configuration: configuration)
+                    reinitializeIAFForNewAPIKey(key)
                 case .error:
                     // optionally handle/log
                     break
@@ -160,13 +166,15 @@ class IAFPresentationManager {
         apiKey: String,
         authTokenManager: AuthTokenManager = .shared
     ) async throws -> Bool {
+        tearDownFormWebView()
         webViewBuildGeneration += 1
         let generation = webViewBuildGeneration
+        captureAttemptConfiguration()
         let tokenUpdates = await authTokenManager.refreshes()
         let startGeneration = authTokenManager.currentIdentityGeneration
         let fetchedToken = await fetchInitialAuthToken(authTokenManager)
         let cachedToken = await stillCachedToken(fetchedToken, in: authTokenManager)
-        guard generation == webViewBuildGeneration else {
+        guard generation == webViewBuildGeneration, !Task.isCancelled else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Dropping superseded webview build")
             }
@@ -192,9 +200,20 @@ class IAFPresentationManager {
             if fetchedTokenDropped || authTokenManager.currentIdentityGeneration != fetchedGeneration {
                 requestTokenForCurrentIdentity(from: authTokenManager)
             }
+        } else {
+            failAttempt(generation: generation)
+            return false
         }
         setupFormLifecycleListener()
         return true
+    }
+
+    private func captureAttemptConfiguration() {
+        let configuration = configuration ?? InAppFormsConfig()
+        attemptReplayWindow = configuration.eventReplayWindow
+        attemptFailureHandler = configuration.onFailure
+        attemptIsPending = true
+        attemptTimeout = configuration.loadTimeout ?? handshakeTimeout
     }
 
     /// Starts a token fetch for the current identity generation. The fetch publishes the token
@@ -269,6 +288,10 @@ class IAFPresentationManager {
             authTokenManager: authTokenManager
         )
         self.viewModel = viewModel
+        viewModel.onLoadFailure = { [weak self, weak viewModel] in
+            guard let viewModel else { return }
+            self?.handleHandshakeFailure(for: viewModel)
+        }
         viewController = makeViewController(viewModel)
         viewController?.modalPresentationStyle = .overCurrentContext
         return viewModel
@@ -354,7 +377,7 @@ class IAFPresentationManager {
             }
         }
 
-        let handshakeTimeout = handshakeTimeout
+        let handshakeTimeout = attemptTimeout
         handshakeTask = Task { [weak self] in
             guard let self else { return }
             if #available(iOS 14.0, *) {
@@ -366,6 +389,7 @@ class IAFPresentationManager {
                     Logger.webViewLogger.info("✅ Handshake completed successfully.")
                 }
             } catch {
+                guard !Task.isCancelled else { return }
                 if #available(iOS 14.0, *) { Logger.webViewLogger.warning("❌ Unable to establish handshake with KlaviyoJS: \(error).") }
                 handleHandshakeFailure(for: viewModel)
             }
@@ -389,8 +413,15 @@ class IAFPresentationManager {
 
     /// Tears everything down only if `failedViewModel` is still the active view model.
     func handleHandshakeFailure(for failedViewModel: IAFWebViewModel) {
-        guard viewModel === failedViewModel else { return }
+        guard viewModel === failedViewModel, !failedViewModel.hasCompletedHandshake else { return }
+        failAttempt(generation: webViewBuildGeneration)
+    }
+
+    private func failAttempt(generation: Int) {
+        guard generation == webViewBuildGeneration, attemptIsPending else { return }
+        let handler = attemptFailureHandler
         destroyWebviewAndListeners()
+        handler?()
     }
 
     /// Handles `event` only if `source` is still the active view model.
@@ -405,6 +436,8 @@ class IAFPresentationManager {
         }
         switch event {
         case .handShook:
+            attemptIsPending = false
+            attemptFailureHandler = nil
             // Handshake complete - webview is ready, start observing profile events
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("✅ Handshake confirmed from webview, starting profile observation")
@@ -416,7 +449,11 @@ class IAFPresentationManager {
         case .dismiss:
             dismissForm()
         case .abort:
-            destroyWebviewAndListeners()
+            if let viewModel, !viewModel.hasCompletedHandshake, attemptIsPending {
+                handleHandshakeFailure(for: viewModel)
+            } else {
+                destroyWebviewAndListeners()
+            }
         }
     }
 
@@ -451,12 +488,14 @@ class IAFPresentationManager {
         }
 
         profileEventObserver = ProfileEventObserver()
-        profileEventObserver?.startObserving()
+        profileEventObserver?.startObserving(replayWindow: attemptReplayWindow)
 
         profileEventsTask = Task { [weak self] in
             guard let self, let eventsStream = profileEventObserver?.eventsStream else { return }
-            for await event in eventsStream {
-                try await handleProfileEventCreated(event)
+            for await delivery in eventsStream {
+                guard !Task.isCancelled else { return }
+                guard EventBus.shared.isCurrent(delivery) else { continue }
+                try await handleProfileEventCreated(delivery.event)
             }
         }
 
@@ -526,9 +565,10 @@ class IAFPresentationManager {
 
     // MARK: - API Key Event Handling
 
-    private func reinitializeIAFForNewAPIKey(_ apiKey: String, configuration: InAppFormsConfig) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
+    private func reinitializeIAFForNewAPIKey(_ apiKey: String) {
+        rebuildTask?.cancel()
+        rebuildTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled, isInitializingOrInitialized else { return }
 
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("🔄 reinitializeIAFForNewAPIKey called. viewController exists: \(self.viewController != nil)")
@@ -543,22 +583,26 @@ class IAFPresentationManager {
                     }
                     return
                 } else {
-                    await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
+                    await handleAPIKeyChange(apiKey: apiKey)
                 }
             } else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.info("🆕 Creating new webview and establishing handshake")
                 }
-                try await self.createFormWebViewAndListen(apiKey: apiKey)
-                if isInitializingOrInitialized {
-                    startLifecycleObservation()
+                do {
+                    let installed = try await self.createFormWebViewAndListen(apiKey: apiKey)
+                    if installed, !Task.isCancelled, isInitializingOrInitialized {
+                        startLifecycleObservation()
+                    }
+                } catch {
+                    failAttempt(generation: webViewBuildGeneration)
                 }
             }
         }
     }
 
     /// Dismisses and re-initializes the In-App Form when the public API key changes.
-    private func handleAPIKeyChange(apiKey: String, configuration: InAppFormsConfig, assetSource: String?) async {
+    private func handleAPIKeyChange(apiKey: String) async {
         destroyWebView()
         stopFormEventListening()
         lifecycleObserver?.stopObserving()
@@ -568,11 +612,12 @@ class IAFPresentationManager {
         profileEventsTask = nil
 
         do {
-            try await createFormWebViewAndListen(apiKey: apiKey)
-            if isInitializingOrInitialized {
+            let installed = try await createFormWebViewAndListen(apiKey: apiKey)
+            if installed, !Task.isCancelled, isInitializingOrInitialized {
                 startLifecycleObservation()
             }
         } catch {
+            failAttempt(generation: webViewBuildGeneration)
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Failed to reinitialize form after API key change: \(error.localizedDescription)")
             }
@@ -580,13 +625,15 @@ class IAFPresentationManager {
     }
 
     func startLifecycleObservation() {
+        lifecycleObserver?.stopObserving()
+        lifecycleEventsTask?.cancel()
         let observer = LifecycleObserver()
         observer.startObserving()
         lifecycleObserver = observer
         let eventsStream = observer.eventsStream
         lifecycleEventsTask = Task { [weak self] in
             for await event in eventsStream {
-                guard let self else { return }
+                guard let self, !Task.isCancelled else { return }
                 await self.handleAppLifecycleEvent(event)
             }
         }
@@ -684,7 +731,7 @@ class IAFPresentationManager {
             delayedPresentationTask?.cancel()
             delayedPresentationTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
-                try? Task.checkCancellation()
+                guard !Task.isCancelled else { return }
                 self.presentForm(layout: nil)
             }
         } else {
@@ -710,13 +757,12 @@ class IAFPresentationManager {
         // elsewhere (e.g. a failed presentation) while the token-refresh task is
         // still running, so gating the cancel on `viewController` would leak it.
         stopTokenDelivery()
-
-        guard let viewController else { return }
-
-        performDismiss(viewController: viewController)
-
+        let viewController = viewController
+        viewModel?.invalidate()
+        viewController?.invalidate()
         self.viewController = nil
         viewModel = nil
+        if let viewController { performDismiss(viewController: viewController) }
     }
 
     private func performDismiss(viewController: KlaviyoWebViewController) {
@@ -735,6 +781,10 @@ class IAFPresentationManager {
     /// after a session timeout) without the host app needing to re-register. Contrast with
     /// `destroyWebviewAndListeners()`, the full unregister path.
     func tearDownFormWebView() {
+        webViewBuildGeneration += 1
+        attemptIsPending = false
+        attemptFailureHandler = nil
+        attemptReplayWindow = 10
         profileEventObserver?.stopObserving()
         profileEventObserver = nil
         profileEventsTask?.cancel()
@@ -751,9 +801,20 @@ class IAFPresentationManager {
         }
         isInitializingOrInitialized = false
         webViewBuildGeneration += 1
+        rebuildTask?.cancel()
+        rebuildTask = nil
+        companyEventsTask?.cancel()
+        companyEventsTask = nil
+        lifecycleEventsTask?.cancel()
+        lifecycleEventsTask = nil
+        lifecycleObserver?.stopObserving()
+        companyObserver?.stopObserving()
         lifecycleObserver = nil
         companyObserver = nil
         tearDownFormWebView()
+        configuration = nil
+        assetSource = nil
+        lastBackgrounded = nil
     }
 }
 

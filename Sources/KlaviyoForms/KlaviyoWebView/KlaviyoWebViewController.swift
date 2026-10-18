@@ -39,6 +39,7 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
     private let webConsoleLoggingEnabled = WebConsoleLoggingConfig.shared.isEnabled
     private lazy var scriptDelegateWrapper: ScriptDelegateWrapper = .init(delegate: self)
     private var addedMessageHandlers: Set<String> = []
+    private var isInvalidated = false
 
     private var viewModel: KlaviyoWebViewModeling
     var onSizeTransition: (@MainActor (CGSize, UIViewControllerTransitionCoordinator) -> Void)?
@@ -124,7 +125,22 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func preloadUrl() {
+        guard !isInvalidated else { return }
         loadUrl()
+    }
+
+    func invalidate() {
+        isInvalidated = true
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        webView.stopLoading()
+        for name in addedMessageHandlers {
+            webView.configuration.userContentController.removeScriptMessageHandler(forName: name)
+        }
+        addedMessageHandlers.removeAll()
+        webView.configuration.userContentController.removeAllUserScripts()
+        viewModel.delegate = nil
+        onSizeTransition = nil
     }
 
     // MARK: - Scripts
@@ -200,13 +216,14 @@ class KlaviyoWebViewController: UIViewController, WKUIDelegate, KlaviyoWebViewDe
 
     @MainActor
     func evaluateJavaScript(_ script: String) async throws -> Any? {
+        guard !isInvalidated else { throw CancellationError() }
         // while there is a native Async/Await version of `WKWebView.evaluateJavaScript()`,
         // there appears to be a bug that causes a fatal error. See
         // https://stackoverflow.com/questions/74364029/fatal-error-while-using-evaluatejavascript-on-wkwebview
         // and
         // https://developer.apple.com/forums/thread/712899?login=true&page=1#726423022
         // Until this is resolved, we need to fall back on the closure-based implementation of `evaluateJavaScript()`.
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Any?, Error>) in
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Any?, Error>) in
             webView.evaluateJavaScript(script) { result, error in
                 if let error = error {
                     continuation.resume(throwing: error)
@@ -234,6 +251,7 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         viewModel.handleNavigationEvent(.didFailProvisionalNavigation)
     }
 
@@ -242,7 +260,25 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+        guard (error as NSError).code != NSURLErrorCancelled else { return }
         viewModel.handleNavigationEvent(.didFailNavigation)
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        viewModel.handleNavigationEvent(.webContentProcessTerminated)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse
+    ) async -> WKNavigationResponsePolicy {
+        if navigationResponse.isForMainFrame,
+           let response = navigationResponse.response as? HTTPURLResponse,
+           response.statusCode >= 400 {
+            viewModel.handleNavigationEvent(.didFailNavigation)
+            return .cancel
+        }
+        return .allow
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
@@ -267,6 +303,7 @@ extension KlaviyoWebViewController: WKNavigationDelegate {
 
 extension KlaviyoWebViewController: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard !isInvalidated else { return }
         if message.name == "consoleMessageHandler" {
             if #available(iOS 14.0, *) {
                 guard let jsonString = message.body as? String else { return }

@@ -68,6 +68,7 @@ class PreviewWebViewModel: KlaviyoWebViewModeling {
                     case .didFinishNavigation:
                         return
                     case .didFailNavigation,
+                         .webContentProcessTerminated,
                          .didCommitNavigation,
                          .didStartProvisionalNavigation,
                          .didFailProvisionalNavigation,
