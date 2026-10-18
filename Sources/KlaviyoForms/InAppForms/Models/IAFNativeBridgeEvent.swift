@@ -159,6 +159,7 @@ extension IAFNativeBridgeEvent {
         // messages native sends to JS. Only `name` and `version` are read; the associated
         // values are placeholders and are never decoded.
         [
+            .formsDataLoaded,
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
             .trackProfileEvent(Data()),

@@ -14,13 +14,39 @@ import Testing
 
 struct IAFNativeBridgeEventTests {
     @Test
+    func negotiatesDataReadinessWithoutAdvertisingTheLocalOpenCommand() throws {
+        let data = Data(IAFNativeBridgeEvent.handshake.utf8)
+        let messages = try #require(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let ready = try #require(messages.first { $0["type"] as? String == "formsDataLoaded" })
+        #expect(ready["version"] as? Int == 1)
+        #expect(!messages.contains { $0["type"] as? String == "openForm" })
+        let decoded = try JSONDecoder().decode(
+            IAFNativeBridgeEvent.self, from: Data(#"{"type":"formsDataLoaded","data":{}}"#.utf8)
+        )
+        #expect(decoded == .formsDataLoaded)
+    }
+
+    @Test
     func handshakeCreated() throws {
         struct TestableHandshakeData: Codable, Equatable {
             var type: String
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
+        [
+            {"type":"formsDataLoaded","version":1},
+            {"type":"formWillAppear","version":2},
+            {"type":"formDisappeared","version":1},
+            {"type":"trackProfileEvent","version":2},
+            {"type":"trackAggregateEvent","version":1},
+            {"type":"openDeepLink","version":3},
+            {"type":"abort","version":1},
+            {"type":"lifecycleEvent","version":1},
+            {"type":"profileEvent","version":1},
+            {"type":"profileMutation","version":1},
+            {"type":"jwtMutation","version":1},
+            {"type":"refreshJwt","version":1}
+        ]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)

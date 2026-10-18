@@ -102,6 +102,32 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
         }
     }
 
+    func testManualFormIDsReachOnsiteUnchanged() async throws {
+        let templateURL = try ResourceLoader.getResourceUrl(path: "InAppFormsTemplate", type: "html")
+        let html = try String(contentsOf: templateURL)
+        let start = try XCTUnwrap(html.range(of: "<script type=\"text/javascript\">"))
+        let scriptEnd = try XCTUnwrap(html.range(of: "</script>", range: start.upperBound..<html.endIndex))
+        let context = try XCTUnwrap(JSContext())
+        context.evaluateScript("var window = this; var _klOnsite = []; ")
+        context.evaluateScript(String(html[start.upperBound..<scriptEnd.lowerBound]))
+        XCTAssertNil(context.exception)
+        let model = IAFWebViewModel(url: templateURL, apiKey: "abc123", profileData: nil)
+        let delegate = MockIAFWebViewDelegate(viewModel: model)
+        model.delegate = delegate
+        for id in testValues + ["  exact ID  ", "');throw new Error('injected');//"] {
+            await model.openForm(id)
+            let script = try XCTUnwrap(delegate.evaluatedScripts.last)
+            context.evaluateScript(script)
+            XCTAssertNil(context.exception, id)
+            let command = try XCTUnwrap(context.evaluateScript("_klOnsite.pop()")?.toArray() as? [String])
+            XCTAssertEqual(command, ["openForm", id])
+        }
+        model.invalidate()
+        let count = delegate.evaluatedScripts.count
+        await model.openForm("retired")
+        XCTAssertEqual(delegate.evaluatedScripts.count, count)
+    }
+
     // MARK: - Helpers
 
     private func makeProfile(_ value: String) -> ProfileData {

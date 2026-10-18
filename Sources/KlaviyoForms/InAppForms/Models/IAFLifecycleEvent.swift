@@ -10,6 +10,7 @@ enum IAFLifecycleEvent {
     case dismiss
     case abort
     case handShook
+    case formsDataLoaded
 
     var rawValue: String {
         switch self {
@@ -17,6 +18,7 @@ enum IAFLifecycleEvent {
         case .dismiss: return "dismiss"
         case .abort: return "abort"
         case .handShook: return "handShook"
+        case .formsDataLoaded: return "formsDataLoaded"
         }
     }
 }

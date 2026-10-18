@@ -99,6 +99,14 @@ public final class EventBus: EventPublishing, EventBroadcasting {
         return delivery.generation == generation
     }
 
+    package func isCurrent(_ origin: Origin, within replayWindow: TimeInterval? = nil) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard origin.generation == generation else { return false }
+        guard let replayWindow else { return true }
+        return buffer.currentTime - origin.arrivedAt < replayWindow
+    }
+
     public func eventPublisher() -> AnyPublisher<Event, Never> {
         formEventPublisher(replayWindow: 10).map(\.event).eraseToAnyPublisher()
     }
