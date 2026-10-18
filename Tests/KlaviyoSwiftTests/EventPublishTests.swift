@@ -28,6 +28,19 @@ final class EventPublishTests: XCTestCase {
 
     // MARK: - Event Enrichment Tests
 
+    func testDeferredEnrichmentKeepsOriginAcrossAContextReplacement() {
+        let origin = EventBus.shared.captureOrigin(
+            apiKey: "company", identity: ProfileData(email: "a@example.com", anonymousId: "anon")
+        )
+        EventBus.shared.updateContext(
+            apiKey: "company", identity: ProfileData(email: "b@example.com", anonymousId: "anon")
+        )
+        var events: [Event] = []
+        EventBus.shared.eventPublisher().sink { events.append($0) }.store(in: &cancellables)
+        enrichAndPublishEvent(Event(name: .customEvent("old-origin")), origin: origin)
+        XCTAssertTrue(events.isEmpty)
+    }
+
     func testPublishEvent_EnrichesEventWithMetadata() {
         // Given
         let expectation = XCTestExpectation(description: "Enriched event is received")

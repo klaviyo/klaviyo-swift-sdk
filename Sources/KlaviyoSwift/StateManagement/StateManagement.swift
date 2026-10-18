@@ -519,9 +519,10 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let baseEffect = shouldPrioritize ? EffectTask<KlaviyoAction>.task { .flushQueue } : .none
+            let origin = EventBus.shared.captureOrigin(apiKey: apiKey, identity: state.identity)
             return .merge([
                 baseEffect,
-                .fireAndForget { enrichAndPublishEvent(event) }
+                .fireAndForget { enrichAndPublishEvent(event, origin: origin) }
             ])
 
         case let .enqueueAggregateEvent(payload):
@@ -633,6 +634,7 @@ struct KlaviyoReducer: ReducerProtocol {
             else {
                 return .none
             }
+            EventBus.shared.reset()
             state.reset()
             return .none
 

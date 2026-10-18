@@ -37,6 +37,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
+    private func formsConfiguration(retriesRemaining: Int = 1) -> InAppFormsConfig {
+        InAppFormsConfig(loadTimeout: 15, eventReplayWindow: 10, onFailure: {
+            print("In-App Forms initialization failed")
+            // Optional host-managed retry, bounded to one additional attempt:
+            // guard retriesRemaining > 0 else { return }
+            // Task { @MainActor in
+            //     try? await Task.sleep(nanoseconds: 5_000_000_000)
+            //     KlaviyoSDK().registerForInAppForms(
+            //         configuration: self.formsConfiguration(retriesRemaining: retriesRemaining - 1)
+            //     )
+            // }
+        })
+    }
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -44,7 +58,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // STEP2: Setup Klaviyo SDK with api key
         KlaviyoSDK()
             .initialize(with: "YOUR_PUBLIC_API_KEY")
-            .registerForInAppForms() // STEP2A: register for in app forms
+            .registerForInAppForms(configuration: formsConfiguration()) // STEP2A: register for in app forms
             .registerGeofencing() // STEP2B: register for in geofencing
             .registerFormLifecycleHandler { event in
                 // STEP2C: [OPTIONAL] Register for form lifecycle events to track form interactions

@@ -24,6 +24,7 @@ enum SharedStoreMirror {
             // together. Write config before identity: IdentityStore.update(_:) notifies observers
             // synchronously, so an identity observer must not see a stale apiKey.
             .sink { result in
+                EventBus.shared.updateContext(apiKey: result.apiKey, identity: result.identity)
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: result.apiKey))
                 IdentityStore.shared.update(result.identity)
             }
@@ -34,6 +35,7 @@ enum SharedStoreMirror {
     static func reset() {
         cancellable?.cancel()
         cancellable = nil
+        EventBus.shared.reset()
         SDKConfigStore.shared.update(KlaviyoConfig())
         IdentityStore.shared.update(ProfileData())
     }
