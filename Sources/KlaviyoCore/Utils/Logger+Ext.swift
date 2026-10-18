@@ -76,4 +76,9 @@ extension Logger {
     static var auth: Logger {
         KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Auth") : Logger(OSLog.disabled)
     }
+
+    /// Logger for the in-app forms preview token. Never logs the token value.
+    static var formsPreview: Logger {
+        KlaviyoLogConfig.shared.isLoggingEnabled ? Logger(category: "Forms Preview") : Logger(OSLog.disabled)
+    }
 }

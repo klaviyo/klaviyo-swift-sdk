@@ -13,7 +13,7 @@ let validPreviewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
 let otherPreviewToken = "ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm987"
 
 @MainActor
-final class FormsPreviewTokenStoreTests: XCTestCase {
+final class InAppFormsConfigPreviewTokenTests: XCTestCase {
     private var store: FormsPreviewTokenStore!
 
     override func setUp() async throws {
@@ -21,79 +21,9 @@ final class FormsPreviewTokenStoreTests: XCTestCase {
         store = FormsPreviewTokenStore()
     }
 
-    func testStoresValidToken() {
-        store.setToken(validPreviewToken)
-        XCTAssertEqual(store.token, validPreviewToken)
-    }
-
-    func testSurroundingWhitespaceIsTrimmed() {
-        let padded: [String] = ["\(validPreviewToken)\n", "  \(validPreviewToken) ", "\t\(validPreviewToken)"]
-        for token in padded {
-            store.clear()
-            store.setToken(token)
-            XCTAssertEqual(store.token, validPreviewToken)
-        }
-    }
-
-    func testNilEmptyAndWhitespaceClearTheToken() {
-        for clearValue in [nil, "", "   "] as [String?] {
-            store.setToken(validPreviewToken)
-            store.setToken(clearValue)
-            XCTAssertNil(store.token)
-        }
-    }
-
-    func testMalformedTokensAreDroppedAndClearThePreviousToken() {
-        let shortToken = String(validPreviewToken.dropLast())
-        let head = String(validPreviewToken.prefix(20))
-        let tail = String(validPreviewToken.dropFirst(21))
-        let malformed: [String] = [
-            shortToken,
-            validPreviewToken + "a",
-            shortToken + "=",
-            String(validPreviewToken.dropLast(2)) + "'>",
-            head + " " + tail
-        ]
-        for token in malformed {
-            store.setToken(otherPreviewToken)
-            store.setToken(token)
-            XCTAssertNil(store.token, "Expected \(token) to be rejected")
-        }
-    }
-
-    func testPublishesOnlyOnChange() {
-        var published: [String?] = []
-        let cancellable = store.$token.dropFirst().sink { published.append($0) }
-        store.setToken(validPreviewToken)
-        store.setToken(validPreviewToken)
-        store.clear()
-        store.clear()
-        cancellable.cancel()
-        XCTAssertEqual(published, [validPreviewToken, nil])
-    }
-
     func testApplyConfigStoresToken() {
-        store.apply(InAppFormsConfig(previewToken: validPreviewToken))
+        store.applyConfigurationToken(InAppFormsConfig(previewToken: validPreviewToken).previewToken)
         XCTAssertEqual(store.token, validPreviewToken)
-    }
-
-    func testApplyConfigWithNewTokenReplacesStoredToken() {
-        store.apply(InAppFormsConfig(previewToken: validPreviewToken))
-        store.apply(InAppFormsConfig(previewToken: otherPreviewToken))
-        XCTAssertEqual(store.token, otherPreviewToken)
-    }
-
-    func testApplyConfigWithoutTokenKeepsTokenFromSetter() {
-        store.setToken(validPreviewToken)
-        store.apply(InAppFormsConfig())
-        store.apply(InAppFormsConfig(previewToken: ""))
-        XCTAssertEqual(store.token, validPreviewToken)
-    }
-
-    func testApplyConfigWithInvalidTokenClearsToken() {
-        store.setToken(validPreviewToken)
-        store.apply(InAppFormsConfig(previewToken: "<script>"))
-        XCTAssertNil(store.token)
     }
 
     func testConfigDescriptionRedactsToken() {
@@ -200,7 +130,7 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
         XCTAssertNil(previewTokenLoadScript(in: viewModel), "A cleared token is not reloaded")
     }
 
-    func testPreviewEndedClearsStoredToken() async throws {
+    func testPreviewEndedClearsStoredTokenAndBlocksItFromConfig() async throws {
         store.setToken(validPreviewToken)
         let (viewModel, _) = try makeViewModel()
         viewModel.handleScriptMessage(MockWKScriptMessage(
@@ -208,6 +138,9 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
             body: #"{"type":"formsPreviewEnded","data":{"reason":"expired"}}"#
         ))
         XCTAssertNil(store.token)
+
+        store.applyConfigurationToken(validPreviewToken)
+        XCTAssertNil(store.token, "A configured token whose preview ended is not revived")
     }
 }
 

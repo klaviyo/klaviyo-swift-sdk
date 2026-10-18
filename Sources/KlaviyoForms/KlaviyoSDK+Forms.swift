@@ -58,7 +58,7 @@ extension KlaviyoSDKModule {
     @MainActor
     @discardableResult
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
-        FormsPreviewTokenStore.shared.apply(configuration)
+        FormsPreviewTokenStore.shared.applyConfigurationToken(configuration.previewToken)
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(configuration: configuration)
@@ -165,7 +165,7 @@ extension KlaviyoSDKModule {
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig(), assetSource: String) {
-        FormsPreviewTokenStore.shared.apply(configuration)
+        FormsPreviewTokenStore.shared.applyConfigurationToken(configuration.previewToken)
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.initializeIAF(

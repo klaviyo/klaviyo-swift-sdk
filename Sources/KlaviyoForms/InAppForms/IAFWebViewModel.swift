@@ -733,7 +733,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Forms preview ended, reason: \(reason, privacy: .public)")
             }
-            previewTokenStore.clear()
+            previewTokenStore.end()
         }
     }
 
