@@ -33,7 +33,20 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
+        [
+            {"type":"formsDataLoaded","version":1},
+            {"type":"formWillAppear","version":2},
+            {"type":"formDisappeared","version":1},
+            {"type":"trackProfileEvent","version":2},
+            {"type":"trackAggregateEvent","version":1},
+            {"type":"openDeepLink","version":3},
+            {"type":"abort","version":1},
+            {"type":"lifecycleEvent","version":1},
+            {"type":"profileEvent","version":1},
+            {"type":"profileMutation","version":1},
+            {"type":"jwtMutation","version":1},
+            {"type":"refreshJwt","version":1}
+        ]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -41,7 +54,7 @@ struct IAFNativeBridgeEventTests {
         let actualHandshake = IAFNativeBridgeEvent.handshake
         let actualData = try #require(actualHandshake.data(using: .utf8))
         let actualHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: actualData)
-        #expect(actualHandshakeData.filter { $0.type != "formsDataLoaded" } == expectedHandshakeData)
+        #expect(actualHandshakeData == expectedHandshakeData)
     }
 
     @Test
