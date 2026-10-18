@@ -48,6 +48,8 @@ To see an unpublished in-app form on a device or simulator, open the form in the
 
 Turn **Forms preview** off to clear the token and return to published forms. `AppState` in [ContentView.swift](./Shared/ContentView.swift) keeps the token in memory only and passes it to `KlaviyoSDK().setFormsPreviewToken(_:)`; it is never persisted or logged. Preview tokens are for testing only and must not ship in a production build.
 
+You can also skip the paste. Set the editor's deep link to the example app's `klaviyo://` scheme, for example `klaviyo://preview`, and scan the QR code (or open the copied preview link) on the device. The app's `onOpenURL` passes the link to `KlaviyoSDK().handleFormsPreviewLink(_:)`, which reads the `klaviyo-forms-preview` parameter and starts the preview.
+
 ## Authors
 
 Klaviyo Mobile Push Team
