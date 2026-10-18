@@ -129,12 +129,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run spm-verify.yml --ref "$VERSION" -f tag="$VERSION"
-          gh workflow run swift-release.yml --ref "$VERSION"
-          gh workflow run cocoapods-publish.yml --ref "$VERSION" -f version="$VERSION"
+          # A just-created tag can take a few seconds to become dispatchable, so retry each dispatch.
+          dispatch() {
+            for attempt in 1 2 3 4 5 6; do
+              if gh workflow run "$@" --ref "$VERSION"; then
+                return 0
+              fi
+              echo "Dispatch of $1 at $VERSION failed (attempt $attempt), retrying in 10s"
+              sleep 10
+            done
+            echo "::error::could not dispatch $1 at $VERSION"
+            return 1
+          }
+          failed=0
+          dispatch spm-verify.yml -f tag="$VERSION" || failed=1
+          dispatch swift-release.yml || failed=1
+          dispatch cocoapods-publish.yml -f version="$VERSION" || failed=1
           {
             echo "### Released $VERSION"
             echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
             echo "- Dispatched at \`$VERSION\`: spm-verify.yml, swift-release.yml, cocoapods-publish.yml"
             echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
