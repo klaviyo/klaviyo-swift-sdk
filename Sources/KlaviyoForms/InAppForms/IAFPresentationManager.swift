@@ -608,6 +608,7 @@ class IAFPresentationManager {
         destroyWebView()
         stopFormEventListening()
         lifecycleObserver?.stopObserving()
+        lifecycleObserver = nil
         profileEventObserver?.stopObserving()
         profileEventObserver = nil
         profileEventsTask?.cancel()
@@ -624,7 +625,7 @@ class IAFPresentationManager {
     }
 
     func startLifecycleObservation() {
-        lifecycleObserver?.stopObserving()
+        guard lifecycleObserver == nil else { return }
         lifecycleEventsTask?.cancel()
         let observer = LifecycleObserver()
         observer.startObserving()
