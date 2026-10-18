@@ -51,6 +51,7 @@ class IAFPresentationManager {
     private var webViewBuildGeneration = 0
     private var rebuildTask: Task<Void, Never>?
     private var attemptReplayWindow: TimeInterval = 10
+    private var attemptAssetSource: String?
     private var attemptFailureHandler: (() -> Void)?
     private var attemptIsPending = false
     private var attemptTimeout: TimeInterval = NetworkSession.networkTimeout.seconds
@@ -120,15 +121,14 @@ class IAFPresentationManager {
     // MARK: - Initialization & Setup
 
     func initializeIAF(configuration: InAppFormsConfig, assetSource: String? = nil) {
+        self.configuration = configuration
+        self.assetSource = assetSource
         guard !isInitializingOrInitialized else {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.log("In-App Form is already either initializing or initialized; ignoring request.")
+                Logger.webViewLogger.log("In-App Forms configuration updated for the next load.")
             }
             return
         }
-
-        self.configuration = configuration
-        self.assetSource = assetSource
 
         companyObserver = CompanyObserver()
         companyObserver?.startObserving()
@@ -215,6 +215,7 @@ class IAFPresentationManager {
     private func captureAttemptConfiguration() {
         let configuration = configuration ?? InAppFormsConfig()
         attemptReplayWindow = configuration.eventReplayWindow
+        attemptAssetSource = assetSource
         attemptFailureHandler = configuration.onFailure
         attemptIsPending = true
         attemptTimeout = configuration.loadTimeout ?? handshakeTimeout
@@ -288,7 +289,7 @@ class IAFPresentationManager {
             apiKey: apiKey,
             profileData: profileData,
             authToken: authToken,
-            assetSource: assetSource,
+            assetSource: attemptAssetSource,
             authTokenManager: authTokenManager
         )
         self.viewModel = viewModel
@@ -786,6 +787,7 @@ class IAFPresentationManager {
         attemptIsPending = false
         attemptFailureHandler = nil
         attemptReplayWindow = 10
+        attemptAssetSource = nil
         profileEventObserver?.stopObserving()
         profileEventObserver = nil
         profileEventsTask?.cancel()

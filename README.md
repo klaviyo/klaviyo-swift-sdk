@@ -953,7 +953,7 @@ func registerForms(retriesRemaining: Int = 1) {
 
 `onFailure` runs once on the main thread after complete teardown for a terminal failure before the handshake, including timeout, required page/resource failure, fatal main-document navigation, renderer termination, or a JavaScript Abort. It also applies to automatic session/API-key rebuilds. It does not run for explicit unregister, superseded attempts, missing best-effort JWT, no eligible form, or post-handshake health failures. A post-handshake JavaScript Abort silently unregisters forms. The SDK does not automatically retry a failed initialization; the host can register again immediately from the callback.
 
-Each attempt captures its accepted configuration before waiting for the JWT. Swift ignores duplicate registration, including its configuration and callback, until forms are unregistered or initialization fails. This callback and replay configuration do not promise display, readiness notifications, or guaranteed event delivery.
+Each attempt captures its accepted configuration before waiting for the JWT. Repeated registration updates configuration for future loads without restarting the active load. The active attempt keeps its captured timeout, replay window, and native failure callback. This callback and replay configuration do not promise display, readiness notifications, or guaranteed event delivery.
 
 ### Unregistering from In-App Forms
 
