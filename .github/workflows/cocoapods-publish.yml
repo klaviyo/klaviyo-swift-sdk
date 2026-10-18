@@ -71,7 +71,7 @@ jobs:
               pod repo update trunk > /dev/null 2>&1 || true
 
               # Check if the specific version is available
-              if pod spec cat "$pod_name" 2>/dev/null | grep -q "\"version\": \"$version\""; then
+              if pod spec cat "$pod_name" --version="$version" 2>/dev/null | grep -q "\"version\": \"$version\""; then
                 echo "  ✅ $pod_name $version is now available!"
                 return 0
               fi
