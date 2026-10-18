@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
-      checks: read
+      actions: read
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
       draft_url: ${{ steps.draft.outputs.url }}
@@ -66,25 +66,10 @@ jobs:
       - name: Check version in code
         run: ./scripts/check-version.sh "$VERSION"
 
-      - name: Check CI is green on commit
+      - name: Check iOS SDK CI passed on commit
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ steps.commit.outputs.sha }}
-        run: |
-          runs=$(gh api --paginate "repos/$GH_REPO/commits/$SHA/check-runs" \
-            --jq '.check_runs[] | select(.name != "Prepare release draft" and .name != "Publish release")
-                  | "\(.status)|\(.conclusion)|\(.name)"')
-          if [ -z "$runs" ]; then
-            echo "::error::no check runs found on $SHA"
-            exit 1
-          fi
-          bad=$(echo "$runs" | grep -vE '^completed\|(success|skipped|neutral)\|' || true)
-          if [ -n "$bad" ]; then
-            echo "::error::CI is not green on $SHA"
-            echo "$bad"
-            exit 1
-          fi
-          echo "✅ $(echo "$runs" | wc -l | tr -d ' ') check runs green on $SHA"
+        run: ./scripts/check-ci-green.sh "${{ steps.commit.outputs.sha }}"
 
       - name: Find or create draft release
         id: draft
