@@ -87,9 +87,11 @@ final class IAFPresentationManagerManualFormTests: XCTestCase {
         manager.openForm("sentinel")
         await page.scripts.waitForScript(containing: "sentinel")
         XCTAssertEqual(try page.scripts.openedIDs(), ["sentinel"])
-        manager.tearDownFormWebView()
-        try await manager.createFormWebViewAndListen(apiKey: "company")
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "next-company"))
+        await assertEventually { self.manager.viewModel?.apiKey == "next-company" }
         let next = try currentPage()
+        XCTAssertFalse(next.model === page.model)
+        XCTAssertEqual(next.model.apiKey, "next-company")
         manager.openForm("next-window")
         manager.dispatchFormEvent(.formsDataLoaded, from: next.model)
         await next.scripts.waitForScript(containing: "next-window")
