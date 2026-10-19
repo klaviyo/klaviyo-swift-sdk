@@ -175,15 +175,14 @@ public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> F
 
     case .networkError:
         // Transport-level failure: escalate with the same exponential backoff as a 429/5xx, instead
-        // of dropping straight back to the flat flush-tick cadence (MAGE-1217), and never collapse an
-        // existing backoff to a bare `.retry` — keep escalating instead. `advancedRetryCounts`'
+        // of dropping straight back to the flat flush-tick cadence, and never collapse an existing
+        // backoff to a bare `.retry` — keep escalating instead. `advancedRetryCounts`'
         // `failedAttemptNumber` is the ordinal of the attempt that just failed (pre-increment),
         // matching the attemptNumber `RequestQueue.sendHead` passed to `send` for this attempt, so
         // this escalates 2^1, 2^2, 2^3 ... in lockstep with the 429/5xx path below, not a step ahead.
         let counts = advancedRetryCounts(from: retryState)
-        let backOff = RetryBackoffConstants.exponentialBackoffWithJitter(
-            attemptNumber: counts.failedAttemptNumber
-        )
+        let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: counts.failedAttemptNumber)
+            + environment.randomInt()
         return .retryWithBackoff(
             .retryWithBackoff(
                 requestCount: counts.requestRetryCount,

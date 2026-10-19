@@ -373,7 +373,7 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
-    // MARK: - Transport error backoff (MAGE-1217)
+    // MARK: - Transport error backoff
 
     /// Successive transport (network) errors now escalate through the SAME durable countdown
     /// backoff as a rate-limit/server error, instead of flattening to a bare retry on every flush
@@ -701,9 +701,9 @@ final class RequestQueueTests: XCTestCase {
         )
         let queue = RequestQueue(clock: .immediate, send: spy.send)
 
-        // Post-MAGE-1217, a network error escalates through the same durable countdown backoff as a
-        // 429/5xx instead of a flat per-tick retry, so most ticks here are spent counting the backoff
-        // down (capped at 300s = 30 ticks on the 10s wifi interval) rather than sending. Reaching the
+        // A network error now escalates through the same durable countdown backoff as a 429/5xx
+        // instead of a flat per-tick retry, so most ticks here are spent counting the backoff down
+        // (capped at 300s = 30 ticks on the 10s wifi interval) rather than sending. Reaching the
         // 50-attempt ceiling now takes on the order of ~1300 ticks instead of one tick per attempt, so
         // drive ticks until the request drains (dropped) rather than assume a fixed 1:1 tick:attempt
         // ratio. Each tick is a trivial actor call on the immediate clock (no real sleep).

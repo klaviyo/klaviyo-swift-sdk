@@ -91,12 +91,12 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(decision, .dequeue)
     }
 
-    // MARK: - networkError (MAGE-1217: transport errors escalate via .retryWithBackoff)
+    // MARK: - networkError (transport errors escalate via .retryWithBackoff)
 
     /// A transport error from a plain `.retry` state must escalate into `.retryWithBackoff`, not
-    /// stay a bare `.retry` — this is the regression MAGE-1217 fixes. Backoff is computed from the
-    /// formula shared with 429/5xx: `min(2^attempt, 300) + jitter`; `environment.randomInt` is
-    /// stubbed to `0` by `KlaviyoEnvironment.test()`, so jitter is 0 here.
+    /// stay a bare `.retry`. Backoff is computed from the formula shared with 429/5xx:
+    /// `min(2^attempt, 300) + jitter`; `environment.randomInt` is stubbed to `0` by
+    /// `KlaviyoEnvironment.test()`, so jitter is 0 here.
     func testNetworkErrorFromRetryStateEscalatesToBackoff() throws {
         let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
         let error = KlaviyoAPIError.networkError(underlyingError)
