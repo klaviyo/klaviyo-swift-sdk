@@ -45,7 +45,12 @@ public enum RetryBackoffConstants {
     ///   `RequestAttemptInfo.attemptNumber` / `RetryState`'s attempt count).
     /// - Returns: The backoff interval in seconds, capped at `maxBackoffSeconds`, with no jitter.
     public static func exponentialBackoff(attemptNumber: Int) -> Int {
-        min(Int(pow(2.0, Double(attemptNumber))), maxBackoffSeconds)
+        // Cap in Double space before converting to Int. 2^attemptNumber overflows Int64 at
+        // attemptNumber >= 63 and `Int(_:)` traps on an out-of-range Double, so the min() must run
+        // on Doubles — converting the uncapped exponential first would crash on a large attemptNumber
+        // even though every current caller stays well under the maxRetries ceiling.
+        let cappedBackOff = min(pow(2.0, Double(attemptNumber)), Double(maxBackoffSeconds))
+        return Int(cappedBackOff)
     }
 }
 
