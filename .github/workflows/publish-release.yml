@@ -216,7 +216,13 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then
             gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease --latest=false
           else
-            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease=false
+            latest=true
+            current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+            if [ -n "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+              echo "$VERSION is older than the current latest release $current; not marking it latest"
+              latest=false
+            fi
+            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease=false --latest="$latest"
           fi
 
       - name: Dispatch downstream workflows at tag

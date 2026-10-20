@@ -12,6 +12,9 @@ on:
       - '*'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   version-check:
     name: Validate Release Branch Version
