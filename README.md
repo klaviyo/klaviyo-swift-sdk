@@ -231,7 +231,10 @@ If your app should never create a profile in Klaviyo until the user is known (em
 Things to keep in mind:
 
 - **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
-- **`resetProfile()` keeps the push token.** If a push token is set, resetting the profile (for example on logout) registers that token to a new anonymous profile.
+- **Logout and switching users.** `resetProfile()` keeps the push token and registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
+  - On the next login, call `set(profile:)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile without registering the push token anonymously. Calling `set(email:)` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
 - **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event tracking
