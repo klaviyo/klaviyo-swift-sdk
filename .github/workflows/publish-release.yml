@@ -79,13 +79,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.commit.outputs.sha }}
         run: |
-          if is_draft=$(gh release view "$VERSION" --json isDraft --jq .isDraft 2>/dev/null); then
+          create=true
+          if existing=$(gh release view "$VERSION" --json isDraft,targetCommitish --jq '"\(.isDraft) \(.targetCommitish)"' 2>/dev/null); then
+            read -r is_draft target <<< "$existing"
             if [ "$is_draft" != "true" ]; then
               echo "::error::release $VERSION is already published"
               exit 1
             fi
-            echo "Reusing existing draft for $VERSION; notes left as-is"
-          else
+            if [ "$target" = "$SHA" ]; then
+              echo "Reusing existing draft for $VERSION; notes left as-is"
+              create=false
+            else
+              echo "::warning::existing draft for $VERSION targets $target, not $SHA; recreating it with fresh notes"
+              gh release delete "$VERSION" --yes
+            fi
+          fi
+          if [ "$create" = "true" ]; then
             gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA" \
               --prerelease="$PRERELEASE"
           fi
