@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   actions: read
+  pull-requests: read
 
 concurrency:
   group: spm-verify-${{ github.event.release.tag_name || inputs.tag }}
