@@ -1,11 +1,11 @@
 name: Notify Slack of publish result
-description: Posts a Slack message summarizing a publish or verification job (success or failure).
+description: Posts a Slack message summarizing a publish or verification job. Skipped when no webhook is set.
 inputs:
   webhook:
     description: Slack incoming webhook URL
     required: true
   result:
-    description: "'success' or 'failure' — drives icon and headline"
+    description: "'success', 'failure', 'pending' (awaiting approval) or 'stopped' (rejected or cancelled)"
     required: true
   package:
     description: "Human-readable package label (e.g. 'Swift SDK (SPM)')"
@@ -22,26 +22,72 @@ inputs:
     description: Optional link to the GitHub release
     required: false
     default: ''
+  reason:
+    description: Why the run stopped ('stopped'), or a caveat for the approver ('pending')
+    required: false
+    default: ''
+  steps_json:
+    description: toJSON(steps) from the caller, used to name the failed step
+    required: false
+    default: ''
 
 runs:
   using: composite
   steps:
-    - uses: slackapi/slack-github-action@v2.1.1
+    - name: Compose message
+      id: message
+      if: inputs.webhook != ''
+      shell: bash
+      env:
+        RESULT: ${{ inputs.result }}
+        PACKAGE: ${{ inputs.package }}
+        ACTION_LABEL: ${{ inputs.action_label }}
+        VERSION_LABEL: ${{ inputs.version_label }}
+        RELEASE_URL: ${{ inputs.release_url }}
+        REASON: ${{ inputs.reason }}
+        STEPS_JSON: ${{ inputs.steps_json }}
+        REPO: ${{ github.repository }}
+        ACTOR: ${{ github.actor }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        case "$RESULT" in
+          success) icon="✅"; verb="succeeded" ;;
+          pending) icon="⏳"; verb="awaiting approval" ;;
+          stopped) icon="⏹️"; verb="stopped" ;;
+          *)       icon="🚨"; verb="failed" ;;
+        esac
+        headline="$icon $PACKAGE $VERSION_LABEL: $ACTION_LABEL $verb"
+
+        details="*Repository:* $REPO"$'\n'"*Package:* $PACKAGE"$'\n'"*Tag:* \`$VERSION_LABEL\`"
+        if [ -n "$RELEASE_URL" ]; then
+          details+=$'\n'"*Release:* <$RELEASE_URL|View release>"
+        fi
+        if [ "$RESULT" = "failure" ] && [ -n "$STEPS_JSON" ]; then
+          failed_step=$(jq -r 'to_entries | map(select(.value.outcome == "failure")) | first | .key // empty' <<< "$STEPS_JSON" 2>/dev/null || true)
+          if [ -n "$failed_step" ]; then
+            details+=$'\n'"*Failed step:* \`$failed_step\`"
+          fi
+        fi
+        if [ -n "$REASON" ]; then
+          details+=$'\n'"*Note:* $REASON"
+        fi
+        details+=$'\n'"*Author:* $ACTOR"
+
+        payload_file="$RUNNER_TEMP/slack-payload.json"
+        jq -n --arg headline "$headline" --arg details "$details" --arg run "*Workflow Run:* <$RUN_URL|View Details>" '{
+          text: $headline,
+          blocks: [
+            {type: "header", text: {type: "plain_text", text: $headline}},
+            {type: "section", text: {type: "mrkdwn", text: $details}},
+            {type: "section", text: {type: "mrkdwn", text: $run}}
+          ]
+        }' > "$payload_file"
+        echo "payload_file=$payload_file" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.webhook != ''
+      uses: slackapi/slack-github-action@v2.1.1
       with:
         webhook: ${{ inputs.webhook }}
         webhook-type: incoming-webhook
-        payload: |
-          text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }} ${{ inputs.version_label }}: ${{ inputs.action_label }} ${{ inputs.result == 'success' && 'succeeded' || 'failed' }}"
-          blocks:
-            - type: "header"
-              text:
-                type: "plain_text"
-                text: "${{ inputs.result == 'success' && '✅' || '🚨' }} ${{ inputs.package }} ${{ inputs.version_label }}: ${{ inputs.action_label }} ${{ inputs.result == 'success' && 'succeeded' || 'failed' }}"
-            - type: "section"
-              text:
-                type: "mrkdwn"
-                text: "*Repository:* ${{ github.repository }}\n*Package:* ${{ inputs.package }}\n*Tag:* `${{ inputs.version_label }}`${{ inputs.release_url != '' && format('\n*Release:* <{0}|View release>', inputs.release_url) || '' }}\n*Author:* ${{ github.actor }}"
-            - type: "section"
-              text:
-                type: "mrkdwn"
-                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+        payload-file-path: ${{ steps.message.outputs.payload_file }}
