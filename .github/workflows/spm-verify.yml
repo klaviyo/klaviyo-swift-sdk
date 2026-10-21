@@ -1,0 +1,75 @@
+name: SPM Release Verify
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to verify (e.g. 5.5.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: spm-verify-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Resolve and build tag via SPM
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_URL: ${{ github.event.release.html_url || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.tag) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/actions
+            scripts/spm-verify.sh
+            scripts/check-ci-green.sh
+          sparse-checkout-cone-mode: false
+
+      - name: Select Xcode 16.4
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Check iOS SDK CI passed on ${{ env.TAG }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: ./scripts/check-ci-green.sh "$TAG"
+
+      - name: Resolve and build ${{ env.TAG }}
+        if: success() || failure()
+        run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
+
+      - name: Notify Slack
+        if: success() || failure()
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: ${{ job.status == 'success' && 'success' || 'failure' }}
+          package: Swift SDK (SPM)
+          action_label: CI check + SPM resolve + build
+          version_label: ${{ env.TAG }}
+          release_url: ${{ env.RELEASE_URL }}
+
+      - name: Dispatch SDK bump to iOS test app
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+        run: |
+          if [[ "$TAG" == *-* ]]; then
+            echo "Prerelease tag $TAG, skipping test app bump."
+            exit 0
+          fi
+          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
+            -f event_type=sdk-released \
+            -F client_payload[version]="$TAG"
