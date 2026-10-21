@@ -67,6 +67,24 @@ final class RequestFactoryTests: XCTestCase {
         XCTAssertEqual(props?["Push Token"] as? String, "tok")
     }
 
+    func testEventRequestThreadsValueAndCurrency() {
+        let event = Event(name: .customEvent("Purchase"), value: 9.99, valueCurrency: "USD")
+        let request = RequestFactory.eventRequest(identity: identity, event: event, pushToken: nil)
+        guard case let .createEvent(_, payload) = request.endpoint else {
+            return XCTFail("expected createEvent")
+        }
+        XCTAssertEqual(payload.data.attributes.value, 9.99)
+        XCTAssertEqual(payload.data.attributes.valueCurrency, "USD")
+    }
+
+    func testEventPayloadThreadsValueCurrency() {
+        let event = Event(name: .customEvent("Purchase"), value: 9.99, valueCurrency: "USD")
+        let payload = RequestFactory.eventPayload(
+            identity: PayloadIdentity(identity), event: event, pushToken: nil
+        )
+        XCTAssertEqual(payload.data.attributes.valueCurrency, "USD")
+    }
+
     // MARK: - apiKey-free payload builders
 
     func testEventPayloadMatchesEventRequestPayload() {

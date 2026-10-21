@@ -145,6 +145,7 @@ public enum RequestFactory {
                 externalId: stamped.identifiers?.externalId,
                 anonymousId: identity.anonymousId,
                 value: stamped.value,
+                valueCurrency: stamped.valueCurrency,
                 time: stamped.time,
                 uniqueId: stamped.uniqueId,
                 pushToken: pushToken

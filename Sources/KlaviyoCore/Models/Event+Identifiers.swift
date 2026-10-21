@@ -32,6 +32,7 @@ extension Event {
                      properties: properties,
                      identifiers: identifiers,
                      value: value,
+                     valueCurrency: valueCurrency,
                      time: time,
                      uniqueId: uniqueId,
                      priority: priority)
