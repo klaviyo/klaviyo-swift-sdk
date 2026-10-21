@@ -97,8 +97,8 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         KlaviyoCommands.initialize(TEST_API_KEY)
         await KlaviyoCommands.completeInitialization(apiKey: TEST_API_KEY)
 
-        // Give the warm-up fetch a bounded window to (wrongly) invoke the provider.
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // No wait needed: the profile stays anonymous, and every fetch path re-reads the
+        // identity when it runs, so a late warm-up still throws before reaching the provider.
         XCTAssertEqual(
             provider.invocationCount, 0,
             "provider must not be called for an anonymous profile after init"
@@ -196,10 +196,9 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         )
         await assertNoTokenWhileUnidentified()
 
-        // Let the config-publisher reconciliation and identity-change reactions settle, then
-        // demand a token for the still-anonymous profile: exactly one clear (a double fetch
-        // would show up as extra provider calls; none may happen while unidentified).
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Demand a token for the still-anonymous profile: `currentToken` reconciles the
+        // company and re-reads the identity first, so no provider call can happen while
+        // unidentified (a double fetch would show up as extra provider calls).
         await assertNoTokenWhileUnidentified()
         XCTAssertEqual(
             provider.invocationCount, 1,
@@ -249,7 +248,7 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         try await waitForConditionOrFail("expected exactly one replacement fetch") {
             self.provider.invocationCount == 2
         }
-        try await Task.sleep(nanoseconds: 100_000_000)
+        try await settleAsyncReactions()
         XCTAssertEqual(
             provider.invocationCount, 2,
             "single clear: the company change must not double-fetch"
@@ -287,7 +286,6 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         let outgoingStillCurrent = await manager.isCurrentToken(outgoingToken)
         XCTAssertFalse(outgoingStillCurrent)
 
-        try await Task.sleep(nanoseconds: 100_000_000)
         await assertNoTokenWhileUnidentified()
         XCTAssertEqual(
             provider.invocationCount, 1,
@@ -318,16 +316,18 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
             IdentityTransition.classify(previous: prior, next: retained), .unchanged,
             "parity: retaining the persisted identity is not an identity replacement"
         )
-        let outgoingStillCurrent = await manager.isCurrentToken(outgoingToken)
-        XCTAssertFalse(outgoingStillCurrent,
-                       "the company change must retire the cached token")
+        // The profile is unchanged here, so only the async config-publisher reconciliation
+        // retires the cached token; poll rather than assert immediately.
+        try await waitForConditionOrFail("the company change must retire the cached token") {
+            await self.manager.isCurrentToken(outgoingToken) == false
+        }
 
         let incomingToken = try await manager.currentToken(mode: .background)
         XCTAssertNotEqual(incomingToken, outgoingToken)
         try await waitForConditionOrFail("expected exactly one replacement fetch") {
             self.provider.invocationCount == 2
         }
-        try await Task.sleep(nanoseconds: 100_000_000)
+        try await settleAsyncReactions()
         XCTAssertEqual(provider.invocationCount, 2, "single clear: no double fetch")
     }
 
@@ -367,6 +367,9 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
             IdentityTransition.classify(previous: preInit, next: migrated), .compatible,
             "an anonymousId-only re-attribution must classify as compatible"
         )
+        // Negative claims (no clear, no re-fetch): let config-publisher reconciliation and
+        // identity-change reactions settle before asserting.
+        try await settleAsyncReactions()
         let tokenStillCurrent = await manager.isCurrentToken(tokenBeforeInit)
         XCTAssertTrue(
             tokenStillCurrent,
@@ -417,15 +420,30 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         let isCurrent = await manager.isCurrentToken(token)
         XCTAssertTrue(isCurrent,
                       "the token served after migration must belong to the migrated identity")
-        try await waitForConditionOrFail("expected exactly one fetch for the migrated identity") {
-            self.provider.invocationCount == 1
-        }
+        // `currentToken` above already satisfied a `== 1` poll, so settle first to catch a
+        // duplicate fetch started by an async reaction to the migration write.
+        try await settleAsyncReactions()
+        XCTAssertEqual(provider.invocationCount, 1,
+                       "expected exactly one fetch for the migrated identity (no double fetch)")
     }
 }
 
 // MARK: - Helpers
 
 extension AuthTokenIdentityBehaviorTests {
+    /// Bounded window for asynchronous reactions (config-publisher reconciliation,
+    /// identity-change handlers) to run. Only for NEGATIVE assertions ("nothing else
+    /// happened"), where there is no condition to poll; positive paths use
+    /// `waitForConditionOrFail`.
+    ///
+    /// TODO: when these tests move to Swift Testing, replace this and any other
+    /// `Task.sleep` wait with a deterministic signal (e.g. confirmations).
+    static let settleNanoseconds: UInt64 = 100_000_000
+
+    func settleAsyncReactions() async throws {
+        try await Task.sleep(nanoseconds: Self.settleNanoseconds)
+    }
+
     /// Asserts that a token request while the current profile has no identifier throws
     /// `noProfileIdentifier` (and, by contract, never invokes the provider).
     func assertNoTokenWhileUnidentified(

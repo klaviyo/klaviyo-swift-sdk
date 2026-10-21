@@ -89,9 +89,12 @@ final class RecordingAuthProvider: @unchecked Sendable {
     /// The closure handed to the manager. A `throw` is unreachable in practice (minting a
     /// JWT from a fixed payload shape cannot fail); the signature is `AuthTokenProvider`'s.
     func provide() async throws -> String {
-        let latch: BehaviorLatch? = lock.withLock {
-            invocations.append(Invocation(number: invocations.count + 1))
-            return latches.isEmpty ? nil : latches.removeFirst()
+        // Capture this call's own number up front: a held call resumes after later calls
+        // have appended, so re-reading the count would mint duplicate JWT subjects.
+        let (number, latch): (Int, BehaviorLatch?) = lock.withLock {
+            let number = invocations.count + 1
+            invocations.append(Invocation(number: number))
+            return (number, latches.isEmpty ? nil : latches.removeFirst())
         }
         if let latch {
             await withTaskCancellationHandler {
@@ -100,7 +103,6 @@ final class RecordingAuthProvider: @unchecked Sendable {
                 Task { await latch.open() }
             }
         }
-        let number = lock.withLock { invocations.count }
         return try makeBehaviorTestJWT(subject: "auth-token-\(number)", validAt: currentDate())
     }
 }
