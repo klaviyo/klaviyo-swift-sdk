@@ -102,7 +102,22 @@ jobs:
               echo "⏭️  $pod_name $VERSION already published, skipping"
             else
               echo "📦 Publishing $pod_name..."
-              pod trunk push "$podspec" --allow-warnings
+              local attempt
+              for attempt in 1 2 3 4; do
+                if pod trunk push "$podspec" --allow-warnings; then
+                  return 0
+                fi
+                if pod trunk info "$pod_name" 2>/dev/null | grep -qe "- $VERSION ("; then
+                  echo "✅ $pod_name $VERSION is on trunk despite the push error"
+                  return 0
+                fi
+                if [ "$attempt" -lt 4 ]; then
+                  echo "⚠️  Push of $pod_name failed (attempt $attempt/4), retrying in $((attempt * 60))s"
+                  sleep $((attempt * 60))
+                fi
+              done
+              echo "❌ Push of $pod_name failed after 4 attempts"
+              return 1
             fi
           }
 
