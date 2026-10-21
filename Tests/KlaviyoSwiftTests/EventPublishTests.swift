@@ -94,6 +94,7 @@ final class EventPublishTests: XCTestCase {
             properties: ["item_id": "12345"],
             identifiers: Event.Identifiers(email: "test@example.com", phoneNumber: "+15555555555"),
             value: 99.99,
+            valueCurrency: "USD",
             time: testTime,
             uniqueId: testUniqueId
         )
@@ -105,6 +106,7 @@ final class EventPublishTests: XCTestCase {
         XCTAssertNotNil(receivedEvent)
         XCTAssertEqual(receivedEvent?.metric.name.value, "Added to Cart")
         XCTAssertEqual(receivedEvent?.value, 99.99)
+        XCTAssertEqual(receivedEvent?.valueCurrency, "USD")
         XCTAssertEqual(receivedEvent?.time, testTime)
         XCTAssertEqual(receivedEvent?.uniqueId, testUniqueId)
         XCTAssertEqual(receivedEvent?.identifiers?.email, "test@example.com")
