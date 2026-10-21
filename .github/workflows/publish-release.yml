@@ -195,7 +195,13 @@ jobs:
     permissions:
       contents: write
       actions: write
+    outputs:
+      started: ${{ steps.started.outputs.started }}
     steps:
+      - name: Mark job started
+        id: started
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .github/actions
@@ -255,6 +261,18 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
 
+      - name: Notify Slack - success
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: success
+          package: Swift SDK
+          action_label: release published, verify dispatched
+          version_label: ${{ inputs.version }}
+          release_url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.version) }}
+
       - name: Notify Slack - failure
         if: failure()
         continue-on-error: true
@@ -277,23 +295,17 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
-      actions: read
     steps:
       - name: Classify stop
         id: reason
         env:
-          GH_TOKEN: ${{ github.token }}
           CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          PUBLISH_STARTED: ${{ needs.publish.outputs.started }}
         run: |
-          set -euo pipefail
           if [ "$CANCELLED" = "true" ]; then
             echo "reason=cancelled" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # A rejected approval fails the publish job before any step runs.
-          ran=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
-            --jq '[.jobs[] | select(.name == "Publish release") | .steps | length] | add // 0')
-          if [ "$ran" = "0" ]; then
+          elif [ "$PUBLISH_STARTED" != "true" ]; then
+            # A rejected approval fails the publish job before any step runs.
             echo "reason=release approval rejected" >> "$GITHUB_OUTPUT"
           fi
 
