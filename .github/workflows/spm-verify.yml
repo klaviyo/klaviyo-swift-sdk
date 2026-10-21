@@ -60,3 +60,16 @@ jobs:
           action_label: CI check + SPM resolve + build
           version_label: ${{ env.TAG }}
           release_url: ${{ env.RELEASE_URL }}
+
+      - name: Dispatch SDK bump to iOS test app
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+        run: |
+          if [[ "$TAG" == *-* ]]; then
+            echo "Prerelease tag $TAG, skipping test app bump."
+            exit 0
+          fi
+          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
+            -f event_type=sdk-released \
+            -F client_payload[version]="$TAG"
