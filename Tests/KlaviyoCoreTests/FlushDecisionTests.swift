@@ -9,6 +9,21 @@
 import XCTest
 
 final class FlushDecisionTests: XCTestCase {
+    // `classifyFailure`'s .networkError branch now computes a jittered backoff via
+    // `environment.randomInt`. Pin the global `environment` to the deterministic test double
+    // (`randomInt: { 0 }`) for this class so assertions aren't at the mercy of whichever value a
+    // previously-run test class left behind, and restore it afterward so later classes aren't
+    // affected by this one.
+    override func setUp() {
+        super.setUp()
+        environment = KlaviyoEnvironment.test()
+    }
+
+    override func tearDown() {
+        environment = KlaviyoEnvironment.test()
+        super.tearDown()
+    }
+
     // MARK: - httpError
 
     func testHttpErrorWithInvalidEmailField() throws {
@@ -76,25 +91,65 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(decision, .dequeue)
     }
 
-    // MARK: - networkError
+    // MARK: - networkError (transport errors escalate via .retryWithBackoff)
 
-    func testNetworkErrorFromRetryState() throws {
+    /// A transport error from a plain `.retry` state must escalate into `.retryWithBackoff`, not
+    /// stay a bare `.retry`. Backoff is computed from the formula shared with 429/5xx:
+    /// `min(2^attempt, 300) + jitter`; `environment.randomInt` is stubbed to `0` by
+    /// `KlaviyoEnvironment.test()`, so jitter is 0 here.
+    func testNetworkErrorFromRetryStateEscalatesToBackoff() throws {
         let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
         let error = KlaviyoAPIError.networkError(underlyingError)
-        // .retry(count) → .retry(count + 1)
         let decision = classifyFailure(error: error, retryState: .retry(2))
-        XCTAssertEqual(decision, .retry(.retry(3)))
+        XCTAssertEqual(
+            decision,
+            .retryWithBackoff(
+                .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: 4)
+            ),
+            "attempt 2 failed → 2^2 = 4s backoff (no jitter in test env), requestCount advances to 3"
+        )
     }
 
-    func testNetworkErrorFromRetryWithBackoffState() throws {
+    /// A transport error that follows an existing `.retryWithBackoff` (e.g. a prior 429/5xx) must
+    /// NOT collapse to a bare `.retry` — it keeps escalating in backoff mode so the request never
+    /// reverts to the flat flush-tick cadence.
+    func testNetworkErrorFromRetryWithBackoffStateKeepsEscalatingBackoff() throws {
         let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
         let error = KlaviyoAPIError.networkError(underlyingError)
-        // .retryWithBackoff(requestCount, …) → .retry(requestCount + 1)
         let decision = classifyFailure(
             error: error,
             retryState: .retryWithBackoff(requestCount: 3, totalRetryCount: 5, currentBackoff: 10)
         )
-        XCTAssertEqual(decision, .retry(.retry(4)))
+        XCTAssertEqual(
+            decision,
+            .retryWithBackoff(
+                .retryWithBackoff(requestCount: 4, totalRetryCount: 6, currentBackoff: 8)
+            ),
+            "requestCount 3 failed → 2^3 = 8s backoff; requestCount/totalRetryCount both advance, " +
+                "never falls back to .retry"
+        )
+    }
+
+    /// Successive transport failures escalate 2^1, 2^2, 2^3 ... up to the 300s cap, exactly like
+    /// the 429/5xx path — one formula, not two.
+    func testNetworkErrorEscalatesUpToCap() throws {
+        let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
+        let error = KlaviyoAPIError.networkError(underlyingError)
+
+        var retryState: RetryState = .retry(FlushConstants.initialAttempt)
+        var backoffs: [Int] = []
+        for _ in 0..<10 {
+            let decision = classifyFailure(error: error, retryState: retryState)
+            guard case let .retryWithBackoff(newState) = decision,
+                  case let .retryWithBackoff(_, _, backoff) = newState else {
+                return XCTFail("expected .retryWithBackoff, got \(decision)")
+            }
+            backoffs.append(backoff)
+            retryState = newState
+        }
+
+        XCTAssertEqual(backoffs, [2, 4, 8, 16, 32, 64, 128, 256, 300, 300],
+                       "escalates as 2^attempt (no jitter in test env), capped at 300s")
     }
 
     // MARK: - rateLimitError

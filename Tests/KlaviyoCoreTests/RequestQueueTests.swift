@@ -373,6 +373,141 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
     }
 
+    // MARK: - Transport error backoff
+
+    /// Successive transport (network) errors now escalate through the SAME durable countdown
+    /// backoff as a rate-limit/server error, instead of flattening to a bare retry on every flush
+    /// tick. `classifyFailure`'s exact backoff values/bookkeeping are pinned precisely in
+    /// `FlushDecisionTests`; this proves the real `RequestQueue` plumbing carries that decision
+    /// through end to end, including the countdown gate actually skipping a tick once the computed
+    /// backoff exceeds the wifi flush interval (10s) — proof the new backoff value is load-bearing,
+    /// not a no-op.
+    ///
+    /// Wifi flushInterval = 10s. Backoff escalates 2, 4, 8, 16 (2^attempt, no jitter in test env).
+    /// The first three stay under 10s, so the gate expires immediately each tick and the request
+    /// resends right away (ticks 1-4 all send). The fourth backoff (16s) exceeds 10s, so tick 5 is
+    /// consumed entirely by the countdown (16 → 6, no send) before tick 6 resends successfully.
+    func testSuccessiveNetworkErrorsEscalateAndEventuallyGateOnATick() async {
+        QueueStore.register(makeQueueStore())
+        let spy = SendSpy(results: [
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "net-escalate"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        // Ticks 1-4: each network error's backoff (2, 4, 8, 16s) is still being computed/recorded;
+        // the first three are under the 10s flush interval so the gate expires immediately and the
+        // request resends on the very next tick each time.
+        for _ in 1...4 {
+            await queue.flushNow()
+        }
+        XCTAssertEqual(spy.sentAttempts, [1, 2, 3, 4],
+                       "attempt number must keep climbing across transport failures, never pin at 1")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["net-escalate"],
+                       "request stays durable in the queue through repeated transport failures")
+
+        // Tick 5: the 16s backoff from the 4th failure exceeds the 10s flush interval, so this tick
+        // is consumed entirely by the countdown gate — no send happens.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2, 3, 4],
+                       "no resend yet: the escalated backoff must still be counting down")
+
+        // Tick 6: the countdown elapses (16 → 6 → 0), the request is drained and resent, succeeds.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2, 3, 4, 5], "resent once the escalated backoff elapsed")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after the successful resend")
+    }
+
+    /// A request already backing off from a 429 must not lose that backoff when it subsequently
+    /// hits a transport error: it keeps escalating in backoff mode end to end (durable restore,
+    /// correct attempt progression) rather than falling back to the flat flush-tick cadence.
+    /// (The precise backoff-value contract for this transition is pinned in
+    /// `FlushDecisionTests.testNetworkErrorFromRetryWithBackoffStateKeepsEscalatingBackoff`; this
+    /// exercises the same transition through the real `RequestQueue`.)
+    func testRateLimitBackoffSurvivesASubsequentNetworkError() async {
+        QueueStore.register(makeQueueStore())
+        // 429 backoff 25s, wifi interval 10s → counts down 25→15→5→0 over 3 ticks before resending.
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 25)),
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "429-then-net"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        // Tick 1: 429 → durable countdown backoff recorded; request restored, not resent.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["429-then-net"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["429-then-net"])
+
+        // Ticks 2-3: countdown in progress (25→15→5); no resend yet.
+        await queue.flushNow()
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["429-then-net"], "no resend while the 429 backoff is counting down")
+
+        // Tick 4: the 429 backoff elapses, resend happens, and THIS attempt fails with a transport
+        // error. It must go back into a backoff (durable, restored), not be dropped or treated as a
+        // non-retryable failure.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2],
+                       "attempt 2 is sent once the 429 backoff elapses")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["429-then-net"],
+                       "the transport failure after a 429 must restore the request, not drop it")
+
+        // Tick 5: the transport error's own backoff (2^2 = 4s, under the 10s interval) elapses
+        // immediately, so the resend happens on the very next tick and succeeds.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2, 3], "attempt escalates again, not reset to 1")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "dequeued after the successful resend")
+    }
+
+    /// An offline `.infinity` flush interval cannot poison the new transport-error backoff path:
+    /// `flush()`'s existing `flushInterval.isFinite` guard short-circuits before the countdown gate
+    /// is ever touched, so there is no `Int(Double.infinity)` trap (the MAGE-1023 hazard) and no
+    /// infinite wait. The request stays durable while offline and is resent once reachable again.
+    ///
+    /// This covers the offline guard only, not reconnect timing: the backoff here (2s) is shorter
+    /// than one flush tick, and the test drives `flushNow()` by hand rather than the run loop, so it
+    /// does not assert whether a reconnect flushes immediately or drops a pending backoff.
+    func testNetworkErrorWhileOfflineDoesNotProduceInfiniteBackoffAndResendsOnceReachable() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy(results: [
+            .failure(.networkError(NSError(domain: "test", code: -1))),
+            .success(Data())
+        ])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "offline-net"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+        // A transport error records a (finite) backoff and restores the request to the durable queue.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["offline-net"])
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["offline-net"])
+
+        // Go offline mid-backoff: flushInterval becomes `.infinity`; `stop()` cancels any run loop.
+        await queue.networkConnectivityChanged(.notReachable)
+
+        // While offline, flush() no-ops at the `flushInterval.isFinite` guard before the countdown
+        // gate ever runs — must not crash, hang, or resend.
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["offline-net"], "flush must no-op while offline; no resend attempted")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["offline-net"],
+                       "request remains durable and untouched while offline")
+
+        // Reconnect: flushInterval returns to a finite value. `networkConnectivityChanged` starts a
+        // fresh run loop; stop it immediately so the test drives the resend deterministically via
+        // `flushNow()` rather than the loop's own timer.
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        await queue.stop()
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentIds, ["offline-net", "offline-net"], "resent once reconnected")
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty, "dequeued on successful resend after reconnect")
+    }
+
     /// Once the retry count exceeds `maxRetries` the head is dropped, not resent. The low-retry
     /// endpoint (`maxRetries == 1`) exceeds on the first network error (count → 2).
     func testExceedingMaxRetriesDropsRequest() async {
@@ -570,10 +705,21 @@ final class RequestQueueTests: XCTestCase {
         )
         let queue = RequestQueue(clock: .immediate, send: spy.send)
 
-        // Each flush retries once; drive past the register endpoint's maxRetries (50) so it is dropped.
-        for _ in 0...(KlaviyoEndpoint.registerPushToken("k", payload).maxRetries + 1) {
+        // A network error now escalates through the same durable countdown backoff as a 429/5xx
+        // instead of a flat per-tick retry, so most ticks here are spent counting the backoff down
+        // (capped at 300s = 30 ticks on the 10s wifi interval) rather than sending. Reaching the
+        // 50-attempt ceiling now takes on the order of ~1300 ticks instead of one tick per attempt, so
+        // drive ticks until the request drains (dropped) rather than assume a fixed 1:1 tick:attempt
+        // ratio. Each tick is a trivial actor call on the immediate clock (no real sleep).
+        var ticks = 0
+        let tickBudget = 2000
+        while !QueueStore.shared.requests.isEmpty, ticks < tickBudget {
             await queue.flushNow()
+            ticks += 1
         }
+        XCTAssertLessThan(ticks, tickBudget,
+                          "request must be dropped well within \(tickBudget) ticks; a higher count likely " +
+                              "means the backoff formula or maxRetries changed and this bound needs updating")
 
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "register must be dropped after exhausting retries")
         XCTAssertNil(IdentityStore.shared.pushToken,

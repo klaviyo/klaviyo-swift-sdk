@@ -32,6 +32,26 @@ public enum RetryBackoffConstants {
     /// Klaviyo's API sends this as delay-seconds (a non-negative integer); the HTTP-date form is not
     /// emitted, so a non-integer value falls back to exponential backoff.
     public static let retryAfterHeader = "Retry-After"
+
+    /// The single exponential-backoff formula shared by every retryable failure path (429, 5xx, and
+    /// transport/network errors): `min(2^attempt, maxBackoffSeconds)`, before jitter.
+    ///
+    /// Deliberately does NOT add jitter — jitter must be applied by the caller AFTER any comparison
+    /// against a server-provided value (e.g. `Retry-After`), never baked in here. Mixing a jittered
+    /// value into a `max(...)` comparison skews the comparison and can silently drop jitter whenever
+    /// the other side of the max wins, re-synchronizing clients that should be randomly spread out.
+    ///
+    /// - Parameter attemptNumber: The attempt number backing off from (matches
+    ///   `RequestAttemptInfo.attemptNumber` / `RetryState`'s attempt count).
+    /// - Returns: The backoff interval in seconds, capped at `maxBackoffSeconds`, with no jitter.
+    public static func exponentialBackoff(attemptNumber: Int) -> Int {
+        // Cap in Double space before converting to Int. 2^attemptNumber overflows Int64 at
+        // attemptNumber >= 63 and `Int(_:)` traps on an out-of-range Double, so the min() must run
+        // on Doubles — converting the uncapped exponential first would crash on a large attemptNumber
+        // even though every current caller stays well under the maxRetries ceiling.
+        let cappedBackOff = min(pow(2.0, Double(attemptNumber)), Double(maxBackoffSeconds))
+        return Int(cappedBackOff)
+    }
 }
 
 public struct KlaviyoAPI {
@@ -80,27 +100,27 @@ public struct KlaviyoAPI {
         if code == HTTPStatusCode.rateLimited || isRetryableServerError {
             // Cap our exponential backoff at the max retry interval so it can't grow unbounded
             // across a long rate-limit storm. A server-provided Retry-After may still exceed this.
-            let exponentialBackOff = min(
-                Int(pow(2.0, Double(requestAttemptInfo.attemptNumber))),
-                RetryBackoffConstants.maxBackoffSeconds
+            let exponentialBackOff = RetryBackoffConstants.exponentialBackoff(
+                attemptNumber: requestAttemptInfo.attemptNumber
             )
             // Wait the GREATER of the server-provided Retry-After and our exponential backoff
             // (Retry-After expected for 429, future-proofing for 5xx). Taking the greater of the two
             // keeps a request deep in a rate-limit storm backing off rather than retrying too soon
-            // just because the server's rate-limit window reset to a short Retry-After.
+            // just because the server's rate-limit window reset to a short Retry-After. Compare
+            // BEFORE adding jitter: jitter must survive every outcome (including Retry-After winning
+            // the max) so clients sharing the same Retry-After still get a randomized spread.
             //
             // Klaviyo sends Retry-After as delay-seconds; the HTTP-date form is not used, so a
             // non-integer value falls back to exponential backoff. value(forHTTPHeaderField:) is
             // case-insensitive, so HTTP/2 lowercase header names are handled.
-            var nextBackoff: Int = exponentialBackOff
+            var nextBackoff = exponentialBackOff
             let retryAfterValue = httpResponse.value(
                 forHTTPHeaderField: RetryBackoffConstants.retryAfterHeader
             )
             if let retryAfterValue, let retryAfterSeconds = Int(retryAfterValue) {
                 nextBackoff = max(exponentialBackOff, retryAfterSeconds)
             }
-            let jitter = environment.randomInt()
-            let nextBackOffWithJitter = nextBackoff + jitter
+            let nextBackOffWithJitter = nextBackoff + environment.randomInt()
 
             if code == HTTPStatusCode.rateLimited {
                 requestHandler(request, urlRequest, .error(.rateLimited(retryAfter: nextBackOffWithJitter)))

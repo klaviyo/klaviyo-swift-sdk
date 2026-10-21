@@ -121,6 +121,35 @@ public enum FlushDecision: Equatable {
     case clearInvalidFieldsAndDequeue([InvalidField])
 }
 
+// MARK: - advancedRetryCounts
+
+/// The retry-count bookkeeping shared by every failure path that escalates into
+/// `.retryWithBackoff` (429, 5xx, and transport/network errors): `requestCount`/`totalRetryCount`
+/// both advance by one, and `failedAttemptNumber` — the ordinal of the attempt that just failed,
+/// pre-increment — feeds the shared backoff formula.
+private struct AdvancedRetryCounts {
+    let requestRetryCount: Int
+    let totalRetryCount: Int
+    let failedAttemptNumber: Int
+}
+
+private func advancedRetryCounts(from retryState: RetryState) -> AdvancedRetryCounts {
+    switch retryState {
+    case let .retry(count):
+        return AdvancedRetryCounts(
+            requestRetryCount: count + 1,
+            totalRetryCount: count + 1,
+            failedAttemptNumber: count
+        )
+    case let .retryWithBackoff(requestCount, totalCount, _):
+        return AdvancedRetryCounts(
+            requestRetryCount: requestCount + 1,
+            totalRetryCount: totalCount + 1,
+            failedAttemptNumber: requestCount
+        )
+    }
+}
+
 // MARK: - classifyFailure
 
 /// Maps a ``KlaviyoAPIError`` to a ``FlushDecision``, applying the same classification
@@ -145,28 +174,29 @@ public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> F
         }
 
     case .networkError:
-        switch retryState {
-        case let .retry(count):
-            return .retry(.retry(count + 1))
-        case let .retryWithBackoff(requestCount, _, _):
-            return .retry(.retry(requestCount + 1))
-        }
-
-    case let .rateLimitError(backOff), let .serverError(_, backOff):
-        var requestRetryCount = 0
-        var totalRetryCount = 0
-        switch retryState {
-        case let .retry(count):
-            requestRetryCount = count + 1
-            totalRetryCount = requestRetryCount
-        case let .retryWithBackoff(requestCount, totalCount, _):
-            requestRetryCount = requestCount + 1
-            totalRetryCount = totalCount + 1
-        }
+        // Transport-level failure: escalate with the same exponential backoff as a 429/5xx, instead
+        // of dropping straight back to the flat flush-tick cadence, and never collapse an existing
+        // backoff to a bare `.retry` — keep escalating instead. `advancedRetryCounts`'
+        // `failedAttemptNumber` is the ordinal of the attempt that just failed (pre-increment),
+        // matching the attemptNumber `RequestQueue.sendHead` passed to `send` for this attempt, so
+        // this escalates 2^1, 2^2, 2^3 ... in lockstep with the 429/5xx path below, not a step ahead.
+        let counts = advancedRetryCounts(from: retryState)
+        let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: counts.failedAttemptNumber)
+            + environment.randomInt()
         return .retryWithBackoff(
             .retryWithBackoff(
-                requestCount: requestRetryCount,
-                totalRetryCount: totalRetryCount,
+                requestCount: counts.requestRetryCount,
+                totalRetryCount: counts.totalRetryCount,
+                currentBackoff: backOff
+            )
+        )
+
+    case let .rateLimitError(backOff), let .serverError(_, backOff):
+        let counts = advancedRetryCounts(from: retryState)
+        return .retryWithBackoff(
+            .retryWithBackoff(
+                requestCount: counts.requestRetryCount,
+                totalRetryCount: counts.totalRetryCount,
                 currentBackoff: backOff
             )
         )
