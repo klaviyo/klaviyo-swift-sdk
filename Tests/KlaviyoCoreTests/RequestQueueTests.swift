@@ -468,8 +468,12 @@ final class RequestQueueTests: XCTestCase {
     /// An offline `.infinity` flush interval cannot poison the new transport-error backoff path:
     /// `flush()`'s existing `flushInterval.isFinite` guard short-circuits before the countdown gate
     /// is ever touched, so there is no `Int(Double.infinity)` trap (the MAGE-1023 hazard) and no
-    /// infinite wait. The request stays durable while offline and resumes normally on reconnect.
-    func testNetworkErrorWhileOfflineCannotProduceInfiniteBackoffAndRetriesOnReconnect() async {
+    /// infinite wait. The request stays durable while offline and is resent once reachable again.
+    ///
+    /// This covers the offline guard only, not reconnect timing: the backoff here (2s) is shorter
+    /// than one flush tick, and the test drives `flushNow()` by hand rather than the run loop, so it
+    /// does not assert whether a reconnect flushes immediately or drops a pending backoff.
+    func testNetworkErrorWhileOfflineDoesNotProduceInfiniteBackoffAndResendsOnceReachable() async {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy(results: [
