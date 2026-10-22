@@ -73,3 +73,29 @@ jobs:
           gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
             -f event_type=sdk-released \
             -F client_payload[version]="$TAG"
+
+      - name: Checkout full history for Linear sync
+        if: success() && !contains(env.TAG, '-')
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync release to Linear
+        if: success() && !contains(env.TAG, '-')
+        continue-on-error: true
+        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: sync
+          base_ref: HEAD
+          version: ${{ env.TAG }}
+          name: ${{ env.TAG }}
+
+      - name: Complete release in Linear
+        if: success() && !contains(env.TAG, '-')
+        continue-on-error: true
+        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: complete
+          version: ${{ env.TAG }}
