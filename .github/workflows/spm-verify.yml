@@ -87,7 +87,6 @@ jobs:
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: sync
-          base_ref: HEAD
           version: ${{ env.TAG }}
           name: ${{ env.TAG }}
 
