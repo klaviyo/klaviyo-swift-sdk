@@ -3,7 +3,7 @@ Pod::Spec.new do |s|
   s.version          = "5.4.1"
   s.summary          = "Shared internals for Klaviyo Mobile Inbox, safe for app extensions"
   s.description      = <<-DESC
-                        Shared configuration and storage plumbing used by both the app-facing KlaviyoInbox
+                        Shared App Group plumbing used by both the app-facing KlaviyoInbox
                         and the extension-facing KlaviyoInboxExtension. Depends only on Foundation.
                        DESC
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"

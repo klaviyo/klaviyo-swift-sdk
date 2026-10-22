@@ -153,36 +153,14 @@ let package = Package(
             path: "Sources/KlaviyoInboxCore"
         ),
         .target(
-            name: "KlaviyoInboxTestSupport",
-            dependencies: ["KlaviyoInboxCore"],
-            path: "Tests/KlaviyoInboxTestSupport"
-        ),
-        .testTarget(
-            name: "KlaviyoInboxCoreTests",
-            dependencies: ["KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
-        ),
-        .target(
             name: "KlaviyoInboxExtension",
             dependencies: ["KlaviyoInboxCore"],
             path: "Sources/KlaviyoInboxExtension"
-        ),
-        .testTarget(
-            name: "KlaviyoInboxExtensionTests",
-            dependencies: ["KlaviyoInboxExtension", "KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
         ),
         .target(
             name: "KlaviyoInbox",
             dependencies: ["KlaviyoCore", "KlaviyoInboxCore"],
             path: "Sources/KlaviyoInbox"
-        ),
-        .testTarget(
-            name: "KlaviyoInboxTests",
-            dependencies: [
-                "KlaviyoInbox",
-                "KlaviyoCore",
-                "KlaviyoInboxCore",
-                "KlaviyoInboxTestSupport"
-            ]
         )
     ]
 )
