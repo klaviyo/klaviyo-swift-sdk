@@ -3,8 +3,8 @@ Pod::Spec.new do |s|
   s.version          = "5.4.1"
   s.summary          = "Klaviyo Mobile Inbox for your app"
   s.description      = <<-DESC
-                        Register your app for Klaviyo Mobile Inbox. Link this in your app target; link
-                        KlaviyoInboxExtension in your Notification Service Extension.
+                        Klaviyo Mobile Inbox for your app. Link this in your app target; link
+                        KlaviyoInboxExtension in your Notification Service Extension to capture pushes.
                        DESC
   s.homepage         = "https://github.com/klaviyo/klaviyo-swift-sdk"
   s.license          = { :type => "MIT", :file => "LICENSE" }
