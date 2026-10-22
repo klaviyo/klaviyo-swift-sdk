@@ -76,7 +76,8 @@ jobs:
 
       - name: Checkout full history for Linear sync
         if: success() && !contains(env.TAG, '-')
-        uses: actions/checkout@v4
+        continue-on-error: true
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
