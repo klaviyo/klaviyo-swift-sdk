@@ -75,16 +75,18 @@ jobs:
             -F client_payload[version]="$TAG"
 
       - name: Checkout full history for Linear sync
+        id: linear-checkout
         if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true
         continue-on-error: true
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           fetch-depth: 0
           persist-credentials: false
 
       - name: Sync release to Linear
         id: linear-sync
-        if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true
+        if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-checkout.outcome == 'success'
         continue-on-error: true
         uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
         with:
