@@ -14,6 +14,7 @@
 - [Profile Identification](#profile-identification)
   - [Reset Profile](#reset-profile)
   - [Anonymous Tracking Notice](#anonymous-tracking-notice)
+    - [Avoiding anonymous profiles](#avoiding-anonymous-profiles)
 - [Event tracking](#event-tracking)
   - [Arguments](#arguments)
 - [List Subscriptions](#list-subscriptions)
@@ -210,6 +211,31 @@ When an identifier is provided, Klaviyo will merge the anonymous user with an id
 > happens after your app calls `registerForRemoteNotifications()`. Because this can occur before you
 > call `setProfile`, `setEmail`, or `setPhoneNumber`, an anonymous profile will be created in Klaviyo
 > until you provide identifying information. This is expected behavior.
+
+#### Avoiding anonymous profiles
+
+If your app should never create a profile in Klaviyo until the user is known (email, phone number, or external ID), initialize the SDK as usual and hold back the calls below until after you call `set(email:)`, `set(phoneNumber:)`, or `set(externalId:)`. This guidance was verified against SDK version 5.4.0.
+
+1. **Leave automatic push token forwarding off.** Do not set `klaviyo_automatic_push_token_forwarding` to `true` in `Info.plist`; it is off when absent.
+2. **Before identifying the user, do not call:**
+   - `set(pushToken:)`
+   - `create(event:)`
+   - `set(profileAttribute:value:)` or `set(profile:)` with no email, phone number, or external ID
+   - `registerForInAppForms()`
+   - `registerGeofencing()`
+   - `handleUniversalTrackingLink(_:)`
+3. **After identifying the user,** call `set(pushToken:)` and register for forms and geofencing as normal.
+
+`handle(notificationResponse:)` and `klaviyo_automatic_push_open_tracking` are safe to use at any time: Klaviyo attributes push opens to the profile the notification was sent to, without creating a new one.
+
+Things to keep in mind:
+
+- **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
+- **Logout and switching users.** `resetProfile()` keeps the push token and registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
+  - On the next login, call `set(profile:)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `set(email:)` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event tracking
 

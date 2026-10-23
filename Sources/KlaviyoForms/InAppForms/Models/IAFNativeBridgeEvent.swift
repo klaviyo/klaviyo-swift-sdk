@@ -24,6 +24,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case profileMutation
     case jwtMutation
     case refreshJwt
+    case formsPreviewTokenMutation
+    case formsPreviewEnded(reason: String)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -45,6 +47,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case profileMutation
         case jwtMutation
         case refreshJwt
+        case formsPreviewTokenMutation
+        case formsPreviewEnded
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +99,12 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .jwtMutation
         case .refreshJwt:
             self = .refreshJwt
+        case .formsPreviewTokenMutation:
+            self = .formsPreviewTokenMutation
+        case .formsPreviewEnded:
+            let payload = try? container.decode(FormsPreviewEndedPayload.self, forKey: .data)
+            let reason = payload?.reason ?? ""
+            self = .formsPreviewEnded(reason: reason.isEmpty ? "Unknown" : reason)
         }
     }
 }
@@ -126,6 +136,10 @@ extension IAFNativeBridgeEvent {
     struct AbortPayload: Decodable {
         let reason: String
     }
+
+    struct FormsPreviewEndedPayload: Decodable {
+        let reason: String?
+    }
 }
 
 extension IAFNativeBridgeEvent {
@@ -155,9 +169,9 @@ extension IAFNativeBridgeEvent {
 
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
         // Message types and versions advertised to JS: inbound messages JS may send, plus
-        // outbound declarations (`lifecycleEvent`, `profileEvent`, `profileMutation`) for
-        // messages native sends to JS. Only `name` and `version` are read; the associated
-        // values are placeholders and are never decoded.
+        // outbound declarations (`lifecycleEvent`, `profileEvent`, `profileMutation`,
+        // `formsPreviewTokenMutation`) for messages native sends to JS. Only `name` and
+        // `version` are read; the associated values are placeholders and are never decoded.
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
@@ -169,7 +183,9 @@ extension IAFNativeBridgeEvent {
             .profileEvent,
             .profileMutation,
             .jwtMutation,
-            .refreshJwt
+            .refreshJwt,
+            .formsPreviewTokenMutation,
+            .formsPreviewEnded(reason: "")
         ]
     }
 
@@ -189,6 +205,8 @@ extension IAFNativeBridgeEvent {
         case .profileMutation: return 1
         case .jwtMutation: return 1
         case .refreshJwt: return 1
+        case .formsPreviewTokenMutation: return 1
+        case .formsPreviewEnded: return 1
         }
     }
 
@@ -208,6 +226,8 @@ extension IAFNativeBridgeEvent {
         case .profileMutation: return "profileMutation"
         case .jwtMutation: return "jwtMutation"
         case .refreshJwt: return "refreshJwt"
+        case .formsPreviewTokenMutation: return "formsPreviewTokenMutation"
+        case .formsPreviewEnded: return "formsPreviewEnded"
         }
     }
 }
