@@ -10,9 +10,6 @@ import OSLog
 /// Holds the forms preview token in memory only. The token is a short-lived credential that
 /// makes onsite-in-app-forms load draft forms instead of published forms. It is never
 /// persisted and never logged.
-///
-/// Lives in KlaviyoCore so both KlaviyoForms (which reads it and writes it from its public API)
-/// and KlaviyoSwift (which writes it when a preview push is opened) share one store.
 @MainActor
 package final class FormsPreviewTokenStore {
     package static let shared = FormsPreviewTokenStore()
