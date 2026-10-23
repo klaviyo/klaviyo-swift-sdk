@@ -5,11 +5,9 @@
 
 import Foundation
 
-/// Shared rules for the in-app forms draft-preview token, used by KlaviyoForms (deep links) and
-/// KlaviyoSwift (push opens) so the key name and token format live in one place.
+/// Shared rules for the in-app forms draft-preview token: the key name and URL parsing.
 package enum FormsPreview {
     /// Key carrying a preview token: a deep link query parameter, and a push key/value pair.
-    /// Move to KlaviyoFoundation once that module exists, since KlaviyoInboxCore needs it too.
     package static let previewTokenKey = "klaviyo-forms-preview"
 
     /// The raw ``previewTokenKey`` query parameter value of `url`, or `nil` when the URL has no
