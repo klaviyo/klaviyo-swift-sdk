@@ -105,7 +105,7 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(previewTokenLoadScript(in: viewModel)).source.contains(validPreviewToken))
 
         completeHandshake(viewModel)
-        await delegate.waitForScript(containing: validPreviewToken)
+        await assertEventually { self.previewTokenScripts(in: delegate).contains { $0.contains(validPreviewToken) } }
     }
 
     func testTokenRenderedAtLoadIsNotPushedAgainAfterHandshake() async throws {
@@ -122,11 +122,14 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
         completeHandshake(viewModel)
 
         store.setToken(validPreviewToken)
-        await delegate.waitForScript(containing: validPreviewToken)
+        await assertEventually { self.previewTokenScripts(in: delegate).count == 1 }
         store.setToken(nil)
-        await delegate.waitForScript(containing: "data-klaviyo-forms-preview-token', \"\"")
+        await assertEventually { self.previewTokenScripts(in: delegate).count == 2 }
 
-        XCTAssertEqual(previewTokenScripts(in: delegate).count, 2)
+        let scripts = previewTokenScripts(in: delegate)
+        XCTAssertEqual(scripts.count, 2)
+        XCTAssertTrue(scripts.first?.contains(validPreviewToken) ?? false)
+        XCTAssertTrue(scripts.last?.contains("data-klaviyo-forms-preview-token', \"\"") ?? false)
         XCTAssertNil(previewTokenLoadScript(in: viewModel), "A cleared token is not reloaded")
     }
 
