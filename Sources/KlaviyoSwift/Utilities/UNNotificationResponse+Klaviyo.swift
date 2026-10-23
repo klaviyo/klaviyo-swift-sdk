@@ -65,6 +65,12 @@ extension UNNotificationResponse {
             return nil
         }
 
+        return klaviyoDeepLinkURL(in: properties)
+    }
+
+    /// Returns the deep link URL from `properties`, a Klaviyo notification payload that may have
+    /// had its forms preview token removed, if present.
+    func klaviyoDeepLinkURL(in properties: [String: Any]) -> URL? {
         guard let urlString = properties["url"] as? String else {
             if #available(iOS 14.0, *) {
                 Logger.notifications.log("Unable to retrieve deep link URL from the Klaviyo notification payload.")
@@ -80,6 +86,32 @@ extension UNNotificationResponse {
         }
 
         return url
+    }
+
+    // MARK: - Forms Preview
+
+    /// The in-app forms preview token carried by this push, and the notification properties with
+    /// it removed. Reads `key_value_pairs["klaviyo-forms-preview"]`, falling back to the
+    /// `klaviyo-forms-preview` query parameter of the `url` deep link. The token is removed from
+    /// both places in the returned properties whether or not it is well formed. The token is not
+    /// validated; see ``FormsPreviewTokenStore/validate(_:)``.
+    func klaviyoFormsPreview(in properties: [String: Any]) -> (token: String?, properties: [String: Any]) {
+        var stripped = properties
+        var token: String?
+
+        if var keyValuePairs = properties["key_value_pairs"] as? [String: Any],
+           let value = keyValuePairs.removeValue(forKey: FormsPreview.previewTokenKey) {
+            token = value as? String ?? ""
+            stripped["key_value_pairs"] = keyValuePairs
+        }
+
+        if let urlString = properties["url"] as? String, let url = URL(string: urlString),
+           let parameter = FormsPreview.previewTokenParameter(in: url) {
+            token = token ?? parameter
+            stripped["url"] = FormsPreview.removingPreviewTokenParameter(from: url).absoluteString
+        }
+
+        return (token, stripped)
     }
 
     // MARK: - Dedup Key
