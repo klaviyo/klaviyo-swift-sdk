@@ -12,7 +12,7 @@ import Foundation
 package enum InboxPayloadFixtures {
     package static let transmissionID = "01KV8CN3SH8N7MM5ZYNX40QCFH"
 
-    /// Every field the parser reads, including an unknown action type in the middle of the buttons.
+    /// Every field the parser reads, including an unknown action type among the buttons, which the parser drops.
     package static let full = """
     {
       "aps": {

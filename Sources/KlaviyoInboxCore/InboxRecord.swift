@@ -82,8 +82,6 @@ package enum InboxDestination: Equatable, Codable {
     case openApp
     case deepLink(URL)
     case openUrl(URL)
-    /// An `action` value this SDK version does not know. Kept so a newer server can add types.
-    case unknown(String)
 }
 
 /// Badge instructions from the payload. Parsed only: applying the badge stays with the rich-push extension.

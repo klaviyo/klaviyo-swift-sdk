@@ -151,9 +151,11 @@ package enum InboxPayloadParser {
         return result
     }
 
-    /// `nil` drops the button. Unknown action types are kept: they carry no URL semantics to validate.
+    /// `nil` drops the button, including unknown action types, as the rich-push button parser does.
+    /// These rules mirror `KlaviyoActionButtonParser`; that parser could be shared from
+    /// `KlaviyoFoundation` instead of duplicated here.
     private static func destination(action: String, url: String?) -> InboxDestination? {
-        guard let type = ActionType(rawValue: action) else { return .unknown(action) }
+        guard let type = ActionType(rawValue: action) else { return nil }
         switch type {
         case .openApp:
             return url == nil ? .openApp : nil

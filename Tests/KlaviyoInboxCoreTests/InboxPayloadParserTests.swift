@@ -172,11 +172,10 @@ final class InboxPayloadParserTests: XCTestCase {
         return try XCTUnwrap(parse(json)).actions
     }
 
-    func testActionsKeepPayloadOrderAndUnknownTypesInPlace() throws {
+    func testActionsKeepPayloadOrderAndDropUnknownTypes() throws {
         let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
         XCTAssertEqual(record.actions, [
             try InboxAction(id: "a1", label: "Shop", destination: .deepLink(url("myapp://sale"))),
-            InboxAction(id: "a2", label: "Later", destination: .unknown("snooze")),
             try InboxAction(id: "a3", label: "Web", destination: .openUrl(url("https://example.com")))
         ])
     }

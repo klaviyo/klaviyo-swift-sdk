@@ -27,7 +27,7 @@ final class InboxRecordTests: XCTestCase {
                     label: "B",
                     destination: .openUrl(XCTUnwrap(URL(string: "https://x.com")))
                 ),
-                InboxAction(id: "c", label: "C", destination: .unknown("snooze"))
+                InboxAction(id: "c", label: "C", destination: .deepLink(XCTUnwrap(URL(string: "myapp://c"))))
             ],
             sentAt: Date(timeIntervalSince1970: 100),
             receivedAt: Date(timeIntervalSince1970: 200),
