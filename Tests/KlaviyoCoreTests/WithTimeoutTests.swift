@@ -35,7 +35,7 @@ final class WithTimeoutTests: XCTestCase {
     func testWithTimeout_OperationTimesOut() async {
         // Given
         let operation = {
-            try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second — well above the 0.5s timeout
             return "should not reach here"
         }
 

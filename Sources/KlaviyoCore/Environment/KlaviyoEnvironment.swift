@@ -1,0 +1,330 @@
+//
+//  KlaviyoEnvironment.swift
+//  KlaviyoSwift
+//
+//  Created by Noah Durell on 9/28/22.
+//
+
+import Combine
+import CoreLocation
+import Foundation
+import UIKit
+
+public var environment = KlaviyoEnvironment.production
+
+public struct KlaviyoEnvironment {
+    public init(
+        fileClient: FileClient,
+        dataFromUrl: @escaping (URL) throws -> Data,
+        logger: LoggerClient,
+        appLifeCycle: AppLifeCycleEvents,
+        notificationCenterPublisher: @escaping (NSNotification.Name) -> AnyPublisher<Notification, Never>,
+        getNotificationSettings: @escaping () async -> PushEnablement,
+        getBackgroundSetting: @escaping () -> PushBackground,
+        getBadgeAutoClearingSetting: @escaping () async -> Bool,
+        sdkFeatures: @escaping () -> SdkFeatures? = { nil },
+        getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
+        startReachability: @escaping () throws -> Void,
+        stopReachability: @escaping () -> Void,
+        reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
+        randomInt: @escaping () -> Int,
+        raiseFatalError: @escaping (String) -> Void,
+        emitDeveloperWarning: @escaping (String) -> Void,
+        networkSession: @escaping () -> NetworkSession,
+        apiURL: @escaping () -> URLComponents,
+        cdnURL: @escaping () -> URLComponents,
+        encodeJSON: @escaping (Encodable) throws -> Data,
+        decoder: DataDecoder,
+        uuid: @escaping () -> UUID,
+        date: @escaping () -> Date,
+        timeZone: @escaping () -> String,
+        appContextInfo: @escaping () -> AppContextInfo,
+        klaviyoAPI: KlaviyoAPI,
+        SDKName: @escaping () -> String,
+        SDKVersion: @escaping () -> String,
+        formsDataEnvironment: @escaping () -> FormEnvironment?,
+        linkHandler: DeepLinkHandler
+    ) {
+        self.fileClient = fileClient
+        self.dataFromUrl = dataFromUrl
+        self.logger = logger
+        self.appLifeCycle = appLifeCycle
+        self.notificationCenterPublisher = notificationCenterPublisher
+        self.getNotificationSettings = getNotificationSettings
+        self.getBackgroundSetting = getBackgroundSetting
+        self.getBadgeAutoClearingSetting = getBadgeAutoClearingSetting
+        self.sdkFeatures = sdkFeatures
+        self.getLocationAuthorizationStatus = getLocationAuthorizationStatus
+        self.startReachability = startReachability
+        self.stopReachability = stopReachability
+        self.reachabilityStatus = reachabilityStatus
+        self.randomInt = randomInt
+        self.raiseFatalError = raiseFatalError
+        self.emitDeveloperWarning = emitDeveloperWarning
+        self.networkSession = networkSession
+        self.apiURL = apiURL
+        self.cdnURL = cdnURL
+        self.encodeJSON = encodeJSON
+        self.decoder = decoder
+        self.uuid = uuid
+        self.date = date
+        self.timeZone = timeZone
+        self.appContextInfo = appContextInfo
+        self.klaviyoAPI = klaviyoAPI
+        sdkName = SDKName
+        sdkVersion = SDKVersion
+        self.formsDataEnvironment = formsDataEnvironment
+        self.linkHandler = linkHandler
+    }
+
+    static let productionHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "a.klaviyo.com"
+        return components
+    }()
+
+    static let cdnHost: URLComponents = {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = "static.klaviyo.com"
+        return components
+    }()
+
+    public static let encoder = { () -> JSONEncoder in
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    static let decoder = { () -> JSONDecoder in
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
+
+    public var fileClient: FileClient
+    public var dataFromUrl: (URL) throws -> Data
+
+    public var logger: LoggerClient
+
+    public var appLifeCycle: AppLifeCycleEvents
+
+    public var notificationCenterPublisher: (NSNotification.Name) -> AnyPublisher<Notification, Never>
+    public var getNotificationSettings: () async -> PushEnablement
+    public var getBackgroundSetting: () -> PushBackground
+    public var getBadgeAutoClearingSetting: () async -> Bool
+    public var sdkFeatures: () -> SdkFeatures?
+    public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
+
+    public var startReachability: () throws -> Void
+    public var stopReachability: () -> Void
+    public var reachabilityStatus: () -> Reachability.NetworkStatus?
+
+    public var randomInt: () -> Int
+
+    public var raiseFatalError: (String) -> Void
+    public var emitDeveloperWarning: (String) -> Void
+
+    public var networkSession: () -> NetworkSession
+    public var apiURL: () -> URLComponents
+    public var cdnURL: () -> URLComponents
+    public var encodeJSON: (Encodable) throws -> Data
+    public var decoder: DataDecoder
+    public var uuid: () -> UUID
+    public var date: () -> Date
+    public var timeZone: () -> String
+    public var appContextInfo: () -> AppContextInfo
+    public var klaviyoAPI: KlaviyoAPI
+    public var formsDataEnvironment: () -> FormEnvironment?
+    public var linkHandler: DeepLinkHandler
+
+    public var sdkName: () -> String
+    public var sdkVersion: () -> String
+
+    public func lifecycleEventsWithReachability() -> AnyPublisher<LifeCycleEvents, Never> {
+        appLifeCycle.lifeCycleEvents()
+            .handleEvents(receiveOutput: { event in
+                switch event {
+                case .terminated, .backgrounded:
+                    stopReachability()
+                case .foregrounded:
+                    do {
+                        try startReachability()
+                    } catch {
+                        emitDeveloperWarning("failure to start reachability notifier")
+                    }
+                case .reachabilityChanged:
+                    break
+                }
+            })
+            .eraseToAnyPublisher()
+    }
+
+    // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
+    package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
+
+    private static let wrapperSDKConfig: [String: AnyObject] = {
+        // Path 1: static library (no use_frameworks!) — resources copied flat into Bundle.main.
+        // Also covers use_frameworks! :linkage => :static with s.resources.
+        if let config = loadPlist(named: "klaviyo-sdk-configuration") {
+            return config
+        }
+
+        // Path 2: use_frameworks! :linkage => :static with s.resource_bundles — CocoaPods copies the
+        // named .bundle into Bundle.main alongside the app's own resources.
+        for bundleName in knownWrapperBundleNames {
+            if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+               let bundle = Bundle(url: bundleURL),
+               let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                return config
+            }
+        }
+
+        // Paths 3 & 4: use_frameworks! (dynamic) — the wrapper pod is a .framework in Frameworks/.
+        // With s.resources the plist sits directly in the framework bundle (path 3).
+        // With s.resource_bundles it sits inside a named .bundle within the framework (path 4).
+        if let frameworksURL = Bundle.main.privateFrameworksURL {
+            for bundleName in knownWrapperBundleNames {
+                // CocoaPods converts hyphens to underscores in framework/module directory names.
+                let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
+                let frameworkURL = frameworksURL.appendingPathComponent("\(frameworkDirName).framework")
+
+                // Path 3: s.resources — plist is at the root of the framework bundle.
+                if let bundle = Bundle(url: frameworkURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+
+                // Path 4: s.resource_bundles — plist is inside a nested .bundle within the framework.
+                let nestedBundleURL = frameworkURL.appendingPathComponent("\(bundleName).bundle")
+                if let bundle = Bundle(url: nestedBundleURL),
+                   let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
+                    return config
+                }
+            }
+        }
+
+        return [:]
+    }()
+
+    private static func getSDKName() -> String {
+        if let sdkName = wrapperSDKConfig["klaviyo_sdk_name"] as? String {
+            return sdkName
+        }
+        return __klaviyoSwiftName
+    }
+
+    private static func getSDKVersion() -> String {
+        if let sdkVersion = wrapperSDKConfig["klaviyo_sdk_version"] as? String {
+            return sdkVersion
+        }
+        return __klaviyoSwiftVersion
+    }
+
+    public static var production = KlaviyoEnvironment(
+        fileClient: FileClient.production,
+        dataFromUrl: { url in try Data(contentsOf: url) },
+        logger: LoggerClient.production,
+        appLifeCycle: AppLifeCycleEvents.production,
+        notificationCenterPublisher: { name in
+            NotificationCenter.default.publisher(for: name)
+                .eraseToAnyPublisher()
+        },
+        getNotificationSettings: {
+            let notificationSettings = await UNUserNotificationCenter.current().notificationSettings()
+            return PushEnablement.create(from: notificationSettings.authorizationStatus)
+        },
+        getBackgroundSetting: {
+            .create(from: UIApplication.shared.backgroundRefreshStatus)
+        },
+        getBadgeAutoClearingSetting: {
+            Bundle.main.object(forInfoDictionaryKey: "klaviyo_badge_autoclearing") as? Bool ?? true
+        },
+        sdkFeatures: {
+            let autoPushTracking = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushOpenTracking
+            ) as? Bool
+            let autoTokenForwarding = Bundle.main.object(
+                forInfoDictionaryKey: SdkFeatures.InfoPlistKey.automaticPushTokenForwarding
+            ) as? Bool
+            guard autoPushTracking != nil || autoTokenForwarding != nil else {
+                return nil
+            }
+            return SdkFeatures(
+                autoPushTracking: autoPushTracking,
+                autoTokenForwarding: autoTokenForwarding
+            )
+        },
+        getLocationAuthorizationStatus: {
+            if #available(iOS 14.0, *) {
+                return CLLocationManager().authorizationStatus
+            } else {
+                return CLLocationManager.authorizationStatus()
+            }
+        },
+        startReachability: {
+            try reachabilityService?.startNotifier()
+        },
+        stopReachability: {
+            reachabilityService?.stopNotifier()
+        },
+        reachabilityStatus: {
+            reachabilityService?.currentReachabilityStatus
+        },
+        randomInt: { Int.random(in: 0...10) },
+        raiseFatalError: { msg in
+            #if DEBUG
+            fatalError(msg)
+            #endif
+        },
+        emitDeveloperWarning: { runtimeWarn($0) },
+        networkSession: createNetworkSession,
+        apiURL: { KlaviyoEnvironment.productionHost },
+        cdnURL: { KlaviyoEnvironment.cdnHost },
+        encodeJSON: { encodable in try encoder.encode(encodable) },
+        decoder: DataDecoder.production,
+        uuid: { UUID() },
+        date: { Date() },
+        timeZone: { TimeZone.autoupdatingCurrent.identifier },
+        appContextInfo: { AppContextInfo() },
+        klaviyoAPI: KlaviyoAPI(),
+        SDKName: KlaviyoEnvironment.getSDKName,
+        SDKVersion: KlaviyoEnvironment.getSDKVersion,
+        formsDataEnvironment: { nil },
+        linkHandler: DeepLinkHandler()
+    )
+
+    /// Returns `true` if the SDK is running inside a wrapper SDK (e.g. React Native, Flutter).
+    package static var isWrapperSDK: Bool {
+        !wrapperSDKConfig.isEmpty
+    }
+}
+
+public var networkSession: NetworkSession!
+public func createNetworkSession() -> NetworkSession {
+    if networkSession == nil {
+        networkSession = NetworkSession.production
+    }
+    return networkSession
+}
+
+public enum FormEnvironment: String, Equatable, Codable, CaseIterable {
+    case inApp = "in-app"
+    case web
+}
+
+public struct DataDecoder {
+    public init(jsonDecoder: JSONDecoder) {
+        self.jsonDecoder = jsonDecoder
+    }
+
+    public var jsonDecoder: JSONDecoder
+    public static let production = Self(jsonDecoder: KlaviyoEnvironment.decoder)
+
+    public func decode<T: Decodable>(_ data: Data) throws -> T {
+        try jsonDecoder.decode(T.self, from: data)
+    }
+}
