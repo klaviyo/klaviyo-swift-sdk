@@ -376,4 +376,50 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)
     }
+
+    // MARK: - Forms Preview
+
+    private let previewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+
+    func testKlaviyoFormsPreview_ReadsAndStripsKeyValuePairs() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": previewToken, "other": "1"]
+        ]
+        let response = try UNNotificationResponse.with(userInfo: properties)
+
+        let preview = response.klaviyoFormsPreview(in: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
+    }
+
+    func testKlaviyoFormsPreview_PrefersKeyValuePairsAndStripsTheLinkToo() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": previewToken],
+            "url": "klaviyo://home?klaviyo-forms-preview=other&x=1"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: properties)
+
+        let preview = response.klaviyoFormsPreview(in: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
+    }
+
+    func testKlaviyoFormsPreview_WithoutTokenReturnsPropertiesUnchanged() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["other": "1"],
+            "url": "klaviyo://home?x=1"
+        ]
+        let response = try UNNotificationResponse.with(userInfo: properties)
+
+        let preview = response.klaviyoFormsPreview(in: properties)
+
+        XCTAssertNil(preview.token)
+        XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
+        XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
+    }
 }
