@@ -10,6 +10,7 @@ import WebKit
 import XCTest
 
 let validPreviewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+let otherPreviewToken = "ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm987"
 
 @MainActor
 final class FormsPreviewTokenWebViewModelTests: XCTestCase {
@@ -222,6 +223,27 @@ final class FormsPreviewTokenPublicAPITests: XCTestCase {
         XCTAssertEqual(FormsPreviewTokenStore.shared.token, validPreviewToken)
         KlaviyoSDK().endFormsPreview()
         XCTAssertNil(FormsPreviewTokenStore.shared.token)
+    }
+
+    func testPreviewLinkWithValidTokenSetsItAndReturnsTrue() throws {
+        let link = try XCTUnwrap(URL(string: "myapp://home?utm=qr&klaviyo-forms-preview=\(validPreviewToken)"))
+        XCTAssertTrue(KlaviyoSDK().handleFormsPreviewLink(link))
+        XCTAssertEqual(FormsPreviewTokenStore.shared.token, validPreviewToken)
+
+        let universal = try XCTUnwrap(URL(string: "https://shop.example.com/x?klaviyo-forms-preview=\(otherPreviewToken)"))
+        XCTAssertTrue(KlaviyoSDK().handleFormsPreviewLink(universal))
+        XCTAssertEqual(FormsPreviewTokenStore.shared.token, otherPreviewToken)
+    }
+
+    func testPreviewLinkWithoutParameterOrWithMalformedTokenChangesNothing() throws {
+        KlaviyoSDK().startFormsPreview(validPreviewToken)
+
+        XCTAssertFalse(try KlaviyoSDK().handleFormsPreviewLink(XCTUnwrap(URL(string: "myapp://home?other=1"))))
+        XCTAssertFalse(try KlaviyoSDK().handleFormsPreviewLink(XCTUnwrap(URL(string: "myapp://x?klaviyo-forms-preview=short"))))
+        let padded = try XCTUnwrap(URL(string: "myapp://x?klaviyo-forms-preview=%20\(validPreviewToken)"))
+        XCTAssertFalse(KlaviyoSDK().handleFormsPreviewLink(padded))
+
+        XCTAssertEqual(FormsPreviewTokenStore.shared.token, validPreviewToken)
     }
 
     func testMalformedTokenKeepsThePreviousPreview() {
