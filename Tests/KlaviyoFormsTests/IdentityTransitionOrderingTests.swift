@@ -2,7 +2,7 @@
 //  IdentityTransitionOrderingTests.swift
 //  klaviyo-swift-sdk
 //
-//  Drives identity changes through the KlaviyoSwift reducer into a Forms page and
+//  Drives identity changes through the KlaviyoSwift commands into a Forms page and
 //  checks that the page always receives the new profile before the token for it.
 //
 
@@ -15,12 +15,11 @@ import XCTest
 final class IdentityTransitionOrderingTests: XCTestCase {
     private struct Path {
         let name: String
-        let start: KlaviyoState
-        let action: KlaviyoAction
+        let start: ProfileData
+        let apply: @MainActor () -> Void
         let incomingEmail: String
     }
 
-    private var store: Store<KlaviyoState, KlaviyoAction>!
     private var provider: ScriptedTokenProvider!
     private var manager: AuthTokenManager!
     private var presentationManager: IAFPresentationManager!
@@ -30,7 +29,6 @@ final class IdentityTransitionOrderingTests: XCTestCase {
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
-        SharedStoreMirror.reset()
         provider = ScriptedTokenProvider()
         manager = makeUnboundedAuthTokenManager()
         presentationManager = IAFPresentationManager(viewController: nil)
@@ -39,12 +37,13 @@ final class IdentityTransitionOrderingTests: XCTestCase {
     override func tearDown() async throws {
         presentationManager.destroyWebView()
         await manager.unregisterProvider()
-        SharedStoreMirror.reset()
+        featureFlags = .production
+        seedCoreStores()
+        LifecycleState.shared.reset()
         presentationManager = nil
         manager = nil
         viewModel = nil
         delegate = nil
-        store = nil
         try await super.tearDown()
     }
 
@@ -53,19 +52,19 @@ final class IdentityTransitionOrderingTests: XCTestCase {
             Path(
                 name: "bulk replacement",
                 start: state(email: "a@x.com"),
-                action: .enqueueProfile(Profile(email: "b@x.com")),
+                apply: { KlaviyoCommands.enqueueProfile(Profile(email: "b@x.com")) },
                 incomingEmail: "b@x.com"
             ),
             Path(
                 name: "scalar replacement",
                 start: state(email: "a@x.com", phoneNumber: "+15551234567"),
-                action: .setEmail("b@x.com"),
+                apply: { KlaviyoCommands.setEmail("b@x.com") },
                 incomingEmail: "b@x.com"
             ),
             Path(
                 name: "anonymous to identified",
                 start: state(),
-                action: .setEmail("b@x.com"),
+                apply: { KlaviyoCommands.setEmail("b@x.com") },
                 incomingEmail: "b@x.com"
             )
         ]
@@ -75,11 +74,11 @@ final class IdentityTransitionOrderingTests: XCTestCase {
 
     func testLivePageReceivesNewProfileBeforeItsToken() async throws {
         for path in paths {
-            try await startStore(path.start)
+            try await startStores(path.start)
             let outgoingToken = try? await manager.currentToken(mode: .background)
             await makeViewModel(authToken: outgoingToken)
 
-            send(path.action)
+            path.apply()
             await delegate.awaitScript(containing: "data-klaviyo-jwt")
 
             let tokenScripts = delegate.authTokenScripts
@@ -96,10 +95,10 @@ final class IdentityTransitionOrderingTests: XCTestCase {
 
     func testFreshPageLoadsNewProfileBeforeItsToken() async throws {
         for path in paths {
-            try await startStore(path.start)
+            try await startStores(path.start)
             let outgoingToken = try? await manager.currentToken(mode: .background)
 
-            send(path.action)
+            path.apply()
             try await makeFreshViewModel()
 
             let identityScripts = loadScriptSources.filter { $0.contains("data-klaviyo-jwt") }
@@ -113,10 +112,13 @@ final class IdentityTransitionOrderingTests: XCTestCase {
     }
 
     func testColdLaunchPageLoadsQueuedProfileBeforeItsToken() async throws {
-        try await startStore(KlaviyoState(apiKey: "abc123", queue: [], initalizationState: .initializing))
+        seedCoreStores()
+        LifecycleState.shared.beginInitializing()
+        let provider = try XCTUnwrap(provider)
+        await manager.registerProvider { try await provider.provide() }
 
-        send(.enqueueProfile(Profile(email: "b@x.com")))
-        send(.completeInitialization(state(email: "a@x.com")))
+        KlaviyoCommands.enqueueProfile(Profile(email: "b@x.com"))
+        await KlaviyoCommands.completeInitialization(apiKey: "abc123")
         try await makeFreshViewModel()
 
         let identityScripts = loadScriptSources.filter { $0.contains("data-klaviyo-jwt") }
@@ -129,31 +131,23 @@ final class IdentityTransitionOrderingTests: XCTestCase {
 // MARK: - Helpers
 
 extension IdentityTransitionOrderingTests {
-    private func state(email: String? = nil, phoneNumber: String? = nil) -> KlaviyoState {
-        KlaviyoState(
-            apiKey: "abc123",
+    private func state(email: String? = nil, phoneNumber: String? = nil) -> ProfileData {
+        ProfileData(
             email: email,
-            anonymousId: "anon-A",
             phoneNumber: phoneNumber,
-            queue: [],
-            initalizationState: .initialized
+            anonymousId: "anon-A"
         )
     }
 
-    /// Builds a store for `state`, mirrors it into the shared Core stores, and registers
-    /// ``provider`` with ``manager``.
-    private func startStore(_ state: KlaviyoState) async throws {
-        SharedStoreMirror.reset()
-        let store = Store(initialState: state, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { store.state.eraseToAnyPublisher() }
-        SharedStoreMirror.setup()
-        self.store = store
+    /// Seeds the canonical Core stores for `profile` under an initialized session and
+    /// registers ``provider`` with ``manager``.
+    private func startStores(_ profile: ProfileData) async throws {
+        seedCoreStores()
+        IdentityStore.shared.update(profile)
+        LifecycleState.shared.beginInitializing()
+        await KlaviyoCommands.completeInitialization(apiKey: "abc123")
         let provider = try XCTUnwrap(provider)
         await manager.registerProvider { try await provider.provide() }
-    }
-
-    private func send(_ action: KlaviyoAction) {
-        _ = store.send(action)
     }
 
     private func resetProvider() async {

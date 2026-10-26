@@ -60,6 +60,11 @@ final class ControllableIdentity: VersionedIdentityReading, @unchecked Sendable 
         subject = CurrentValueSubject(initial)
     }
 
+    // `pushToken` adapted from PIN: this branch's `IdentityReading` (MAGE-1411 port)
+    // adds a `pushToken` requirement that the pinned revision's protocol did not have.
+    // The Auth suites never exercise push tokens, so a constant `nil` suffices.
+    var pushToken: PushTokenData? { nil }
+
     var versioned: VersionedProfile {
         lock.lock()
         defer { lock.unlock() }
