@@ -1,3 +1,4 @@
+import KlaviyoForms
 import KlaviyoSwift
 import SwiftUI
 
@@ -26,6 +27,27 @@ class AppState: ObservableObject {
         } else {
             KlaviyoSDK().unregisterAuthTokenProvider()
         }
+    }
+
+    /// The pasted forms preview token, held in memory only.
+    @Published var formsPreviewToken = ""
+    @Published var isFormsPreviewEnabled = false
+
+    /// Starts a preview session with the pasted token, or ends it when the field is empty.
+    func applyFormsPreviewToken() {
+        let token = formsPreviewToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        if token.isEmpty {
+            KlaviyoSDK().endFormsPreview()
+        } else {
+            KlaviyoSDK().startFormsPreview(token)
+        }
+    }
+
+    func setFormsPreview(enabled: Bool) {
+        guard !enabled else { return }
+        // Return to published forms and drop the token from memory
+        KlaviyoSDK().endFormsPreview()
+        formsPreviewToken = ""
     }
 
     @Published var isLoggedIn: Bool {

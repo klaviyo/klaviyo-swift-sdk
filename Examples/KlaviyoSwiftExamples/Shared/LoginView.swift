@@ -58,6 +58,8 @@ struct LoginView: View {
                                 .font(.body)
 
                             AuthTokenProviderSettings()
+
+                            FormsPreviewSettings()
                         }
                     }
 
@@ -145,6 +147,41 @@ struct AuthTokenProviderSettings: View {
                     .font(.body)
                     .lineLimit(1)
                     .frame(height: 44)
+            }
+        }
+    }
+}
+
+struct FormsPreviewSettings: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Forms preview", isOn: $appState.isFormsPreviewEnabled)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: appState.isFormsPreviewEnabled) {
+                    appState.setFormsPreview(enabled: $0)
+                }
+
+            if appState.isFormsPreviewEnabled {
+                HStack {
+                    TextField("Paste a forms preview token", text: $appState.formsPreviewToken)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.asciiCapable)
+                        .submitLabel(.done)
+                        .onSubmit { appState.applyFormsPreviewToken() }
+                        .font(.body)
+                        .lineLimit(1)
+                        .frame(height: 44)
+
+                    Button("Set") {
+                        appState.applyFormsPreviewToken()
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityHint("Loads draft forms with the pasted preview token.")
+                }
             }
         }
     }
