@@ -77,7 +77,37 @@ A required status check blocks merges to `master` from any branch not in the all
 ## Architecture Overview
 
 The SDK uses [The Composable Architecture](https://www.pointfree.co/collections/composable-architecture) framework. It is
-split into separate modules: `KlaviyoSwift` (analytics, push), `KlaviyoForms` (in-app messaging), `KlaviyoLocation` (geofencing), `KlaviyoSwiftExtension` (rich push, badge count), `KlaviyoUI` (UI components), and `KlaviyoCore` (shared internals).
+split into separate modules: `KlaviyoSwift` (analytics, push), `KlaviyoForms` (in-app messaging), `KlaviyoLocation` (geofencing), `KlaviyoSwiftExtension` (rich push, badge count), `KlaviyoCore` (shared internals), and `KlaviyoAutomaticPushBootstrap` (Objective-C shim for automatic push setup, shipped inside `KlaviyoSwift`).
+
+### Repository Layout
+
+Each top-level directory below has its own `AGENTS.md` with directory-specific guidance.
+
+- `Sources/`: one directory per SwiftPM target (see `Package.swift`)
+- `Tests/`: one XCTest target per module, plus snapshot fixtures
+- `Examples/`: sample apps (SPM, SPM automatic push, CocoaPods) that consume the SDK
+- `fastlane/`: legacy podspec release lanes
+- `scripts/`: release and CI helper scripts used by GitHub Actions
+- `*.podspec`: one CocoaPods spec per module; must stay in sync with `Package.swift` targets
+- `bump-version.sh`: updates the SDK version everywhere it is hard-coded
+- `README.md`, `MIGRATION_GUIDE.md`, `PUSH_NOTIFICATION_DATA_GUIDE.md`: public integration docs
+
+### Adding or Changing a Module
+
+SwiftPM and CocoaPods are both supported, so module changes usually need edits in two places:
+
+- `Package.swift` (targets, dependencies, resources)
+- the matching `*.podspec` (`source_files`, `resource_bundles`, `dependency`, and the
+  `-package-name` flags in `pod_target_xcconfig` that make `package`-level access work under CocoaPods)
+
+### Versioning & Releases
+
+- The SDK version lives in `Sources/KlaviyoCore/Utils/Version.swift` and in every `*.podspec`.
+  Use `./bump-version.sh <version>` to update all of them (it also updates test snapshots,
+  example app Podfile and Xcode project versions). The script uses BSD `sed -i ''`, so run it on macOS.
+- `scripts/check-version.sh <version>` verifies `Version.swift` and podspecs agree; CI runs it on `rel/*` branches.
+- Releases are published through the `publish-release.yml` workflow
+  (`gh workflow run publish-release.yml -f version=X.Y.Z`), which dispatches CocoaPods publishing and SPM verification.
 
 ### Testing Approach
 
