@@ -99,7 +99,7 @@ package struct InboxCapture {
         let sink = sink
         let nanoseconds = UInt64(max(timeout, 0) * 1_000_000_000)
         // Both tasks yield into one stream; only the first answer is read, later ones are dropped.
-        let answers = AsyncStream<InboxCaptureResult>(bufferingPolicy: .bufferingNewest(1)) { continuation in
+        let answers = AsyncStream<InboxCaptureResult>(bufferingPolicy: .bufferingOldest(1)) { continuation in
             let timer = Task {
                 guard await (try? Task.sleep(nanoseconds: nanoseconds)) != nil else { return }
                 continuation.yield(.timedOut)
