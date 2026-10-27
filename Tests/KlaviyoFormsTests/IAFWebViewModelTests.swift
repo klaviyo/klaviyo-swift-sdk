@@ -576,6 +576,26 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testTrackProfileEventDropsPageAndOverridesDeviceType() throws {
+        // Given/When - onsite reports the bundled file URL as `page` and a desktop device type
+        let event = try XCTUnwrap(createdEvent(from: """
+        {
+          "metric": "Form viewed by profile",
+          "properties": {
+            "form_id": "1",
+            "page": "file:///var/containers/Bundle/Application/X/InAppFormsTemplate.html",
+            "device_type": "desktop"
+          }
+        }
+        """))
+
+        // Then
+        XCTAssertNil(event.properties["page"])
+        XCTAssertEqual(event.properties["device_type"] as? String, "mobile")
+        XCTAssertEqual(event.properties["form_id"] as? String, "1")
+    }
+
+    @MainActor
     func testTrackProfileEventIgnoresHoistedSiblings() throws {
         // Given/When - the nested object plus the same keys repeated at the top level
         let event = try XCTUnwrap(createdEvent(from: """

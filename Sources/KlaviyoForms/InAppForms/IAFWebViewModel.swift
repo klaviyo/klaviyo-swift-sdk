@@ -535,12 +535,19 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 return
             }
 
-            let properties = envelope["properties"] as? [String: Any]
+            var properties = envelope["properties"] as? [String: Any]
             if properties == nil {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
                         "trackProfileEvent payload has no properties object — sending event without them")
                 }
+            }
+
+            // Onsite derives these from the bundled file URL and a desktop-looking UA, which is wrong
+            // for a native form: drop `page` (no meaningful value) and report the device as mobile.
+            properties?.removeValue(forKey: "page")
+            if properties?["device_type"] != nil {
+                properties?["device_type"] = "mobile"
             }
 
             EventDispatcher.shared.dispatch(
