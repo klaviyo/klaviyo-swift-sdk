@@ -172,6 +172,7 @@ final class InboxPayloadParserTests: XCTestCase {
         return try XCTUnwrap(parse(json)).actions
     }
 
+    // Which buttons are valid is covered by `ActionButtonParserTests` in `KlaviyoFoundationTests`.
     func testActionsKeepPayloadOrderAndDropUnknownTypes() throws {
         let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
         XCTAssertEqual(record.actions, [
@@ -185,42 +186,6 @@ final class InboxPayloadParserTests: XCTestCase {
             try actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#),
             [InboxAction(id: "a", label: "Open", destination: .openApp)]
         )
-    }
-
-    func testNullUrlIsTreatedAsAbsent() throws {
-        XCTAssertEqual(
-            try actions(#"[{"id": "a", "action": "open_app", "label": "Open", "url": null}]"#).count,
-            1
-        )
-    }
-
-    func testKnownActionsWithInvalidUrlCombinationsAreDropped() throws {
-        let buttons = """
-        [
-          {"id": "1", "action": "open_app", "label": "x", "url": "myapp://nope"},
-          {"id": "2", "action": "deep_link", "label": "x"},
-          {"id": "3", "action": "open_url", "label": "x"},
-          {"id": "4", "action": "open_url", "label": "x", "url": "javascript:alert(1)"},
-          {"id": "5", "action": "open_url", "label": "x", "url": "smsto:123"},
-          {"id": "6", "action": "open_app", "label": "kept"}
-        ]
-        """
-        XCTAssertEqual(try actions(buttons).map(\.id), ["6"])
-    }
-
-    func testMalformedEntriesAreSkippedWithoutDroppingNeighbours() throws {
-        let buttons = """
-        [
-          "not a dictionary",
-          null,
-          {"id": "", "action": "open_app", "label": "empty id"},
-          {"id": "x", "action": "open_app", "label": ""},
-          {"id": "y", "label": "no action"},
-          {"label": "no id", "action": "open_app"},
-          {"id": "ok", "action": "open_app", "label": "Fine"}
-        ]
-        """
-        XCTAssertEqual(try actions(buttons).map(\.id), ["ok"])
     }
 
     func testAtMostThreeActionsAreKeptInOrder() throws {

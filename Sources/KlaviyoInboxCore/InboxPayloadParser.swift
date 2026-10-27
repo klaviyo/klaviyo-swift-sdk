@@ -26,10 +26,6 @@ package enum InboxPayloadParser {
         static let richMedia = "rich-media"
         static let richMediaType = "rich-media-type"
         static let keyValuePairs = "key_value_pairs"
-        static let actionButtons = "action_buttons"
-        static let id = "id"
-        static let label = "label"
-        static let action = "action"
         static let badge = "badge"
         static let badgeConfig = "badge_config"
         static let badgeValue = "badge_value"
@@ -52,8 +48,8 @@ package enum InboxPayloadParser {
               !transmissionID.isEmpty else {
             return nil
         }
-        let payload = InboxPayload.dictionary(userInfo) ?? [:]
-        let aps = InboxPayload.dictionary(payload[Key.aps])
+        let payload = PayloadValue.dictionary(userInfo) ?? [:]
+        let aps = PayloadValue.dictionary(payload[Key.aps])
         let alert = alertText(from: aps)
 
         return InboxRecord(
@@ -67,7 +63,7 @@ package enum InboxPayloadParser {
             mediaURL: InboxPayload.string(payload[Key.richMedia]).flatMap { URL(string: $0) },
             mediaType: InboxPayload.string(payload[Key.richMediaType]),
             customData: customData(from: payload[Key.keyValuePairs]),
-            actions: actions(from: InboxPayload.dictionary(payload[Key.body])),
+            actions: actions(from: userInfo),
             sentAt: InboxPayload.date(metadata[Key.timestamp]),
             receivedAt: receivedAt,
             badge: badge(from: payload, aps: aps),
@@ -78,15 +74,15 @@ package enum InboxPayloadParser {
     // MARK: - Private
 
     private static func klaviyoMetadata(in userInfo: [AnyHashable: Any]) -> [String: Any]? {
-        let payload = InboxPayload.dictionary(userInfo)
-        let body = InboxPayload.dictionary(payload?[Key.body])
-        return InboxPayload.dictionary(body?[Key.metadata])
+        let payload = PayloadValue.dictionary(userInfo)
+        let body = PayloadValue.dictionary(payload?[Key.body])
+        return PayloadValue.dictionary(body?[Key.metadata])
     }
 
     private static func alertText(from aps: [String: Any]?) -> (title: String?, body: String?) {
         let alert = aps?[Key.alert]
         if let text = alert as? String { return (nil, text) }
-        let dictionary = InboxPayload.dictionary(alert)
+        let dictionary = PayloadValue.dictionary(alert)
         let title = InboxPayload.string(dictionary?[Key.title])
         let body = InboxPayload.string(dictionary?[Key.body])
         return (title, body)
@@ -116,18 +112,18 @@ package enum InboxPayloadParser {
 
     private static func defaultDestination(from payload: [String: Any]) -> InboxDestination {
         if let string = InboxPayload.string(payload[Key.url]), !string.isEmpty,
-           let url = URL(string: string) {
-            return .deepLink(url)
+           let destination = InboxDestination(action: .deepLink, url: string) {
+            return destination
         }
         if let string = InboxPayload.string(payload[Key.webURL]), !string.isEmpty,
-           let url = URL(string: string), url.hasAllowedOpenUrlScheme {
-            return .openUrl(url)
+           let destination = InboxDestination(action: .openUrl, url: string) {
+            return destination
         }
         return .openApp
     }
 
     private static func customData(from value: Any?) -> [String: String] {
-        guard let dictionary = InboxPayload.dictionary(value) else { return [:] }
+        guard let dictionary = PayloadValue.dictionary(value) else { return [:] }
         var result: [String: String] = [:]
         for (key, element) in dictionary {
             if let string = InboxPayload.stringified(element) { result[key] = string }
@@ -135,37 +131,7 @@ package enum InboxPayloadParser {
         return result
     }
 
-    private static func actions(from body: [String: Any]?) -> [InboxAction] {
-        guard let entries = body?[Key.actionButtons] as? [Any] else { return [] }
-        var result: [InboxAction] = []
-        for entry in entries {
-            guard result.count < maxActions else { break }
-            guard let button = InboxPayload.dictionary(entry),
-                  let id = InboxPayload.string(button[Key.id]), !id.isEmpty,
-                  let label = InboxPayload.string(button[Key.label]), !label.isEmpty,
-                  let action = InboxPayload.string(button[Key.action]),
-                  let destination = destination(action: action, url: InboxPayload.string(button[Key.url]))
-            else { continue }
-            result.append(InboxAction(id: id, label: label, destination: destination))
-        }
-        return result
-    }
-
-    /// `nil` drops the button, including unknown action types, as the rich-push button parser does.
-    /// These rules mirror `KlaviyoActionButtonParser`; that parser could be shared from
-    /// `KlaviyoFoundation` instead of duplicated here.
-    private static func destination(action: String, url: String?) -> InboxDestination? {
-        guard let type = ActionType(rawValue: action) else { return nil }
-        switch type {
-        case .openApp:
-            return url == nil ? .openApp : nil
-        case .deepLink:
-            return url.flatMap { URL(string: $0) }.map(InboxDestination.deepLink)
-        case .openUrl:
-            guard let url = url.flatMap({ URL(string: $0) }), url.hasAllowedOpenUrlScheme else {
-                return nil
-            }
-            return .openUrl(url)
-        }
+    private static func actions(from userInfo: [AnyHashable: Any]) -> [InboxAction] {
+        Array(ActionButtonParser.parse(userInfo: userInfo).prefix(maxActions))
     }
 }

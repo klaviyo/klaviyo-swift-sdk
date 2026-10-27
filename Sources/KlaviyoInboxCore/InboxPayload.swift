@@ -8,21 +8,11 @@
 import Foundation
 import KlaviyoFoundation
 
-/// Helpers for reading an APNs `userInfo`, whose nested values bridge as `[String: Any]`,
-/// `[AnyHashable: Any]` or `NSDictionary`, and whose numbers arrive as `NSNumber`.
+/// Helpers for reading an APNs `userInfo` scalar, whose numbers arrive as `NSNumber`.
+/// Nested dictionaries are read with `PayloadValue.dictionary`.
 package enum InboxPayload {
     private static let deviceTokenKey = "pt"
     private static let emptyJSONObject = Data("{}".utf8)
-
-    package static func dictionary(_ value: Any?) -> [String: Any]? {
-        if let dictionary = value as? [String: Any] { return dictionary }
-        guard let dictionary = value as? [AnyHashable: Any] else { return nil }
-        var result: [String: Any] = [:]
-        for (key, element) in dictionary {
-            if let key = key as? String { result[key] = element }
-        }
-        return result
-    }
 
     /// A string, or a number rendered as one. `nil` for null, containers and everything else.
     package static func string(_ value: Any?) -> String? {

@@ -447,35 +447,22 @@ public struct KlaviyoSDK {
     ) {
         // Create event properties with action metadata
         var actionProperties = properties
-        if let label = notificationResponse.actionButtonLabel {
-            actionProperties["Button Label"] = label
-        }
-
         if let buttonId = notificationResponse.actionButtonId {
             actionProperties["Button ID"] = buttonId
         }
 
-        if let actionType = notificationResponse.actionButtonType {
-            actionProperties["Button Action"] = actionType.displayName()
-        }
+        if let button = notificationResponse.tappedActionButton {
+            actionProperties["Button Label"] = button.label
+            actionProperties["Button Action"] = button.destination.type.displayName()
 
-        if let url = notificationResponse.actionButtonURL {
-            switch notificationResponse.actionButtonType {
-            case .deepLink:
+            switch button.destination {
+            case let .deepLink(url):
                 actionProperties["Button Link"] = url.absoluteString
                 Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
-            case .openUrl:
+            case let .openUrl(url):
                 actionProperties["Button Link"] = url.absoluteString
-                guard url.hasAllowedOpenUrlScheme else {
-                    if #available(iOS 14.0, *) {
-                        Logger.notifications.warning(
-                            "Action button open_url scheme not in the allowed list; ignoring."
-                        )
-                    }
-                    break
-                }
                 Task { @MainActor in await DeepLinkManager.openExternalURL(url) }
-            case .openApp, .none:
+            case .openApp:
                 break
             }
         }
