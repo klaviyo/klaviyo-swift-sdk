@@ -104,6 +104,16 @@ final class ActionButtonParserTests: XCTestCase {
 
     func testSkipsOpenAppWithUrl() {
         XCTAssertTrue(parse([button(action: "open_app", url: "myapp://nope")]).isEmpty)
+        XCTAssertTrue(parse([button(action: "open_app", url: "")]).isEmpty, "an empty url is still a url")
+    }
+
+    func testSkipsAnyButtonWhoseUrlIsNotAString() {
+        for action in ["open_app", "deep_link", "open_url"] {
+            for url: Any in [123, true, ["a": "b"], ["https://example.com"]] {
+                let entry: [String: Any] = ["id": "a", "label": "x", "action": action, "url": url]
+                XCTAssertTrue(parse([entry]).isEmpty, "\(action) with url \(url) must be skipped")
+            }
+        }
     }
 
     func testSkipsDeepLinkAndOpenUrlWithoutUrl() {

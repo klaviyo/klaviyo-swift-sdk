@@ -100,7 +100,11 @@ package enum ActionButtonParser {
                 onSkip("Button is missing or has an empty id, label, and/or a known action: \(data)")
                 continue
             }
-            guard let destination = ActionButtonDestination(action: action, url: data[Key.url] as? String) else {
+            // `open_app` must have no `url`, whatever its type, so check the raw value rather than the
+            // `as? String` below, which reads a non-string `url` as absent. A JSON `null` is still absent.
+            let hasURL = data[Key.url].map { !($0 is NSNull) } ?? false
+            guard action != .openApp || !hasURL,
+                  let destination = ActionButtonDestination(action: action, url: data[Key.url] as? String) else {
                 onSkip("Button url is incompatible with its action: \(data)")
                 continue
             }
