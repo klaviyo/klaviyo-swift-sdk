@@ -270,7 +270,7 @@ class IAFPresentationManager {
         )
         self.viewModel = viewModel
         viewController = makeViewController(viewModel)
-        viewController?.modalPresentationStyle = .overCurrentContext
+        viewController?.modalPresentationStyle = .overFullScreen
         return viewModel
     }
 
