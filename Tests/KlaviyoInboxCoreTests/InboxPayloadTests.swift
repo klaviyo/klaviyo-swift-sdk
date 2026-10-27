@@ -78,10 +78,10 @@ final class InboxPayloadTests: XCTestCase {
         XCTAssertNil(InboxPayload.bool(-1e30))
     }
 
-    func testDateAcceptsISOWithAndWithoutFractionsAndEpochSecondsAndMilliseconds() {
+    func testDateAcceptsISOAndEpochSecondsAndMilliseconds() {
         let base = Date(timeIntervalSince1970: 1_791_460_800)
+        // ISO parsing itself is covered by `DateISO8601Tests`; this checks `date` delegates to it.
         XCTAssertEqual(InboxPayload.date("2026-10-08T12:00:00Z"), base)
-        XCTAssertEqual(InboxPayload.date("2026-10-08T12:00:00.500Z"), base.addingTimeInterval(0.5))
         XCTAssertEqual(InboxPayload.date(1_791_460_800), base)
         XCTAssertEqual(InboxPayload.date(1_791_460_800_000), base)
         XCTAssertEqual(InboxPayload.date("1791460800"), base)

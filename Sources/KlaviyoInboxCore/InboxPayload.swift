@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoFoundation
 
 /// Helpers for reading an APNs `userInfo`, whose nested values bridge as `[String: Any]`,
 /// `[AnyHashable: Any]` or `NSDictionary`, and whose numbers arrive as `NSNumber`.
@@ -63,10 +64,7 @@ package enum InboxPayload {
     /// ISO 8601 (with or without fractional seconds), or epoch seconds or milliseconds.
     package static func date(_ value: Any?) -> Date? {
         if let string = value as? String {
-            if let date = isoDate(string, fractional: true) ?? isoDate(string, fractional: false) {
-                return date
-            }
-            return Double(string).flatMap(epoch)
+            return Date(iso8601: string) ?? Double(string).flatMap(epoch)
         }
         if let number = value as? NSNumber { return epoch(number.doubleValue) }
         return nil
@@ -80,14 +78,6 @@ package enum InboxPayload {
     }
 
     // MARK: - Private
-
-    private static func isoDate(_ string: String, fractional: Bool) -> Date? {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = fractional
-            ? [.withInternetDateTime, .withFractionalSeconds]
-            : [.withInternetDateTime]
-        return formatter.date(from: string)
-    }
 
     /// `nil` for non-finite values, which `Double(_:)` accepts from strings like "nan" and "inf".
     private static func epoch(_ number: Double) -> Date? {
@@ -122,7 +112,7 @@ package enum InboxPayload {
         case is NSNull:
             return NSNull()
         case let date as Date:
-            return ISO8601DateFormatter().string(from: date)
+            return date.iso8601String
         case let data as Data:
             return data.base64EncodedString()
         default:
