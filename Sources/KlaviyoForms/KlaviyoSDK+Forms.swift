@@ -66,10 +66,49 @@ extension KlaviyoSDKModule {
         return self
     }
 
+    /// Starts a draft in-app forms preview session with a preview token from the Klaviyo form
+    /// editor.
+    ///
+    /// Starting a preview is like unregistering and registering again: if forms are registered,
+    /// the current session is torn down, dismissing any form on screen, and a new session starts
+    /// that loads draft forms for `token`. If ``registerForInAppForms(configuration:)`` hasn't
+    /// been called yet, the token is held and the preview starts when forms register; no forms are
+    /// shown before then.
+    ///
+    /// A preview token is a short-lived credential for on-device testing of draft forms. It is not
+    /// for production use: never ship a preview token in a release build. The token is held in
+    /// memory only and is never persisted or logged. A malformed token is ignored with a warning
+    /// and changes nothing. When the preview expires, the token is cleared and published forms
+    /// return in the next session, such as after the next app launch.
+    /// ``unregisterFromInAppForms()`` also clears it.
+    ///
+    /// - Parameter token: The preview token.
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func startFormsPreview(_ token: String) -> Self {
+        FormsPreviewTokenStore.shared.startPreview(token)
+        return self
+    }
+
+    /// Ends the draft in-app forms preview session started by ``startFormsPreview(_:)``. If forms
+    /// are registered, the current session is torn down, dismissing any form on screen, and a new
+    /// session starts that loads published forms.
+    ///
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func endFormsPreview() -> Self {
+        FormsPreviewTokenStore.shared.endPreview()
+        return self
+    }
+
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
     @discardableResult
     public func unregisterFromInAppForms() -> Self {
+        // Registering again loads published forms
+        FormsPreviewTokenStore.shared.clear()
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.destroyWebviewAndListeners()

@@ -35,6 +35,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private(set) var authToken: String?
     private let assetSource: String?
     private let authTokenManager: AuthTokenManager
+    /// The forms preview token this page was built with, or `nil` for published forms. Fixed for
+    /// the page's lifetime; starting or ending a preview builds a new page.
+    let previewToken: String?
+    private let previewTokenStore: FormsPreviewTokenStore
 
     private var identityUserScript: WKUserScript?
 
@@ -115,6 +119,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
+    /// Writes ``previewToken`` to the page so onsite-in-app-forms loads draft forms.
+    @MainActor
+    private var previewTokenWKScript: WKUserScript? {
+        guard let previewToken else { return nil }
+        let source = "document.head.setAttribute('data-klaviyo-forms-preview-token', "
+            + "\(previewToken.javaScriptStringLiteral));"
+        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+    }
+
     /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
     /// inline `<script>` in the template runs. Injected at `.atDocumentStart` so that
     /// onsite can consult `document.head.dataset.klaviyoDevice` during the synchronous
@@ -143,7 +156,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileData: ProfileData?,
         authToken: String? = nil,
         assetSource: String? = nil,
-        authTokenManager: AuthTokenManager = .shared
+        authTokenManager: AuthTokenManager = .shared,
+        previewTokenStore: FormsPreviewTokenStore? = nil
     ) {
         self.url = url
         self.apiKey = apiKey
@@ -151,6 +165,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.authToken = authToken
         self.assetSource = assetSource
         self.authTokenManager = authTokenManager
+        let previewTokenStore = previewTokenStore ?? .shared
+        self.previewTokenStore = previewTokenStore
+        previewToken = previewTokenStore.token
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
         formLifecycleStream = stream
@@ -169,6 +186,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(handshakeWKScript)
         loadScripts?.insert(deviceInfoWKScript)
         replaceLoadScript(&identityUserScript, with: identityWKScript)
+        if let previewTokenWKScript {
+            loadScripts?.insert(previewTokenWKScript)
+        }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
         }
@@ -642,6 +662,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Task { [authTokenManager] in
                 await authTokenManager.refreshRejectedToken()
             }
+        case let .formsPreviewEnded(reason):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Forms preview ended, reason: \(reason, privacy: .public). Published forms resume on the next app launch or session timeout."
+                )
+            }
+            // The page stays in place, inert; the next session loads published forms.
+            previewTokenStore.clear()
         }
     }
 

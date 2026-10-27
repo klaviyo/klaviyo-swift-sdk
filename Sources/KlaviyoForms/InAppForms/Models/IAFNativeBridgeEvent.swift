@@ -24,6 +24,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case profileMutation
     case jwtMutation
     case refreshJwt
+    case formsPreviewEnded(reason: String)
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -45,6 +46,7 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case profileMutation
         case jwtMutation
         case refreshJwt
+        case formsPreviewEnded
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +97,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .jwtMutation
         case .refreshJwt:
             self = .refreshJwt
+        case .formsPreviewEnded:
+            let payload = try? container.decode(FormsPreviewEndedPayload.self, forKey: .data)
+            let reason = payload?.reason ?? ""
+            self = .formsPreviewEnded(reason: reason.isEmpty ? "Unknown" : reason)
         }
     }
 }
@@ -125,6 +131,10 @@ extension IAFNativeBridgeEvent {
 
     struct AbortPayload: Decodable {
         let reason: String
+    }
+
+    struct FormsPreviewEndedPayload: Decodable {
+        let reason: String?
     }
 }
 
@@ -169,7 +179,8 @@ extension IAFNativeBridgeEvent {
             .profileEvent,
             .profileMutation,
             .jwtMutation,
-            .refreshJwt
+            .refreshJwt,
+            .formsPreviewEnded(reason: "")
         ]
     }
 
@@ -189,6 +200,7 @@ extension IAFNativeBridgeEvent {
         case .profileMutation: return 1
         case .jwtMutation: return 1
         case .refreshJwt: return 1
+        case .formsPreviewEnded: return 1
         }
     }
 
@@ -208,6 +220,7 @@ extension IAFNativeBridgeEvent {
         case .profileMutation: return "profileMutation"
         case .jwtMutation: return "jwtMutation"
         case .refreshJwt: return "refreshJwt"
+        case .formsPreviewEnded: return "formsPreviewEnded"
         }
     }
 }
