@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoFoundation
 
 /// A delivered Klaviyo push, normalized. Plain data: storage concerns (namespace, read and archive
 /// state) belong to the store that wraps it. The only raw data kept is `attribution.rawProperties`.
@@ -66,23 +67,11 @@ package struct InboxAttribution: Equatable, Codable {
     }
 }
 
-package struct InboxAction: Equatable, Codable {
-    package var id: String
-    package var label: String
-    package var destination: InboxDestination
+/// An action button on a delivered push. Shared with the rich-push extension, which validates the same payload.
+package typealias InboxAction = ActionButton
 
-    package init(id: String, label: String, destination: InboxDestination) {
-        self.id = id
-        self.label = label
-        self.destination = destination
-    }
-}
-
-package enum InboxDestination: Equatable, Codable {
-    case openApp
-    case deepLink(URL)
-    case openUrl(URL)
-}
+/// Where a push, or one of its action buttons, leads.
+package typealias InboxDestination = ActionButtonDestination
 
 /// Badge instructions from the payload. Parsed only: applying the badge stays with the rich-push extension.
 package struct InboxBadge: Equatable, Codable {

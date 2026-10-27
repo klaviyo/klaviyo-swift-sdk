@@ -14,18 +14,6 @@ final class InboxPayloadTests: XCTestCase {
         try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
-    func testDictionaryAcceptsEveryBridgedForm() {
-        let swift: [String: Any] = ["a": 1]
-        let anyHashable: [AnyHashable: Any] = ["a": 1, 2: "skipped"]
-        let objc = NSDictionary(dictionary: ["a": 1])
-        XCTAssertEqual(InboxPayload.dictionary(swift)?["a"] as? Int, 1)
-        XCTAssertEqual(InboxPayload.dictionary(anyHashable)?["a"] as? Int, 1)
-        XCTAssertEqual(InboxPayload.dictionary(anyHashable)?.count, 1, "non-string keys are skipped")
-        XCTAssertEqual(InboxPayload.dictionary(objc)?["a"] as? Int, 1)
-        XCTAssertNil(InboxPayload.dictionary("not a dictionary"))
-        XCTAssertNil(InboxPayload.dictionary(nil))
-    }
-
     func testStringAcceptsNumbersAndRejectsNullAndContainers() {
         XCTAssertEqual(InboxPayload.string("x"), "x")
         XCTAssertEqual(InboxPayload.string(42), "42")

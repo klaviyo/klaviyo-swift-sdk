@@ -164,34 +164,12 @@ extension UNNotificationResponse {
         return actionIdentifier
     }
 
-    /// Returns the action-specific deep link URL from the payload.
-    var actionButtonURL: URL? {
-        guard let urlString = matchingActionButton?["url"] as? String else { return nil }
-        return URL(string: urlString)
-    }
-
-    /// Returns the button label text (for analytics).
-    var actionButtonLabel: String? {
-        matchingActionButton?["label"] as? String
-    }
-
-    /// Returns the action type for the tapped button.
-    var actionButtonType: ActionType? {
-        guard let actionString = matchingActionButton?["action"] as? String else { return nil }
-        return ActionType(rawValue: actionString)
-    }
-
-    // MARK: - Private Helpers
-
-    /// Returns the action button dictionary matching the tapped action identifier, if any.
-    private var matchingActionButton: [String: Any]? {
-        guard isActionButtonTap,
-              isKlaviyoNotification,
-              let properties = klaviyoProperties,
-              let body = properties["body"] as? [String: Any],
-              let actionButtons = body["action_buttons"] as? [[String: Any]] else {
-            return nil
-        }
-        return actionButtons.first { $0["id"] as? String == actionIdentifier }
+    /// The validated payload button the user tapped, if any. `nil` for a body tap or dismiss, a
+    /// non-Klaviyo notification, or a button that the shared parser rejects (and the extension therefore
+    /// never registered as an action).
+    var tappedActionButton: ActionButton? {
+        guard isActionButtonTap, isKlaviyoNotification else { return nil }
+        return ActionButtonParser.parse(userInfo: notification.request.content.userInfo)
+            .first { $0.id == actionIdentifier }
     }
 }
