@@ -6,10 +6,9 @@
 //
 
 @testable import KlaviyoCore
+@testable import KlaviyoSwift
 import Combine
-import CoreLocation
 import Foundation
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 
 enum FakeFileError: Error {
     case fake
@@ -24,14 +23,6 @@ func seedCoreStores(apiKey: String = "abc123") {
     SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
 }
 
-let ARCHIVED_RETURNED_DATA = Data()
-let SAMPLE_DATA: NSMutableArray = [
-    [
-        "properties": [
-            "foo": "bar"
-        ]
-    ]
-]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
 
@@ -79,18 +70,10 @@ let SAMPLE_PROPERTIES = [
     ]
 ] as [String: Any]
 
-extension ArchiverClient {
-    static let test = ArchiverClient(
-        archivedData: { _, _ in ARCHIVED_RETURNED_DATA },
-        unarchivedMutableArray: { _ in SAMPLE_DATA }
-    )
-}
-
 extension KlaviyoEnvironment {
     static var lastLog: String?
     static var test = {
         KlaviyoEnvironment(
-            archiverClient: ArchiverClient.test,
             fileClient: FileClient.test,
             dataFromUrl: { _ in TEST_RETURN_DATA },
             logger: LoggerClient.test,
@@ -116,7 +99,6 @@ extension KlaviyoEnvironment {
             timeZone: { "EST" },
             appContextInfo: { AppContextInfo.test },
             klaviyoAPI: KlaviyoAPI.test(),
-            timer: { _ in Just(Date()).eraseToAnyPublisher() },
             SDKName: { __klaviyoSwiftName },
             SDKVersion: { __klaviyoSwiftVersion },
             formsDataEnvironment: { nil },
@@ -130,7 +112,8 @@ extension FileClient {
         write: { _, _ in },
         fileExists: { _ in true },
         removeItem: { _ in },
-        libraryDirectory: { TEST_URL }
+        libraryDirectory: { TEST_URL },
+        applicationSupportDirectory: { TEST_URL }
     )
 }
 
@@ -160,11 +143,7 @@ extension NetworkSession {
     }
 }
 
-class TestJSONDecoder: JSONDecoder, @unchecked Sendable {
-    override func decode<T>(_: T.Type, from _: Data) throws -> T where T: Decodable {
-        KlaviyoState.test as! T
-    }
-}
+class TestJSONDecoder: JSONDecoder, @unchecked Sendable {}
 
 extension AppContextInfo {
     static let test = Self(executable: "FooApp",
@@ -177,22 +156,4 @@ extension AppContextInfo {
                            manufacturer: "Orange",
                            deviceModel: "jPhone 1,1",
                            deviceId: "fe-fi-fo-fum")
-}
-
-extension KlaviyoState {
-    static let test = KlaviyoState(apiKey: "foo",
-                                   email: "test@test.com",
-                                   anonymousId: environment.uuid().uuidString,
-                                   phoneNumber: "phoneNumber",
-                                   externalId: "externalId",
-                                   pushTokenData: PushTokenData(
-                                       pushToken: "blob_token",
-                                       pushEnablement: .authorized,
-                                       pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
-                                   ),
-                                   queue: [],
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
 }
