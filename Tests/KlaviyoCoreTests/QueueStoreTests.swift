@@ -450,6 +450,23 @@ final class QueueStoreTests: XCTestCase {
 
     /// `prepend` (the flush lease restoring itself) keeps each entry's retry state, while a fresh
     /// `enqueue` always starts clean, even when front-inserted at high priority.
+    func testClearBackoffsDropsDeadlinesAndKeepsAttempts() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        let now = Date(timeIntervalSince1970: 0)
+        var a = QueuedRequest(request("a"))
+        a.recordRetryableFailure(retryAfter: 120, now: now)
+        var b = QueuedRequest(request("b"))
+        b.recordRetryableFailure(retryAfter: 120, now: now)
+        b.recordRetryableFailure(retryAfter: 120, now: now)
+        store.prepend([a, b, QueuedRequest(request("c"))])
+
+        store.clearBackoffs()
+
+        XCTAssertEqual(store.entries.map(\.nextAttemptAt), [nil, nil, nil])
+        XCTAssertEqual(store.entries.map(\.attempts), [1, 2, 0])
+        XCTAssertFalse(store.entries.contains { $0.isAwaitingRetry(at: now) })
+    }
+
     func testPrependPreservesRetryStateAndEnqueueStartsClean() {
         let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
         var failed = QueuedRequest(request("a"))
