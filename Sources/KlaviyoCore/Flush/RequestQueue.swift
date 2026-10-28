@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Core-owned flush engine: drains `QueueStore.shared` on a timed cadence and sends through an
 /// injected transport. `flush()` leases the pending batch and sends it head-first (FIFO), writing a
@@ -232,6 +233,14 @@ public actor RequestQueue {
             }
             requestsInFlight.removeFirst()
             return .continueSending
+
+        case .abandonAttempt:
+            // Cancelled, not failed: keep the lease as-is with no attempt or backoff recorded.
+            if #available(iOS 14.0, *) {
+                Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
+            }
+            restoreLease()
+            return .stopFlush
 
         case let .retry(backoff):
             // Transport, rate-limit or server error: the backoff and attempt count belong to this

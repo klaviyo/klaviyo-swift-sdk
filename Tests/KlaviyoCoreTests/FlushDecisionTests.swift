@@ -96,7 +96,7 @@ final class FlushDecisionTests: XCTestCase {
     /// A transport error backs off with the formula shared with 429/5xx: `min(2^attempt, 300) +
     /// jitter`, keyed on the failing request's own attempt. Jitter is `0` in `KlaviyoEnvironment.test()`.
     func testNetworkErrorBacksOffFromItsOwnAttempt() {
-        let error = KlaviyoAPIError.networkError(NSError(domain: "NSURLErrorDomain", code: -1009))
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
         XCTAssertEqual(classifyFailure(error: error, attemptNumber: 2), .retry(backoff: 4),
                        "attempt 2 failed → 2^2 = 4s backoff")
     }
@@ -104,7 +104,7 @@ final class FlushDecisionTests: XCTestCase {
     /// Successive transport failures escalate 2^1, 2^2, 2^3 ... up to the 300s cap, exactly like
     /// the 429/5xx path — one formula, not two.
     func testNetworkErrorEscalatesUpToCap() throws {
-        let error = KlaviyoAPIError.networkError(NSError(domain: "NSURLErrorDomain", code: -1009))
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
         let backoffs = (1...10).map { attempt -> Int? in
             guard case let .retry(backoff) = classifyFailure(error: error, attemptNumber: attempt) else {
                 return nil
