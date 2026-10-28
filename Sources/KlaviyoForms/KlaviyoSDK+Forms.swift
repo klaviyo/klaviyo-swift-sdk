@@ -75,11 +75,10 @@ extension KlaviyoSDKModule {
     /// been called yet, the token is held and the preview starts when forms register; no forms are
     /// shown before then.
     ///
-    /// A preview token is a short-lived credential for on-device testing of draft forms. It is not
-    /// for production use: never ship a preview token in a release build. The token is held in
-    /// memory only and is never persisted or logged. A malformed token is ignored with a warning
-    /// and changes nothing. When the preview expires, the token is cleared and published forms
-    /// return in the next session, such as after the next app launch.
+    /// A preview token is a short-lived credential for on-device testing of draft forms. The token
+    /// is held in memory only and is never persisted or logged. A malformed token is ignored with a
+    /// warning and changes nothing. When the preview expires, the token is cleared and published
+    /// forms return in the next session, such as after the next app launch.
     /// ``unregisterFromInAppForms()`` also clears it.
     ///
     /// - Parameter token: The preview token.
