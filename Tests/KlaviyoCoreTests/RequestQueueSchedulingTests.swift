@@ -86,6 +86,59 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    // MARK: - Reconnect
+
+    /// Leaves the head backing off for 120s (well past one tick) with one recorded attempt.
+    private func makeBackingOffQueue(_ spy: SendSpy) async -> RequestQueue {
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.flushNow()
+        XCTAssertEqual(headDelay, 120)
+        return queue
+    }
+
+    func testReconnectFlushesWithoutWaitingATickAndKeepsAttempts() async {
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 120)), .success(Data())])
+        let queue = await makeBackingOffQueue(spy)
+        await queue.networkConnectivityChanged(.notReachable)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+        XCTAssertEqual(spy.sentAttempts, [1, 2])
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty)
+        await queue.stop()
+    }
+
+    func testFailureAfterReconnectEscalatesFromKeptAttempts() async {
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 120)), networkFailure])
+        let queue = await makeBackingOffQueue(spy)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+
+        XCTAssertEqual(spy.sentAttempts, [1, 2])
+        XCTAssertEqual(QueueStore.shared.head?.attempts, 2)
+        await queue.stop()
+    }
+
+    func testWifiToCellularSwitchAlsoResets() async {
+        let spy = SendSpy(results: [networkFailure, .failure(.rateLimitError(backOff: 120)), .success(Data())])
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+        wallClock.advance(by: FlushConstants.wifiFlushInterval)
+        await queue.flushNow()
+        XCTAssertEqual(headDelay, 120)
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
+
+        XCTAssertEqual(spy.sentAttempts, [1, 2, 3])
+        await queue.stop()
+    }
+
     func testEscalationIsNotPinnedAtFirstAttempt() async throws {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
