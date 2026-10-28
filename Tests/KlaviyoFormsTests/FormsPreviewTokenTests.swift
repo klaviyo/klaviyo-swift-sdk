@@ -108,10 +108,10 @@ final class FormsPreviewSessionTests: XCTestCase {
         return try XCTUnwrap(manager.viewModel)
     }
 
-    /// Unhooks the store, as unregistering does.
+    /// Unhooks the store and tears down the webview and its listeners, as unregistering does.
     private func unregister() {
         store.restartFormsSession = nil
-        manager.destroyWebView()
+        manager.tearDownFormWebView()
     }
 
     /// Waits for a restart to replace `previous`. The restart clears the view model before it
