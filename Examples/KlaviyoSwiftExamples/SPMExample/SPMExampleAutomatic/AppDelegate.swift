@@ -41,6 +41,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             .registerGeofencing()
             .registerFormLifecycleHandler { event in
                 switch event {
+                case let .formWillDisplay(_, _, formType, continuation):
+                    print("🎨 [Form Lifecycle] Form Will Display: \(event.formId)")
+                    print("   Form Name: \(event.formName)")
+                    print("   Form Type: \(formType)")
+                    // To block a form, uncomment this example and set your form ID:
+                    // if event.formId == "FORM_ID_TO_BLOCK" {
+                    //     continuation.reject()
+                    //     return
+                    // }
+                    continuation.accept()
                 case .formShown:
                     print("🎨 [Form Lifecycle] Form Shown: \(event.formId)")
                     print("   Form Name: \(event.formName)")

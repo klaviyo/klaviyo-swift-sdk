@@ -37,6 +37,7 @@ struct IAFNativeBridgeEventTests {
             {"type":"formsDataLoaded","version":1},
             {"type":"formWillAppear","version":2},
             {"type":"formDisappeared","version":1},
+            {"type":"formWillOpenQuery","version":1},
             {"type":"trackProfileEvent","version":2},
             {"type":"trackAggregateEvent","version":1},
             {"type":"openDeepLink","version":3},
@@ -272,6 +273,72 @@ struct IAFNativeBridgeEventTests {
         }
         #expect(formId == nil)
         #expect(formName == nil)
+    }
+
+    @Test
+    func testDecodeFormWillOpenQuery() async throws {
+        let json = """
+        {
+          "type": "formWillOpenQuery",
+          "data": {
+            "formId": "gating123",
+            "formName": "Gated Form",
+            "formType": "POPUP"
+          }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .formWillOpenQuery(formId, formName, formType) = event else {
+            Issue.record("event type should be .formWillOpenQuery but was '.\(event)'")
+            return
+        }
+        #expect(formId == "gating123")
+        #expect(formName == "Gated Form")
+        #expect(formType == "POPUP")
+    }
+
+    @Test
+    func testDecodeFormWillOpenQueryWithoutPayload() async throws {
+        let json = """
+        {
+          "type": "formWillOpenQuery",
+          "data": {}
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .formWillOpenQuery(formId, formName, formType) = event else {
+            Issue.record("event type should be .formWillOpenQuery but was '.\(event)'")
+            return
+        }
+        #expect(formId == "")
+        #expect(formName == "")
+        #expect(formType == "")
+    }
+
+    @Test
+    func testDecodeFormWillOpenQueryPartialPayload() async throws {
+        let json = """
+        {
+          "type": "formWillOpenQuery",
+          "data": {
+            "formId": "partial123"
+          }
+        }
+        """
+
+        let data = json.data(using: .utf8)!
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        guard case let .formWillOpenQuery(formId, formName, formType) = event else {
+            Issue.record("event type should be .formWillOpenQuery but was '.\(event)'")
+            return
+        }
+        #expect(formId == "partial123")
+        #expect(formName == "")
+        #expect(formType == "")
     }
 
     @Test
