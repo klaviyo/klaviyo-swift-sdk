@@ -73,7 +73,13 @@ public actor RequestQueue {
 
     /// How long the run loop sleeps: until the head's retry deadline, else one flush interval.
     private func nextDelay() -> TimeInterval {
-        nextFlushDelay(head: QueueStore.shared.head, now: environment.date(), flushInterval: flushInterval)
+        // Pre-init flushes no-op, so a due head must not turn the loop into a busy spin.
+        guard SDKConfigStore.shared.current.apiKey != nil else { return flushInterval }
+        return nextFlushDelay(
+            head: QueueStore.shared.head,
+            now: environment.date(),
+            flushInterval: flushInterval
+        )
     }
 
     /// Cancels the run loop and restores any in-flight lease to `QueueStore` so it survives shutdown.

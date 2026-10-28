@@ -168,6 +168,21 @@ final class RequestQueueSchedulingTests {
     }
 
     @Test
+    func dueBackoffWithoutApiKeyDoesNotSpin() async {
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 37))])
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.flushNow()
+        wallClock.advance(by: 60)
+        SDKConfigStore.shared.reset()
+
+        await queue.start()
+        #expect(gated.waitForRequested(atLeast: 1))
+        #expect(gated.requested.first == FlushConstants.wifiFlushInterval)
+        await queue.stop()
+    }
+
+    @Test
     func oneHourTransportOutageStaysWithinAttemptBudget() async {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
