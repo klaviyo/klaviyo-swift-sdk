@@ -14,6 +14,7 @@
 - [Profile Identification](#profile-identification)
   - [Reset Profile](#reset-profile)
   - [Anonymous Tracking Notice](#anonymous-tracking-notice)
+    - [Avoiding anonymous profiles](#avoiding-anonymous-profiles)
 - [Event tracking](#event-tracking)
   - [Arguments](#arguments)
 - [List Subscriptions](#list-subscriptions)
@@ -45,8 +46,9 @@
 - [In-App Forms](#in-app-forms)
   - [Prerequisites](#prerequisites-1)
   - [Setup](#setup-1)
-    - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
+  - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
+  - [Personalized Forms Authentication](#personalized-forms-authentication)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
@@ -209,6 +211,31 @@ When an identifier is provided, Klaviyo will merge the anonymous user with an id
 > happens after your app calls `registerForRemoteNotifications()`. Because this can occur before you
 > call `setProfile`, `setEmail`, or `setPhoneNumber`, an anonymous profile will be created in Klaviyo
 > until you provide identifying information. This is expected behavior.
+
+#### Avoiding anonymous profiles
+
+If your app should never create a profile in Klaviyo until the user is known (email, phone number, or external ID), initialize the SDK as usual and hold back the calls below until after you call `set(email:)`, `set(phoneNumber:)`, or `set(externalId:)`. This guidance was verified against SDK version 5.4.0.
+
+1. **Leave automatic push token forwarding off.** Do not set `klaviyo_automatic_push_token_forwarding` to `true` in `Info.plist`; it is off when absent.
+2. **Before identifying the user, do not call:**
+   - `set(pushToken:)`
+   - `create(event:)`
+   - `set(profileAttribute:value:)` or `set(profile:)` with no email, phone number, or external ID
+   - `registerForInAppForms()`
+   - `registerGeofencing()`
+   - `handleUniversalTrackingLink(_:)`
+3. **After identifying the user,** call `set(pushToken:)` and register for forms and geofencing as normal.
+
+`handle(notificationResponse:)` and `klaviyo_automatic_push_open_tracking` are safe to use at any time: Klaviyo attributes push opens to the profile the notification was sent to, without creating a new one.
+
+Things to keep in mind:
+
+- **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
+- **Logout and switching users.** `resetProfile()` keeps the push token and registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
+  - On the next login, call `set(profile:)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `set(email:)` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event tracking
 
@@ -655,24 +682,29 @@ URL schemes are a simple way to enable deep linking in your app. Here's how to s
 
 #### Step 1: Register the URL scheme
 
-First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
-
-#### Step 2: Whitelist Your URL Scheme
-
-Next, you need to whitelist your URL scheme in your app's `Info.plist` file. This allows your app to open deep links from push notifications.
-
-To do this, add the following to your `Info.plist`:
+First, you need to register your URL scheme with iOS. This tells the operating system that your app can handle URLs with that scheme. You do this by adding a `CFBundleURLTypes` entry to your app's `Info.plist`:
 
 ```xml
-<key>LSApplicationQueriesSchemes</key>
+<key>CFBundleURLTypes</key>
 <array>
-    <string>{your_url_scheme}</string>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLName</key>
+        <string>{your_bundle_identifier}</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>{your_url_scheme}</string>
+        </array>
+    </dict>
 </array>
 ```
 
-Replace `{your_url_scheme}` with the URL scheme you registered in Step 1.
+Replace `{your_url_scheme}` with the scheme you want your app to respond to, and `{your_bundle_identifier}` with your app's bundle identifier. You can also add this entry from the **Info** tab of your app target in Xcode. For detailed instructions, please see ["Register your URL scheme"](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app#Register-your-URL-scheme) in Apple's official documentation.
 
-#### Step 3: Handle the deep links in your app
+`CFBundleURLTypes` is what tells iOS to route your URL scheme to your app.
+
+#### Step 2: Handle the deep links in your app
 
 Finally, you need to add code to your app to process incoming URLs and navigate to the correct content. The implementation differs depending on whether your app uses SwiftUI or UIKit for its lifecycle.
 
@@ -929,6 +961,47 @@ KlaviyoSDK().unregisterFromInAppForms()
 ```
 
 Note that after unregistering, the next call to `registerForInAppForms()` will be considered a new session by the SDK.
+
+### Personalized Forms Authentication
+
+>  ℹ️ Personalization is currently in limited availability for select Klaviyo customers. Please contact your CSM to be enrolled.
+>
+>  ℹ️ Personalization is available in SDK version `5.5.0` and higher.
+
+Personalized In-App Forms show content from the signed-in user's Klaviyo profile. Your app proves who the user is with a JSON Web Token (JWT).
+
+Set up an authenticated endpoint on your backend that mints a fresh JWT for the signed-in user. Keep the signing credentials on your server. The JWT must carry valid `iat` and `exp` claims and the user's matching `email` claim. Keep the SDK's profile identifiers in sync with the signed-in user (see [Profile Identification](#profile-identification)).
+
+After initializing the SDK, register a provider that fetches a token from your backend:
+
+```swift
+KlaviyoSDK().registerAuthTokenProvider {
+    // Replace with your own call. Apply a timeout to the request.
+    try await authService.fetchKlaviyoJWT()
+}
+```
+
+Register the provider once and keep it registered across profile changes.
+
+On logout, clear the SDK profile:
+
+```swift
+KlaviyoSDK().resetProfile()
+```
+
+A form that is already open keeps its token until it expires, whether you call `resetProfile()` or `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off. It is not a logout.
+
+#### Provider requirements
+
+The SDK does not time out your provider, so your code must:
+
+- **Return or throw exactly once.** Return the JWT or throw an error for each call to the provider.
+  The SDK calls the provider whenever it needs a fresh token, on a background task.
+- **Report errors by throwing.** The SDK catches errors thrown from the provider, so throw instead of
+  returning an empty or placeholder token.
+- **Bound your own work.** Apply a timeout to every network call. A provider that never returns blocks later token fetches until you register, unregister or reset the profile.
+- **Fail fast.** If you cannot produce a token, for example when no user is signed in, throw instead of waiting or retrying.
+- **Pass on the original network error.** The SDK retries after reconnect when the provider throws a `URLError`, so rethrow the original `URLError` without wrapping it.
 
 ### Monitoring Form Lifecycle Events
 

@@ -48,8 +48,12 @@ public final class SDKConfigStore: ConfigReading, ConfigWriting {
     private let lock = UnfairLock()
     private var hydrated = false
 
-    init(initialConfig: KlaviyoConfig = KlaviyoConfig()) {
-        subject = CurrentValueSubject(initialConfig)
+    /// - Parameter initialConfig: when non-nil, seeds the store and skips disk hydration
+    ///   (test seam: a seeded store must not be overwritten by the persisted config, mirroring
+    ///   `IdentityStore(initialIdentity:)`). The default `nil` keeps production behavior.
+    init(initialConfig: KlaviyoConfig? = nil) {
+        subject = CurrentValueSubject(initialConfig ?? KlaviyoConfig())
+        hydrated = initialConfig != nil
     }
 
     private func hydrateIfNeeded() {

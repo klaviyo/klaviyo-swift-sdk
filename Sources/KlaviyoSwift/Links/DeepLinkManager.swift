@@ -38,8 +38,8 @@ enum DeepLinkManager {
             return
         }
         isProcessingDeepLink = true
+        defer { isProcessingDeepLink = false }
         await environment.linkHandler.openURL(url)
-        isProcessingDeepLink = false
     }
 
     /// Opens an external web/system URL via the shared environment link handler,
