@@ -13,6 +13,40 @@
 import Foundation
 import XCTest
 
+// MARK: - RequestQueueTestCase
+
+/// Base class for XCTest cases that drive `RequestQueue`. It owns the global-state setup (shared
+/// stores, `environment`, a settable `wallClock`) that these tests share, and XCTest runs serially.
+class RequestQueueTestCase: XCTestCase {
+    var fileIO: FileIODouble!
+    var wallClock: TestClock!
+
+    override func setUp() {
+        super.setUp()
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
+        QueueStore.resetShared()
+        fileIO = FileIODouble()
+        // Settable wall clock (shared `TestClock`) so `nextAttemptAt` gating is driven by time.
+        wallClock = TestClock(Date(timeIntervalSince1970: 1_234_567_890))
+        environment = fileIO.makeEnvironment()
+        let wallClock = wallClock!
+        environment.date = { wallClock.now() }
+        // An apiKey is required for `flush()` to run (pre-init flushing stays gated).
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
+    }
+
+    override func tearDown() {
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
+        QueueStore.resetShared()
+        fileIO = nil
+        wallClock = nil
+        environment = KlaviyoEnvironment.test()
+        super.tearDown()
+    }
+}
+
 // MARK: - SendSpy
 
 /// A unified configurable `send` spy that subsumes the four original inline spies:
