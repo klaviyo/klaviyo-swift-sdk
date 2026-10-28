@@ -80,7 +80,9 @@ public final class QueueStore {
     // deadlock-free.
     private let queueLock = UnfairLock()
     private let persistLock = UnfairLock()
-    private var queue: [KlaviyoRequest]? // nil until hydrated; authoritative once loaded
+    // nil until hydrated; authoritative once loaded. Entries carry in-memory retry state; only their
+    // `request` is persisted, so retry state resets on relaunch.
+    private var queue: [QueuedRequest]?
     // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
     // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
     // See `schedulePersist` for how a burst coalesces onto a single callback.
@@ -107,22 +109,24 @@ public final class QueueStore {
         queueLock.withLock {
             var next = hydrated()
             evictIfAtCapacity(&next)
+            let entry = QueuedRequest(request)
             if request.priority == .high {
-                next.insert(request, at: 0)
+                next.insert(entry, at: 0)
             } else {
-                next.append(request)
+                next.append(entry)
             }
             queue = next
         }
         schedulePersist(persist)
     }
 
-    public func prepend(_ requests: [KlaviyoRequest],
+    /// Front-inserts entries with their retry state intact (the flush lease restoring itself).
+    public func prepend(_ entries: [QueuedRequest],
                         persist: PersistPolicy = .debounced) {
-        guard !requests.isEmpty else { return }
+        guard !entries.isEmpty else { return }
         queueLock.withLock {
             var next = hydrated()
-            next.insert(contentsOf: requests, at: 0) // deliberately no eviction — see evictIfAtCapacity
+            next.insert(contentsOf: entries, at: 0) // deliberately no eviction — see evictIfAtCapacity
             queue = next
         }
         schedulePersist(persist)
@@ -132,8 +136,8 @@ public final class QueueStore {
     /// Snapshot + clear happen under a single `queueLock` acquisition so a concurrent `enqueue`
     /// cannot interleave between read and clear. Parity with the flush loop's former
     /// `requestsInFlight.append(contentsOf: queue); queue.removeAll()`.
-    public func drainAll(persist: PersistPolicy = .debounced) -> [KlaviyoRequest] {
-        let drained = queueLock.withLock { () -> [KlaviyoRequest] in
+    public func drainAll(persist: PersistPolicy = .debounced) -> [QueuedRequest] {
+        let drained = queueLock.withLock { () -> [QueuedRequest] in
             let drainedRequests = hydrated()
             queue = []
             return drainedRequests
@@ -162,8 +166,9 @@ public final class QueueStore {
             try queueLock.withLock {
                 let current = hydrated()
                 let existingIds = Set(current.map(\.id))
-                let merged = requests.filter { !existingIds.contains($0.id) } + current
-                try diskIO.save(merged)
+                let merged = requests.filter { !existingIds.contains($0.id) }.map(QueuedRequest.init)
+                    + current
+                try diskIO.save(merged.map(\.request))
                 queue = merged
             }
             pendingDebounceToken = 0 // supersede any pending debounce; its callback will no-op
@@ -173,7 +178,7 @@ public final class QueueStore {
     /// Drains oldest-by-`enqueuedAt` while at/over capacity, leaving room for one insert.
     /// Loops (not a single removal) so an over-capacity queue produced by `prepend`/restore
     /// self-heals on the next enqueue.
-    private func evictIfAtCapacity(_ queue: inout [KlaviyoRequest]) {
+    private func evictIfAtCapacity(_ queue: inout [QueuedRequest]) {
         guard queue.count >= Self.maxQueueSize else { return }
         emitWarning(
             "Request queue at capacity (\(Self.maxQueueSize)); "
@@ -181,7 +186,7 @@ public final class QueueStore {
         )
         while queue.count >= Self.maxQueueSize,
               let oldest = queue.indices.min(
-                  by: { queue[$0].enqueuedAt < queue[$1].enqueuedAt }
+                  by: { queue[$0].request.enqueuedAt < queue[$1].request.enqueuedAt }
               ) {
             queue.remove(at: oldest)
         }
@@ -226,7 +231,7 @@ public final class QueueStore {
     /// the snapshot and released before the disk write, so I/O never blocks queue ops.
     private func persistCurrent() {
         persistLock.withLock {
-            let snapshot = queueLock.withLock { queue ?? [] }
+            let snapshot = queueLock.withLock { (queue ?? []).map(\.request) }
             do {
                 try diskIO.save(snapshot)
             } catch {
@@ -238,7 +243,17 @@ public final class QueueStore {
     // MARK: Reads
 
     public var requests: [KlaviyoRequest] {
+        queueLock.withLock { hydrated().map(\.request) }
+    }
+
+    /// The queued entries including their in-memory retry state.
+    public var entries: [QueuedRequest] {
         queueLock.withLock { hydrated() }
+    }
+
+    /// The head entry, without draining. Lets the flush loop check a pending backoff cheaply.
+    public var head: QueuedRequest? {
+        queueLock.withLock { hydrated().first }
     }
 
     public var count: Int {
@@ -246,11 +261,11 @@ public final class QueueStore {
     }
 
     /// Loads from disk on first access; memory is authoritative thereafter. Call under `queueLock`.
-    private func hydrated() -> [KlaviyoRequest] {
+    private func hydrated() -> [QueuedRequest] {
         if let queue { return queue }
-        let loaded: [KlaviyoRequest]
+        let loaded: [QueuedRequest]
         do {
-            loaded = try diskIO.load()
+            loaded = try diskIO.load().map(QueuedRequest.init)
         } catch {
             // A load failure is distinct from a legitimately empty/absent queue (the production
             // loader returns `[]` for an absent file without throwing). We fall back to empty so the

@@ -30,7 +30,7 @@ public actor RequestQueue {
 
     /// Requests leased out of `QueueStore` for the current flush. Restored to the store on `stop()`
     /// so a shutdown mid-flush never drops them.
-    private var requestsInFlight: [KlaviyoRequest] = []
+    private var requestsInFlight: [QueuedRequest] = []
     /// Current cadence between flushes. Defaults to the wifi interval; adjusted by
     /// `networkConnectivityChanged` (wifi/cellular interval, or `.infinity` when offline).
     private var flushInterval: TimeInterval = FlushConstants.wifiFlushInterval
@@ -127,7 +127,7 @@ public actor RequestQueue {
         requestsInFlight = QueueStore.shared.drainAll()
         guard !requestsInFlight.isEmpty else { return }
 
-        while let head = requestsInFlight.first {
+        while let head = requestsInFlight.first?.request {
             switch await sendHead(head) {
             case .continueSending:
                 continue

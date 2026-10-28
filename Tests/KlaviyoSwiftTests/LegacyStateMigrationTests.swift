@@ -152,6 +152,9 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertEqual(IdentityStore.shared.pushToken, pushToken, "upgrade preserves the push token")
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["a", "b"],
                        "upgrade preserves the full queue backlog, in order")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [0, 0],
+                       "migrated requests start with fresh per-request retry state")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.nextAttemptAt), [nil, nil])
         XCTAssertFalse(legacyFileExists(apiKey: apiKey), "legacy file retired on success")
     }
 
