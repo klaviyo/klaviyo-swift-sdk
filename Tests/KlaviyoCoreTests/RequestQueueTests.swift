@@ -399,6 +399,38 @@ final class RequestQueueTests: RequestQueueTestCase {
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "dequeued on successful resend after reconnect")
     }
 
+    /// A non-retryable transport error dequeues on its first occurrence, the queue advances, and the
+    /// next request's attempts are untouched.
+    func testNonRetryableTransportErrorDequeuesAndQueueAdvances() async {
+        QueueStore.register(makeQueueStore())
+        let spy = SendSpy(results: [.failure(.networkError(URLError(.badURL))), .success(Data())])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "next"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["bad", "next"])
+        XCTAssertEqual(spy.sentAttempts, [1, 1])
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty)
+    }
+
+    /// A cancelled send leaves the head in place with no attempt or backoff recorded.
+    func testCancelledSendLeavesHeadUntouched() async {
+        QueueStore.register(makeQueueStore())
+        let spy = SendSpy(results: [.failure(.networkError(URLError(.cancelled)))])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "head"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["head"], "flush stops after the cancelled send")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["head", "tail"])
+        XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [0, 0])
+        XCTAssertNil(QueueStore.shared.entries.first?.nextAttemptAt)
+    }
+
     /// A request whose own attempts reach its endpoint's `maxRetries` is dropped, not restored. The
     /// low-retry endpoint (`maxRetries == 1`) exhausts on its first failure.
     func testExceedingMaxRetriesDropsRequest() async {
