@@ -101,6 +101,21 @@ final class FlushDecisionTests: XCTestCase {
                        "attempt 2 failed → 2^2 = 4s backoff")
     }
 
+    /// Permanent transport codes and non-`URLError` failures are dropped on first occurrence.
+    func testNonRetryableTransportErrorsDequeue() {
+        for underlying in [URLError(.badURL), URLError(.serverCertificateUntrusted)] as [Error] {
+            XCTAssertEqual(classifyFailure(error: .networkError(underlying), attemptNumber: 1), .dequeue)
+        }
+        let other = KlaviyoAPIError.networkError(NSError(domain: "test", code: 1))
+        XCTAssertEqual(classifyFailure(error: other, attemptNumber: 1), .dequeue)
+    }
+
+    /// A cancellation is not an attempt: the engine restores the request untouched.
+    func testCancelledTransportErrorAbandonsAttempt() {
+        let error = KlaviyoAPIError.networkError(URLError(.cancelled))
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .abandonAttempt)
+    }
+
     /// Successive transport failures escalate 2^1, 2^2, 2^3 ... up to the 300s cap, exactly like
     /// the 429/5xx path — one formula, not two.
     func testNetworkErrorEscalatesUpToCap() throws {
