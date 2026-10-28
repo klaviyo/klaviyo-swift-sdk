@@ -8,35 +8,7 @@
 @testable import KlaviyoCore
 import XCTest
 
-final class RequestQueueTests: XCTestCase {
-    private var fileIO: FileIODouble!
-    private var wallClock: TestClock!
-
-    override func setUp() {
-        super.setUp()
-        SDKConfigStore.shared.reset()
-        IdentityStore.shared.reset()
-        QueueStore.resetShared()
-        fileIO = FileIODouble()
-        // Settable wall clock (shared `TestClock`) so `nextAttemptAt` gating is driven by time.
-        wallClock = TestClock(Date(timeIntervalSince1970: 1_234_567_890))
-        environment = fileIO.makeEnvironment()
-        let wallClock = wallClock!
-        environment.date = { wallClock.now() }
-        // An apiKey is required for `flush()` to run (pre-init flushing stays gated).
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
-    }
-
-    override func tearDown() {
-        SDKConfigStore.shared.reset()
-        IdentityStore.shared.reset()
-        QueueStore.resetShared()
-        fileIO = nil
-        wallClock = nil
-        environment = KlaviyoEnvironment.test()
-        super.tearDown()
-    }
-
+final class RequestQueueTests: RequestQueueTestCase {
     // MARK: - flush()
 
     /// `willDrain` runs before the drain, so a request it enqueues is part of the leased batch and
