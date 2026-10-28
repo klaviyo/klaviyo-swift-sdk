@@ -1,0 +1,328 @@
+# Publishes an SDK release behind a `release` environment approval.
+#
+# prepare: branch, tag, version and CI checks, then finds or creates a draft GitHub release.
+# publish: after approval, publishes the draft (creating the tag) and dispatches the downstream
+#          workflows at the tag. Releases published with GITHUB_TOKEN don't fire `release: published`
+#          or tag-push triggers, so downstream workflows are started with workflow_dispatch.
+# stopped: posts to Slack when the approval is rejected or the run is cancelled.
+#
+# Usage: gh workflow run publish-release.yml -f version=X.Y.Z[-suffix] [-f ref=<branch-or-sha>]
+#        [-f dry_run=true] [-f skip_ci_check=true]
+# A version with a suffix (e.g. 5.6.0-beta.1) is published as a prerelease and never marked latest.
+# dry_run runs every check and waits for approval, but creates no draft, release or tag.
+
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (X.Y.Z or X.Y.Z-suffix for a prerelease)
+        required: true
+        type: string
+      ref:
+        description: Branch (master or rel/*) or commit to release (defaults to the default branch)
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run: run every check and the approval; create no draft, release or tag'
+        required: false
+        default: false
+        type: boolean
+      skip_ci_check:
+        description: Skip the iOS SDK CI check (branch, tag and version checks still run)
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  GH_REPO: ${{ github.repository }}
+  VERSION: ${{ inputs.version }}
+  PRERELEASE: ${{ contains(inputs.version, '-') }}
+  DRY_RUN: ${{ inputs.dry_run }}
+  SKIP_CI_CHECK: ${{ inputs.skip_ci_check }}
+
+jobs:
+  prepare:
+    name: Prepare release draft
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      draft_url: ${{ steps.draft.outputs.url }}
+    steps:
+      - name: Validate version format
+        id: version-format
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::version must be X.Y.Z or X.Y.Z-suffix, got '$VERSION'"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Resolve commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Require a commit on master or rel/*
+        id: branch-check
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin '+refs/heads/master:refs/remotes/origin/master' '+refs/heads/rel/*:refs/remotes/origin/rel/*'
+          if [ -z "$(git branch -r --contains HEAD --list 'origin/master' 'origin/rel/*')" ]; then
+            echo "::error::$(git rev-parse HEAD) is not on master or a rel/* branch"
+            exit 1
+          fi
+
+      - name: Check tag does not exist
+        id: tag-check
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
+            echo "::error::tag $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Check version in code
+        id: version-check
+        run: ./scripts/check-version.sh "$VERSION"
+
+      - name: Check iOS SDK CI passed on commit
+        id: ci-check
+        if: ${{ !inputs.skip_ci_check }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/check-ci-green.sh "${{ steps.commit.outputs.sha }}"
+
+      - name: Warn that the CI check was skipped
+        if: inputs.skip_ci_check
+        run: echo "::warning::iOS SDK CI check skipped by request; CI on this commit was not verified"
+
+      - name: Find or create draft release
+        id: draft
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          create=true
+          if existing=$(gh release view "$VERSION" --json isDraft,targetCommitish --jq '"\(.isDraft) \(.targetCommitish)"' 2>/dev/null); then
+            read -r is_draft target <<< "$existing"
+            if [ "$is_draft" != "true" ]; then
+              echo "::error::release $VERSION is already published"
+              exit 1
+            fi
+            if [ "$target" = "$SHA" ]; then
+              echo "Reusing existing draft for $VERSION; notes left as-is"
+              create=false
+            else
+              echo "::warning::existing draft for $VERSION targets $target, not $SHA; recreating it with fresh notes"
+              gh release delete "$VERSION" --yes
+            fi
+          fi
+          if [ "$create" = "true" ]; then
+            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA" \
+              --prerelease="$PRERELEASE"
+          fi
+          url=$(gh release view "$VERSION" --json url --jq .url)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+          DRAFT_URL: ${{ steps.draft.outputs.url }}
+        run: |
+          suffix=""
+          if [ "$DRY_RUN" = "true" ]; then suffix=" (dry run)"; fi
+          {
+            echo "### Release $VERSION awaiting approval$suffix"
+            echo "- Commit: \`$SHA\`"
+            if [ -n "$DRAFT_URL" ]; then
+              echo "- Draft: $DRAFT_URL"
+              echo "Review and edit the draft notes, then approve the \`publish\` job."
+            else
+              echo "Dry run: no draft created. Approving \`publish\` creates nothing."
+            fi
+            if [ "$SKIP_CI_CHECK" = "true" ]; then
+              echo "- ⚠️ **iOS SDK CI check skipped:** CI on this commit was not verified"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack - awaiting approval
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: pending
+          package: Swift SDK
+          action_label: ${{ env.PRERELEASE == 'true' && 'prerelease' || 'release' }}
+          version_label: ${{ inputs.version }}
+          release_url: ${{ steps.draft.outputs.url }}
+          reason: ${{ inputs.skip_ci_check && 'iOS SDK CI check skipped' || '' }}
+
+      - name: Notify Slack - failure
+        if: failure()
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: failure
+          package: Swift SDK
+          action_label: release prepare
+          version_label: ${{ inputs.version }}
+          steps_json: ${{ toJSON(steps) }}
+
+  publish:
+    name: Publish release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      started: ${{ steps.started.outputs.started }}
+    steps:
+      - name: Mark job started
+        id: started
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Dry run - stop before publishing
+        if: inputs.dry_run
+        run: |
+          echo "Dry run: all checks passed and approval granted; no release, tag or dispatch created"
+          echo "### Dry run for $VERSION passed; nothing published" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish draft and create tag
+        id: publish-release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease --latest=false
+          else
+            latest=true
+            current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+            if [ -n "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+              echo "$VERSION is older than the current latest release $current; not marking it latest"
+              latest=false
+            fi
+            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease=false --latest="$latest"
+          fi
+
+      - name: Dispatch downstream workflows at tag
+        id: dispatch
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # A just-created tag can take a few seconds to become dispatchable, so retry each dispatch.
+          dispatch() {
+            for attempt in 1 2 3 4 5 6; do
+              if gh workflow run "$@" --ref "$VERSION"; then
+                return 0
+              fi
+              echo "Dispatch of $1 at $VERSION failed (attempt $attempt), retrying in 10s"
+              sleep 10
+            done
+            echo "::error::could not dispatch $1 at $VERSION"
+            return 1
+          }
+          failed=0
+          dispatch spm-verify.yml -f tag="$VERSION" || failed=1
+          dispatch swift-release.yml || failed=1
+          dispatch cocoapods-publish.yml -f version="$VERSION" || failed=1
+          {
+            echo "### Released $VERSION"
+            echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
+            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, swift-release.yml, cocoapods-publish.yml"
+            echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
+
+      - name: Notify Slack - success
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: success
+          package: Swift SDK
+          action_label: release published, verify dispatched
+          version_label: ${{ inputs.version }}
+          release_url: ${{ format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.version) }}
+
+      - name: Notify Slack - failure
+        if: failure()
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: failure
+          package: Swift SDK
+          action_label: release publish
+          version_label: ${{ inputs.version }}
+          release_url: ${{ needs.prepare.outputs.draft_url }}
+          steps_json: ${{ toJSON(steps) }}
+
+  # Rejected approvals and cancelled runs skip every failure() Slack step.
+  stopped:
+    name: Notify Slack if stopped
+    needs: [prepare, publish]
+    if: always() && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Classify stop
+        id: reason
+        env:
+          CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          PUBLISH_STARTED: ${{ needs.publish.outputs.started }}
+        run: |
+          if [ "$CANCELLED" = "true" ]; then
+            echo "reason=cancelled" >> "$GITHUB_OUTPUT"
+          elif [ "$PUBLISH_STARTED" != "true" ]; then
+            # A rejected approval fails the publish job before any step runs.
+            echo "reason=release approval rejected" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.reason.outputs.reason != ''
+        with:
+          sparse-checkout: .github/actions
+
+      - name: Notify Slack - stopped
+        if: steps.reason.outputs.reason != ''
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack-publish
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          result: stopped
+          package: Swift SDK
+          action_label: release
+          version_label: ${{ inputs.version }}
+          release_url: ${{ needs.prepare.outputs.draft_url }}
+          reason: ${{ steps.reason.outputs.reason }}

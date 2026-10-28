@@ -5,7 +5,6 @@
 //  Created by Aahil Nishad on 7/14/26.
 //
 
-import Foundation
 import KlaviyoCore
 
 extension Subscription.Channels {

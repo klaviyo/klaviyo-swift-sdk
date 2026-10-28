@@ -15,9 +15,11 @@ import KlaviyoFoundation
 import OSLog
 import UIKit
 
-func dispatchOnMainThread(action: KlaviyoAction) {
+/// Funnels SDK entry-point work onto the main queue, ensuring all orchestration work is serialised
+/// on the main queue (FIFO) so call ordering is deterministic.
+func dispatchOnMainThread(_ work: @escaping () -> Void) {
     DispatchQueue.main.async {
-        _ = klaviyoSwiftEnvironment.send(action)
+        work()
     }
 }
 
@@ -59,28 +61,24 @@ public struct KlaviyoSDK {
         _ = Self.registerEventDispatcher
     }
 
-    private var state: KlaviyoState {
-        klaviyoSwiftEnvironment.state()
-    }
-
     /// Returns the email for the current user, if any.
     public var email: String? {
-        state.email
+        IdentityStore.shared.current.email
     }
 
     /// Returns the phoneNumber for the current user, if any.
     public var phoneNumber: String? {
-        state.phoneNumber
+        IdentityStore.shared.current.phoneNumber
     }
 
     /// Returns the external id for the current user, if any.
     public var externalId: String? {
-        state.externalId
+        IdentityStore.shared.current.externalId
     }
 
     /// Returns the push token for the current user, if any.
     public var pushToken: String? {
-        state.pushTokenData?.pushToken
+        IdentityStore.shared.pushToken?.pushToken
     }
 
     /// Whether logging is currently enabled for the Klaviyo SDK.
@@ -116,10 +114,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        DispatchQueue.main.async {
-            SharedStoreMirror.setup()
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-        }
+        dispatchOnMainThread { KlaviyoCommands.initialize(apiKey) }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
@@ -130,7 +125,7 @@ public struct KlaviyoSDK {
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
-        dispatchOnMainThread(action: .enqueueProfile(profile))
+        dispatchOnMainThread { KlaviyoCommands.enqueueProfile(profile) }
     }
 
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
@@ -138,7 +133,7 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        dispatchOnMainThread { KlaviyoCommands.resetProfile() }
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
@@ -156,11 +151,11 @@ public struct KlaviyoSDK {
     }
 
     /// Set the current user's email.
-    /// - Parameter email: a string contining the users email.
+    /// - Parameter email: a string containing the user's email.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setEmail(email))
+        dispatchOnMainThread { KlaviyoCommands.setEmail(email) }
         return self
     }
 
@@ -168,11 +163,11 @@ public struct KlaviyoSDK {
     /// NOTE: The phone number should be in a format that Klaviyo accepts.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
-    /// - Parameter phoneNumber: a string contining the users phone number.
+    /// - Parameter phoneNumber: a string containing the user's phone number.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
+        dispatchOnMainThread { KlaviyoCommands.setPhoneNumber(phoneNumber) }
         return self
     }
 
@@ -184,7 +179,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setExternalId(externalId))
+        dispatchOnMainThread { KlaviyoCommands.setExternalId(externalId) }
         return self
     }
 
@@ -195,14 +190,16 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
-        dispatchOnMainThread(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        dispatchOnMainThread {
+            KlaviyoCommands.setProfileProperty(profileAttribute, AnyEncodable(value))
+        }
         return self
     }
 
     /// Create and send an event for the current user.
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
-        dispatchOnMainThread(action: .enqueueEvent(event))
+        dispatchOnMainThread { KlaviyoCommands.enqueueEvent(event) }
     }
 
     /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
@@ -219,7 +216,7 @@ public struct KlaviyoSDK {
     /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
     ///   for, and an optional `customSource` label.
     public func create(subscription: Subscription) {
-        dispatchOnMainThread(action: .enqueueSubscription(subscription))
+        dispatchOnMainThread { KlaviyoCommands.enqueueSubscription(subscription) }
     }
 
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
@@ -234,7 +231,7 @@ public struct KlaviyoSDK {
     public func set(pushToken: String) {
         Task {
             let enablement = await environment.getNotificationSettings()
-            dispatchOnMainThread(action: .setPushToken(pushToken, enablement))
+            dispatchOnMainThread { KlaviyoCommands.setPushToken(pushToken, enablement) }
         }
     }
 
@@ -247,7 +244,7 @@ public struct KlaviyoSDK {
             let enablement = await environment.getNotificationSettings()
             DispatchQueue.main.async {
                 Self.automaticPushTokenSequence.performIfLatest(generation) {
-                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                    KlaviyoCommands.setPushToken(apnDeviceToken, enablement)
                 }
             }
         }
@@ -265,7 +262,7 @@ public struct KlaviyoSDK {
             return false
         }
 
-        dispatchOnMainThread(action: .trackingLinkReceived(url))
+        dispatchOnMainThread { KlaviyoCommands.trackingLinkReceived(url) }
         return true
     }
 
@@ -326,7 +323,7 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             // Regular notification body tap
-            create(event: Event(name: ._openedPush, properties: properties))
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
             resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
         }
 
@@ -376,7 +373,7 @@ public struct KlaviyoSDK {
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
-            create(event: Event(name: ._openedPush, properties: properties))
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
             resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
@@ -468,7 +465,7 @@ public struct KlaviyoSDK {
         }
 
         // Track action button event
-        create(event: Event(name: ._openedPush, properties: actionProperties))
+        create(event: Event(name: ._openedPush, properties: actionProperties, priority: .high))
     }
 }
 

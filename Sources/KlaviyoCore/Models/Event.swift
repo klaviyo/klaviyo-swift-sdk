@@ -62,21 +62,33 @@ public struct Event: Equatable {
     private let _properties: AnyCodable
     public let time: Date
     public let value: Double?
+    public let valueCurrency: String?
     public let uniqueId: String
     package let identifiers: Identifiers?
+
+    /// The priority level for this event, which controls queue ordering and flush behavior.
+    ///
+    /// `.high` events are front-inserted in the queue and trigger an immediate flush.
+    /// This is set by SDK-internal producers (e.g. opened-push, geofence) and is not
+    /// exposed through the public `Event` init.
+    package let priority: RequestPriority
 
     package init(name: EventName,
                  properties: [String: Any]? = nil,
                  identifiers: Identifiers? = nil,
                  value: Double? = nil,
+                 valueCurrency: String? = nil,
                  time: Date = environment.date(),
-                 uniqueId: String = environment.uuid().uuidString) {
+                 uniqueId: String = environment.uuid().uuidString,
+                 priority: RequestPriority = .standard) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         self.time = time
         self.value = value
+        self.valueCurrency = valueCurrency
         self.uniqueId = uniqueId
         self.identifiers = identifiers
+        self.priority = priority
     }
 
     /// Create a new event to track a profile's activity, the SDK will associate the event with any identified/anonymous profile in the SDK state
@@ -84,17 +96,21 @@ public struct Event: Equatable {
     ///   - name: Name of the event. Must be less than 128 characters., pick from ``Event.EventName`` which can also contain custom events
     ///   - properties: Properties of this event.
     ///   - value: A numeric, monetary value to associate with this event. For example, the dollar amount of a purchase.
+    ///   - valueCurrency: The ISO 4217 currency code that `value` is denominated in, for example `USD`.
     ///   - uniqueId: A unique identifier for an event
     public init(name: EventName,
                 properties: [String: Any]? = nil,
                 value: Double? = nil,
+                valueCurrency: String? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
         _properties = AnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
+        self.valueCurrency = valueCurrency
         time = environment.date()
         self.uniqueId = uniqueId ?? environment.uuid().uuidString
+        priority = .standard
     }
 }
 

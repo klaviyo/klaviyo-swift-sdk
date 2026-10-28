@@ -40,13 +40,13 @@ final class KlaviyoLogConfigTests: XCTestCase {
 
     func testLoggersReturnRealLoggerWhenEnabled() {
         KlaviyoLogConfig.shared.isLoggingEnabled = true
-
-        let logger = Logger.networking
-        // A real logger will have a non-disabled log; verify it doesn't crash
-        // and that it's different from a disabled logger.
-        // We can't directly compare Logger instances, but we can verify the
-        // computed property returns without error.
-        _ = logger
+        XCTAssertTrue(KlaviyoLogConfig.shared.isLoggingEnabled,
+                      "Logging must be enabled before testing the logger accessor")
+        // Verify all logger accessors return without crashing when logging is enabled.
+        _ = Logger.networking
+        _ = Logger.codable
+        _ = Logger.navigation
+        _ = Logger.notifications
     }
 
     func testLoggersReturnDisabledLoggerWhenDisabled() {
