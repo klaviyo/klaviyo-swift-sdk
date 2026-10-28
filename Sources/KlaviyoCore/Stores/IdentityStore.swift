@@ -39,7 +39,30 @@ public protocol IdentityWriting {
     func mintNewAnonymousId() -> String
 }
 
-public final class IdentityStore: IdentityReading, IdentityWriting {
+/// A profile paired with the sequence number of the write that produced it.
+package struct VersionedProfile: Equatable {
+    package let profile: ProfileData
+    /// Starts at 0 for a never-written store and strictly increases with every profile write.
+    package let sequence: UInt64
+}
+
+/// ``IdentityReading`` that also exposes each value's sequence number, so a consumer can tell a
+/// stale read from a newer one.
+package protocol VersionedIdentityReading: IdentityReading {
+    var versioned: VersionedProfile { get }
+    var versionedPublisher: AnyPublisher<VersionedProfile, Never> { get }
+}
+
+/// The persisted profile identity store.
+///
+/// Every profile value carries a sequence number (``VersionedProfile``) that starts at 0 for a
+/// never-written store and strictly increases with every profile write: `update`, `mutate` and
+/// `reset` each advance it and emit the new value; `updatePushToken` does not advance it and does
+/// not emit on the profile subject. The sequence never restarts, including across `reset()` and
+/// rehydration — hydration assigns the hydrated profile while preserving the current sequence.
+/// Sequence order equals emission order because persist+emit are one serialized unit under
+/// `writeLock`.
+public final class IdentityStore: IdentityReading, IdentityWriting, VersionedIdentityReading {
     public static let shared = IdentityStore()
 
     // TWO LOCKS (mirrors `QueueStore`'s `persistLock`/`queueLock` split):
@@ -58,16 +81,21 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
     // under `lock` only because a fresh store has no subscribers yet.
     // `tokenSubject` follows the same invariant: seeded under `lock` on a fresh store only; emitted
     // outside `lock` (inside `writeLock`) in all write paths.
-    private let subject: CurrentValueSubject<ProfileData, Never>
+    private let subject: CurrentValueSubject<VersionedProfile, Never>
     private let tokenSubject: CurrentValueSubject<PushTokenData?, Never>
     private let writeLock = UnfairLock()
     private let lock = UnfairLock()
     private var hydrated = false
     private var pushTokenValue: PushTokenData?
 
-    init(initialIdentity: ProfileData = ProfileData()) {
-        subject = CurrentValueSubject(initialIdentity)
+    /// - Parameter initialIdentity: when non-nil, seeds the store and skips disk hydration
+    ///   (test seam: a seeded store must not be overwritten by the persisted/minted profile).
+    init(initialIdentity: ProfileData? = nil) {
+        subject = CurrentValueSubject(
+            VersionedProfile(profile: initialIdentity ?? ProfileData(), sequence: 0)
+        )
         tokenSubject = CurrentValueSubject(nil)
+        hydrated = initialIdentity != nil
     }
 
     /// Hydrate from disk once; lazily mint + persist an `anonymousId` if none is on disk.
@@ -85,7 +113,9 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
                 persistLocked(profile: profile) // disk write only, no send
             }
             // Assign directly rather than `send` — no subscribers exist on a fresh store.
-            subject.value = profile
+            // Preserve the current sequence: hydration is not a write and the sequence never
+            // restarts, including across `reset()` re-arming hydration.
+            subject.value = VersionedProfile(profile: profile, sequence: subject.value.sequence)
             // Seed token subject; safe to assign directly (no subscribers on a fresh store).
             tokenSubject.value = pushTokenValue
         }
@@ -105,7 +135,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
 
     public var current: ProfileData {
         hydrateIfNeeded()
-        return subject.value
+        return subject.value.profile
     }
 
     public var pushToken: PushTokenData? {
@@ -115,7 +145,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
 
     public var publisher: AnyPublisher<ProfileData, Never> {
         hydrateIfNeeded()
-        return subject.eraseToAnyPublisher()
+        return subject.map(\.profile).eraseToAnyPublisher()
     }
 
     public var tokenPublisher: AnyPublisher<PushTokenData?, Never> {
@@ -123,11 +153,21 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         return tokenSubject.eraseToAnyPublisher()
     }
 
+    package var versioned: VersionedProfile {
+        hydrateIfNeeded()
+        return subject.value
+    }
+
+    package var versionedPublisher: AnyPublisher<VersionedProfile, Never> {
+        hydrateIfNeeded()
+        return subject.eraseToAnyPublisher()
+    }
+
     public func stream() -> AsyncStream<ProfileData> {
         hydrateIfNeeded()
         return AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let cancellable = subject.sink { value in
-                continuation.yield(value)
+                continuation.yield(value.profile)
             }
             continuation.onTermination = { _ in
                 cancellable.cancel()
@@ -143,7 +183,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         writeLock.withLock {
             lock.withLock { persistLocked(profile: identity) }
             // Emit outside `lock` (INVARIANT), inside `writeLock` so persist+emit stay one unit.
-            subject.send(identity)
+            subject.send(VersionedProfile(profile: identity, sequence: subject.value.sequence + 1))
         }
     }
 
@@ -154,12 +194,12 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
         hydrateIfNeeded()
         writeLock.withLock {
             let updated: ProfileData = lock.withLock {
-                var profile = subject.value
+                var profile = subject.value.profile
                 transform(&profile)
                 persistLocked(profile: profile)
                 return profile
             }
-            subject.send(updated)
+            subject.send(VersionedProfile(profile: updated, sequence: subject.value.sequence + 1))
         }
     }
 
@@ -174,7 +214,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
             lock.withLock {
                 pushTokenValue = token
                 // Persist the combined DTO; the profile side is unchanged, so no emission.
-                persistLocked(profile: subject.value)
+                persistLocked(profile: subject.value.profile)
             }
             // Emit outside `lock` (INVARIANT), inside `writeLock` so persist+emit stay one unit.
             tokenSubject.send(token)
@@ -192,7 +232,7 @@ public final class IdentityStore: IdentityReading, IdentityWriting {
                 // hydrate/persist. Emit stays outside `lock` (INVARIANT), inside `writeLock`.
                 removePersisted(fileName: StoreFile.identity)
             }
-            subject.send(ProfileData())
+            subject.send(VersionedProfile(profile: ProfileData(), sequence: subject.value.sequence + 1))
             // Emit nil outside `lock` (INVARIANT), inside `writeLock`.
             tokenSubject.send(nil)
         }

@@ -50,8 +50,9 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// that has a URL configured — either an in-app deep link or a supported
     /// external/system URL (`http(s)`, `mailto:`, `tel:`, `sms:`).
     ///
-    /// Fired after the SDK has initiated navigation (deep link routing, or
-    /// opening the URL externally). Not emitted if no URL is configured for
+    /// Fired after the SDK has attempted navigation (deep link routing, or
+    /// opening the URL externally). For in-app deep links it fires even if the
+    /// host app cannot open the URL. Not emitted if no URL is configured for
     /// the CTA.
     ///
     /// - `buttonLabel`: The label text of the tapped button.
