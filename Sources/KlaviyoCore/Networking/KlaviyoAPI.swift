@@ -42,7 +42,7 @@ public enum RetryBackoffConstants {
     /// the other side of the max wins, re-synchronizing clients that should be randomly spread out.
     ///
     /// - Parameter attemptNumber: The attempt number backing off from (matches
-    ///   `RequestAttemptInfo.attemptNumber` / `RetryState`'s attempt count).
+    ///   `RequestAttemptInfo.attemptNumber` / `QueuedRequest.nextAttemptNumber`).
     /// - Returns: The backoff interval in seconds, capped at `maxBackoffSeconds`, with no jitter.
     public static func exponentialBackoff(attemptNumber: Int) -> Int {
         // Cap in Double space before converting to Int. 2^attemptNumber overflows Int64 at
