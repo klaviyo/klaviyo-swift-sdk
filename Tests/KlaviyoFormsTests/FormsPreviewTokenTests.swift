@@ -74,12 +74,14 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
 final class FormsPreviewSessionTests: XCTestCase {
     private var store: FormsPreviewTokenStore!
     private var manager: IAFPresentationManager!
+    private var authTokenManager: AuthTokenManager!
 
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
         resetPresentationManagerStores()
         store = FormsPreviewTokenStore()
+        authTokenManager = makeUnboundedAuthTokenManager()
         manager = IAFPresentationManager(viewController: nil)
         manager.indexHtmlFileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         manager.makeViewController = { InertWebViewController(hosting: $0) }
@@ -97,13 +99,14 @@ final class FormsPreviewSessionTests: XCTestCase {
         resetPresentationManagerStores()
         manager = nil
         store = nil
+        authTokenManager = nil
         try await super.tearDown()
     }
 
     /// Builds the first webview and wires the store's restart hook to this manager, as
     /// `initializeIAF` does, without starting its app-wide company and lifecycle observers.
     private func register() async throws -> IAFWebViewModel {
-        try await manager.createFormWebViewAndListen(apiKey: "abc123")
+        try await manager.createFormWebViewAndListen(apiKey: "abc123", authTokenManager: authTokenManager)
         store.restartFormsSession = { [weak manager] in manager?.restartFormsSession() }
         return try XCTUnwrap(manager.viewModel)
     }
