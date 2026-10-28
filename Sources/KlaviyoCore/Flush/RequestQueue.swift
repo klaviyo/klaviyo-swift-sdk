@@ -61,7 +61,7 @@ public actor RequestQueue {
                 // `flush()` (on backgrounding the interval is still finite, so the guard alone wouldn't
                 // catch it).
                 do {
-                    try await self.clock.sleep(self.flushInterval)
+                    try await self.clock.sleep(self.nextDelay())
                 } catch {
                     return
                 }
@@ -69,6 +69,11 @@ public actor RequestQueue {
                 await self.flush()
             }
         }
+    }
+
+    /// How long the run loop sleeps: until the head's retry deadline, else one flush interval.
+    private func nextDelay() -> TimeInterval {
+        nextFlushDelay(head: QueueStore.shared.head, now: environment.date(), flushInterval: flushInterval)
     }
 
     /// Cancels the run loop and restores any in-flight lease to `QueueStore` so it survives shutdown.
@@ -116,8 +121,8 @@ public actor RequestQueue {
         defer { isFlushing = false }
 
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
-        // backoff. The per-head check in the send loop is the authoritative gate. A due retry
-        // still waits for the next flush tick.
+        // backoff. The per-head check in the send loop is the authoritative gate. The run loop
+        // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.
         if QueueStore.shared.head?.isAwaitingRetry(at: environment.date()) == true {
             return
         }
@@ -225,8 +230,13 @@ public actor RequestQueue {
         case let .retry(backoff):
             // Transport, rate-limit or server error: the backoff and attempt count belong to this
             // request alone. Drop it once it exhausts its own `maxRetries` (parity: `requestFailed`).
+            // Floor the delay at one flush interval (finite fallback when offline).
+            let floor = flushInterval.isFinite ? flushInterval : FlushConstants.wifiFlushInterval
             var failed = head
-            failed.recordRetryableFailure(retryAfter: backoff, now: environment.date())
+            failed.recordRetryableFailure(
+                retryAfter: max(backoff, Int(floor.rounded(.up))),
+                now: environment.date()
+            )
             if failed.hasExhaustedRetries {
                 clearOptimisticPushToken(head.request, error: error)
                 requestsInFlight.removeFirst()

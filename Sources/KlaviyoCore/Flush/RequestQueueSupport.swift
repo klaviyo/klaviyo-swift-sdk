@@ -14,6 +14,14 @@ public enum FlushConstants {
     public static let cellularFlushInterval = 30.0
 }
 
+/// Seconds the run loop should sleep before the next flush: the head's remaining backoff when it has
+/// one (zero once due, so an expired retry fires at once), otherwise one flush interval.
+func nextFlushDelay(head: QueuedRequest?, now: Date, flushInterval: TimeInterval) -> TimeInterval {
+    guard let head, let deadline = head.nextAttemptAt else { return flushInterval }
+    guard head.isAwaitingRetry(at: now) else { return 0 }
+    return max(0, deadline.timeIntervalSince(now))
+}
+
 // MARK: - maxRetries
 
 extension KlaviyoEndpoint {
