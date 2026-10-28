@@ -13,8 +13,10 @@ struct KLMuncheryApp: App {
                 .environmentObject(appState)
                 .onOpenURL { url in
                     // Start a draft in-app forms preview from the form editor's QR code or
-                    // copied preview link. Returns false, changing nothing, for every other link.
-                    KlaviyoSDK().handleFormsPreviewLink(url)
+                    // copied preview link with KlaviyoSDK().handleFormsPreviewLink(_:). It returns
+                    // false, changing nothing, for every other link. AppState also shows the
+                    // preview in its controls.
+                    appState.handleFormsPreviewLink(url)
                 }
         }
     }
