@@ -25,4 +25,40 @@ extension URLError {
     var isConnectivityError: Bool {
         Self.connectivityCodes.contains(code)
     }
+
+    /// How a transport failure is handled by the request queue.
+    enum TransportDisposition: Equatable {
+        /// Transient: back off and retry.
+        case retryable
+        /// Permanent: drop the request.
+        case drop
+        /// Cancelled by the system or caller: not an attempt, keep the request untouched.
+        case notAnAttempt
+    }
+
+    private static let retryableCodes: Set<URLError.Code> = connectivityCodes.union([
+        .timedOut,
+        .cannotConnectToHost,
+        .resourceUnavailable,
+        .cannotFindHost,
+        .dnsLookupFailed,
+        .zeroByteResource,
+        .callIsActive,
+        .secureConnectionFailed
+    ])
+
+    /// Classifies this transport error for the request queue.
+    ///
+    /// Retryable: `connectivityCodes` (`notConnectedToInternet`, `networkConnectionLost`,
+    /// `dataNotAllowed`, `internationalRoamingOff`), `timedOut`, `cannotConnectToHost`,
+    /// `resourceUnavailable`, `cannotFindHost`, `dnsLookupFailed`, `zeroByteResource`,
+    /// `callIsActive` and `secureConnectionFailed`.
+    /// Not an attempt: `cancelled`.
+    /// Drop: every other code, including unlisted codes and certificate errors.
+    var transportDisposition: TransportDisposition {
+        if code == .cancelled {
+            return .notAnAttempt
+        }
+        return Self.retryableCodes.contains(code) ? .retryable : .drop
+    }
 }

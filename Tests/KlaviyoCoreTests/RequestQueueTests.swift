@@ -709,7 +709,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         )
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
         IdentityStore.shared.updatePushToken(PushTokenData(payload))
-        let spy = SendSpy(results: [.failure(.networkError(NSError(domain: "test", code: -1)))])
+        let spy = SendSpy(results: [networkFailure])
         QueueStore.shared.enqueue(
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
             persist: .synchronous

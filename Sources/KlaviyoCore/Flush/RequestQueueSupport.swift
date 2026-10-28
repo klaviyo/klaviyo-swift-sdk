@@ -99,6 +99,10 @@ public enum FlushDecision: Equatable {
     /// The server rejected a field (e.g. email or phone) with a validation error.
     /// Strip the offending field(s) and remove the request from the queue.
     case clearInvalidFieldsAndDequeue([InvalidField])
+
+    /// The attempt was cancelled, not failed: restore the request untouched (no attempt, no
+    /// backoff) and stop this flush.
+    case abandonAttempt
 }
 
 // MARK: - classifyFailure
@@ -124,12 +128,24 @@ public func classifyFailure(error: KlaviyoAPIError, attemptNumber: Int) -> Flush
             return .dequeue
         }
 
-    case .networkError:
-        // Transport-level failure: the same exponential backoff as a 429/5xx (2^1, 2^2, ...), keyed
-        // on this request's own failed attempt so it escalates in lockstep with that path.
-        let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: attemptNumber)
-            + environment.randomInt()
-        return .retry(backoff: backOff)
+    case let .networkError(underlying):
+        guard let urlError = underlying as? URLError else {
+            environment.logger.error("Dropping request after a non-URLError transport failure: \(underlying)")
+            return .dequeue
+        }
+        switch urlError.transportDisposition {
+        case .retryable:
+            // Same exponential backoff as a 429/5xx (2^1, 2^2, ...), keyed on this request's own
+            // failed attempt so it escalates in lockstep with that path.
+            let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: attemptNumber)
+                + environment.randomInt()
+            return .retry(backoff: backOff)
+        case .drop:
+            environment.logger.error("Dropping request on transport error \(urlError.code.rawValue)")
+            return .dequeue
+        case .notAnAttempt:
+            return .abandonAttempt
+        }
 
     case let .rateLimitError(backOff), let .serverError(_, backOff):
         // `KlaviyoAPI` already folded Retry-After, exponential backoff and jitter into `backOff`.
