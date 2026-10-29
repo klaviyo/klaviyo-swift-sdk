@@ -525,6 +525,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                     )
                 }
             }
+        case let .formWillOpenQuery(formId, formName, formType):
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.info(
+                    "Received 'formWillOpenQuery' event from KlaviyoJS for form: \(formId, privacy: .public)"
+                )
+            }
+            handleFormWillOpenQuery(formId: formId, formName: formName, formType: formType)
         case let .trackProfileEvent(data):
             guard let envelope = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let metricName = envelope["metric"] as? String, !metricName.isEmpty else {
@@ -664,6 +671,92 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             return
         }
         IAFPresentationManager.shared.invokeLifecycleHandler(for: makeEvent(formId, formName))
+    }
+
+    // MARK: - Form Display Gating
+
+    /// Timeout for the host app to respond to a `formWillDisplay` continuation before failing open.
+    /// Onsite's four-second deadline includes bridge delivery; the host decision budget remains three seconds.
+    static let formWillOpenTimeoutSeconds: UInt64 = 3
+
+    @MainActor
+    private func handleFormWillOpenQuery(formId: String, formName: String, formType: String) {
+        let hasHandler = IAFPresentationManager.shared.hasFormLifecycleHandler
+
+        guard hasHandler else {
+            sendFormWillOpenContinuation(formId: formId, allowed: true)
+            return
+        }
+
+        var timeoutTask: Task<Void, Never>?
+
+        let continuation = FormDisplayContinuation { [weak self] allowed in
+            timeoutTask?.cancel()
+            Task { @MainActor [weak self] in
+                self?.sendFormWillOpenContinuation(formId: formId, allowed: allowed)
+            }
+        }
+
+        timeoutTask = Task {
+            try? await Task.sleep(nanoseconds: Self.formWillOpenTimeoutSeconds * 1_000_000_000)
+            guard !Task.isCancelled else { return }
+            if continuation.hasResponded { return }
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    """
+                    formWillDisplay continuation timed out for form \(formId, privacy: .public); failing open
+                    """
+                )
+            }
+            continuation.accept()
+        }
+
+        let event = FormLifecycleEvent.formWillDisplay(
+            formId: formId,
+            formName: formName,
+            formType: formType,
+            continuation: continuation
+        )
+
+        IAFPresentationManager.shared.invokeLifecycleHandler(for: event)
+    }
+
+    @MainActor
+    private func sendFormWillOpenContinuation(formId: String, allowed: Bool) {
+        let script: String
+        do {
+            let detailJSON = try JSONSerialization.data(withJSONObject: ["formId": formId, "answer": allowed])
+            let detailString = String(data: detailJSON, encoding: .utf8)!
+            script = """
+            document.head.dispatchEvent(new CustomEvent('formWillOpenContinuation', \
+            { detail: \(detailString) }))
+            """
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Failed to serialize formWillOpenContinuation detail: \(error). Failing open."
+                )
+            }
+            script = """
+            document.head.dispatchEvent(new CustomEvent('formWillOpenContinuation', \
+            { detail: { formId: '', answer: true } }))
+            """
+        }
+
+        Task { @MainActor in
+            do {
+                _ = try await delegate?.evaluateJavaScript(script)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.debug(
+                        "Sent formWillOpenContinuation for \(formId, privacy: .public): allowed=\(allowed)"
+                    )
+                }
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.warning("Failed to send formWillOpenContinuation: \(error)")
+                }
+            }
+        }
     }
 }
 
