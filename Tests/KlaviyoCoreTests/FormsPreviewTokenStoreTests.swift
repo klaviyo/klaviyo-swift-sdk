@@ -70,20 +70,41 @@ final class FormsPreviewTokenStoreTests: XCTestCase {
         XCTAssertEqual(published, [validPreviewToken, nil])
     }
 
-    func testStartPreviewStoresTheTokenAndRestartsARegisteredSession() {
+    func testStartPreviewStoresTheTokenAndRestartsARegisteredSessionOnce() {
         var restarts = 0
         store.restartFormsSession = { restarts += 1 }
 
         XCTAssertTrue(store.startPreview(validPreviewToken))
-        XCTAssertTrue(store.startPreview(validPreviewToken))
 
         XCTAssertEqual(store.token, validPreviewToken)
-        XCTAssertEqual(restarts, 2, "Starting the same preview again restarts the session")
+        XCTAssertEqual(restarts, 1)
     }
 
-    func testStartPreviewWithoutASessionOnlyStoresTheToken() {
+    func testStartingTheSamePreviewAgainRestartsAgain() {
+        var restarts = 0
+        store.restartFormsSession = { restarts += 1 }
+
+        store.startPreview(validPreviewToken)
+        store.startPreview(validPreviewToken)
+
+        XCTAssertEqual(store.token, validPreviewToken)
+        XCTAssertEqual(restarts, 2)
+    }
+
+    func testStartPreviewBeforeRegisterOnlyStoresTheToken() {
         XCTAssertTrue(store.startPreview(validPreviewToken))
         XCTAssertEqual(store.token, validPreviewToken)
+    }
+
+    func testStartPreviewAfterUnregisterOnlyStoresTheToken() {
+        var restarts = 0
+        store.restartFormsSession = { restarts += 1 }
+        store.restartFormsSession = nil
+
+        XCTAssertTrue(store.startPreview(validPreviewToken))
+
+        XCTAssertEqual(store.token, validPreviewToken)
+        XCTAssertEqual(restarts, 0)
     }
 
     func testMalformedStartPreviewChangesNothing() {
