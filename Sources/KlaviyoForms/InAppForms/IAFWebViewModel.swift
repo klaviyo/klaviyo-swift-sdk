@@ -676,7 +676,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     // MARK: - Form Display Gating
 
     /// Timeout for the host app to respond to a `formWillDisplay` continuation before failing open.
-    static let formWillOpenTimeoutSeconds: UInt64 = 5
+    /// Onsite's four-second deadline includes bridge delivery; the host decision budget remains three seconds.
+    static let formWillOpenTimeoutSeconds: UInt64 = 3
 
     @MainActor
     private func handleFormWillOpenQuery(formId: String, formName: String, formType: String) {

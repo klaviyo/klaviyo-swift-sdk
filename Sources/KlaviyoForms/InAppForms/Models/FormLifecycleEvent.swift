@@ -12,7 +12,7 @@ import Foundation
 /// Call ``accept()`` to allow the form to display, or ``reject()`` to block it.
 /// Only the first call takes effect; subsequent calls are ignored.
 ///
-/// If neither is called within the SDK's timeout window, the form will be
+/// If neither is called within three seconds, the form will be
 /// allowed to display (fail-open behavior).
 public final class FormDisplayContinuation: @unchecked Sendable {
     private let callback: (Bool) -> Void
@@ -117,7 +117,7 @@ public enum FormLifecycleEvent: Sendable {
     ///
     /// Call ``FormDisplayContinuation/accept()`` to allow the form to display,
     /// or ``FormDisplayContinuation/reject()`` to block it.
-    /// If neither is called within the SDK's timeout window, the form will be
+    /// If neither is called within three seconds, the form will be
     /// allowed to display (fail-open behavior).
     ///
     /// - `formType`: The type of form (e.g. "POPUP", "FLYOUT", "FULLSCREEN").
