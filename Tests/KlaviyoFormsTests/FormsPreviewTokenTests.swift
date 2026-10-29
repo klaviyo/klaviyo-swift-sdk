@@ -10,6 +10,7 @@ import WebKit
 import XCTest
 
 let validPreviewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+let otherPreviewToken = "ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm987"
 
 @MainActor
 final class FormsPreviewTokenWebViewModelTests: XCTestCase {
@@ -64,6 +65,32 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
             body: #"{"type":"formsPreviewEnded","data":{"reason":"expired"}}"#
         ))
         XCTAssertNil(store.token)
+        XCTAssertTrue(delegate.evaluatedScripts.isEmpty, "The page is not written to")
+    }
+
+    func testPreviewEndedWithMatchingTokenClearsStoredToken() throws {
+        store.setToken(validPreviewToken)
+        let (viewModel, delegate) = try makeViewModel()
+        viewModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {"type":"formsPreviewEnded","data":{"reason":"expired","token":"\(validPreviewToken)"}}
+            """
+        ))
+        XCTAssertNil(store.token)
+        XCTAssertTrue(delegate.evaluatedScripts.isEmpty, "The page is not written to")
+    }
+
+    func testPreviewEndedWithMismatchedTokenKeepsStoredToken() throws {
+        store.setToken(validPreviewToken)
+        let (viewModel, delegate) = try makeViewModel()
+        viewModel.handleScriptMessage(MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {"type":"formsPreviewEnded","data":{"reason":"expired","token":"\(otherPreviewToken)"}}
+            """
+        ))
+        XCTAssertEqual(store.token, validPreviewToken)
         XCTAssertTrue(delegate.evaluatedScripts.isEmpty, "The page is not written to")
     }
 }

@@ -550,7 +550,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                   let metricName = envelope["metric"] as? String, !metricName.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "trackProfileEvent payload is malformed or has no metric name — skipping event")
+                        "trackProfileEvent payload is malformed or has no metric name — skipping event"
+                    )
                 }
                 return
             }
@@ -559,7 +560,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if properties == nil {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "trackProfileEvent payload has no properties object — sending event without them")
+                        "trackProfileEvent payload has no properties object — sending event without them"
+                    )
                 }
             }
 
@@ -662,7 +664,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Task { [authTokenManager] in
                 await authTokenManager.refreshRejectedToken()
             }
-        case let .formsPreviewEnded(reason):
+        case let .formsPreviewEnded(reason, token):
+            if let token, token != previewTokenStore.token {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.debug("Ignoring 'formsPreviewEnded' from an older preview session")
+                }
+                return
+            }
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning(
                     "Forms preview ended, reason: \(reason, privacy: .public). Published forms resume on the next app launch or session timeout."
