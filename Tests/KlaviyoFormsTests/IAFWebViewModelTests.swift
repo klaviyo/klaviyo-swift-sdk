@@ -830,6 +830,29 @@ final class IAFWebViewModelTests: XCTestCase {
     }
 
     @MainActor
+    func testFormWillOpenQueryWithoutDecision_FailsOpenBeforeOnsiteDeadline() async throws {
+        IAFPresentationManager.shared.registerFormLifecycleHandler { _ in }
+        defer { IAFPresentationManager.shared.unregisterFormLifecycleHandler() }
+
+        let mockDelegate = MockIAFWebViewDelegate(viewModel: viewModel)
+        viewModel.delegate = mockDelegate
+        let scriptMessage = MockWKScriptMessage(
+            name: "KlaviyoNativeBridge",
+            body: """
+            {"type":"formWillOpenQuery","data":{
+              "formId":"timeout-form","formName":"Timeout form","formType":"POPUP"
+            }}
+            """
+        )
+
+        viewModel.handleScriptMessage(scriptMessage)
+        await mockDelegate.waitForScript(containing: "formWillOpenContinuation", timeout: 4)
+
+        let script = try XCTUnwrap(mockDelegate.evaluatedScripts.first)
+        XCTAssertTrue(script.contains("\"answer\":true") || script.contains("\"answer\" : true"))
+    }
+
+    @MainActor
     func testFormWillOpenQueryWithHandler_CreatesContinuationAndInvokesHandler() async throws {
         // Given
         let handlerExpectation = XCTestExpectation(description: "Lifecycle handler should be invoked")
