@@ -59,7 +59,7 @@ class IAFPresentationManager {
     var handshakeTimeout: TimeInterval = NetworkSession.networkTimeout.seconds
 
     /// Snapshots the device state each new webview publishes to onsite.
-    var deviceInfo: @MainActor () -> DeviceInfo = DeviceInfo.current
+    var deviceInfo: @MainActor () -> DeviceInfo = { DeviceInfo.current() }
 
     /// Creates the view controller hosting each new form webview.
     var makeViewController: (IAFWebViewModel) -> KlaviyoWebViewController = { viewModel in

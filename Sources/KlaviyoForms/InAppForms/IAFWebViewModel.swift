@@ -148,7 +148,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         authToken: String? = nil,
         assetSource: String? = nil,
         authTokenManager: AuthTokenManager = .shared,
-        deviceInfo: @escaping @MainActor () -> DeviceInfo = DeviceInfo.current
+        deviceInfo: @escaping @MainActor () -> DeviceInfo = { DeviceInfo.current() }
     ) {
         self.url = url
         self.apiKey = apiKey
