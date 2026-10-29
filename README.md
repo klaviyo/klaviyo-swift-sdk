@@ -1025,6 +1025,18 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 }
 
 // UISceneDelegate, universal links
+// A link that launches the app arrives in willConnectTo; scene(_:continue:) only runs for an already-connected scene.
+func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    for userActivity in connectionOptions.userActivities {
+        guard let url = userActivity.webpageURL else { continue }
+        if KlaviyoSDK().handleFormsPreviewLink(url) { return }
+    }
+    for urlContext in connectionOptions.urlContexts {
+        if KlaviyoSDK().handleFormsPreviewLink(urlContext.url) { return }
+    }
+    // Your own deep link handling
+}
+
 func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
     guard let url = userActivity.webpageURL else { return }
     if KlaviyoSDK().handleFormsPreviewLink(url) { return }
