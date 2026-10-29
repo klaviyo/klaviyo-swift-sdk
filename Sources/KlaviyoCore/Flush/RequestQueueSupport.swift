@@ -129,8 +129,8 @@ public func classifyFailure(error: KlaviyoAPIError, attemptNumber: Int) -> Flush
         }
 
     case let .networkError(underlying):
-        guard let urlError = underlying as? URLError else {
-            environment.logger.error("Dropping request after a non-URLError transport failure: \(underlying)")
+        guard let urlError = underlying.firstURLError else {
+            environment.logger.error("Dropping request with no URLError in its chain: \(underlying)")
             return .dequeue
         }
         switch urlError.transportDisposition {

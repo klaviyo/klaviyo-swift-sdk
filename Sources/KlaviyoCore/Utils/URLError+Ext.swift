@@ -62,3 +62,23 @@ extension URLError {
         return Self.retryableCodes.contains(code) ? .retryable : .drop
     }
 }
+
+extension Error {
+    /// Maximum number of underlying-error hops followed when looking for a `URLError`.
+    static var maxUnderlyingErrorDepth: Int {
+        10
+    }
+
+    /// The first `URLError` in this error's underlying-error chain, checking the error itself first.
+    var firstURLError: URLError? {
+        var current: Error? = self
+        for _ in 0...Self.maxUnderlyingErrorDepth {
+            guard let error = current else { return nil }
+            if let urlError = error as? URLError {
+                return urlError
+            }
+            current = (error as NSError).userInfo[NSUnderlyingErrorKey] as? Error
+        }
+        return nil
+    }
+}

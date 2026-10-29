@@ -110,6 +110,38 @@ final class FlushDecisionTests: XCTestCase {
         XCTAssertEqual(classifyFailure(error: other, attemptNumber: 1), .dequeue)
     }
 
+    /// Wraps `inner` in `levels` layers of `NSError` via `NSUnderlyingErrorKey`.
+    private func wrapped(_ inner: Error, levels: Int) -> Error {
+        (0..<levels).reduce(inner) { error, _ in
+            NSError(domain: "wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: error])
+        }
+    }
+
+    func testRetryableURLErrorWrappedOneOrTwoLevelsDeepRetries() {
+        for levels in [1, 2] {
+            let error = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: levels))
+            XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .retry(backoff: 2))
+        }
+    }
+
+    func testWrappedDropCodeDropsAndWrappedCancelledAbandons() {
+        let drop = KlaviyoAPIError.networkError(wrapped(URLError(.badURL), levels: 2))
+        XCTAssertEqual(classifyFailure(error: drop, attemptNumber: 1), .dequeue)
+        let cancelled = KlaviyoAPIError.networkError(wrapped(URLError(.cancelled), levels: 1))
+        XCTAssertEqual(classifyFailure(error: cancelled, attemptNumber: 1), .abandonAttempt)
+    }
+
+    func testChainWithoutURLErrorOrBeyondDepthLimitDrops() {
+        let plain = KlaviyoAPIError.networkError(wrapped(NSError(domain: "test", code: 1), levels: 3))
+        XCTAssertEqual(classifyFailure(error: plain, attemptNumber: 1), .dequeue)
+
+        let limit = NSError.maxUnderlyingErrorDepth
+        let atLimit = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit))
+        XCTAssertEqual(classifyFailure(error: atLimit, attemptNumber: 1), .retry(backoff: 2))
+        let tooDeep = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit + 1))
+        XCTAssertEqual(classifyFailure(error: tooDeep, attemptNumber: 1), .dequeue)
+    }
+
     /// A cancellation is not an attempt: the engine restores the request untouched.
     func testCancelledTransportErrorAbandonsAttempt() {
         let error = KlaviyoAPIError.networkError(URLError(.cancelled))
