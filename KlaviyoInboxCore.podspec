@@ -13,6 +13,7 @@ Pod::Spec.new do |s|
   s.swift_version    = '5.7'
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoInboxCore/**/*.swift'
+  s.frameworks       = 'CoreData'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
   s.dependency       'KlaviyoFoundation', '~> 5.4.1'
 end
