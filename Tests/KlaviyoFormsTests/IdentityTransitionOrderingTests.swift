@@ -32,6 +32,7 @@ final class IdentityTransitionOrderingTests: XCTestCase {
         provider = ScriptedTokenProvider()
         manager = makeUnboundedAuthTokenManager()
         presentationManager = IAFPresentationManager(viewController: nil)
+        presentationManager.deviceInfo = { .test }
     }
 
     override func tearDown() async throws {
@@ -162,7 +163,8 @@ extension IdentityTransitionOrderingTests {
             apiKey: "abc123",
             profileData: IdentityStore.shared.current,
             authToken: authToken,
-            authTokenManager: manager
+            authTokenManager: manager,
+            deviceInfo: { .test }
         )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate

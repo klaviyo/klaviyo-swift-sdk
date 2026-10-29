@@ -29,6 +29,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
     private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> AuthTokenManager.TokenRefresh?)?
     private var defaultMakeViewController: ((IAFWebViewModel) -> KlaviyoWebViewController)?
     private var defaultHandshakeTimeout: TimeInterval?
+    private var defaultDeviceInfo: (@MainActor () -> DeviceInfo)?
     private var manager: IAFPresentationManager {
         .shared
     }
@@ -45,6 +46,8 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         defaultHandshakeTimeout = manager.handshakeTimeout
         manager.handshakeTimeout = Self.activeHandshakeTimeout
         manager.makeViewController = { InertWebViewController(hosting: $0) }
+        defaultDeviceInfo = manager.deviceInfo
+        manager.deviceInfo = { .test }
     }
 
     override func tearDown() async throws {
@@ -57,6 +60,9 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         }
         if let defaultHandshakeTimeout {
             manager.handshakeTimeout = defaultHandshakeTimeout
+        }
+        if let defaultDeviceInfo {
+            manager.deviceInfo = defaultDeviceInfo
         }
         await AuthTokenManager.shared.unregisterProvider()
         await resetManager()

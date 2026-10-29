@@ -42,6 +42,7 @@ final class IAFWebViewModelIdentityChangeTests: XCTestCase {
         )
         provider = ScriptedTokenProvider(currentDate: { clock.now() })
         presentationManager = IAFPresentationManager(viewController: nil)
+        presentationManager.deviceInfo = { .test }
     }
 
     override func tearDown() async throws {
@@ -511,7 +512,8 @@ extension IAFWebViewModelIdentityChangeTests {
             apiKey: "abc123",
             profileData: profileData,
             authToken: authToken,
-            authTokenManager: manager
+            authTokenManager: manager,
+            deviceInfo: { .test }
         )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate

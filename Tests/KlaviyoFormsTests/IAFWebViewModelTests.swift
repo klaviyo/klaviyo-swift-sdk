@@ -58,7 +58,12 @@ final class IAFWebViewModelTests: XCTestCase {
         let profileData = IdentityStore.shared.current
 
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            deviceInfo: { .test }
+        )
     }
 
     override func tearDown() {
@@ -108,7 +113,12 @@ final class IAFWebViewModelTests: XCTestCase {
         // Create a new viewModel with the updated environment
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: nil,
+            deviceInfo: { .test }
+        )
 
         // When
         viewModel.initializeLoadScripts()
@@ -164,7 +174,13 @@ final class IAFWebViewModelTests: XCTestCase {
         let dummyToken = "header.payload.signature"
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: nil, authToken: dummyToken)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: nil,
+            authToken: dummyToken,
+            deviceInfo: { .test }
+        )
 
         // When
         viewModel.initializeLoadScripts()
@@ -799,7 +815,8 @@ extension IAFWebViewModelTests {
             url: fileUrl,
             apiKey: "abc123",
             profileData: profile,
-            authTokenManager: manager
+            authTokenManager: manager,
+            deviceInfo: { .test }
         )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate

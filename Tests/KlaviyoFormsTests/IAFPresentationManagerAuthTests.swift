@@ -42,7 +42,8 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             apiKey: "abc123",
             profileData: nil,
             authToken: authToken,
-            authTokenManager: authTokenManager
+            authTokenManager: authTokenManager,
+            deviceInfo: { .test }
         )
         let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
@@ -95,6 +96,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await fetchToken(from: authTokenManager)
         await authTokenManager.clearTokenState()
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.indexHtmlFileUrl = fileUrl
         manager.makeViewController = { InertWebViewController(hosting: $0) }
 
@@ -121,6 +123,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         }
         try await fetchToken(from: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.indexHtmlFileUrl = fileUrl
         manager.makeViewController = { InertWebViewController(hosting: $0) }
 
@@ -143,6 +146,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
 
         manager.prepareTokenDelivery(
             for: viewModel,
@@ -177,6 +181,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await waitForProviderCalls(counter, atLeast: 1)
         let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: nil,
@@ -209,6 +214,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: initial, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: initial,
@@ -236,6 +242,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await fetchToken(from: authTokenManager)
         let (viewModel, delegate) = makeViewModel(authToken: token, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: token,
@@ -273,6 +280,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         await authTokenManager.clearTokenState()
         let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: nil,
@@ -327,6 +335,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
         try await waitForProviderCalls(counter, atLeast: 1)
         let (viewModel, delegate) = makeViewModel(authToken: nil, authTokenManager: authTokenManager)
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: nil,
@@ -423,6 +432,7 @@ final class IAFPresentationManagerAuthTests: XCTestCase {
             authToken: initialToken, authTokenManager: authTokenManager
         )
         let manager = IAFPresentationManager(viewController: nil)
+        manager.deviceInfo = { .test }
         manager.prepareTokenDelivery(
             for: viewModel,
             initialToken: initialToken,

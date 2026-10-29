@@ -30,6 +30,7 @@ final class IAFPresentationManagerBuildRaceTests: XCTestCase {
         let provider = try XCTUnwrap(provider)
         await authTokenManager.registerProvider { try await provider.provide() }
         presentationManager = IAFPresentationManager(viewController: nil)
+        presentationManager.deviceInfo = { .test }
         presentationManager.indexHtmlFileUrl = try XCTUnwrap(
             Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html")
         )

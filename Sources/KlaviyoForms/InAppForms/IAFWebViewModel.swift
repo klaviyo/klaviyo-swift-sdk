@@ -35,6 +35,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private(set) var authToken: String?
     private let assetSource: String?
     private let authTokenManager: AuthTokenManager
+    /// Snapshots the device state published on `data-klaviyo-device`. Injected so unit tests
+    /// can skip `DeviceInfo.current()`, whose `UIScreen` fallback blocks a hostless test
+    /// process on UIKit's first-use setup.
+    private let deviceInfo: @MainActor () -> DeviceInfo
 
     private var identityUserScript: WKUserScript?
 
@@ -130,7 +134,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// so the parse-time staleness window is small and acceptable.
     @MainActor
     private var deviceInfoWKScript: WKUserScript {
-        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        let script = deviceInfo().asAttributeAssignmentScript()
         return WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
@@ -143,7 +147,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileData: ProfileData?,
         authToken: String? = nil,
         assetSource: String? = nil,
-        authTokenManager: AuthTokenManager = .shared
+        authTokenManager: AuthTokenManager = .shared,
+        deviceInfo: @escaping @MainActor () -> DeviceInfo = DeviceInfo.current
     ) {
         self.url = url
         self.apiKey = apiKey
@@ -151,6 +156,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.authToken = authToken
         self.assetSource = assetSource
         self.authTokenManager = authTokenManager
+        self.deviceInfo = deviceInfo
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
         formLifecycleStream = stream
@@ -192,7 +198,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// so onsite stays in sync with the device state.
     @MainActor
     func pushDeviceInfo() {
-        let script = DeviceInfo.current().asAttributeAssignmentScript()
+        let script = deviceInfo().asAttributeAssignmentScript()
         Task { @MainActor in
             do {
                 _ = try await delegate?.evaluateJavaScript(script)

@@ -58,6 +58,9 @@ class IAFPresentationManager {
     /// Seconds each new webview waits for the KlaviyoJS handshake before it is torn down.
     var handshakeTimeout: TimeInterval = NetworkSession.networkTimeout.seconds
 
+    /// Snapshots the device state each new webview publishes to onsite.
+    var deviceInfo: @MainActor () -> DeviceInfo = DeviceInfo.current
+
     /// Creates the view controller hosting each new form webview.
     var makeViewController: (IAFWebViewModel) -> KlaviyoWebViewController = { viewModel in
         KlaviyoWebViewController(viewModel: viewModel)
@@ -266,7 +269,8 @@ class IAFPresentationManager {
             profileData: profileData,
             authToken: authToken,
             assetSource: assetSource,
-            authTokenManager: authTokenManager
+            authTokenManager: authTokenManager,
+            deviceInfo: deviceInfo
         )
         self.viewModel = viewModel
         viewController = makeViewController(viewModel)

@@ -84,7 +84,8 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
                 url: XCTUnwrap(URL(string: "https://example.com")),
                 apiKey: "abc123",
                 profileData: nil,
-                authTokenManager: authTokenManager
+                authTokenManager: authTokenManager,
+                deviceInfo: { .test }
             )
             let delegate = MockIAFWebViewDelegate(viewModel: viewModel)
             viewModel.delegate = delegate
@@ -113,7 +114,8 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
             url: URL(string: "https://example.com")!,
             apiKey: "abc123",
             profileData: profile,
-            authToken: token
+            authToken: token,
+            deviceInfo: { .test }
         )
         let source = try XCTUnwrap(
             viewModel.loadScripts?.map(\.source).first { $0.contains(Self.profileAttribute) }

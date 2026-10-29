@@ -21,7 +21,12 @@ final class IAFWebViewModelPreloadingTests: XCTestCase {
     override func setUp() {
         super.setUp()
 
-        viewModel = IAFWebViewModel(url: URL(string: "https://example.com")!, apiKey: "abc123", profileData: nil)
+        viewModel = IAFWebViewModel(
+            url: URL(string: "https://example.com")!,
+            apiKey: "abc123",
+            profileData: nil,
+            deviceInfo: { .test }
+        )
         delegate = MockIAFWebViewDelegate(viewModel: viewModel)
         viewModel.delegate = delegate
     }

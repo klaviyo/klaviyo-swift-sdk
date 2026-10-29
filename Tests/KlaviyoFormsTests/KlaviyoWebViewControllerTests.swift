@@ -126,7 +126,12 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            deviceInfo: { .test }
+        )
         viewModel.initializeLoadScripts()
 
         // Create web view configuration
@@ -178,7 +183,12 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            deviceInfo: { .test }
+        )
         viewModel.initializeLoadScripts()
 
         // When
@@ -209,7 +219,12 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = IdentityStore.shared.current
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            deviceInfo: { .test }
+        )
         viewModel.initializeLoadScripts()
 
         // When
@@ -227,7 +242,12 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = ProfileData(email: "test@example.com")
         let fileUrl = try XCTUnwrap(Bundle.module.url(forResource: "IAFUnitTest", withExtension: "html"))
-        viewModel = IAFWebViewModel(url: fileUrl, apiKey: apiKey, profileData: profileData)
+        viewModel = IAFWebViewModel(
+            url: fileUrl,
+            apiKey: apiKey,
+            profileData: profileData,
+            deviceInfo: { .test }
+        )
         viewModel.initializeLoadScripts()
 
         // When
