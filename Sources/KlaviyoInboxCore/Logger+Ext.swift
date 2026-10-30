@@ -22,4 +22,7 @@ extension Logger {
 extension Logger {
     /// Logger for capturing delivered pushes in the Notification Service Extension.
     static let mobileInboxCapture = Logger(category: "Mobile Inbox Capture")
+
+    /// Logger for the Inbox store: opening, migration, recovery, and write failures.
+    static let mobileInboxStore = Logger(category: "Mobile Inbox Store")
 }
