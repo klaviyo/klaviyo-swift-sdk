@@ -27,31 +27,18 @@ reviews:
         - Crashes and unhandled errors on realistic inputs.
         - Public API contract breaks: signature, default, or behavior changes that break existing integrations.
         - Security issues: secrets, API keys, preview tokens, or PII leaking into logs or client-controlled output.
-        - Behavior that diverges from the other Klaviyo platform SDKs (Android, iOS, React Native, Flutter, Expo) - they are
-        expected to behave the same.
+        - Behavior that diverges from the other Klaviyo platform SDKs (Android, iOS, React Native, Flutter, Expo) - they are expected to behave the same.
         - Data loss: dropped or corrupted events, profiles, or push tokens.
 
-        Edge cases and concurrency issues ARE in scope when you can describe a realistic sequence that reproduces them (concrete
-        inputs, calls, threads, or lifecycle events). Skip edge cases with no clear repro path and microscopic timing windows.
-        Do not ask for locks, guards, or extra validation "just in case".
+        Edge cases and concurrency issues ARE in scope when you can describe a realistic sequence that reproduces them (concrete inputs, calls, threads, or lifecycle events). Skip edge cases with no clear repro path and microscopic timing windows. Do not ask for locks, guards, or extra validation "just in case".
 
-        Do not request extra tests unless a changed behavior is entirely untested. No style, naming, or documentation nits,
-        except where public-facing docs (README, API docs) are wrong about the changed behavior.
+        Do not request extra tests unless a changed behavior is entirely untested. No style, naming, or documentation nits, except where public-facing docs (README, API docs) are wrong about the changed behavior.
 
-        Do not suggest follow-up issues or tickets for review findings. Do not ask for comments explaining why code is written
-        a certain way - this team keeps rationale in PR descriptions, not source.
+        Do not suggest follow-up issues or tickets for review findings. Do not ask for comments explaining why code is written a certain way - this team keeps rationale in PR descriptions, not source.
     - path: "Examples/**"
       instructions: >
-        This is a demo app that customers copy as example code. It should be clean, readable, idiomatic, and correct in how
-        it uses the Klaviyo SDK API.
+        This is a demo app that customers copy as example code. It should be clean, readable, idiomatic, and correct in how it uses the Klaviyo SDK API.
 
-        It may intentionally simplify or skip production best practices (error handling, architecture, dependency injection,
-        security hardening) to keep the demo short - do not flag that.
+        It may intentionally simplify or skip production best practices (error handling, architecture, dependency injection, security hardening) to keep the demo short - do not flag that.
 
-        Do flag: crashes, incorrect SDK usage (wrong methods, wrong arguments, missing initialization), and leaked tokens,
-        API keys, or secrets.
-knowledge_base:
-  code_guidelines:
-    filePatterns:
-      - files: .cursor/BUGBOT.md
-        applyTo: '**'
+        Do flag: crashes, incorrect SDK usage (wrong methods, wrong arguments, missing initialization), and leaked tokens, API keys, or secrets.
