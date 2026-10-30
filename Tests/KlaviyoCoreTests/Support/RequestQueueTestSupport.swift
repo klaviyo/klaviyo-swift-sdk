@@ -197,3 +197,16 @@ func makeInvalidFieldErrorData(pointer: String) -> Data {
     }
     """.data(using: .utf8)!
 }
+
+let networkFailure: Result<Data, KlaviyoAPIError> = .failure(
+    .networkError(NSError(domain: "test", code: -1))
+)
+
+/// A high-priority event request; `QueueStore.enqueue` front-inserts it.
+func makePriorityEventRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .createEvent("test-api-key", CreateEventPayload(data: .init(name: "$opened_push"))),
+        priority: .high
+    )
+}
