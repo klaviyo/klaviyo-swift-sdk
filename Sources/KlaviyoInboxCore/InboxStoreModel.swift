@@ -9,10 +9,6 @@ import CoreData
 
 /// The Core Data model, built in code so there is no resource bundle to find from an extension and no
 /// module-name lookup for a managed-object subclass: the entity class is plain `NSManagedObject`.
-///
-/// Only what is queried is a column: company, `tm`, sort time, and read and archived state. Everything
-/// else lives in the encoded `payload`. Android stores one column per field; iOS deliberately does not,
-/// because nothing filters or sorts on the rest and a new column costs a model version and a migration.
 package enum InboxStoreModel {
     package static let entityName = "InboxMessage"
 
