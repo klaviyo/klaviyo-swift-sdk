@@ -22,6 +22,14 @@ let package = Package(
         .library(
             name: "KlaviyoLocation",
             targets: ["KlaviyoLocation"]
+        ),
+        .library(
+            name: "KlaviyoInbox",
+            targets: ["KlaviyoInbox"]
+        ),
+        .library(
+            name: "KlaviyoInboxExtension",
+            targets: ["KlaviyoInboxExtension"]
         )
     ],
     dependencies: [
@@ -37,6 +45,14 @@ let package = Package(
             path: "Sources/KlaviyoAutomaticPushBootstrap",
             publicHeadersPath: "include",
             linkerSettings: [.linkedFramework("UIKit")]
+        ),
+        .target(
+            name: "KlaviyoFoundation",
+            path: "Sources/KlaviyoFoundation"
+        ),
+        .testTarget(
+            name: "KlaviyoFoundationTests",
+            dependencies: ["KlaviyoFoundation"]
         ),
         .target(
             name: "KlaviyoCore",
@@ -57,6 +73,7 @@ let package = Package(
             dependencies: [
                 .product(name: "AnyCodable", package: "AnyCodable"),
                 "KlaviyoCore",
+                "KlaviyoFoundation",
                 "KlaviyoAutomaticPushBootstrap"
             ],
             path: "Sources/KlaviyoSwift",
@@ -72,7 +89,7 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoForms",
-            dependencies: ["KlaviyoCore"],
+            dependencies: ["KlaviyoCore", "KlaviyoFoundation"],
             path: "Sources/KlaviyoForms",
             resources: [
                 .process("InAppForms/Assets"),
@@ -94,15 +111,14 @@ let package = Package(
         ),
         .target(
             name: "KlaviyoSwiftExtension",
-            dependencies: [],
+            dependencies: ["KlaviyoFoundation"],
             path: "Sources/KlaviyoSwiftExtension"
         ),
         .testTarget(
             name: "KlaviyoSwiftExtensionTests",
             dependencies: [
                 "KlaviyoSwiftExtension",
-                // Test-only: lets the allowlist parity test compare against the KlaviyoCore copy.
-                "KlaviyoCore"
+                "KlaviyoFoundation"
             ]
         ),
         .target(
@@ -119,6 +135,30 @@ let package = Package(
                 "KlaviyoCore",
                 "KlaviyoLocation"
             ]
+        ),
+        .target(
+            name: "KlaviyoInboxCore",
+            dependencies: ["KlaviyoFoundation"],
+            path: "Sources/KlaviyoInboxCore"
+        ),
+        .target(
+            name: "KlaviyoInboxTestSupport",
+            dependencies: ["KlaviyoInboxCore"],
+            path: "Tests/KlaviyoInboxTestSupport"
+        ),
+        .testTarget(
+            name: "KlaviyoInboxCoreTests",
+            dependencies: ["KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
+        ),
+        .target(
+            name: "KlaviyoInboxExtension",
+            dependencies: ["KlaviyoInboxCore"],
+            path: "Sources/KlaviyoInboxExtension"
+        ),
+        .target(
+            name: "KlaviyoInbox",
+            dependencies: ["KlaviyoCore", "KlaviyoInboxCore"],
+            path: "Sources/KlaviyoInbox"
         )
     ]
 )

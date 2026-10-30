@@ -22,5 +22,6 @@ Pod::Spec.new do |s|
   s.resource_bundles = {"KlaviyoSwift" => ["Sources/KlaviyoSwift/PrivacyInfo.xcprivacy"]}
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoSwift -package-name KlaviyoCore' }
   s.dependency     'KlaviyoCore', '~> 5.6.0'
+  s.dependency     'KlaviyoFoundation', '~> 5.4.1'
   s.dependency     'AnyCodable-FlightSchool'
 end
