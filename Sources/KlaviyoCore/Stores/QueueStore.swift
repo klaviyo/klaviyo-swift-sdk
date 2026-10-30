@@ -146,6 +146,18 @@ public final class QueueStore {
         return drained
     }
 
+    /// Clears every queued entry's pending backoff (e.g. on reconnect), keeping `attempts`.
+    /// In-memory retry state only, so nothing is persisted.
+    public func clearBackoffs() {
+        queueLock.withLock {
+            queue = hydrated().map { entry in
+                var entry = entry
+                entry.clearBackoff()
+                return entry
+            }
+        }
+    }
+
     /// NOTE: Only called in the LegacyStateMigration. No other callers.
     /// Merges an authoritative legacy backlog into the queue: prepends `requests`
     /// — the older, pre-upgrade backlog — ahead of whatever is already queued, skipping any id

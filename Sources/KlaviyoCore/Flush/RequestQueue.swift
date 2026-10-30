@@ -54,10 +54,21 @@ public actor RequestQueue {
     /// (Re)starts the run loop. Any existing loop is cancelled first so `start()` is idempotent and
     /// never leaves two loops racing.
     public func start() {
+        startLoop(flushImmediately: false)
+    }
+
+    /// `flushImmediately` skips the first sleep (used on reconnect).
+    private func startLoop(flushImmediately: Bool) {
         runLoop?.cancel()
         runLoop = Task { [weak self] in
+            var skipSleep = flushImmediately
             while !Task.isCancelled {
                 guard let self else { return }
+                if skipSleep {
+                    skipSleep = false
+                    await self.flush()
+                    continue
+                }
                 // If `stop()` cancels the loop while parked here, exit instead of running a trailing
                 // `flush()` (on backgrounding the interval is still finite, so the guard alone wouldn't
                 // catch it).
@@ -109,10 +120,12 @@ public actor RequestQueue {
             stop()
         case .reachableViaWiFi:
             flushInterval = FlushConstants.wifiFlushInterval
-            start()
+            QueueStore.shared.clearBackoffs()
+            startLoop(flushImmediately: true)
         case .reachableViaWWAN:
             flushInterval = FlushConstants.cellularFlushInterval
-            start()
+            QueueStore.shared.clearBackoffs()
+            startLoop(flushImmediately: true)
         }
     }
 

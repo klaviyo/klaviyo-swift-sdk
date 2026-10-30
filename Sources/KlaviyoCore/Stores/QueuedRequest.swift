@@ -47,4 +47,11 @@ public struct QueuedRequest: Equatable, Identifiable {
         lastFailedAt = now
         nextAttemptAt = now.addingTimeInterval(TimeInterval(max(delay, 0)))
     }
+
+    /// Drops any pending backoff so the request is due now. `attempts` is kept, so a later failure
+    /// still escalates from the same count.
+    mutating func clearBackoff() {
+        nextAttemptAt = nil
+        lastFailedAt = nil
+    }
 }
