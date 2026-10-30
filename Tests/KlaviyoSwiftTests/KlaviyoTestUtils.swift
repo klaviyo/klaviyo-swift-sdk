@@ -198,7 +198,21 @@ extension KlaviyoAPI {
 }
 
 extension LoggerClient {
-    static var lastLoggedMessage: String?
+    private static let lastLoggedMessageLock = NSLock()
+    private static var _lastLoggedMessage: String?
+    static var lastLoggedMessage: String? {
+        get {
+            lastLoggedMessageLock.lock()
+            defer { lastLoggedMessageLock.unlock() }
+            return _lastLoggedMessage
+        }
+        set {
+            lastLoggedMessageLock.lock()
+            defer { lastLoggedMessageLock.unlock() }
+            _lastLoggedMessage = newValue
+        }
+    }
+
     static let test = LoggerClient { message in
         lastLoggedMessage = message
     }
