@@ -91,7 +91,8 @@ package struct InboxStorePage: Equatable {
     }
 }
 
-/// The one local-state mutation: setting a state a message is already in is a no-op.
+/// The one local-state mutation: setting a state a message is already in is a no-op. It only reaches
+/// messages filed under the given company.
 package enum InboxLocalState {
     case read
     case unread
@@ -103,7 +104,7 @@ package enum InboxLocalState {
 package protocol InboxStoring: InboxCapturing {
     func fetch(_ query: InboxStoreQuery) async throws -> InboxStorePage
     func message(id: String) async throws -> StoredInboxMessage?
-    func setState(_ state: InboxLocalState, ids: [String]) async throws
+    func setState(_ state: InboxLocalState, companyID: String, ids: [String]) async throws
     func clear(companyID: String) async throws
     func clearAll() async throws
 }
