@@ -43,9 +43,12 @@ final class InboxWriterBridgeTests: XCTestCase {
         XCTAssertTrue(InboxWriterStub.receivedKeys.isEmpty)
     }
 
-    func testNotifyWithTheDefaultNameDoesNothingWhenKlaviyoInboxIsNotLinked() {
-        // KlaviyoSwiftTests does not link KlaviyoInbox, so the real name resolves to nothing.
-        XCTAssertNil(NSClassFromString(InboxWriterBridge.className))
+    func testNotifyWithTheDefaultNameDoesNothingWhenKlaviyoInboxIsNotLinked() throws {
+        // `swift test` builds every test target into one bundle, so KlaviyoInbox can be linked here.
+        try XCTSkipIf(
+            NSClassFromString(InboxWriterBridge.className) != nil,
+            "KlaviyoInbox is linked into this test bundle."
+        )
         InboxWriterBridge.notify(apiKey: "AbC123")
         XCTAssertTrue(InboxWriterStub.receivedKeys.isEmpty)
     }
