@@ -55,6 +55,8 @@ final class FormsPreviewTokenWebViewModelTests: XCTestCase {
         let (viewModel, _) = try makeViewModel()
         let script = try XCTUnwrap(previewTokenLoadScript(in: viewModel))
         XCTAssertTrue(script.source.contains(validPreviewToken))
+        XCTAssertEqual(script.injectionTime, .atDocumentStart,
+                       "The token must be set before klaviyo.js loads")
     }
 
     func testPreviewEndedClearsStoredTokenAndLeavesThePageAlone() throws {
