@@ -233,7 +233,7 @@ func makeInvalidFieldErrorData(pointer: String) -> Data {
 }
 
 let networkFailure: Result<Data, KlaviyoAPIError> = .failure(
-    .networkError(NSError(domain: "test", code: -1))
+    .networkError(URLError(.notConnectedToInternet))
 )
 
 /// A high-priority event request; `QueueStore.enqueue` front-inserts it.

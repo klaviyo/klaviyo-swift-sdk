@@ -96,15 +96,62 @@ final class FlushDecisionTests: XCTestCase {
     /// A transport error backs off with the formula shared with 429/5xx: `min(2^attempt, 300) +
     /// jitter`, keyed on the failing request's own attempt. Jitter is `0` in `KlaviyoEnvironment.test()`.
     func testNetworkErrorBacksOffFromItsOwnAttempt() {
-        let error = KlaviyoAPIError.networkError(NSError(domain: "NSURLErrorDomain", code: -1009))
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
         XCTAssertEqual(classifyFailure(error: error, attemptNumber: 2), .retry(backoff: 4),
                        "attempt 2 failed → 2^2 = 4s backoff")
+    }
+
+    /// Permanent transport codes and non-`URLError` failures are dropped on first occurrence.
+    func testNonRetryableTransportErrorsDequeue() {
+        for underlying in [URLError(.badURL), URLError(.serverCertificateUntrusted)] as [Error] {
+            XCTAssertEqual(classifyFailure(error: .networkError(underlying), attemptNumber: 1), .dequeue)
+        }
+        let other = KlaviyoAPIError.networkError(NSError(domain: "test", code: 1))
+        XCTAssertEqual(classifyFailure(error: other, attemptNumber: 1), .dequeue)
+    }
+
+    /// Wraps `inner` in `levels` layers of `NSError` via `NSUnderlyingErrorKey`.
+    private func wrapped(_ inner: Error, levels: Int) -> Error {
+        (0..<levels).reduce(inner) { error, _ in
+            NSError(domain: "wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: error])
+        }
+    }
+
+    func testRetryableURLErrorWrappedOneOrTwoLevelsDeepRetries() {
+        for levels in [1, 2] {
+            let error = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: levels))
+            XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .retry(backoff: 2))
+        }
+    }
+
+    func testWrappedDropCodeDropsAndWrappedCancelledAbandons() {
+        let drop = KlaviyoAPIError.networkError(wrapped(URLError(.badURL), levels: 2))
+        XCTAssertEqual(classifyFailure(error: drop, attemptNumber: 1), .dequeue)
+        let cancelled = KlaviyoAPIError.networkError(wrapped(URLError(.cancelled), levels: 1))
+        XCTAssertEqual(classifyFailure(error: cancelled, attemptNumber: 1), .abandonAttempt)
+    }
+
+    func testChainWithoutURLErrorOrBeyondDepthLimitDrops() {
+        let plain = KlaviyoAPIError.networkError(wrapped(NSError(domain: "test", code: 1), levels: 3))
+        XCTAssertEqual(classifyFailure(error: plain, attemptNumber: 1), .dequeue)
+
+        let limit = NSError.maxUnderlyingErrorDepth
+        let atLimit = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit))
+        XCTAssertEqual(classifyFailure(error: atLimit, attemptNumber: 1), .retry(backoff: 2))
+        let tooDeep = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit + 1))
+        XCTAssertEqual(classifyFailure(error: tooDeep, attemptNumber: 1), .dequeue)
+    }
+
+    /// A cancellation is not an attempt: the engine restores the request untouched.
+    func testCancelledTransportErrorAbandonsAttempt() {
+        let error = KlaviyoAPIError.networkError(URLError(.cancelled))
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .abandonAttempt)
     }
 
     /// Successive transport failures escalate 2^1, 2^2, 2^3 ... up to the 300s cap, exactly like
     /// the 429/5xx path — one formula, not two.
     func testNetworkErrorEscalatesUpToCap() throws {
-        let error = KlaviyoAPIError.networkError(NSError(domain: "NSURLErrorDomain", code: -1009))
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
         let backoffs = (1...10).map { attempt -> Int? in
             guard case let .retry(backoff) = classifyFailure(error: error, attemptNumber: attempt) else {
                 return nil
