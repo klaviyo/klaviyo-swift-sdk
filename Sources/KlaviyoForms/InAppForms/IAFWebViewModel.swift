@@ -69,7 +69,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             apiURL.queryItems?.append(assetSourceQueryItem)
         }
 
+        let previewTokenAssignment = previewToken.map {
+            "document.head.setAttribute('data-klaviyo-forms-preview-token', \($0.javaScriptStringLiteral));"
+        } ?? ""
+
         let klaviyoJsScript = """
+            \(previewTokenAssignment)
             var script = document.createElement('script');
             script.id = 'klaviyoJS';
             script.type = 'text/javascript';
@@ -117,16 +122,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         let source = [profileScript, authTokenScript].compactMap { $0 }.joined(separator: "\n")
         guard !source.isEmpty else { return nil }
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
-    }
-
-    /// Writes ``previewToken`` to `document.head` so onsite-in-app-forms loads draft forms.
-    /// Injected at `.atDocumentStart`, so the attribute is set before klaviyo.js loads.
-    @MainActor
-    private var previewTokenWKScript: WKUserScript? {
-        guard let previewToken else { return nil }
-        let source = "document.head.setAttribute('data-klaviyo-forms-preview-token', "
-            + "\(previewToken.javaScriptStringLiteral));"
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
     /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
@@ -187,9 +182,6 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         loadScripts?.insert(handshakeWKScript)
         loadScripts?.insert(deviceInfoWKScript)
         replaceLoadScript(&identityUserScript, with: identityWKScript)
-        if let previewTokenWKScript {
-            loadScripts?.insert(previewTokenWKScript)
-        }
         if let dataEnvironmentWKScript {
             loadScripts?.insert(dataEnvironmentWKScript)
         }
