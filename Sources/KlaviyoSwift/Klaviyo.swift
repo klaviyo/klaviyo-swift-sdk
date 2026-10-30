@@ -114,6 +114,9 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
+        // Before the main-queue hop on purpose: the writer only queues file I/O, so this never blocks, and
+        // the company file is on its way to the App Group even if the host is suspended right after this call.
+        InboxWriterBridge.notify(apiKey: apiKey)
         dispatchOnMainThread { KlaviyoCommands.initialize(apiKey) }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
