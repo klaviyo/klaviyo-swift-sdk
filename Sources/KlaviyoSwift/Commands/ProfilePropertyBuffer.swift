@@ -5,7 +5,6 @@
 //  Created by Isobelle Lim on 9/11/26.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
 
@@ -21,13 +20,13 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
     static let shared = ProfilePropertyBuffer()
 
     private let lock = NSLock()
-    private var staged: [Profile.ProfileKey: AnyEncodable] = [:]
+    private var staged: [Profile.ProfileKey: KlaviyoAnyEncodable] = [:]
     private var generation = 0
 
     // MARK: - API
 
     /// Stages a single property key/value. Safe to call from any thread.
-    func stage(_ profileKey: Profile.ProfileKey, _ value: AnyEncodable) {
+    func stage(_ profileKey: Profile.ProfileKey, _ value: KlaviyoAnyEncodable) {
         lock.withLock { staged[profileKey] = value }
     }
 
@@ -76,7 +75,7 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
 
     /// Restores a snapshot into `staged` so retained props aren't dropped, without clobbering any
     /// props staged since the flush began.
-    private func restore(_ snapshot: [Profile.ProfileKey: AnyEncodable], generation capturedGeneration: Int) {
+    private func restore(_ snapshot: [Profile.ProfileKey: KlaviyoAnyEncodable], generation capturedGeneration: Int) {
         lock.withLock {
             guard generation == capturedGeneration else { return }
             staged = snapshot.merging(staged) { _, newer in newer }
@@ -91,7 +90,7 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
         anonymousId: String,
         identity: ProfileData,
         tokenData: PushTokenData,
-        snapshot: [Profile.ProfileKey: AnyEncodable]
+        snapshot: [Profile.ProfileKey: KlaviyoAnyEncodable]
     ) {
         let profile = Profile.updateProfileWithProperties(
             email: identity.email,
@@ -114,7 +113,7 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
     private func enqueueProfileRequest(
         anonymousId: String,
         identity: ProfileData,
-        snapshot: [Profile.ProfileKey: AnyEncodable]
+        snapshot: [Profile.ProfileKey: KlaviyoAnyEncodable]
     ) {
         let payloadIdentity = PayloadIdentity(
             anonymousId: anonymousId,

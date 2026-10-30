@@ -6,7 +6,6 @@
 //
 
 @testable import KlaviyoCore
-import AnyCodable
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import XCTest
 
@@ -52,7 +51,7 @@ final class RequestQueueBootstrapTests: XCTestCase {
         markSessionInitialized()
 
         // Stage a profile property so the buffer is non-empty before the drain.
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bootstrap"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Bootstrap"))
 
         // Drive the queue reachable via the environment.
         await klaviyoSwiftEnvironment.requestQueue.flushNow()

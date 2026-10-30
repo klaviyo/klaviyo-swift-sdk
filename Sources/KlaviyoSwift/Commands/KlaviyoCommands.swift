@@ -13,7 +13,6 @@
 //  - The post-init gate checks `LifecycleState.shared.current != .uninitialized` (session-fresh);
 //    the apiKey VALUE is read from `SDKConfigStore`.
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
 import OSLog
@@ -94,7 +93,7 @@ enum KlaviyoCommands {
     /// Stages a profile property into `ProfilePropertyBuffer`. The Core `RequestQueue` folds staged
     /// props into the outbound request via `willDrain` (`ProfilePropertyBuffer.flushIntoQueue`)
     /// just before each drain. Does NOT enqueue directly.
-    static func setProfileProperty(_ key: Profile.ProfileKey, _ value: AnyEncodable) {
+    static func setProfileProperty(_ key: Profile.ProfileKey, _ value: KlaviyoAnyEncodable) {
         // Parity gate: drop a pre-init profile property unless durable capture is on.
         if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
             environment.emitDeveloperWarning(

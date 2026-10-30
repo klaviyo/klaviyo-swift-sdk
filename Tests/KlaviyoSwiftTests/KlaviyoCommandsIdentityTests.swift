@@ -9,7 +9,6 @@
 
 @testable import KlaviyoCore
 @testable import KlaviyoSwift
-import AnyCodable
 import Foundation
 import XCTest
 
@@ -282,7 +281,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
     func testResetProfileClearsStagedProfileProperties() {
         seedPostInitWithToken()
         let readQueue = seedTestQueueStore()
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bob"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Bob"))
 
         KlaviyoCommands.resetProfile()
 
@@ -355,7 +354,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         seedPostInitWithToken()
         let readQueue = seedTestQueueStore()
 
-        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Alice"))
+        KlaviyoCommands.setProfileProperty(.firstName, KlaviyoAnyEncodable("Alice"))
 
         XCTAssertTrue(readQueue().isEmpty,
                       "setProfileProperty must not enqueue directly — staging only")
@@ -367,7 +366,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         seedPostInitWithToken()
         let readQueue = seedTestQueueStore()
 
-        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Alice"))
+        KlaviyoCommands.setProfileProperty(.firstName, KlaviyoAnyEncodable("Alice"))
 
         let flushExpect = XCTestExpectation(description: "flush")
         Task {
@@ -398,7 +397,7 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
         let readQueue = seedTestQueueStore()
 
         // Pre-init: no apiKey in SDKConfigStore → the property must be dropped, not staged.
-        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Alice"))
+        KlaviyoCommands.setProfileProperty(.firstName, KlaviyoAnyEncodable("Alice"))
 
         let flushExpect = XCTestExpectation(description: "flush")
         Task {
