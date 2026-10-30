@@ -119,13 +119,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
-    /// Writes ``previewToken`` to the page so onsite-in-app-forms loads draft forms.
+    /// Writes ``previewToken`` to `document.head` so onsite-in-app-forms loads draft forms.
+    /// Injected at `.atDocumentStart` so the attribute is present before klaviyo.js loads —
+    /// klaviyo.js reads it to decide whether to load in_app_forms for draft-only accounts.
     @MainActor
     private var previewTokenWKScript: WKUserScript? {
         guard let previewToken else { return nil }
         let source = "document.head.setAttribute('data-klaviyo-forms-preview-token', "
             + "\(previewToken.javaScriptStringLiteral));"
-        return WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
     /// Publishes a snapshot of the current `DeviceInfo` onto `document.head` before any
