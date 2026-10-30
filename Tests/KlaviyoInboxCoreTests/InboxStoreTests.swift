@@ -12,7 +12,7 @@ import XCTest
 
 final class InboxStoreTests: XCTestCase {
     private var appGroup: InboxAppGroup!
-    private let company = "AbC123"
+    private let company = InboxStoreFixtures.company
 
     override func setUp() {
         super.setUp()

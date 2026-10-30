@@ -7,6 +7,7 @@
 
 import CoreData
 import Foundation
+import SQLite3
 
 extension InboxStoreError {
     /// Failures that say nothing about the file's content: another process holds a lock or is still
@@ -21,7 +22,9 @@ extension InboxStoreError {
     }
 
     /// SQLite primary result codes: BUSY, LOCKED, NOMEM, IOERR, FULL.
-    private static let transientPrimaryCodes: Set<Int> = [5, 6, 7, 10, 13]
+    private static let transientPrimaryCodes: Set<Int> = [
+        Int(SQLITE_BUSY), Int(SQLITE_LOCKED), Int(SQLITE_NOMEM), Int(SQLITE_IOERR), Int(SQLITE_FULL)
+    ]
     private static let primaryCodeMask = 0xFF
 
     /// The SQLite error behind `error`, looking through `InboxStoreError.underlying` and one level of

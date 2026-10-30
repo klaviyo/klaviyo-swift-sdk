@@ -14,7 +14,7 @@ import XCTest
 
 final class InboxStoreRecoveryTests: XCTestCase {
     private var appGroup: InboxAppGroup!
-    private let company = "AbC123"
+    private let company = InboxStoreFixtures.company
     private let epoch = Date(timeIntervalSince1970: 1_800_000_000)
 
     override func setUp() {
