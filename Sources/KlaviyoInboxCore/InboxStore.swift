@@ -124,10 +124,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
         let message = NSManagedObject(entity: entity, insertInto: context)
         message.setValue(companyID, forKey: Key.companyID)
         message.setValue(transmissionID, forKey: Key.transmissionID)
-        message.setValue(record.receivedAt, forKey: Key.receivedAt)
-        message.setValue(record.sentAt, forKey: Key.sentAt)
-        message.setValue(record.title, forKey: Key.title)
-        message.setValue(record.body, forKey: Key.body)
         message.setValue(sortTime, forKey: Key.sortTime)
         message.setValue(payload, forKey: Key.payload)
         do {

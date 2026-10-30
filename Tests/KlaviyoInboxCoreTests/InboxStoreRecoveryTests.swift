@@ -97,7 +97,6 @@ final class InboxStoreRecoveryTests: XCTestCase {
                     let object = NSManagedObject(entity: entity, insertInto: context)
                     object.setValue(company, forKey: Key.companyID)
                     object.setValue(tm, forKey: Key.transmissionID)
-                    object.setValue(epoch, forKey: Key.receivedAt)
                     object.setValue(epoch, forKey: Key.sortTime)
                     try object.setValue(JSONEncoder().encode(record), forKey: Key.payload)
                 }
@@ -267,7 +266,7 @@ final class InboxStoreRecoveryTests: XCTestCase {
     // MARK: - Migration
 
     func testAnOlderModelMigratesWithItsRowsPreserved() async throws {
-        let older = try model(removing: InboxStoreModel.Key.body)
+        let older = try model(removing: InboxStoreModel.Key.isArchived)
         try writeStore(model: older, transmissionIDs: ["tm-1", "tm-2"])
         let (store, recorder) = makeStore(history: [older, InboxStoreModel.current])
         let first = try await store.message(id: "tm-1")
@@ -280,7 +279,7 @@ final class InboxStoreRecoveryTests: XCTestCase {
     }
 
     func testAMigratedStoreStillTakesNewCaptures() async throws {
-        let older = try model(removing: InboxStoreModel.Key.body)
+        let older = try model(removing: InboxStoreModel.Key.isArchived)
         try writeStore(model: older, transmissionIDs: ["tm-1"])
         let (store, _) = makeStore(history: [older, InboxStoreModel.current])
         let replay = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
