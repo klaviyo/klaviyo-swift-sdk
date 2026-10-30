@@ -176,14 +176,14 @@ final class QueueStoreTests: XCTestCase {
     func testPrependInsertsBatchAtHeadPreservingOrder() {
         let diskIO = SpyDiskIO([request("a"), request("b"), request("c")])
         let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler())
-        store.prepend([request("x"), request("y")])
+        store.prepend([request("x"), request("y")].map(QueuedRequest.init))
         XCTAssertEqual(store.requests.map(\.id), ["x", "y", "a", "b", "c"])
     }
 
     func testPrependDoesNotEvictAndMayExceedCap() {
         let diskIO = SpyDiskIO((0..<QueueStore.maxQueueSize).map { request("req-\($0)") })
         let store = makeStore(diskIO: diskIO, scheduler: ManualPersistScheduler())
-        store.prepend([request("restored")])
+        store.prepend([QueuedRequest(request("restored"))])
         XCTAssertEqual(store.count, QueueStore.maxQueueSize + 1,
                        "restore may transiently exceed cap")
         XCTAssertEqual(store.requests.first?.id, "restored")
@@ -383,6 +383,84 @@ final class QueueStoreTests: XCTestCase {
 
         XCTAssertEqual(disk.stored, [], "synchronous drain writes the empty queue before returning")
         XCTAssertEqual(scheduler.scheduleCount, 0, "synchronous persist does not schedule a debounce")
+    }
+
+    // MARK: - Per-request retry state (in-memory only)
+
+    /// `klaviyo-queue.json` as written before per-request retry state existed, including an entry from
+    /// an SDK old enough to have no `enqueuedAt`/`priority`. It must decode unchanged, with every entry
+    /// starting at `attempts == 0` and no `nextAttemptAt`.
+    func testDecodesPreRetryStateQueueFileWithFreshRetryState() throws {
+        let fileIO = FileIODouble()
+        let previous = environment
+        defer { environment = previous }
+        environment = fileIO.makeEnvironment()
+        let fixture = """
+        {
+          "version": 1,
+          "requests": [
+            {
+              "id": "old",
+              "endpoint": { "fetchGeofences": { "_0": "key" } }
+            },
+            {
+              "id": "newer",
+              "endpoint": { "fetchGeofences": { "_0": "key" } },
+              "enqueuedAt": "2026-01-02T03:04:05Z",
+              "priority": "high"
+            }
+          ]
+        }
+        """
+        try environment.fileClient.write(
+            Data(fixture.utf8),
+            storeDirectory().appendingPathComponent("klaviyo-queue.json")
+        )
+
+        let store = QueueStore(diskIO: .production, scheduler: ManualPersistScheduler().makeScheduler(),
+                               emitWarning: { XCTFail("unexpected warning: \($0)") })
+
+        XCTAssertEqual(store.entries.map(\.id), ["old", "newer"])
+        XCTAssertEqual(store.entries.map(\.attempts), [0, 0])
+        XCTAssertEqual(store.entries.map(\.nextAttemptAt), [nil, nil])
+        XCTAssertEqual(store.entries.first?.request.enqueuedAt, .distantPast, "legacy default kept")
+        XCTAssertEqual(store.entries.last?.request.priority, .high)
+    }
+
+    /// Retry state never reaches disk: the persisted JSON carries only the request, so the on-disk
+    /// format is unchanged and a relaunch resets attempts (Android parity).
+    func testRetryStateIsNotPersisted() throws {
+        let disk = SpyDiskIO()
+        let store = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+        var failed = QueuedRequest(request("a"))
+        failed.recordRetryableFailure(retryAfter: 30, now: Date(timeIntervalSince1970: 100))
+        store.prepend([failed], persist: .synchronous)
+
+        XCTAssertEqual(store.entries.first?.attempts, 1, "in-memory entry keeps its retry state")
+        let data = try JSONEncoder().encode(PersistedQueue(requests: disk.stored))
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertFalse(json.contains("attempts"), "attempts must not be persisted")
+        XCTAssertFalse(json.contains("nextAttemptAt"), "nextAttemptAt must not be persisted")
+
+        let relaunched = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+        XCTAssertEqual(relaunched.entries.map(\.id), ["a"])
+        XCTAssertEqual(relaunched.entries.first?.attempts, 0, "relaunch resets attempts")
+        XCTAssertNil(relaunched.entries.first?.nextAttemptAt, "relaunch clears nextAttemptAt")
+    }
+
+    /// `prepend` (the flush lease restoring itself) keeps each entry's retry state, while a fresh
+    /// `enqueue` always starts clean, even when front-inserted at high priority.
+    func testPrependPreservesRetryStateAndEnqueueStartsClean() {
+        let store = makeStore(diskIO: SpyDiskIO(), scheduler: ManualPersistScheduler())
+        var failed = QueuedRequest(request("a"))
+        failed.recordRetryableFailure(retryAfter: 10, now: Date(timeIntervalSince1970: 0))
+        store.prepend([failed])
+        store.enqueue(request("b", priority: .high))
+
+        XCTAssertEqual(store.entries.map(\.id), ["b", "a"])
+        XCTAssertEqual(store.entries.map(\.attempts), [0, 1])
+        XCTAssertEqual(store.entries.map(\.nextAttemptAt), [nil, Date(timeIntervalSince1970: 10)])
+        XCTAssertEqual(store.head?.id, "b")
     }
 
     // MARK: - register injection seam
