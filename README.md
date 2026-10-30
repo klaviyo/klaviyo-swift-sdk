@@ -49,6 +49,7 @@
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
+  - [Previewing Draft Forms on a Device](#previewing-draft-forms-on-a-device)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
@@ -1002,6 +1003,48 @@ The SDK does not time out your provider, so your code must:
 - **Bound your own work.** Apply a timeout to every network call. A provider that never returns blocks later token fetches until you register, unregister or reset the profile.
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, throw instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when the provider throws a `URLError`, so rethrow the original `URLError` without wrapping it.
+
+### Previewing Draft Forms on a Device
+
+The Klaviyo form editor's **Preview on device** button shows a QR code and a preview link for the draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink(_:)` before your own routing: it starts a preview session and returns `true` for a preview link, and returns `false`, changing nothing, for every other link. It works with custom schemes and universal links. If forms are registered, they restart in preview mode; if not, the preview starts when you call `registerForInAppForms()`.
+
+```swift
+// SwiftUI
+WindowGroup {
+    ContentView()
+        .onOpenURL { url in
+            if KlaviyoSDK().handleFormsPreviewLink(url) { return }
+            // Your own deep link handling
+        }
+}
+
+// UIApplicationDelegate, custom URL schemes
+func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    if KlaviyoSDK().handleFormsPreviewLink(url) { return true }
+    // Your own deep link handling
+}
+
+// UISceneDelegate, universal links
+// A link that launches the app arrives in willConnectTo; scene(_:continue:) only runs for an already-connected scene.
+func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+    for userActivity in connectionOptions.userActivities {
+        guard let url = userActivity.webpageURL else { continue }
+        if KlaviyoSDK().handleFormsPreviewLink(url) { return }
+    }
+    for urlContext in connectionOptions.urlContexts {
+        if KlaviyoSDK().handleFormsPreviewLink(urlContext.url) { return }
+    }
+    // Your own deep link handling
+}
+
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    guard let url = userActivity.webpageURL else { return }
+    if KlaviyoSDK().handleFormsPreviewLink(url) { return }
+    // Your own deep link handling
+}
+```
+
+You can also start a preview with a token directly using `KlaviyoSDK().startFormsPreview(_:)`, and end it with `KlaviyoSDK().endFormsPreview()`. Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory only and never logs them.
 
 ### Monitoring Form Lifecycle Events
 
