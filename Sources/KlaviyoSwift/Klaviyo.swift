@@ -297,7 +297,7 @@ public struct KlaviyoSDK {
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let properties = startFormsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -323,7 +323,7 @@ public struct KlaviyoSDK {
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties, priority: .high))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: nil)
         }
 
         Task { @MainActor in
@@ -349,7 +349,7 @@ public struct KlaviyoSDK {
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let properties = startFormsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -373,12 +373,30 @@ public struct KlaviyoSDK {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties, priority: .high))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
             completionHandler()
         }
         return true
+    }
+
+    /// The notification's properties with any in-app forms preview token removed, or `nil` when
+    /// they can't be read. A well-formed token starts a forms preview session through the shared
+    /// ``FormsPreviewTokenStore``, restarting registered forms; without KlaviyoForms the token is
+    /// held and has no effect. The token never reaches `Opened Push` or the deep link handler,
+    /// and is never logged.
+    private func startFormsPreview(from notificationResponse: UNNotificationResponse) -> [String: Any]? {
+        guard let properties = notificationResponse.klaviyoProperties else { return nil }
+        let preview = notificationResponse.klaviyoFormsPreview(in: properties)
+        if let token = preview.token {
+            if let validated = FormsPreviewTokenStore.validate(token), validated == token {
+                Task { @MainActor in FormsPreviewTokenStore.shared.startPreview(validated) }
+            } else if #available(iOS 14.0, *) {
+                Logger.notifications.warning("Ignoring opened push with a malformed forms preview token")
+            }
+        }
+        return preview.properties
     }
 
     /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
@@ -407,9 +425,10 @@ public struct KlaviyoSDK {
     /// route through `DeepLinkManager.openExternalURL` and intentionally bypass the closure.
     private func resolveOpenAction(
         for notificationResponse: UNNotificationResponse,
+        properties: [String: Any],
         deepLinkHandler: ((URL) -> Void)?
     ) {
-        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL {
+        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL(in: properties) {
             if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
                 Logger.notifications.warning(
                     "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
