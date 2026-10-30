@@ -99,6 +99,6 @@ final class InboxStoreRetentionTests: XCTestCase {
     }
 
     func testTheDefaultLimitIsOneHundred() {
-        XCTAssertEqual(InboxStore.maxMessages, 100)
+        XCTAssertEqual(InboxStore.defaultMaxMessages, 100)
     }
 }
