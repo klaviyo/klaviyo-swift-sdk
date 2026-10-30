@@ -22,18 +22,21 @@ struct MenuView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+            .accessibilityIdentifier("menu_items_list")
             .navigationTitle("Select Your Items")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Log Out", systemImage: "rectangle.portrait.and.arrow.right") {
                         logout()
                     }
+                    .accessibilityIdentifier("menu_log_out_button")
                 }
 
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Push Log", systemImage: "bell") {
                         showingPushLog = true
                     }
+                    .accessibilityIdentifier("menu_push_log_button")
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -42,6 +45,9 @@ struct MenuView: View {
                     }
                     .badge(appState.cartItems.count)
                     .id("cart-\(appState.cartItems.count)")
+                    .accessibilityLabel("Cart")
+                    .accessibilityValue("\(appState.cartItems.count) items")
+                    .accessibilityIdentifier("menu_cart_button")
                 }
             }
             .toolbar {
@@ -49,6 +55,7 @@ struct MenuView: View {
                     Button("Map", systemImage: "map") {
                         showingMap = true
                     }
+                    .accessibilityIdentifier("menu_map_button")
 
                     Spacer()
 
@@ -75,12 +82,14 @@ struct MenuView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Zipcode: \(appState.userZipcode), Email: \(appState.userEmail)")
                     .accessibilityHint("Opens auth token provider settings to edit the JWT.")
+                    .accessibilityIdentifier("menu_auth_settings_button")
 
                     Spacer()
 
                     Button("Add Email", systemImage: "envelope") {
                         addEmail()
                     }
+                    .accessibilityIdentifier("menu_add_email_button")
                 }
             }
         }
@@ -125,6 +134,7 @@ struct MenuView: View {
                                         .contentShape(Rectangle())
                                 }
                                 .accessibilityLabel("Close auth token provider settings")
+                                .accessibilityIdentifier("auth_settings_close_button")
                             }
 
                             AuthTokenProviderSettings()
@@ -214,6 +224,8 @@ struct MenuItemRow: View {
                     )
                     .cornerRadius(25)
                 }
+                .accessibilityLabel("Add \(item.name) to cart")
+                .accessibilityIdentifier("menu_item_add_to_cart_button_\(item.id)")
 
                 Spacer()
             }
