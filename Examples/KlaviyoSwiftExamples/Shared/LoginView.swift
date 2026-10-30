@@ -43,6 +43,8 @@ struct LoginView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .keyboardType(.default)
                                 .font(.body)
+                                .accessibilityLabel("Zipcode")
+                                .accessibilityIdentifier("login_zipcode_text_field")
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -56,6 +58,10 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .font(.body)
+                                .accessibilityLabel("Email")
+                                .accessibilityIdentifier("login_email_text_field")
+
+                            AuthTokenProviderSettings()
                         }
                     }
 
@@ -68,6 +74,8 @@ struct LoginView: View {
 
                         Toggle("", isOn: $rememberMe)
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            .accessibilityLabel("Remember Me")
+                            .accessibilityIdentifier("login_remember_me_toggle")
                     }
 
                     // Collect marketing consent at signup, shown only when a list ID is configured
@@ -78,6 +86,7 @@ struct LoginView: View {
                                 .foregroundColor(.secondary)
                         }
                         .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        .accessibilityIdentifier("login_subscribe_marketing_toggle")
                     }
 
                     Button(action: login) {
@@ -99,6 +108,7 @@ struct LoginView: View {
                     }
                     .disabled(isFormInvalid)
                     .opacity(isFormInvalid ? 0.6 : 1.0)
+                    .accessibilityIdentifier("login_get_started_button")
                 }
                 .padding(.horizontal, 32)
             }
@@ -122,4 +132,31 @@ struct LoginView: View {
 #Preview {
     LoginView()
         .environmentObject(AppState())
+}
+
+struct AuthTokenProviderSettings: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Enable auth token provider", isOn: $appState.isAuthTokenProviderEnabled)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: appState.isAuthTokenProviderEnabled) {
+                    appState.setAuthTokenProvider(enabled: $0)
+                }
+                .accessibilityIdentifier("auth_token_provider_toggle")
+
+            if appState.isAuthTokenProviderEnabled {
+                SecureField("Paste a JWT", text: $appState.pastedJWT)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .font(.body)
+                    .lineLimit(1)
+                    .frame(height: 44)
+                    .accessibilityLabel("JWT")
+                    .accessibilityIdentifier("auth_token_jwt_secure_field")
+            }
+        }
+    }
 }

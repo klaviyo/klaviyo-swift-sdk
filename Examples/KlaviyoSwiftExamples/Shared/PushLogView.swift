@@ -23,16 +23,19 @@ struct PushLogView: View {
                             PushLogRow(entry: entry)
                         }
                     }
+                    .accessibilityIdentifier("push_log_list")
                 }
             }
             .navigationTitle("Push Log")
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Done") { dismiss() }
+                        .accessibilityIdentifier("push_log_done_button")
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Clear", role: .destructive) { store.clear() }
                         .disabled(store.entries.isEmpty)
+                        .accessibilityIdentifier("push_log_clear_button")
                 }
             }
         }

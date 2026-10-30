@@ -90,6 +90,12 @@ Test file naming follows `*Tests.swift` per implementation class.
 - Prefer verifying side effects and state changes over exact implementation details
 - A common test pattern uses `SnapshotTesting` (`pointfreeco/swift-snapshot-testing`). Verify generated snapshots match expectations after code changes.
 
+### UI Test IDs
+
+- Give every interactive or asserted-on control in `Examples/` a snake_case `accessibilityIdentifier` (e.g. `push_log_clear_button`).
+- Check existing names before adding an ID, and reuse the shared name when the same control exists in the other SDK example apps.
+- When you rename or remove a control, update its ID and every test or automation that references it.
+
 ### Code Style
 
 The project enforces Swift code style using SwiftLint and SwiftFormat with customizations:

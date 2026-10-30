@@ -31,6 +31,7 @@ struct MapView: View {
                         }
                     )
                     .ignoresSafeArea()
+                    .accessibilityIdentifier("map_view")
 
                 // Loading indicator for geofences
                 if geofenceManager.isLoading {
@@ -64,6 +65,7 @@ struct MapView: View {
                     Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
+                    .accessibilityIdentifier("map_close_button")
                 }
 
                 ToolbarItem(placement: .bottomBar) {
@@ -75,6 +77,7 @@ struct MapView: View {
                             Button(locationStatusLabel.actionText) {
                                 locationManager.requestLocationPermission()
                             }
+                            .accessibilityIdentifier("map_location_permission_button")
                         }
 
                         Section("Geofence Monitoring") {
@@ -85,6 +88,7 @@ struct MapView: View {
                                 }
                             }
                             .disabled(true)
+                            .accessibilityIdentifier("map_geofence_status_button")
 
                             Button {
                                 Task {
@@ -96,6 +100,7 @@ struct MapView: View {
                                 Image(systemName: "play")
                             }
                             .disabled(geofenceManager.isLoading)
+                            .accessibilityIdentifier("map_register_geofencing_button")
 
                             Button {
                                 Task {
@@ -107,6 +112,7 @@ struct MapView: View {
                                 Image(systemName: "stop")
                             }
                             .disabled(geofenceManager.isLoading)
+                            .accessibilityIdentifier("map_unregister_geofencing_button")
                         }
                     } label: {
                         HStack {
@@ -138,6 +144,7 @@ struct MapView: View {
                         }
                     }
                     .menuOrder(.fixed)
+                    .accessibilityIdentifier("map_status_menu")
                 }
             }
             .toolbarBackground(.visible, for: .navigationBar)
@@ -265,6 +272,7 @@ struct LocationPermissionView: View {
             .padding(.vertical, 12)
             .background(Color.blue)
             .cornerRadius(25)
+            .accessibilityIdentifier("map_open_settings_button")
         }
         .padding(32)
         .background(Color(.systemBackground))

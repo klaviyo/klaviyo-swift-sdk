@@ -8,7 +8,43 @@
 import Foundation
 import KlaviyoCore
 
+/// Controls whether in-app form WebView console messages are relayed to the native logger.
+///
+/// This is disabled by default. Hosts can enable it for diagnostic builds without relying on
+/// process environment variables, which are unavailable to TestFlight users.
+final class WebConsoleLoggingConfig: @unchecked Sendable {
+    static let shared = WebConsoleLoggingConfig()
+
+    private let lock = NSLock()
+    private var _isEnabled = false
+
+    var isEnabled: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return _isEnabled
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            _isEnabled = newValue
+        }
+    }
+}
+
 extension KlaviyoSDKModule {
+    /// Enables or disables relaying JavaScript console output from in-app forms to the native logger.
+    ///
+    /// Disabled by default. This setting applies when the next in-app form WebView is created.
+    /// - Parameter enabled: Whether to relay WebView console output.
+    /// - Returns: The current SDK instance, for chaining.
+    @_spi(KlaviyoPrivate)
+    @discardableResult
+    public func setWebConsoleLoggingEnabled(_ enabled: Bool) -> Self {
+        WebConsoleLoggingConfig.shared.isEnabled = enabled
+        return self
+    }
+
     /// Registers app to receive and display In-App Forms from Klaviyo.
     ///
     /// This will load forms data and establish ongoing listeners to present a form to the user

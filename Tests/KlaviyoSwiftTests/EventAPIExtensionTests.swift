@@ -18,6 +18,7 @@ final class EventAPIExtensionTests: XCTestCase {
             name: .customEvent("test"),
             properties: ["foo": "bar"],
             value: 42,
+            valueCurrency: "USD",
             uniqueId: "unique-id"
         )
 
@@ -34,6 +35,7 @@ final class EventAPIExtensionTests: XCTestCase {
         // Existing fields are preserved.
         XCTAssertEqual(updated.properties["foo"] as? String, "bar")
         XCTAssertEqual(updated.value, 42)
+        XCTAssertEqual(updated.valueCurrency, "USD")
         XCTAssertEqual(updated.uniqueId, "unique-id")
         XCTAssertEqual(updated.metric.name, .customEvent("test"))
         // Non-opened-push events never receive a push token.

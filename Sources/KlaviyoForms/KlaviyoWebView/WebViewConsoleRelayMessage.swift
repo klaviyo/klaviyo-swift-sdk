@@ -11,6 +11,8 @@ struct WebViewConsoleRelayMessage: Decodable {
 
     enum Level: String, Decodable {
         case log
+        case info
+        case debug
         case warn
         case error
     }

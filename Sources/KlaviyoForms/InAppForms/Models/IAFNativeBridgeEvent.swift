@@ -22,6 +22,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case lifecycleEvent
     case profileEvent
     case profileMutation
+    case jwtMutation
+    case refreshJwt
 
     private enum CodingKeys: String, CodingKey {
         case type
@@ -41,6 +43,8 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
         case lifecycleEvent
         case profileEvent
         case profileMutation
+        case jwtMutation
+        case refreshJwt
     }
 
     init(from decoder: Decoder) throws {
@@ -87,6 +91,10 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             self = .profileEvent
         case .profileMutation:
             self = .profileMutation
+        case .jwtMutation:
+            self = .jwtMutation
+        case .refreshJwt:
+            self = .refreshJwt
         }
     }
 }
@@ -121,7 +129,7 @@ extension IAFNativeBridgeEvent {
 }
 
 extension IAFNativeBridgeEvent {
-    public static var handshake: String {
+    static var handshake: String {
         struct HandshakeData: Codable {
             var type: String
             var version: Int
@@ -146,9 +154,10 @@ extension IAFNativeBridgeEvent {
     }
 
     private static var handshakeEvents: [IAFNativeBridgeEvent] {
-        // Events that JS is permitted to send. These are only used for their
-        // `name` and `version` properties — the associated values are placeholders
-        // and are never decoded.
+        // Message types and versions advertised to JS: inbound messages JS may send, plus
+        // outbound declarations (`lifecycleEvent`, `profileEvent`, `profileMutation`) for
+        // messages native sends to JS. Only `name` and `version` are read; the associated
+        // values are placeholders and are never decoded.
         [
             .formWillAppear(formId: nil, formName: nil, layout: nil),
             .formDisappeared(formId: nil, formName: nil),
@@ -158,7 +167,9 @@ extension IAFNativeBridgeEvent {
             .abort(""),
             .lifecycleEvent,
             .profileEvent,
-            .profileMutation
+            .profileMutation,
+            .jwtMutation,
+            .refreshJwt
         ]
     }
 
@@ -167,7 +178,7 @@ extension IAFNativeBridgeEvent {
         case .formsDataLoaded: return 1
         case .formWillAppear: return 2
         case .formDisappeared: return 1
-        case .trackProfileEvent: return 1
+        case .trackProfileEvent: return 2
         case .trackAggregateEvent: return 1
         case .openDeepLink: return 3
         case .abort: return 1
@@ -176,6 +187,8 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return 1
         case .profileEvent: return 1
         case .profileMutation: return 1
+        case .jwtMutation: return 1
+        case .refreshJwt: return 1
         }
     }
 
@@ -193,6 +206,8 @@ extension IAFNativeBridgeEvent {
         case .lifecycleEvent: return "lifecycleEvent"
         case .profileEvent: return "profileEvent"
         case .profileMutation: return "profileMutation"
+        case .jwtMutation: return "jwtMutation"
+        case .refreshJwt: return "refreshJwt"
         }
     }
 }
