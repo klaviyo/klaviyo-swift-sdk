@@ -31,13 +31,17 @@ extension InboxStore: InboxStoring {
         }
     }
 
-    package func setState(_ state: InboxLocalState, ids: [String]) async throws {
+    package func setState(_ state: InboxLocalState, companyID: String, ids: [String]) async throws {
         guard !ids.isEmpty else { return }
         try await perform { context in
             defer { context.reset() }
             typealias Key = InboxStoreModel.Key
             let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
-            request.predicate = NSPredicate(format: "%K IN %@", Key.transmissionID, ids)
+            request.predicate = NSPredicate(
+                format: "%K == %@ AND %K IN %@",
+                Key.companyID, companyID,
+                Key.transmissionID, ids
+            )
             let (key, value): (String, Bool) = {
                 switch state {
                 case .read: return (Key.isRead, true)

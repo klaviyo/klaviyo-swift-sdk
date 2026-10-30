@@ -110,8 +110,8 @@ final class InboxStoreQueryTests: XCTestCase {
     func testReadAndArchivedFilters() async throws {
         let store = makeStore()
         for index in 1...4 { await capture(store, "tm-\(index)", at: TimeInterval(index)) }
-        try await store.setState(.read, ids: ["tm-1", "tm-2"])
-        try await store.setState(.archive, ids: ["tm-2", "tm-3"])
+        try await store.setState(.read, companyID: company, ids: ["tm-1", "tm-2"])
+        try await store.setState(.archive, companyID: company, ids: ["tm-2", "tm-3"])
         let unread = try await store.fetch(query(isRead: false))
         let read = try await store.fetch(query(isRead: true))
         let archived = try await store.fetch(query(isArchived: true))
@@ -125,16 +125,16 @@ final class InboxStoreQueryTests: XCTestCase {
     func testEachStateChangeTakesEffect() async throws {
         let store = makeStore()
         await capture(store, "tm-1", at: 1)
-        try await store.setState(.read, ids: ["tm-1"])
+        try await store.setState(.read, companyID: company, ids: ["tm-1"])
         var stored = try await store.message(id: "tm-1")
         XCTAssertEqual(stored?.isRead, true)
-        try await store.setState(.unread, ids: ["tm-1"])
+        try await store.setState(.unread, companyID: company, ids: ["tm-1"])
         stored = try await store.message(id: "tm-1")
         XCTAssertEqual(stored?.isRead, false)
-        try await store.setState(.archive, ids: ["tm-1"])
+        try await store.setState(.archive, companyID: company, ids: ["tm-1"])
         stored = try await store.message(id: "tm-1")
         XCTAssertEqual(stored?.isArchived, true)
-        try await store.setState(.unarchive, ids: ["tm-1"])
+        try await store.setState(.unarchive, companyID: company, ids: ["tm-1"])
         stored = try await store.message(id: "tm-1")
         XCTAssertEqual(stored?.isArchived, false)
     }
@@ -142,18 +142,31 @@ final class InboxStoreQueryTests: XCTestCase {
     func testRepeatingAStateIsANoOpAndUnknownIDsAreIgnored() async throws {
         let store = makeStore()
         await capture(store, "tm-1", at: 1)
-        try await store.setState(.read, ids: ["tm-1", "missing"])
-        try await store.setState(.read, ids: ["tm-1"])
+        try await store.setState(.read, companyID: company, ids: ["tm-1", "missing"])
+        try await store.setState(.read, companyID: company, ids: ["tm-1"])
         let stored = try await store.message(id: "tm-1")
         XCTAssertEqual(stored?.isRead, true)
         XCTAssertEqual(stored?.isArchived, false)
     }
 
+    func testAStateChangeOnlyReachesTheGivenCompany() async throws {
+        let store = makeStore()
+        await capture(store, "tm-1", at: 1)
+        try await store.setState(.read, companyID: "XyZ789", ids: ["tm-1"])
+        try await store.setState(.archive, companyID: "XyZ789", ids: ["tm-1"])
+        let untouched = try await store.message(id: "tm-1")
+        XCTAssertEqual(untouched?.isRead, false)
+        XCTAssertEqual(untouched?.isArchived, false)
+        try await store.setState(.read, companyID: company, ids: ["tm-1"])
+        let changed = try await store.message(id: "tm-1")
+        XCTAssertEqual(changed?.isRead, true)
+    }
+
     func testAReplayDoesNotResetReadOrArchivedState() async throws {
         let store = makeStore()
         await capture(store, "tm-1", at: 1)
-        try await store.setState(.read, ids: ["tm-1"])
-        try await store.setState(.archive, ids: ["tm-1"])
+        try await store.setState(.read, companyID: company, ids: ["tm-1"])
+        try await store.setState(.archive, companyID: company, ids: ["tm-1"])
         let replay = await capture(store, "tm-1", at: 1)
         XCTAssertEqual(replay, .duplicate)
         let stored = try await store.message(id: "tm-1")
@@ -164,7 +177,7 @@ final class InboxStoreQueryTests: XCTestCase {
     func testAReplayFromAnotherStoreDoesNotResetState() async throws {
         let first = makeStore()
         await capture(first, "tm-1", at: 1)
-        try await first.setState(.read, ids: ["tm-1"])
+        try await first.setState(.read, companyID: company, ids: ["tm-1"])
         let second = makeStore()
         let replay = await capture(second, "tm-1", at: 1)
         XCTAssertEqual(replay, .duplicate)
@@ -175,7 +188,7 @@ final class InboxStoreQueryTests: XCTestCase {
     func testArchivedMessagesStillCountTowardRetention() async throws {
         let store = makeStore(maxMessages: 2)
         await capture(store, "tm-1", at: 1)
-        try await store.setState(.archive, ids: ["tm-1"])
+        try await store.setState(.archive, companyID: company, ids: ["tm-1"])
         await capture(store, "tm-2", at: 2)
         await capture(store, "tm-3", at: 3)
         let oldest = try await store.message(id: "tm-1")
