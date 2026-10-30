@@ -5,8 +5,8 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
-import AnyCodable
 import Foundation
+import KlaviyoCore
 import OSLog
 
 enum IAFNativeBridgeEvent: Decodable, Equatable {
@@ -61,11 +61,11 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
             let payload = try? container.decode(FormContextPayload.self, forKey: .data)
             self = .formDisappeared(formId: payload?.formId, formName: payload?.formName)
         case .trackProfileEvent:
-            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
+            let decodedData = try container.decode(KlaviyoAnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
             self = .trackProfileEvent(data)
         case .trackAggregateEvent:
-            let decodedData = try container.decode(AnyCodable.self, forKey: .data)
+            let decodedData = try container.decode(KlaviyoAnyCodable.self, forKey: .data)
             let data = try JSONEncoder().encode(decodedData)
             self = .trackAggregateEvent(data)
         case .openDeepLink:

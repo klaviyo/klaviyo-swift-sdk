@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
 
 public struct Event: Equatable {
@@ -59,7 +58,7 @@ public struct Event: Equatable {
         _properties.value as! [String: Any]
     }
 
-    private let _properties: AnyCodable
+    private let _properties: KlaviyoAnyCodable
     public let time: Date
     public let value: Double?
     public let valueCurrency: String?
@@ -82,7 +81,7 @@ public struct Event: Equatable {
                  uniqueId: String = environment.uuid().uuidString,
                  priority: RequestPriority = .standard) {
         metric = .init(name: name)
-        _properties = AnyCodable(properties ?? [:])
+        _properties = KlaviyoAnyCodable(properties ?? [:])
         self.time = time
         self.value = value
         self.valueCurrency = valueCurrency
@@ -104,7 +103,7 @@ public struct Event: Equatable {
                 valueCurrency: String? = nil,
                 uniqueId: String? = nil) {
         metric = .init(name: name)
-        _properties = AnyCodable(properties ?? [:])
+        _properties = KlaviyoAnyCodable(properties ?? [:])
         identifiers = nil
         self.value = value
         self.valueCurrency = valueCurrency

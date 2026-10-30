@@ -7,7 +7,6 @@
 //
 
 @testable import KlaviyoCore
-import AnyCodable
 import XCTest
 
 final class RequestFactoryTests: XCTestCase {

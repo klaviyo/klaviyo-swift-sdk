@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/5/24.
 //
 
-import AnyCodable
 import Foundation
 
 public struct CreateEventPayload: Equatable, Codable {
@@ -42,7 +41,7 @@ public struct CreateEventPayload: Equatable, Codable {
             }
 
             public let metric: Metric
-            public var properties: AnyCodable
+            package var properties: KlaviyoAnyCodable
             public let profile: Profile
             public let time: Date
             public let value: Double?
@@ -59,7 +58,7 @@ public struct CreateEventPayload: Equatable, Codable {
                         time: Date? = nil,
                         uniqueId: String? = nil) {
                 metric = Metric(name: name)
-                self.properties = AnyCodable(properties ?? [:])
+                self.properties = KlaviyoAnyCodable(properties ?? [:])
                 self.value = value
                 self.valueCurrency = valueCurrency
                 self.time = time ?? environment.date()

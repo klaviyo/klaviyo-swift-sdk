@@ -6,7 +6,6 @@
 //
 
 @testable import KlaviyoCore
-import AnyCodable
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import XCTest
 
@@ -54,8 +53,8 @@ final class ProfilePropertyBufferTests: XCTestCase {
             $0.anonymousId = "anon-42"
         }
 
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Ada"))
-        ProfilePropertyBuffer.shared.stage(.lastName, AnyEncodable("Lovelace"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Ada"))
+        ProfilePropertyBuffer.shared.stage(.lastName, KlaviyoAnyEncodable("Lovelace"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
@@ -76,7 +75,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
 
-        ProfilePropertyBuffer.shared.stage(.custom(customKey: "plan"), AnyEncodable("premium"))
+        ProfilePropertyBuffer.shared.stage(.custom(customKey: "plan"), KlaviyoAnyEncodable("premium"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
@@ -92,7 +91,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
     func testCanonicalIdentityIsUsedNotStaleSnapshot() async {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         // Set identity AFTER staging to verify flush reads from IdentityStore, not a stale copy.
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Charles"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Charles"))
         IdentityStore.shared.mutate {
             $0.email = "charles@example.com"
             $0.anonymousId = "anon-99"
@@ -116,7 +115,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
 
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Flush"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Flush"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
         // First flush: 1 request
@@ -142,8 +141,8 @@ final class ProfilePropertyBufferTests: XCTestCase {
             deviceData: .init(context: environment.appContextInfo())
         ))
 
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Grace"))
-        ProfilePropertyBuffer.shared.stage(.lastName, AnyEncodable("Hopper"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Grace"))
+        ProfilePropertyBuffer.shared.stage(.lastName, KlaviyoAnyEncodable("Hopper"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
@@ -172,7 +171,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
             deviceData: .init(context: environment.appContextInfo())
         ))
 
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Staged"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Staged"))
         await ProfilePropertyBuffer.shared.flushIntoQueue()
         XCTAssertEqual(getRequests().count, 1)
 
@@ -187,9 +186,9 @@ final class ProfilePropertyBufferTests: XCTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
 
-        ProfilePropertyBuffer.shared.stage(.city, AnyEncodable("Boston"))
-        ProfilePropertyBuffer.shared.stage(.country, AnyEncodable("USA"))
-        ProfilePropertyBuffer.shared.stage(.zip, AnyEncodable("02101"))
+        ProfilePropertyBuffer.shared.stage(.city, KlaviyoAnyEncodable("Boston"))
+        ProfilePropertyBuffer.shared.stage(.country, KlaviyoAnyEncodable("USA"))
+        ProfilePropertyBuffer.shared.stage(.zip, KlaviyoAnyEncodable("02101"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
@@ -210,7 +209,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
     func testFlushWithoutApiKeyIsNoOp() async {
         // No SDKConfigStore.shared.update — apiKey is nil.
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Nobody"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Nobody"))
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
 
@@ -243,7 +242,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
         // sees the full set.
         let count = 200
         DispatchQueue.concurrentPerform(iterations: count) { index in
-            ProfilePropertyBuffer.shared.stage(.custom(customKey: "k\(index)"), AnyEncodable("v\(index)"))
+            ProfilePropertyBuffer.shared.stage(.custom(customKey: "k\(index)"), KlaviyoAnyEncodable("v\(index)"))
         }
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
@@ -266,7 +265,7 @@ final class ProfilePropertyBufferTests: XCTestCase {
     func testResetProfileDropsStagedProperties() async {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
         IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Ghost"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Ghost"))
 
         // Reset the profile — this must drop the staged property.
         KlaviyoCommands.resetProfile()

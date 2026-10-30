@@ -9,7 +9,6 @@
 
 @testable import KlaviyoCore
 @testable import KlaviyoSwift
-import AnyCodable
 import Foundation
 import XCTest
 
@@ -347,7 +346,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
         IdentityStore.shared.update(ProfileData(email: "old@x.com", anonymousId: "anon-old"))
         IdentityStore.shared.updatePushToken(tokenData)
-        ProfilePropertyBuffer.shared.stage(.firstName, AnyEncodable("Bob"))
+        ProfilePropertyBuffer.shared.stage(.firstName, KlaviyoAnyEncodable("Bob"))
         markSessionInitialized()
         let readQueue = seedTestQueueStore()
 

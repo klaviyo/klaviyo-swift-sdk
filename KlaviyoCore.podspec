@@ -13,5 +13,4 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoCore/**/*.swift'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
-  s.dependency       'AnyCodable-FlightSchool'
 end

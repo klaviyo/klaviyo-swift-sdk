@@ -5,7 +5,6 @@
 //  Copyright (c) 2022 Klaviyo. All rights reserved.
 //
 
-import AnyCodable
 import Foundation
 #if SWIFT_PACKAGE
 import KlaviyoAutomaticPushBootstrap
@@ -190,7 +189,7 @@ public struct KlaviyoSDK {
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
         dispatchOnMainThread {
-            KlaviyoCommands.setProfileProperty(profileAttribute, AnyEncodable(value))
+            KlaviyoCommands.setProfileProperty(profileAttribute, KlaviyoAnyEncodable(value))
         }
         return self
     }
