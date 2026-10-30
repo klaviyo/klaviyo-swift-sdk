@@ -19,7 +19,7 @@ final class InboxStoreTests: XCTestCase {
         appGroup = InboxStoreFixtures.temporaryAppGroup()
     }
 
-    private func makeStore(maxMessages: Int = InboxStore.maxMessages) -> InboxStore {
+    private func makeStore(maxMessages: Int = InboxStore.defaultMaxMessages) -> InboxStore {
         InboxStore(appGroup: appGroup, maxMessages: maxMessages)
     }
 

@@ -18,7 +18,7 @@ import OSLog
 // serial queue. The stored closures are never mutated after init.
 package final class InboxStore: InboxCapturing, @unchecked Sendable {
     /// Messages kept per company; the oldest by `sortTime` are removed beyond this.
-    package static let maxMessages = 100
+    package static let defaultMaxMessages = 100
     package static let storeFileName = "klaviyo-inbox.sqlite"
     /// The SQLite busy timeout requested through `NSSQLitePragmasOption`. Measured on the simulator: it did
     /// not bound a save blocked by another connection's lock, which waited until the lock was released.
@@ -59,7 +59,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
 
     package init(
         appGroup: InboxAppGroup,
-        maxMessages: Int = InboxStore.maxMessages,
+        maxMessages: Int = InboxStore.defaultMaxMessages,
         now: @escaping () -> Date = Date.init,
         diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic,
         modelHistory: [NSManagedObjectModel] = InboxStoreModel.history
