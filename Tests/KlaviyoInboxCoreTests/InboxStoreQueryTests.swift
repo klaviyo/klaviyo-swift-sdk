@@ -12,8 +12,7 @@ import XCTest
 
 final class InboxStoreQueryTests: XCTestCase {
     private var appGroup: InboxAppGroup!
-    private let company = "AbC123"
-    private let base = Date(timeIntervalSince1970: 1_800_000_000)
+    private let company = InboxStoreFixtures.company
 
     override func setUp() {
         super.setUp()
@@ -31,8 +30,9 @@ final class InboxStoreQueryTests: XCTestCase {
         at seconds: TimeInterval,
         company: String? = nil
     ) async -> InboxCaptureResult {
-        let record = InboxStoreFixtures.record(tm: tm, sentAt: base.addingTimeInterval(seconds))
-        return await store.capture(record, companyID: company ?? self.company)
+        await InboxStoreFixtures.capture(
+            store, tm, sentAfterBase: seconds, companyID: company ?? self.company
+        )
     }
 
     private func query(

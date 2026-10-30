@@ -12,8 +12,7 @@ import XCTest
 
 final class InboxStoreRetentionTests: XCTestCase {
     private var appGroup: InboxAppGroup!
-    private let company = "AbC123"
-    private let base = Date(timeIntervalSince1970: 1_800_000_000)
+    private let company = InboxStoreFixtures.company
 
     override func setUp() {
         super.setUp()
@@ -30,8 +29,9 @@ final class InboxStoreRetentionTests: XCTestCase {
         secondsAfterBase seconds: TimeInterval,
         company: String? = nil
     ) async {
-        let record = InboxStoreFixtures.record(tm: tm, sentAt: base.addingTimeInterval(seconds))
-        _ = await store.capture(record, companyID: company ?? self.company)
+        _ = await InboxStoreFixtures.capture(
+            store, tm, sentAfterBase: seconds, companyID: company ?? self.company
+        )
     }
 
     private func present(_ store: InboxStore, _ ids: [String]) async throws -> [String] {
@@ -90,7 +90,7 @@ final class InboxStoreRetentionTests: XCTestCase {
         await capture(store, "tm-3", secondsAfterBase: 3)
         // Replaying the newest at the limit must not evict the oldest.
         let replay = await store.capture(
-            InboxStoreFixtures.record(tm: "tm-3", sentAt: base.addingTimeInterval(3)),
+            InboxStoreFixtures.record(tm: "tm-3", sentAt: InboxStoreFixtures.baseDate.addingTimeInterval(3)),
             companyID: company
         )
         XCTAssertEqual(replay, .duplicate)
