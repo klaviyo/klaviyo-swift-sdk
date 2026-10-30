@@ -42,8 +42,7 @@ package enum InboxStoreModel {
         entity.properties = attributes
         entity.uniquenessConstraints = [[Key.transmissionID]]
         entity.indexes = [
-            index("byCompanyAndSortTime", [Key.companyID, Key.sortTime, Key.transmissionID], in: attributes),
-            index("byCompanyAndState", [Key.companyID, Key.isArchived, Key.isRead], in: attributes)
+            index("byCompanyAndSortTime", [Key.companyID, Key.sortTime, Key.transmissionID], in: attributes)
         ]
 
         let model = NSManagedObjectModel()

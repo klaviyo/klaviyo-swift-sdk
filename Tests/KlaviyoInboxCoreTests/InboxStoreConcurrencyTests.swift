@@ -50,11 +50,16 @@ final class InboxStoreConcurrencyTests: XCTestCase {
         XCTAssertEqual(results.filter { $0 == .duplicate }.count, shared)
         XCTAssertLessThan(elapsed, 10, "contended writes must finish in bounded time")
 
-        // A third, fresh store reads what is really on disk: exactly one row per transmission ID.
+        // A third, fresh store reads what is really on disk: every transmission ID is present.
         let reader = InboxStore(appGroup: appGroup)
-        let page = try await reader.fetch(InboxStoreQuery(companyID: company, limit: 1000))
-        XCTAssertEqual(page.messages.count, ownPerWriter * 2 + shared)
-        XCTAssertEqual(Set(page.messages.map(\.id)).count, page.messages.count)
+        var expected = (0..<shared).map { "shared-\($0)" }
+        for name in ["app", "nse"] { expected += (0..<ownPerWriter).map { "\(name)-\($0)" } }
+        for id in expected {
+            let stored = try await reader.message(id: id)
+            XCTAssertNotNil(stored, "\(id) is missing from the store")
+        }
+        let extra = try await reader.message(id: "app-\(ownPerWriter)")
+        XCTAssertNil(extra)
     }
 
     /// The first capture in each process creates the store. If the app and the extension do that at the

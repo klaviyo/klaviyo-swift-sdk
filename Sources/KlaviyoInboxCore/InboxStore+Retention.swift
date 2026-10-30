@@ -9,16 +9,9 @@ import CoreData
 import Foundation
 
 extension InboxStore {
-    /// Removes the company's messages beyond the newest `maxMessages`, ordered by `sortTime` then
-    /// `transmissionID` (the same order Android uses). Archived messages count toward the limit.
-    package func trim(companyID: String) async throws {
-        try await perform { context in
-            defer { context.reset() }
-            try Self.trim(companyID: companyID, keeping: self.maxMessages, in: context)
-        }
-    }
-
-    /// Runs inside the capture transaction path. The expired rows are found by object ID, then removed
+    /// Removes the company's messages beyond the newest `limit`, ordered by `sortTime` then `transmissionID`
+    /// (the same order Android uses). Archived messages count toward the limit. Runs inside the capture
+    /// transaction path. The expired rows are found by object ID, then removed
     /// SQL-side with a batch delete so no record is loaded into the extension's memory.
     static func trim(companyID: String, keeping limit: Int, in context: NSManagedObjectContext) throws {
         typealias Key = InboxStoreModel.Key
