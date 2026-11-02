@@ -28,10 +28,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
 
     let appGroup: InboxAppGroup
     let maxMessages: Int
-    let now: () -> Date
     let diagnostics: (InboxStoreEvent) -> Void
-    /// Every model this binary can open, oldest first; the last is the one the store runs on.
-    let modelHistory: [NSManagedObjectModel]
 
     /// One coordinator and one private-queue context for the life of the store. Creating them does no
     /// I/O; the persistent store is added on the context's queue the first time it is needed.
@@ -60,16 +57,12 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     package init(
         appGroup: InboxAppGroup,
         maxMessages: Int = InboxStore.defaultMaxMessages,
-        now: @escaping () -> Date = Date.init,
-        diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic,
-        modelHistory: [NSManagedObjectModel] = InboxStoreModel.history
+        diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic
     ) {
         self.appGroup = appGroup
         self.maxMessages = maxMessages
-        self.now = now
         self.diagnostics = diagnostics
-        self.modelHistory = modelHistory
-        stack = Stack(model: modelHistory.last ?? InboxStoreModel.current)
+        stack = Stack(model: InboxStoreModel.current)
     }
 
     package static func logDiagnostic(_ event: InboxStoreEvent) {
@@ -196,12 +189,12 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             diagnostics(.degraded(reason: "App Group unavailable"))
             throw InboxStoreError.unavailable
         }
-        let opener = InboxStoreOpener(modelHistory: modelHistory, now: now, diagnostics: diagnostics)
+        let opener = InboxStoreOpener(diagnostics: diagnostics)
         do {
             try opener.open(
                 stack.coordinator,
                 at: directory.appendingPathComponent(Self.storeFileName),
-                quarantineTransientFailures: stack.hasFailedToOpen
+                rebuildTransientFailures: stack.hasFailedToOpen
             )
         } catch {
             stack.hasFailedToOpen = true

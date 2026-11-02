@@ -26,16 +26,9 @@ final class InboxStoreRecoveryTests: XCTestCase {
 
     private func makeStore(
         group: InboxAppGroup? = nil,
-        history: [NSManagedObjectModel] = InboxStoreModel.history,
-        now: @escaping () -> Date = Date.init,
         recorder: RecordingStoreDiagnostics = RecordingStoreDiagnostics()
     ) -> (InboxStore, RecordingStoreDiagnostics) {
-        let store = InboxStore(
-            appGroup: group ?? appGroup,
-            now: now,
-            diagnostics: recorder.record,
-            modelHistory: history
-        )
+        let store = InboxStore(appGroup: group ?? appGroup, diagnostics: recorder.record)
         return (store, recorder)
     }
 
@@ -43,10 +36,12 @@ final class InboxStoreRecoveryTests: XCTestCase {
         try XCTUnwrap(appGroup.inboxDirectory()).appendingPathComponent(InboxStore.storeFileName)
     }
 
-    private func quarantined() throws -> [String] {
+    /// Every SQLite file in the Inbox directory. A rebuild leaves only the live store, never a copy of
+    /// the bad one.
+    private func sqliteFiles() throws -> [String] {
         let directory = try XCTUnwrap(appGroup.inboxDirectory())
         return try FileManager.default.contentsOfDirectory(atPath: directory.path)
-            .filter { $0.contains("quarantine") && $0.hasSuffix(".sqlite") }
+            .filter { $0.hasSuffix(".sqlite") }
             .sorted()
     }
 
@@ -57,23 +52,19 @@ final class InboxStoreRecoveryTests: XCTestCase {
         try Data("this is not a sqlite database".utf8).write(to: url)
     }
 
-    private func model(removing name: String? = nil, adding extra: String? = nil) throws -> NSManagedObjectModel {
+    /// The current model plus one more attribute, standing in for a newer build's model.
+    private func newerModel() throws -> NSManagedObjectModel {
         let copy = try XCTUnwrap(InboxStoreModel.current.copy() as? NSManagedObjectModel)
         let entity = try XCTUnwrap(copy.entitiesByName[InboxStoreModel.entityName])
-        var properties = entity.properties
-        if let name { properties.removeAll { $0.name == name } }
-        if let extra {
-            let attribute = NSAttributeDescription()
-            attribute.name = extra
-            attribute.attributeType = .stringAttributeType
-            attribute.isOptional = true
-            properties.append(attribute)
-        }
-        entity.properties = properties
+        let attribute = NSAttributeDescription()
+        attribute.name = "futureField"
+        attribute.attributeType = .stringAttributeType
+        attribute.isOptional = true
+        entity.properties += [attribute]
         return copy
     }
 
-    /// Writes rows straight through Core Data under `model`, the way an older or newer build would have.
+    /// Writes rows straight through Core Data under `model`, the way another build would have.
     private func writeStore(model: NSManagedObjectModel, transmissionIDs: [String]) throws {
         typealias Key = InboxStoreModel.Key
         let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
@@ -151,7 +142,7 @@ final class InboxStoreRecoveryTests: XCTestCase {
         // say nothing about the file's content.
         XCTAssertTrue(InboxStoreError.isTransient(sqlite(10)))
         XCTAssertTrue(InboxStoreError.isTransient(sqlite(6922)))
-        // Corruption and "not a database" are the cases that do justify quarantine.
+        // Corruption and "not a database" are the cases that do justify a rebuild.
         XCTAssertFalse(InboxStoreError.isTransient(sqlite(11)))
         XCTAssertFalse(InboxStoreError.isTransient(sqlite(26)))
         XCTAssertFalse(InboxStoreError.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_030)))
@@ -185,15 +176,11 @@ final class InboxStoreRecoveryTests: XCTestCase {
         }
     }
 
-    func testARepeatedlyFailingStoreIsLeftAloneAtFirstThenQuarantined() throws {
+    func testARepeatedlyFailingStoreIsLeftAloneAtFirstThenRebuilt() throws {
         try writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"])
         let url = try storeURL()
         let diagnostics = RecordingStoreDiagnostics()
-        let opener = InboxStoreOpener(
-            modelHistory: InboxStoreModel.history,
-            now: { self.epoch },
-            diagnostics: diagnostics.record
-        )
+        let opener = InboxStoreOpener(diagnostics: diagnostics.record)
         let coordinator = FailingCoordinator(
             model: InboxStoreModel.current,
             failure: NSError(domain: NSSQLiteErrorDomain, code: 6922)
@@ -201,12 +188,12 @@ final class InboxStoreRecoveryTests: XCTestCase {
 
         // One-off contention (another process still creating the file) must never cost the user a store.
         XCTAssertThrowsError(try opener.open(coordinator, at: url))
-        XCTAssertTrue(try quarantined().isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
         XCTAssertFalse(diagnostics.hasRecovered)
 
         // The same failure after the store has kept failing means the file itself is the problem.
-        XCTAssertThrowsError(try opener.open(coordinator, at: url, quarantineTransientFailures: true))
-        XCTAssertEqual(try quarantined().count, 1)
+        XCTAssertThrowsError(try opener.open(coordinator, at: url, rebuildTransientFailures: true))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
         XCTAssertTrue(diagnostics.hasRecovered)
     }
 
@@ -233,71 +220,28 @@ final class InboxStoreRecoveryTests: XCTestCase {
         XCTAssertLessThan(InboxStoreError.unavailableCode, 0)
     }
 
-    // MARK: - Corrupt store
+    // MARK: - Corrupt or foreign store
 
-    func testACorruptStoreIsQuarantinedAndCaptureWorksAfterwards() async throws {
+    func testACorruptStoreIsRebuiltAndCaptureWorksAfterwards() async throws {
         try writeGarbage(over: storeURL())
-        let (store, recorder) = makeStore(now: { self.epoch })
+        let (store, recorder) = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         XCTAssertEqual(result, .captured)
         XCTAssertTrue(recorder.hasRecovered)
         let stored = try await store.message(id: "tm-1")
         XCTAssertNotNil(stored)
-        XCTAssertEqual(try quarantined().count, 1)
+        XCTAssertEqual(try sqliteFiles(), [InboxStore.storeFileName])
     }
 
-    func testOnlyTheMostRecentQuarantineIsKept() async throws {
-        var clock = epoch
-        do {
-            try writeGarbage(over: storeURL())
-            let (store, _) = makeStore(now: { clock })
-            _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        }
-        clock = epoch.addingTimeInterval(60)
-        try writeGarbage(over: storeURL())
-        let (second, _) = makeStore(now: { clock })
-        let result = await second.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
-        XCTAssertEqual(result, .captured)
-        let kept = try quarantined()
-        XCTAssertEqual(kept.count, 1)
-        XCTAssertTrue(kept[0].contains("\(Int(clock.timeIntervalSince1970))"))
-    }
-
-    // MARK: - Migration
-
-    func testAnOlderModelMigratesWithItsRowsPreserved() async throws {
-        let older = try model(removing: InboxStoreModel.Key.isArchived)
-        try writeStore(model: older, transmissionIDs: ["tm-1", "tm-2"])
-        let (store, recorder) = makeStore(history: [older, InboxStoreModel.current])
-        let first = try await store.message(id: "tm-1")
-        let second = try await store.message(id: "tm-2")
-        XCTAssertEqual(first?.record.attribution.transmissionID, "tm-1")
-        XCTAssertEqual(second?.record.attribution.transmissionID, "tm-2")
-        XCTAssertTrue(recorder.events.contains(.migrated(from: 1, to: 2)))
-        XCTAssertFalse(recorder.hasRecovered)
-        XCTAssertTrue(try quarantined().isEmpty)
-    }
-
-    func testAMigratedStoreStillTakesNewCaptures() async throws {
-        let older = try model(removing: InboxStoreModel.Key.isArchived)
-        try writeStore(model: older, transmissionIDs: ["tm-1"])
-        let (store, _) = makeStore(history: [older, InboxStoreModel.current])
-        let replay = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        let fresh = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
-        XCTAssertEqual(replay, .duplicate)
-        XCTAssertEqual(fresh, .captured)
-    }
-
-    func testAStoreFromANewerModelIsQuarantined() async throws {
-        let newer = try model(adding: "futureField")
-        try writeStore(model: newer, transmissionIDs: ["tm-1"])
-        let (store, recorder) = makeStore(now: { self.epoch })
+    func testAStoreFromADifferentModelIsRebuilt() async throws {
+        try writeStore(model: newerModel(), transmissionIDs: ["tm-1"])
+        let (store, recorder) = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
         XCTAssertEqual(result, .captured)
         XCTAssertTrue(recorder.hasRecovered)
         let old = try await store.message(id: "tm-1")
         XCTAssertNil(old)
-        XCTAssertEqual(try quarantined().count, 1)
+        XCTAssertEqual(try sqliteFiles(), [InboxStore.storeFileName])
     }
 
     // MARK: - Journal mode, protection, bounded waiting

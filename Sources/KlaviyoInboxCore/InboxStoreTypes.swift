@@ -26,7 +26,6 @@ package struct StoredInboxMessage: Equatable {
 /// What the store reports about itself. Carries no record content or identifiers.
 package enum InboxStoreEvent: Equatable {
     case opened(milliseconds: Double)
-    case migrated(from: Int, to: Int)
     case recovered(reason: String)
     case writeFailed(code: Int)
     case lockContention(retries: Int)

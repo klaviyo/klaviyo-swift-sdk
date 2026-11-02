@@ -64,7 +64,7 @@ final class InboxStoreConcurrencyTests: XCTestCase {
 
     /// The first capture in each process creates the store. If the app and the extension do that at the
     /// same moment, neither may mistake the other's half-created file for a corrupt one and move it aside.
-    func testConcurrentFirstOpensNeverQuarantineAHealthyStore() async {
+    func testConcurrentFirstOpensNeverRebuildAHealthyStore() async {
         for run in 0..<20 {
             let appGroup = InboxStoreFixtures.temporaryAppGroup()
             let diagnostics = RecordingStoreDiagnostics()
@@ -77,7 +77,7 @@ final class InboxStoreConcurrencyTests: XCTestCase {
             let results = await [first, second]
 
             XCTAssertEqual(results, [.captured, .captured], "run \(run)")
-            XCTAssertFalse(diagnostics.hasRecovered, "run \(run) quarantined a healthy store")
+            XCTAssertFalse(diagnostics.hasRecovered, "run \(run) rebuilt a healthy store")
             XCTAssertFalse(diagnostics.hasDegraded, "run \(run) degraded")
         }
     }

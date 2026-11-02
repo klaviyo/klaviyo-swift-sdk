@@ -21,9 +21,6 @@ package enum InboxStoreModel {
         package static let payload = "payload"
     }
 
-    /// Every model version this binary can open, oldest first. The last entry is `current`.
-    package static let history: [NSManagedObjectModel] = [current]
-
     package static let current: NSManagedObjectModel = makeCurrent()
 
     private static func makeCurrent() -> NSManagedObjectModel {
