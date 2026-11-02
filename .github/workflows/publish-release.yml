@@ -251,12 +251,11 @@ jobs:
           }
           failed=0
           dispatch spm-verify.yml -f tag="$VERSION" || failed=1
-          dispatch swift-release.yml || failed=1
           dispatch cocoapods-publish.yml -f version="$VERSION" || failed=1
           {
             echo "### Released $VERSION"
             echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
-            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, swift-release.yml, cocoapods-publish.yml"
+            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, cocoapods-publish.yml"
             echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"

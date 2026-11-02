@@ -39,6 +39,34 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods
 
+      - name: Check release tag matches version in code
+        id: version_check
+        if: github.event_name == 'release'
+        run: ./scripts/check-version.sh "${{ github.event.release.tag_name }}"
+
+      - name: Notify Slack of release version mismatch
+        if: failure() && github.event_name == 'release' && steps.version_check.outcome == 'failure'
+        continue-on-error: true
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "🚨 Release Version Mismatch Detected"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "🚨 Release Version Mismatch Detected\n"
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Repository:* ${{ github.repository }}\n*Release Tag:* `${{ github.event.release.tag_name }}`\n*Version.swift Version:* `${{ env.SWIFT_VERSION }}`\n*Podspec Versions:* `${{ env.PODSPEC_VERSIONS }}`\n*Action:* A GitHub release was published with a mismatched version, so nothing was pushed to CocoaPods trunk. SPM consumers already see the bad tag — fix the release and tag so the tag name matches the version in code."
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+
       - name: Validate podspecs
         run: |
           echo "Validating all podspecs in dependency order..."
@@ -169,7 +197,7 @@ jobs:
                   text: "${{ github.event.release.html_url && format('*Release:* <{0}|View Release>\n', github.event.release.html_url) || '' }}*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
 
       - name: Send Slack notification on failure
-        if: failure()
+        if: failure() && steps.version_check.outcome != 'failure'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
