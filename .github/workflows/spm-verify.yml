@@ -34,7 +34,28 @@ jobs:
             .github/actions
             scripts/spm-verify.sh
             scripts/check-ci-green.sh
+            scripts/check-version.sh
           sparse-checkout-cone-mode: false
+
+      - name: Check out version files at ${{ env.TAG }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: tag-src
+          persist-credentials: false
+          sparse-checkout: |
+            Sources/KlaviyoCore/Utils/Version.swift
+            /*.podspec
+          sparse-checkout-cone-mode: false
+
+      - name: Check ${{ env.TAG }} matches version in code
+        id: version_check
+        uses: ./.github/actions/check-release-version
+        with:
+          version: ${{ env.TAG }}
+          path: tag-src
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          consequence: SPM consumers resolve this tag directly, so they already see it, and the SDK reports the Version.swift version at runtime. Skipped SPM verification, the Linear release sync and the iOS test app bump. Fix the release and tag so the tag name matches Version.swift.
 
       - name: Select Xcode 16.4
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
@@ -46,11 +67,11 @@ jobs:
         run: ./scripts/check-ci-green.sh "$TAG"
 
       - name: Resolve and build ${{ env.TAG }}
-        if: success() || failure()
+        if: (success() || failure()) && steps.version_check.outcome != 'failure'
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
       - name: Notify Slack
-        if: success() || failure()
+        if: (success() || failure()) && steps.version_check.outcome != 'failure'
         continue-on-error: true
         uses: ./.github/actions/notify-slack-publish
         with:

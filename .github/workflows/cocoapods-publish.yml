@@ -46,30 +46,11 @@ jobs:
 
       - name: Check version matches version in code
         id: version_check
-        run: ./scripts/check-version.sh "$VERSION"
-
-      - name: Notify Slack of release version mismatch
-        if: failure() && steps.version_check.outcome == 'failure'
-        continue-on-error: true
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: ./.github/actions/check-release-version
         with:
+          version: ${{ env.VERSION }}
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "🚨 Release Version Mismatch Detected"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "🚨 Release Version Mismatch Detected\n"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Repository:* ${{ github.repository }}\n*Version:* `${{ env.VERSION }}`\n*Version.swift Version:* `${{ env.SWIFT_VERSION }}`\n*Podspec Versions:* `${{ env.PODSPEC_VERSIONS }}`\n*Action:* ${{ github.event_name == 'release' && 'A GitHub release was published with a mismatched version, so nothing was pushed to CocoaPods trunk. SPM consumers already see the bad tag. Fix the release and tag so the tag name matches the version in code.' || 'The requested version does not match the version in code at that ref, so nothing was pushed to CocoaPods trunk. Re-run with the correct version.' }}"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          consequence: ${{ github.event_name == 'release' && 'A GitHub release was published with a mismatched version, so nothing was pushed to CocoaPods trunk. SPM consumers already see the bad tag. Fix the release and tag so the tag name matches the version in code.' || 'The requested version does not match the version in code at that ref, so nothing was pushed to CocoaPods trunk. Re-run with the correct version.' }}
 
       - name: Validate podspecs
         run: |
