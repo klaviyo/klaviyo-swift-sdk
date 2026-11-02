@@ -21,19 +21,21 @@ struct InboxStoreOpener {
     private static let sidecarSuffixes = ["", "-wal", "-shm"]
     private static let protection = FileProtectionType.completeUntilFirstUserAuthentication
 
-    /// Opening retries briefly on a transient failure, because the app and the extension can both create
-    /// the store on their first capture at the same moment, and one then sees the other's half-built file.
     private static let lockFileName = "klaviyo-inbox.lock"
     /// Up to about 0.4 s waiting for another process to finish opening, well under the 1 s capture timeout.
     private static let lockAttempts = 40
     private static let lockRetryDelay: TimeInterval = 0.01
+    /// Up to about 0.12 s retrying a transient SQLite failure, such as another process still creating the file.
     private static let transientAttempts = 5
     private static let transientRetryDelay: TimeInterval = 0.03
 
-    /// Serializes opening across processes. Without it, the app and the extension creating the store at the
-    /// same moment make Core Data fail one of them with a plain Cocoa write error ("File unexpectedly
-    /// appeared during sanity check") that carries no SQLite code, and a healthy store gets rebuilt.
-    /// Best effort: if the lock cannot be taken in time, opening proceeds without it.
+    /// Serializes opening across processes with a non-blocking `flock`, so the wait is bounded and a stuck
+    /// holder cannot block the store. Without it, the app and the extension creating the store at the same
+    /// moment make Core Data fail one of them with a plain Cocoa write error ("File unexpectedly appeared
+    /// during sanity check") that carries no SQLite code, and a healthy store gets rebuilt.
+    /// `NSFileCoordinator` also passes the tests, but it waits as long as the holder does, with no timeout.
+    /// Best effort: if the lock cannot be taken in time, opening proceeds without it. The C calls are
+    /// `Darwin.`-qualified only because a bare `open` resolves to this method.
     ///
     /// - Parameter rebuildTransientFailures: Set once this store has already failed to open. A failure
     ///   that looked transient the first time is then treated as the file's problem, so a store that keeps
@@ -70,7 +72,7 @@ struct InboxStoreOpener {
             if InboxStoreError.isTransient(error), !rebuildTransientFailures {
                 throw InboxStoreError.underlying(error)
             }
-            rebuild(url, reason: Self.reason(for: error))
+            rebuild(url, after: error)
             do {
                 try addStore(to: coordinator, at: url)
             } catch {
@@ -80,13 +82,6 @@ struct InboxStoreOpener {
         }
         let milliseconds = (ProcessInfo.processInfo.systemUptime - started) * 1000
         diagnostics(.opened(milliseconds: milliseconds))
-    }
-
-    /// What went wrong, as the error's domain and code only: enough to diagnose, with no message content.
-    private static func reason(for error: Error) -> String {
-        let nsError = error as NSError
-        let underlying = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError).map { " / \($0.domain) \($0.code)" } ?? ""
-        return "store failed to open (\(nsError.domain) \(nsError.code)\(underlying))"
     }
 
     // MARK: - Opening
@@ -135,16 +130,16 @@ struct InboxStoreOpener {
 
     // MARK: - Rebuild
 
-    /// Deletes the store and its sidecar files so a fresh one can be created in their place.
-    private func rebuild(_ url: URL, reason: String) {
-        removeStoreFiles(at: url)
-        diagnostics(.recovered(reason: reason))
-    }
-
-    private func removeStoreFiles(at url: URL) {
+    /// Deletes the store and its sidecar files so a fresh one can be created in their place. The diagnostic
+    /// carries the error's domain and code only, with no message content.
+    private func rebuild(_ url: URL, after error: Error) {
         for suffix in Self.sidecarSuffixes {
             try? FileManager.default.removeItem(atPath: url.path + suffix)
         }
+        let nsError = error as NSError
+        let underlying = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError)
+            .map { " / \($0.domain) \($0.code)" } ?? ""
+        diagnostics(.recovered(reason: "store failed to open (\(nsError.domain) \(nsError.code)\(underlying))"))
     }
 }
 
