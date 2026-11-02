@@ -20,11 +20,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     /// Messages kept per company; the oldest by `sortTime` are removed beyond this.
     package static let defaultMaxMessages = 100
     package static let storeFileName = "klaviyo-inbox.sqlite"
-    /// The SQLite busy timeout requested through `NSSQLitePragmasOption`. Measured on the simulator: it did
-    /// not bound a save blocked by another connection's lock, which waited until the lock was released.
-    /// The notification is still never held longer than `InboxCapture.defaultTimeout`, because that
-    /// timeout returns without waiting for the write.
-    package static let busyTimeoutMilliseconds = 250
 
     let appGroup: InboxAppGroup
     let maxMessages: Int
@@ -145,29 +140,26 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
             request.predicate = NSPredicate(format: "%K == %@", InboxStoreModel.Key.transmissionID, id)
             request.fetchLimit = 1
-            return try context.fetch(request).first.map(Self.stored)
+            guard let object = try context.fetch(request).first else { return nil }
+            typealias Key = InboxStoreModel.Key
+            guard let payload = object.value(forKey: Key.payload) as? Data,
+                  let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
+                throw InboxStoreError.unavailable
+            }
+            return try StoredInboxMessage(
+                id: transmissionID,
+                record: JSONDecoder().decode(InboxRecord.self, from: payload),
+                isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
+                isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false
+            )
         }
-    }
-
-    static func stored(_ object: NSManagedObject) throws -> StoredInboxMessage {
-        typealias Key = InboxStoreModel.Key
-        guard let payload = object.value(forKey: Key.payload) as? Data,
-              let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
-            throw InboxStoreError.unavailable
-        }
-        return try StoredInboxMessage(
-            id: transmissionID,
-            record: JSONDecoder().decode(InboxRecord.self, from: payload),
-            isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
-            isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false
-        )
     }
 
     // MARK: - Context access
 
     /// Note: a SQLite lock held by another process blocks the save on this queue for as long as the lock is
-    /// held (`busy_timeout` does not bound it). `InboxCapture` still returns `.timedOut` after its timeout, but
-    /// later captures in this process queue behind the blocked one until the lock clears.
+    /// held. `InboxCapture` still returns `.timedOut` after its timeout, but later captures in this process
+    /// queue behind the blocked one until the lock clears.
     ///
     /// Runs `work` on the store's private queue, opening the persistent store first if needed. Every
     /// public method goes through here; no context is touched from any other thread.
