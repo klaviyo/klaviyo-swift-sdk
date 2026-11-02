@@ -9,50 +9,6 @@ import CoreData
 import Foundation
 import SQLite3
 
-extension InboxStoreError {
-    /// Failures that say nothing about the file's content: another process holds a lock or is still
-    /// creating the file, the disk is full, or memory ran out. The store is left alone, never
-    /// quarantined, and the open is retried or the next capture tries again.
-    ///
-    /// SQLite reports extended codes (for example 6922, a disk I/O error from a file that moved under an
-    /// open connection), so only the low byte, the primary code, is compared.
-    package static func isTransient(_ error: Error) -> Bool {
-        guard let sqlite = sqliteError(in: error) else { return false }
-        return transientPrimaryCodes.contains(sqlite.code & primaryCodeMask)
-    }
-
-    /// SQLite primary result codes: BUSY, LOCKED, NOMEM, IOERR, FULL.
-    private static let transientPrimaryCodes: Set<Int> = [
-        Int(SQLITE_BUSY), Int(SQLITE_LOCKED), Int(SQLITE_NOMEM), Int(SQLITE_IOERR), Int(SQLITE_FULL)
-    ]
-    private static let primaryCodeMask = 0xFF
-
-    /// The SQLite error behind `error`, looking through `InboxStoreError.underlying` and one level of
-    /// Cocoa wrapping.
-    private static func sqliteError(in error: Error) -> NSError? {
-        if case let .underlying(inner)? = error as? InboxStoreError { return sqliteError(in: inner) }
-        let nsError = error as NSError
-        if nsError.domain == NSSQLiteErrorDomain { return nsError }
-        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError,
-           underlying.domain == NSSQLiteErrorDomain {
-            return underlying
-        }
-        return nil
-    }
-
-    /// Reported for a store that could not be reached at all, where there is no error code to give.
-    package static let unavailableCode = -1
-
-    /// A stable number for a diagnostic: the SQLite code when there is one, else the error's own code.
-    /// Carries no message text.
-    package static func diagnosticCode(for error: Error) -> Int {
-        if case .unavailable? = error as? InboxStoreError { return unavailableCode }
-        if let sqlite = sqliteError(in: error) { return sqlite.code }
-        if case let .underlying(inner)? = error as? InboxStoreError { return (inner as NSError).code }
-        return (error as NSError).code
-    }
-}
-
 /// Opens the Inbox's persistent store so that a bad file can never block capture. A store written by
 /// an older model is migrated; one that is corrupt, unreadable, or written by a newer model than this
 /// binary knows is quarantined and rebuilt. Phase 1a is best effort, so rebuilding is acceptable.
@@ -299,5 +255,49 @@ struct InboxStoreOpener {
         for suffix in Self.sidecarSuffixes {
             try? FileManager.default.removeItem(atPath: url.path + suffix)
         }
+    }
+}
+
+extension InboxStoreError {
+    /// Failures that say nothing about the file's content: another process holds a lock or is still
+    /// creating the file, the disk is full, or memory ran out. The store is left alone, never
+    /// quarantined, and the open is retried or the next capture tries again.
+    ///
+    /// SQLite reports extended codes (for example 6922, a disk I/O error from a file that moved under an
+    /// open connection), so only the low byte, the primary code, is compared.
+    package static func isTransient(_ error: Error) -> Bool {
+        guard let sqlite = sqliteError(in: error) else { return false }
+        return transientPrimaryCodes.contains(sqlite.code & primaryCodeMask)
+    }
+
+    /// SQLite primary result codes: BUSY, LOCKED, NOMEM, IOERR, FULL.
+    private static let transientPrimaryCodes: Set<Int> = [
+        Int(SQLITE_BUSY), Int(SQLITE_LOCKED), Int(SQLITE_NOMEM), Int(SQLITE_IOERR), Int(SQLITE_FULL)
+    ]
+    private static let primaryCodeMask = 0xFF
+
+    /// The SQLite error behind `error`, looking through `InboxStoreError.underlying` and one level of
+    /// Cocoa wrapping.
+    private static func sqliteError(in error: Error) -> NSError? {
+        if case let .underlying(inner)? = error as? InboxStoreError { return sqliteError(in: inner) }
+        let nsError = error as NSError
+        if nsError.domain == NSSQLiteErrorDomain { return nsError }
+        if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError,
+           underlying.domain == NSSQLiteErrorDomain {
+            return underlying
+        }
+        return nil
+    }
+
+    /// Reported for a store that could not be reached at all, where there is no error code to give.
+    package static let unavailableCode = -1
+
+    /// A stable number for a diagnostic: the SQLite code when there is one, else the error's own code.
+    /// Carries no message text.
+    package static func diagnosticCode(for error: Error) -> Int {
+        if case .unavailable? = error as? InboxStoreError { return unavailableCode }
+        if let sqlite = sqliteError(in: error) { return sqlite.code }
+        if case let .underlying(inner)? = error as? InboxStoreError { return (inner as NSError).code }
+        return (error as NSError).code
     }
 }
