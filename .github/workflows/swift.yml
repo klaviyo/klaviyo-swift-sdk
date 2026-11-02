@@ -24,12 +24,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        xcode: ['15.4', '16.4', '26.5']
+        xcode: ['16.4', '26.5']
         config: ['debug', 'release']
         include:
-          - xcode: '15.4'
-            runner: macos-14
-            ios_runtime: 'iOS 17'
           - xcode: '16.4'
             runner: macos-15
             ios_runtime: 'iOS 18'
