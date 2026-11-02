@@ -112,7 +112,6 @@ struct InboxStoreOpener {
             NSPersistentStoreFileProtectionKey: Self.protection,
             NSSQLitePragmasOption: [
                 "journal_mode": "WAL",
-                "busy_timeout": String(InboxStore.busyTimeoutMilliseconds),
                 // Freed pages are zeroed, so a clear actually removes message text from disk.
                 "secure_delete": "ON"
             ]
