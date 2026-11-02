@@ -78,7 +78,10 @@ extension _KlaviyoAnyDecodable {
         } else if let dictionary = try? container.decode([String: KlaviyoAnyDecodable].self) {
             self.init(dictionary.mapValues { $0.value })
         } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "KlaviyoAnyDecodable value cannot be decoded")
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "KlaviyoAnyDecodable value cannot be decoded"
+            )
         }
     }
 }

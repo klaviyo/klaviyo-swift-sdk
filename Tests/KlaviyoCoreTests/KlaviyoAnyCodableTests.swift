@@ -55,7 +55,9 @@ final class KlaviyoAnyCodableTests: XCTestCase {
     }
 
     func testEventPayloadPropertiesRoundTrip() throws {
-        let payload = CreateEventPayload(data: .init(name: "Added To Cart", properties: mixed, anonymousId: "anon"))
+        let payload = CreateEventPayload(
+            data: .init(name: "Added To Cart", properties: mixed, anonymousId: "anon")
+        )
         let decoded = try JSONDecoder().decode(
             CreateEventPayload.self,
             from: JSONEncoder().encode(payload)

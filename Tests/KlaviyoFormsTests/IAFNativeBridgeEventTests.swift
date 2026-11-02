@@ -278,7 +278,8 @@ struct IAFNativeBridgeEventTests {
             Issue.record("event type should be .trackProfileEvent but was '.\(event)'")
             return
         }
-        let associatedValueDataDecoded = try JSONDecoder().decode(KlaviyoAnyCodable.self, from: associatedValueData)
+        let associatedValueDataDecoded = try JSONDecoder()
+            .decode(KlaviyoAnyCodable.self, from: associatedValueData)
 
         let profileEventData = try #require(profileEvent.data(using: .utf8))
         let profileEventDataDecoded = try JSONDecoder().decode(KlaviyoAnyCodable.self, from: profileEventData)
@@ -605,7 +606,8 @@ struct IAFNativeBridgeEventTests {
 
         let jsonData = try #require(json.data(using: .utf8))
         let aggregateEventData = try #require(aggregateEvent.data(using: .utf8))
-        let aggregateEventDataDecoded = try JSONDecoder().decode(KlaviyoAnyCodable.self, from: aggregateEventData)
+        let aggregateEventDataDecoded = try JSONDecoder()
+            .decode(KlaviyoAnyCodable.self, from: aggregateEventData)
 
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
 
@@ -614,7 +616,9 @@ struct IAFNativeBridgeEventTests {
             return
         }
 
-        let associatedValueDataDecoded = try JSONDecoder().decode(KlaviyoAnyCodable.self, from: associatedValueData)
+        let associatedValueDataDecoded = try JSONDecoder()
+
+            .decode(KlaviyoAnyCodable.self, from: associatedValueData)
 
         #expect(aggregateEventDataDecoded == associatedValueDataDecoded)
     }

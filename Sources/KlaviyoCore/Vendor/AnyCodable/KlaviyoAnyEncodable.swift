@@ -107,7 +107,10 @@ extension _KlaviyoAnyEncodable {
         case let encodable as Encodable:
             try encodable.encode(to: encoder)
         default:
-            let context = EncodingError.Context(codingPath: container.codingPath, debugDescription: "KlaviyoAnyEncodable value cannot be encoded")
+            let context = EncodingError.Context(
+                codingPath: container.codingPath,
+                debugDescription: "KlaviyoAnyEncodable value cannot be encoded"
+            )
             throw EncodingError.invalidValue(value, context)
         }
     }
@@ -138,7 +141,10 @@ extension _KlaviyoAnyEncodable {
         case "d":
             try container.encode(nsnumber.doubleValue)
         default:
-            let context = EncodingError.Context(codingPath: container.codingPath, debugDescription: "NSNumber cannot be encoded because its type is not handled")
+            let context = EncodingError.Context(
+                codingPath: container.codingPath,
+                debugDescription: "NSNumber cannot be encoded because its type is not handled"
+            )
             throw EncodingError.invalidValue(nsnumber, context)
         }
     }

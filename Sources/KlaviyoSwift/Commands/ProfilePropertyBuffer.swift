@@ -75,7 +75,10 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
 
     /// Restores a snapshot into `staged` so retained props aren't dropped, without clobbering any
     /// props staged since the flush began.
-    private func restore(_ snapshot: [Profile.ProfileKey: KlaviyoAnyEncodable], generation capturedGeneration: Int) {
+    private func restore(
+        _ snapshot: [Profile.ProfileKey: KlaviyoAnyEncodable],
+        generation capturedGeneration: Int
+    ) {
         lock.withLock {
             guard generation == capturedGeneration else { return }
             staged = snapshot.merging(staged) { _, newer in newer }

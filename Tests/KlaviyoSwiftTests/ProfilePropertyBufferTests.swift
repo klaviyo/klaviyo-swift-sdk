@@ -242,7 +242,10 @@ final class ProfilePropertyBufferTests: XCTestCase {
         // sees the full set.
         let count = 200
         DispatchQueue.concurrentPerform(iterations: count) { index in
-            ProfilePropertyBuffer.shared.stage(.custom(customKey: "k\(index)"), KlaviyoAnyEncodable("v\(index)"))
+            ProfilePropertyBuffer.shared.stage(
+                .custom(customKey: "k\(index)"),
+                KlaviyoAnyEncodable("v\(index)")
+            )
         }
 
         await ProfilePropertyBuffer.shared.flushIntoQueue()
