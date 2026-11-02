@@ -1,0 +1,52 @@
+name: Check release version
+description: Fails unless Version.swift and every *.podspec in the given directory match the version, and posts a Slack alert on a mismatch.
+inputs:
+  version:
+    description: Expected version (a leading 'v' is stripped)
+    required: true
+  webhook:
+    description: Slack incoming webhook URL. The alert is skipped when empty.
+    required: true
+  consequence:
+    description: What the caller did because of the mismatch, shown in the Slack alert
+    required: true
+  path:
+    description: Directory holding the checked-out code to compare against
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Check version matches version in code
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        RAW_VERSION: ${{ inputs.version }}
+      run: |
+        VERSION="${RAW_VERSION#v}"
+        echo "EXPECTED_VERSION=$VERSION" >> "$GITHUB_ENV"
+        "$GITHUB_WORKSPACE/scripts/check-version.sh" "$VERSION"
+
+    - name: Notify Slack of version mismatch
+      if: failure() && steps.check.outcome == 'failure' && inputs.webhook != ''
+      continue-on-error: true
+      uses: slackapi/slack-github-action@v2.1.1
+      with:
+        webhook: ${{ inputs.webhook }}
+        webhook-type: incoming-webhook
+        payload: |
+          text: "🚨 Release Version Mismatch Detected"
+          blocks:
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "🚨 Release Version Mismatch Detected\n"
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "*Repository:* ${{ github.repository }}\n*Version:* `${{ env.EXPECTED_VERSION }}`\n*Version.swift Version:* `${{ env.SWIFT_VERSION }}`\n*Podspec Versions:* `${{ env.PODSPEC_VERSIONS }}`\n*Action:* ${{ inputs.consequence }}"
+            - type: "section"
+              text:
+                type: "mrkdwn"
+                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"

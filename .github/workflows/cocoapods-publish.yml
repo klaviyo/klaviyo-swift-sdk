@@ -39,6 +39,19 @@ jobs:
       - name: Install CocoaPods
         run: gem install cocoapods
 
+      - name: Resolve version
+        env:
+          RAW_VERSION: ${{ github.event.release.tag_name || github.event.inputs.version }}
+        run: echo "VERSION=${RAW_VERSION#v}" >> "$GITHUB_ENV"
+
+      - name: Check version matches version in code
+        id: version_check
+        uses: ./.github/actions/check-release-version
+        with:
+          version: ${{ env.VERSION }}
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          consequence: ${{ github.event_name == 'release' && 'A GitHub release was published with a mismatched version, so nothing was pushed to CocoaPods trunk. SPM consumers already see the bad tag. Fix the release and tag so the tag name matches the version in code.' || 'The requested version does not match the version in code at that ref, so nothing was pushed to CocoaPods trunk. Re-run with the correct version.' }}
+
       - name: Validate podspecs
         run: |
           echo "Validating all podspecs in dependency order..."
@@ -86,9 +99,6 @@ jobs:
             return 1
           }
 
-          # Extract version from release tag or input and strip 'v' prefix if present
-          VERSION="${{ github.event.release.tag_name || github.event.inputs.version }}"
-          VERSION="${VERSION#v}"  # Remove leading 'v' if present
           echo "Publishing podspecs version $VERSION to CocoaPods trunk..."
 
           # Publishes a podspec unless trunk already lists the version, so re-runs resume after a
@@ -162,14 +172,14 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms\n• KlaviyoLocation"
+                  text: "*Version:* `${{ env.VERSION }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms\n• KlaviyoLocation"
               - type: "section"
                 text:
                   type: "mrkdwn"
                   text: "${{ github.event.release.html_url && format('*Release:* <{0}|View Release>\n', github.event.release.html_url) || '' }}*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
 
       - name: Send Slack notification on failure
-        if: failure()
+        if: failure() && steps.version_check.outcome != 'failure'
         uses: slackapi/slack-github-action@v2.1.1
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
@@ -184,7 +194,7 @@ jobs:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "*Version:* `${{ github.event.release.tag_name || github.event.inputs.version }}`\n*Repository:* ${{ github.repository }}\n*Error:* Failed to publish one or more podspecs to CocoaPods trunk"
+                  text: "*Version:* `${{ env.VERSION }}`\n*Repository:* ${{ github.repository }}\n*Error:* Failed to publish one or more podspecs to CocoaPods trunk"
               - type: "section"
                 text:
                   type: "mrkdwn"
