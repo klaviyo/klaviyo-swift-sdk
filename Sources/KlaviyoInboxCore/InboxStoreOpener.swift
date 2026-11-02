@@ -11,7 +11,7 @@ import SQLite3
 
 /// Opens the Inbox's persistent store so that a bad file can never block capture. A store written by
 /// an older model is migrated; one that is corrupt, unreadable, or written by a newer model than this
-/// binary knows is quarantined and rebuilt. Phase 1a is best effort, so rebuilding is acceptable.
+/// binary knows is quarantined and rebuilt.
 ///
 /// Core Data finds an old model for a migration by searching bundles, and a model built in code has no
 /// bundle, so the store's model is matched against `modelHistory` here and migrated explicitly.
