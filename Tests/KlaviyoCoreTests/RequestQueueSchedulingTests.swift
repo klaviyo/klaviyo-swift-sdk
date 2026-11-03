@@ -139,6 +139,26 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testReconnectMidFlushClearsBackoffOfLeasedEntries() async {
+        let backoff = SendSpy(results: [.failure(.rateLimitError(backOff: 120))])
+        enqueueOne()
+        await makeQueue(backoff).flushNow()
+        QueueStore.shared.enqueue(makePriorityEventRequest(id: "p"), persist: .synchronous)
+
+        let started = expectation(description: "flush parked mid-send")
+        let parking = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(parking)
+        let flush = Task.detached { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2.0)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        parking.release()
+        await flush.value
+
+        XCTAssertEqual(parking.sentIds, ["p", "r"])
+        await queue.stop()
+    }
+
     func testEscalationIsNotPinnedAtFirstAttempt() async throws {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()

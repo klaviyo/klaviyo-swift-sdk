@@ -127,12 +127,20 @@ public actor RequestQueue {
             stop()
         case .reachableViaWiFi:
             flushInterval = FlushConstants.wifiFlushInterval
-            QueueStore.shared.clearBackoffs()
+            clearBackoffs()
             startLoop(flushImmediately: true)
         case .reachableViaWWAN:
             flushInterval = FlushConstants.cellularFlushInterval
-            QueueStore.shared.clearBackoffs()
+            clearBackoffs()
             startLoop(flushImmediately: true)
+        }
+    }
+
+    /// Drops pending backoff on queued and leased entries, keeping `attempts`.
+    private func clearBackoffs() {
+        QueueStore.shared.clearBackoffs()
+        for index in requestsInFlight.indices {
+            requestsInFlight[index].clearBackoff()
         }
     }
 
