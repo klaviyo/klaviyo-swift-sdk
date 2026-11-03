@@ -43,6 +43,20 @@ class AppState: ObservableObject {
         }
     }
 
+    /// Starts a preview from a deep link, such as the form editor's QR code, and reflects it in the
+    /// Forms preview controls so the tester can see it's active and end it.
+    /// - Returns: `true` if the link started a preview.
+    @discardableResult
+    func handleFormsPreviewLink(_ url: URL) -> Bool {
+        guard KlaviyoSDK().handleFormsPreviewLink(url) else { return false }
+        formsPreviewToken = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first { $0.name == "klaviyo-forms-preview" }?
+            .value ?? ""
+        isFormsPreviewEnabled = true
+        return true
+    }
+
     func setFormsPreview(enabled: Bool) {
         guard !enabled else { return }
         // Return to published forms and drop the token from memory
