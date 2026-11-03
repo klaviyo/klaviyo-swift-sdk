@@ -52,22 +52,6 @@ extension UNNotificationResponse {
         return properties
     }
 
-    /// Returns the deep link URL from a Klaviyo notification payload, if present.
-    var klaviyoDeepLinkURL: URL? {
-        guard isKlaviyoNotification else {
-            if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Attempting to access a Klaviyo deep link URL from a non-Klaviyo notification.")
-            }
-            return nil
-        }
-
-        guard let properties = klaviyoProperties else {
-            return nil
-        }
-
-        return klaviyoDeepLinkURL(in: properties)
-    }
-
     /// Returns the deep link URL from `properties`, a Klaviyo notification payload that may have
     /// had its forms preview token removed, if present.
     func klaviyoDeepLinkURL(in properties: [String: Any]) -> URL? {
@@ -80,7 +64,7 @@ extension UNNotificationResponse {
 
         guard let url = URL(string: urlString) else {
             if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Unable to convert string '\(urlString)' to a valid URL.")
+                Logger.notifications.warning("Unable to convert string '\(urlString, privacy: .private)' to a valid URL.")
             }
             return nil
         }
@@ -91,24 +75,26 @@ extension UNNotificationResponse {
     // MARK: - Forms Preview
 
     /// The in-app forms preview token carried by this push, and the notification properties with
-    /// it removed. Reads `key_value_pairs["klaviyo-forms-preview"]`, falling back to the
-    /// `klaviyo-forms-preview` query parameter of the `url` deep link. The token is removed from
-    /// both places in the returned properties whether or not it is well formed. The token is not
-    /// validated; see ``FormsPreviewTokenStore/validate(_:)``.
+    /// it removed. Reads a string `key_value_pairs["klaviyo-forms-preview"]`, falling back to the
+    /// `klaviyo-forms-preview` query parameter of the `url` deep link. The key is removed from
+    /// both places in the returned properties whether or not its value is a string or well
+    /// formed. The `url` is edited as text, so every other byte of it is kept, and it is edited
+    /// even when it is not a valid URL. Has no side effects. The token is not validated; see
+    /// ``FormsPreviewTokenStore/validate(_:)``.
     func klaviyoFormsPreview(in properties: [String: Any]) -> (token: String?, properties: [String: Any]) {
         var stripped = properties
         var token: String?
 
         if var keyValuePairs = properties["key_value_pairs"] as? [String: Any],
            let value = keyValuePairs.removeValue(forKey: FormsPreview.previewTokenKey) {
-            token = value as? String ?? ""
+            token = value as? String
             stripped["key_value_pairs"] = keyValuePairs
         }
 
-        if let urlString = properties["url"] as? String, let url = URL(string: urlString),
-           let parameter = FormsPreview.previewTokenParameter(in: url) {
+        if let urlString = properties["url"] as? String,
+           let parameter = FormsPreview.previewTokenParameter(inURLString: urlString) {
             token = token ?? parameter
-            stripped["url"] = FormsPreview.removingPreviewTokenParameter(from: url).absoluteString
+            stripped["url"] = FormsPreview.removingPreviewTokenParameter(fromURLString: urlString)
         }
 
         return (token, stripped)

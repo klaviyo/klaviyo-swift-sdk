@@ -297,7 +297,7 @@ public struct KlaviyoSDK {
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = startFormsPreview(from: notificationResponse) else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -316,6 +316,9 @@ public struct KlaviyoSDK {
             Task { @MainActor in completionHandler() }
             return true
         }
+
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
 
         // Detect if this is an action button tap
         if notificationResponse.isActionButtonTap {
@@ -349,7 +352,7 @@ public struct KlaviyoSDK {
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = startFormsPreview(from: notificationResponse) else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -369,6 +372,9 @@ public struct KlaviyoSDK {
             return true
         }
 
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
+
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
@@ -381,22 +387,26 @@ public struct KlaviyoSDK {
         return true
     }
 
-    /// The notification's properties with any in-app forms preview token removed, or `nil` when
-    /// they can't be read. A well-formed token starts a forms preview session through the shared
-    /// ``FormsPreviewTokenStore``, restarting registered forms; without KlaviyoForms the token is
-    /// held and has no effect. The token never reaches `Opened Push` or the deep link handler,
-    /// and is never logged.
-    private func startFormsPreview(from notificationResponse: UNNotificationResponse) -> [String: Any]? {
+    /// The notification's forms preview token and its properties with the token removed, or `nil`
+    /// when the properties can't be read. Has no side effects; see ``startFormsPreview(token:)``.
+    private func formsPreview(
+        from notificationResponse: UNNotificationResponse
+    ) -> (token: String?, properties: [String: Any])? {
         guard let properties = notificationResponse.klaviyoProperties else { return nil }
-        let preview = notificationResponse.klaviyoFormsPreview(in: properties)
-        if let token = preview.token {
-            if let validated = FormsPreviewTokenStore.validate(token), validated == token {
-                Task { @MainActor in FormsPreviewTokenStore.shared.startPreview(validated) }
-            } else if #available(iOS 14.0, *) {
-                Logger.notifications.warning("Ignoring opened push with a malformed forms preview token")
-            }
+        return notificationResponse.klaviyoFormsPreview(in: properties)
+    }
+
+    /// Starts a forms preview session with `token` through the shared ``FormsPreviewTokenStore``,
+    /// restarting registered forms; without KlaviyoForms the token is held and has no effect.
+    /// A `nil` token does nothing, and a malformed one logs a warning that omits it. Called only
+    /// for a real open, after the dismiss and auto-track checks.
+    private func startFormsPreview(token: String?) {
+        guard let token else { return }
+        if let validated = FormsPreviewTokenStore.validate(token), validated == token {
+            Task { @MainActor in FormsPreviewTokenStore.shared.startPreview(validated) }
+        } else if #available(iOS 14.0, *) {
+            Logger.notifications.warning("Ignoring opened push with a malformed forms preview token")
         }
-        return preview.properties
     }
 
     /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
