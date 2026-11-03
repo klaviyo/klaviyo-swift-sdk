@@ -37,8 +37,9 @@ package struct NoOpInboxCaptureSink: InboxCaptureSink {
 ///
 /// There is no registration step: linking the Inbox modules turns capture on.
 package struct InboxCapture {
-    /// The sink production capture uses. The store replaces it when it exists.
-    package static var sink: InboxCaptureSink = NoOpInboxCaptureSink()
+    /// The sink production capture uses: the shared App Group store, created lazily on the first capture,
+    /// filing each push under the company in its own `_k.c`.
+    package static var sink: InboxCaptureSink = InboxStoreCaptureSink()
 
     /// Longest the notification waits for the sink, in seconds, so a slow store cannot use up the
     /// extension's time.

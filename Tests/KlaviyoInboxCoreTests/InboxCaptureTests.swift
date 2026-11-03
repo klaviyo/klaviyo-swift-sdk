@@ -90,10 +90,8 @@ struct InboxCaptureTests {
     }
 
     @Test
-    func defaultSinkIsANoOpThatSkips() async {
-        let capture = InboxCapture(isAuthorized: { true }, now: { [now] in now })
-        let result = await capture.capture(userInfo: klaviyoPush)
-        #expect(result == .skipped)
+    func theDefaultSinkIsTheStoreBackedOne() {
+        #expect(InboxCapture.sink is InboxStoreCaptureSink)
     }
 
     @Test
