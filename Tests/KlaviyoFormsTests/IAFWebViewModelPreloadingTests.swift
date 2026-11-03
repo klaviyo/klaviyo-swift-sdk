@@ -12,6 +12,11 @@ import WebKit
 import XCTest
 
 final class IAFWebViewModelPreloadingTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // MARK: - setup
 
     var viewModel: IAFWebViewModel!

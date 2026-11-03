@@ -14,6 +14,11 @@ import XCTest
 
 @MainActor
 final class IAFWebViewModelScriptEscapingTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private static let profileAttribute = "data-klaviyo-profile"
     private static let jwtAttribute = "data-klaviyo-jwt"
 

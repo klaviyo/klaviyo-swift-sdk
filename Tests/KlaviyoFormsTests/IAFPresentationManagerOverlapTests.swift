@@ -13,6 +13,11 @@ import XCTest
 /// rebuilds while an older handshake is still pending, and unregistering mid-build.
 @MainActor
 final class IAFPresentationManagerOverlapTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     /// Covers the immediate handshake-failure path (deallocated view controller).
     private nonisolated static let shortObservationWindow: TimeInterval = 1
 
