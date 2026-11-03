@@ -12,31 +12,6 @@ import Foundation
 public enum FlushConstants {
     public static let wifiFlushInterval = 10.0
     public static let cellularFlushInterval = 30.0
-    public static let initialAttempt = 1
-}
-
-// MARK: - RetryState
-
-/// Describes how the state machine should handle retrying a request after a failure.
-public enum RetryState: Equatable {
-    /// Indicates that the request should be retried immediately (subject to
-    /// the regular flush cadence).
-    ///
-    /// - Parameter currentCount: The attempt number for the *current* request.
-    ///   The value should start at `1` for the very first send and is incremented each
-    ///   time a transient failure (such as a network error) occurs.
-    case retry(_ currentCount: Int)
-
-    /// Indicates that the request should be retried after waiting for a
-    /// server-specified back-off interval. This path is typically triggered by
-    /// an HTTP 429 "Too Many Requests" response that includes a `Retry-After`
-    /// header.
-    ///
-    /// - Parameters:
-    ///   - requestCount: The number of attempts made for this specific request.
-    ///   - totalRetryCount: The total number of attempts made for this request across all retry strategies.
-    ///   - currentBackoff: The remaining time in seconds to wait before the next retry attempt.
-    case retryWithBackoff(requestCount: Int, totalRetryCount: Int, currentBackoff: Int)
 }
 
 // MARK: - maxRetries
@@ -109,45 +84,13 @@ public enum FlushDecision: Equatable {
     /// The request is non-retryable (or succeeded): remove it from the queue and move on.
     case dequeue
 
-    /// A transient network error occurred; resend on the regular flush cadence.
-    case retry(RetryState)
-
-    /// A rate-limit or server error occurred; record the backoff on the nested `RetryState`
-    /// (`currentBackoff`) and count it down over flush ticks before resending.
-    case retryWithBackoff(RetryState)
+    /// A transport, rate-limit or server error occurred: retry this request after `backoff` seconds.
+    /// The engine records the attempt and deadline on the request's own `QueuedRequest`.
+    case retry(backoff: Int)
 
     /// The server rejected a field (e.g. email or phone) with a validation error.
     /// Strip the offending field(s) and remove the request from the queue.
     case clearInvalidFieldsAndDequeue([InvalidField])
-}
-
-// MARK: - advancedRetryCounts
-
-/// The retry-count bookkeeping shared by every failure path that escalates into
-/// `.retryWithBackoff` (429, 5xx, and transport/network errors): `requestCount`/`totalRetryCount`
-/// both advance by one, and `failedAttemptNumber` — the ordinal of the attempt that just failed,
-/// pre-increment — feeds the shared backoff formula.
-private struct AdvancedRetryCounts {
-    let requestRetryCount: Int
-    let totalRetryCount: Int
-    let failedAttemptNumber: Int
-}
-
-private func advancedRetryCounts(from retryState: RetryState) -> AdvancedRetryCounts {
-    switch retryState {
-    case let .retry(count):
-        return AdvancedRetryCounts(
-            requestRetryCount: count + 1,
-            totalRetryCount: count + 1,
-            failedAttemptNumber: count
-        )
-    case let .retryWithBackoff(requestCount, totalCount, _):
-        return AdvancedRetryCounts(
-            requestRetryCount: requestCount + 1,
-            totalRetryCount: totalCount + 1,
-            failedAttemptNumber: requestCount
-        )
-    }
 }
 
 // MARK: - classifyFailure
@@ -158,9 +101,9 @@ private func advancedRetryCounts(from retryState: RetryState) -> AdvancedRetryCo
 ///
 /// - Parameters:
 ///   - error: The API error returned by the network layer.
-///   - retryState: The current retry state for the failing request.
+///   - attemptNumber: The 1-based ordinal of the send that just failed, for this request alone.
 /// - Returns: The decision the queue engine should act on.
-public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> FlushDecision {
+public func classifyFailure(error: KlaviyoAPIError, attemptNumber: Int) -> FlushDecision {
     switch error {
     case let .httpError(_, data):
         // TODO(cutover): wire environment.logger so a malformed 4xx body isn't silently classified
@@ -174,32 +117,15 @@ public func classifyFailure(error: KlaviyoAPIError, retryState: RetryState) -> F
         }
 
     case .networkError:
-        // Transport-level failure: escalate with the same exponential backoff as a 429/5xx, instead
-        // of dropping straight back to the flat flush-tick cadence, and never collapse an existing
-        // backoff to a bare `.retry` — keep escalating instead. `advancedRetryCounts`'
-        // `failedAttemptNumber` is the ordinal of the attempt that just failed (pre-increment),
-        // matching the attemptNumber `RequestQueue.sendHead` passed to `send` for this attempt, so
-        // this escalates 2^1, 2^2, 2^3 ... in lockstep with the 429/5xx path below, not a step ahead.
-        let counts = advancedRetryCounts(from: retryState)
-        let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: counts.failedAttemptNumber)
+        // Transport-level failure: the same exponential backoff as a 429/5xx (2^1, 2^2, ...), keyed
+        // on this request's own failed attempt so it escalates in lockstep with that path.
+        let backOff = RetryBackoffConstants.exponentialBackoff(attemptNumber: attemptNumber)
             + environment.randomInt()
-        return .retryWithBackoff(
-            .retryWithBackoff(
-                requestCount: counts.requestRetryCount,
-                totalRetryCount: counts.totalRetryCount,
-                currentBackoff: backOff
-            )
-        )
+        return .retry(backoff: backOff)
 
     case let .rateLimitError(backOff), let .serverError(_, backOff):
-        let counts = advancedRetryCounts(from: retryState)
-        return .retryWithBackoff(
-            .retryWithBackoff(
-                requestCount: counts.requestRetryCount,
-                totalRetryCount: counts.totalRetryCount,
-                currentBackoff: backOff
-            )
-        )
+        // `KlaviyoAPI` already folded Retry-After, exponential backoff and jitter into `backOff`.
+        return .retry(backoff: backOff)
 
     case .internalError,
          .internalRequestError,
