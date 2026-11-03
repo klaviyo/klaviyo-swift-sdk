@@ -73,8 +73,10 @@ public actor RequestQueue {
 
     /// How long the run loop sleeps: until the head's retry deadline, else one flush interval.
     private func nextDelay() -> TimeInterval {
-        // Pre-init flushes no-op, so a due head must not turn the loop into a busy spin.
-        guard SDKConfigStore.shared.current.apiKey != nil else { return flushInterval }
+        // Pre-init and offline flushes no-op, so a due head must not turn the loop into a busy spin.
+        guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else {
+            return flushInterval
+        }
         return nextFlushDelay(
             head: QueueStore.shared.head,
             now: environment.date(),

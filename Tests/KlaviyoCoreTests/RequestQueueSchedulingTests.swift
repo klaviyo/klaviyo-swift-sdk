@@ -133,6 +133,20 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testDueBackoffWhileOfflineDoesNotSpin() async {
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 37))])
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.flushNow()
+        wallClock.advance(by: 60)
+        await queue.networkConnectivityChanged(.notReachable)
+
+        await queue.start()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+        XCTAssertEqual(gated.requested.first, .infinity)
+        await queue.stop()
+    }
+
     func testOneHourTransportOutageStaysWithinAttemptBudget() async {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
