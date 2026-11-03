@@ -27,6 +27,11 @@ class IAFPresentationManager {
     private var profileEventObserver: ProfileEventObserver?
     private var profileEventsTask: Task<Void, Error>?
 
+    /// The preview token each new webview is built with.
+    var previewTokenStore: FormsPreviewTokenStore = .shared
+    /// The latest restart from ``restartFormsSession()``; cancelled on unregister.
+    private(set) var sessionRestartTask: Task<Void, Never>?
+
     var viewController: KlaviyoWebViewController?
     private(set) var viewModel: IAFWebViewModel?
 
@@ -127,6 +132,7 @@ class IAFPresentationManager {
 
         companyObserver = CompanyObserver()
         companyObserver?.startObserving()
+        previewTokenStore.restartFormsSession = { [weak self] in self?.restartFormsSession() }
         isInitializingOrInitialized = true
 
         _ = InAppWindowManager.shared
@@ -266,7 +272,8 @@ class IAFPresentationManager {
             profileData: profileData,
             authToken: authToken,
             assetSource: assetSource,
-            authTokenManager: authTokenManager
+            authTokenManager: authTokenManager,
+            previewTokenStore: previewTokenStore
         )
         self.viewModel = viewModel
         viewController = makeViewController(viewModel)
@@ -579,6 +586,29 @@ class IAFPresentationManager {
         }
     }
 
+    // MARK: - Preview Token Handling
+
+    /// Tears down the form session and starts a new one, as unregistering and registering again
+    /// would, so a forms preview starts or ends. onsite-in-app-forms only reads the preview token
+    /// when KlaviyoJS loads. Reached through ``FormsPreviewTokenStore/restartFormsSession``, which
+    /// is only set while forms are registered. Restarts with the current page's API key, or the
+    /// configured one if no page is built. Without either there is nothing to build yet; the
+    /// company observer builds the first webview once a key arrives.
+    func restartFormsSession() {
+        guard let apiKey = viewModel?.apiKey ?? SDKConfigStore.shared.current.apiKey, !apiKey.isEmpty else {
+            return
+        }
+        if #available(iOS 14.0, *) {
+            Logger.webViewLogger.info("Restarting the form session for a forms preview")
+        }
+        let configuration = configuration ?? InAppFormsConfig()
+        sessionRestartTask?.cancel()
+        sessionRestartTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled else { return }
+            await handleAPIKeyChange(apiKey: apiKey, configuration: configuration, assetSource: assetSource)
+        }
+    }
+
     func startLifecycleObservation() {
         let observer = LifecycleObserver()
         observer.startObserving()
@@ -753,6 +783,9 @@ class IAFPresentationManager {
         webViewBuildGeneration += 1
         lifecycleObserver = nil
         companyObserver = nil
+        previewTokenStore.restartFormsSession = nil
+        sessionRestartTask?.cancel()
+        sessionRestartTask = nil
         tearDownFormWebView()
     }
 }
