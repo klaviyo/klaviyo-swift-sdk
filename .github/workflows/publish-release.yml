@@ -297,27 +297,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # A just-created tag can take a few seconds to become dispatchable, so retry each dispatch.
-          # With a Slack ts, passes slack_thread_ts, and drops it if the workflow at the tag rejects it.
           thread_ts="$SLACK_TS"
           dispatch() {
-            for attempt in 1 2 3 4 5 6; do
-              if [ -n "$thread_ts" ]; then
-                if err=$(gh workflow run "$@" --ref "$VERSION" -f slack_thread_ts="$thread_ts" 2>&1); then
-                  return 0
-                fi
-                echo "$err"
-                if [[ "$err" == *"Unexpected inputs"* ]] && gh workflow run "$@" --ref "$VERSION"; then
-                  return 0
-                fi
-              elif gh workflow run "$@" --ref "$VERSION"; then
-                return 0
-              fi
-              echo "Dispatch of $1 at $VERSION failed (attempt $attempt), retrying in 10s"
-              sleep 10
-            done
-            echo "::error::could not dispatch $1 at $VERSION"
-            return 1
+            if [ -n "$thread_ts" ]; then
+              gh workflow run "$@" --ref "$VERSION" -f slack_thread_ts="$thread_ts"
+            else
+              gh workflow run "$@" --ref "$VERSION"
+            fi
           }
           failed=0
           dispatch spm-verify.yml -f tag="$VERSION" || failed=1
