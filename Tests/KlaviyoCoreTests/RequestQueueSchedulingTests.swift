@@ -123,7 +123,11 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
     }
 
     func testWifiToCellularSwitchAlsoResets() async {
-        let spy = SendSpy(results: [networkFailure, .failure(.rateLimitError(backOff: 120)), .success(Data())])
+        let spy = SendSpy(results: [
+            networkFailure,
+            .failure(.rateLimitError(backOff: 120)),
+            .success(Data())
+        ])
         enqueueOne()
         let queue = makeQueue(spy)
         await queue.networkConnectivityChanged(.reachableViaWiFi)
