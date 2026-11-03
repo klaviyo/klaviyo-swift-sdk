@@ -70,7 +70,7 @@ package struct InboxCapture {
         }
         guard let record = InboxPayloadParser.parse(userInfo: userInfo, receivedAt: now()) else {
             if InboxPayloadParser.hasKlaviyoMetadata(userInfo), #available(iOS 14.0, *) {
-                Logger.mobileInboxCapture.warning("Klaviyo push has no usable _k.tm; not captured to Mobile Inbox.")
+                Logger.mobileInboxCapture.warning("Klaviyo push has no usable _k.tm or _k.c; not captured to Mobile Inbox.")
             }
             return .skipped
         }
