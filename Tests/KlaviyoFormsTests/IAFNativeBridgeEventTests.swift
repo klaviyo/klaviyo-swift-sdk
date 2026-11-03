@@ -73,6 +73,14 @@ struct IAFNativeBridgeEventTests {
         #expect(event == .formsPreviewEnded(reason: "expired", token: "some-token"))
     }
 
+    @Test
+    func loggedTypeNameNeverIncludesPreviewToken() throws {
+        let data = Data(#"{"type":"formsPreviewEnded","data":{"reason":"expired","token":"\#(validPreviewToken)"}}"#.utf8)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event.typeName == "formsPreviewEnded")
+        #expect(!event.typeName.contains(validPreviewToken))
+    }
+
     @Test(arguments: ["BadJWT", "badJWT"])
     func legacyBadJWTNoLongerDecodes(type: String) {
         let data = Data(#"{"type":"\#(type)","data":{}}"#.utf8)
