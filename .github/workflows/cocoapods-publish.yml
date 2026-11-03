@@ -18,6 +18,15 @@ on:
         description: 'Version to publish (e.g., 5.1.1)'
         required: true
         type: string
+      slack_thread_ts:
+        description: Slack message ts to reply under. Set by publish-release.yml; leave empty to post a new message
+        required: false
+        default: ''
+        type: string
+
+env:
+  SLACK_USERNAME: Swift SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-swift:'
 
 jobs:
   publish:
@@ -25,6 +34,9 @@ jobs:
     runs-on: macos-latest
 
     steps:
+      - name: Record job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -49,7 +61,8 @@ jobs:
         uses: ./.github/actions/check-release-version
         with:
           version: ${{ env.VERSION }}
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           consequence: ${{ github.event_name == 'release' && 'A GitHub release was published with a mismatched version, so nothing was pushed to CocoaPods trunk. SPM consumers already see the bad tag. Fix the release and tag so the tag name matches the version in code.' || 'The requested version does not match the version in code at that ref, so nothing was pushed to CocoaPods trunk. Re-run with the correct version.' }}
 
       - name: Validate podspecs
@@ -158,44 +171,40 @@ jobs:
 
       - name: Send Slack notification on success
         if: success()
-        uses: slackapi/slack-github-action@v2.1.1
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "✅ CocoaPods Release Published"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "✅ *CocoaPods Release Published*"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Version:* `${{ env.VERSION }}`\n*Repository:* ${{ github.repository }}\n*Trigger:* ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}\n*Published Podspecs:*\n• KlaviyoCore\n• KlaviyoSwiftExtension\n• KlaviyoSwift\n• KlaviyoForms\n• KlaviyoLocation"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "${{ github.event.release.html_url && format('*Release:* <{0}|View Release>\n', github.event.release.html_url) || '' }}*Workflow:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: success
+          title: Swift SDK ${{ env.VERSION }} published to CocoaPods
+          body: "Published KlaviyoCore, KlaviyoSwiftExtension, KlaviyoSwift, KlaviyoForms and KlaviyoLocation."
+          fields: |
+            Version: ${{ env.VERSION }}
+            Trigger: ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}
+          links: |
+            ${{ github.event.release.html_url && format('Release|{0}', github.event.release.html_url) || '' }}
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        env:
+          TIMEOUT_MINUTES: 360
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Send Slack notification on failure
-        if: failure() && steps.version_check.outcome != 'failure'
-        uses: slackapi/slack-github-action@v2.1.1
+        if: (failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && steps.version_check.outcome != 'failure'
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          webhook-type: incoming-webhook
-          payload: |
-            text: "❌ CocoaPods Release Failed"
-            blocks:
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "❌ *CocoaPods Release Failed*"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Version:* `${{ env.VERSION }}`\n*Repository:* ${{ github.repository }}\n*Error:* Failed to publish one or more podspecs to CocoaPods trunk"
-              - type: "section"
-                text:
-                  type: "mrkdwn"
-                  text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
+          title: Swift SDK ${{ env.VERSION }} CocoaPods publish ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
+          body: Failed to publish one or more podspecs to CocoaPods trunk. Re-running resumes after the pods already on trunk.
+          fields: |
+            Version: ${{ env.VERSION }}

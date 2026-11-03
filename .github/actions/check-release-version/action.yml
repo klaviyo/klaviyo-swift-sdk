@@ -4,9 +4,13 @@ inputs:
   version:
     description: Expected version (a leading 'v' is stripped)
     required: true
-  webhook:
-    description: Slack incoming webhook URL. The alert is skipped when empty.
+  token:
+    description: Slack bot token. Pass secrets.SLACK_BOT_TOKEN. The alert is skipped when empty.
     required: true
+  thread_ts:
+    description: Slack message ts to reply under. When empty, the alert is posted as a new message.
+    required: false
+    default: ''
   consequence:
     description: What the caller did because of the mismatch, shown in the Slack alert
     required: true
@@ -29,24 +33,17 @@ runs:
         "$GITHUB_WORKSPACE/scripts/check-version.sh" "$VERSION"
 
     - name: Notify Slack of version mismatch
-      if: failure() && steps.check.outcome == 'failure' && inputs.webhook != ''
+      if: failure() && steps.check.outcome == 'failure'
       continue-on-error: true
-      uses: slackapi/slack-github-action@v2.1.1
+      uses: ./.github/actions/notify-slack
       with:
-        webhook: ${{ inputs.webhook }}
-        webhook-type: incoming-webhook
-        payload: |
-          text: "🚨 Release Version Mismatch Detected"
-          blocks:
-            - type: "section"
-              text:
-                type: "mrkdwn"
-                text: "🚨 Release Version Mismatch Detected\n"
-            - type: "section"
-              text:
-                type: "mrkdwn"
-                text: "*Repository:* ${{ github.repository }}\n*Version:* `${{ env.EXPECTED_VERSION }}`\n*Version.swift Version:* `${{ env.SWIFT_VERSION }}`\n*Podspec Versions:* `${{ env.PODSPEC_VERSIONS }}`\n*Action:* ${{ inputs.consequence }}"
-            - type: "section"
-              text:
-                type: "mrkdwn"
-                text: "*Workflow Run:* <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"
+        token: ${{ inputs.token }}
+        thread_ts: ${{ inputs.thread_ts }}
+        status: failure
+        title: Release version mismatch detected
+        body: ${{ inputs.consequence }}
+        fields: |
+          Repository: ${{ github.repository }}
+          Version: ${{ env.EXPECTED_VERSION }}
+          Version.swift version: ${{ env.SWIFT_VERSION }}
+          Podspec versions: ${{ env.PODSPEC_VERSIONS }}

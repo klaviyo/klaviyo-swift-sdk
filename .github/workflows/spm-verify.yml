@@ -9,6 +9,11 @@ on:
         description: Existing release tag to verify (e.g. 5.5.0)
         required: true
         type: string
+      slack_thread_ts:
+        description: Slack message ts to reply under. Set by publish-release.yml; leave empty to post a new message
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +24,10 @@ concurrency:
   group: spm-verify-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: true
 
+env:
+  SLACK_USERNAME: Swift SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-swift:'
+
 jobs:
   verify:
     name: Resolve and build tag via SPM
@@ -28,6 +37,9 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       RELEASE_URL: ${{ github.event.release.html_url || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.tag) }}
     steps:
+      - name: Record job start
+        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -54,7 +66,8 @@ jobs:
         with:
           version: ${{ env.TAG }}
           path: tag-src
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
           consequence: SPM consumers resolve this tag directly, so they already see it, and the SDK reports the Version.swift version at runtime. Skipped SPM verification, the Linear release sync and the iOS test app bump. Fix the release and tag so the tag name matches Version.swift.
 
       - name: Select Xcode 16.4
@@ -70,17 +83,31 @@ jobs:
         if: (success() || failure()) && steps.version_check.outcome != 'failure'
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        env:
+          TIMEOUT_MINUTES: 30
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Notify Slack
-        if: (success() || failure()) && steps.version_check.outcome != 'failure'
+        if: (success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && steps.version_check.outcome != 'failure'
         continue-on-error: true
-        uses: ./.github/actions/notify-slack-publish
+        uses: ./.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          result: ${{ job.status == 'success' && 'success' || 'failure' }}
-          package: Swift SDK (SPM)
-          action_label: CI check + SPM resolve + build
-          version_label: ${{ env.TAG }}
-          release_url: ${{ env.RELEASE_URL }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: ${{ job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure') }}
+          title: Swift SDK ${{ env.TAG }} SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}
+          body: CI check, SPM resolve and build at the tag.
+          fields: |
+            Version: ${{ env.TAG }}
+            Author: ${{ github.actor }}
+          links: Release|${{ env.RELEASE_URL }}
 
       - name: Checkout full history for Linear sync
         id: linear-checkout
