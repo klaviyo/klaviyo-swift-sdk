@@ -298,11 +298,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           thread_ts="$SLACK_TS"
+          # True when the workflow file at $VERSION declares slack_thread_ts.
+          takes_thread_ts() {
+            gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
+              -H "Accept: application/vnd.github.raw" | grep -q '^[[:space:]]*slack_thread_ts:'
+          }
           dispatch() {
-            if [ -n "$thread_ts" ]; then
-              gh workflow run "$@" --ref "$VERSION" -f slack_thread_ts="$thread_ts"
+            workflow="$1"
+            shift
+            if [ -n "$thread_ts" ] && takes_thread_ts "$workflow"; then
+              gh workflow run "$workflow" --ref "$VERSION" -f slack_thread_ts="$thread_ts" "$@"
             else
-              gh workflow run "$@" --ref "$VERSION"
+              gh workflow run "$workflow" --ref "$VERSION" "$@"
             fi
           }
           failed=0
