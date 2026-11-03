@@ -38,6 +38,8 @@ public actor RequestQueue {
     /// The active run loop, or `nil` when stopped.
     private var runLoop: Task<Void, Never>?
     private var isFlushing = false
+    /// Set by a reconnect flush that found another flush running; that flush re-runs before returning.
+    private var flushRequested = false
 
     public init(
         clock: SleepClock,
@@ -66,7 +68,7 @@ public actor RequestQueue {
                 guard let self else { return }
                 if skipSleep {
                     skipSleep = false
-                    await self.flush()
+                    await self.flush(retryIfBusy: true)
                     continue
                 }
                 // If `stop()` cancels the loop while parked here, exit instead of running a trailing
@@ -148,13 +150,23 @@ public actor RequestQueue {
 
     /// Runs `willDrain`, leases the whole `QueueStore` batch, and sends head-first (FIFO). See the
     /// type doc for the success/failure handling.
-    private func flush() async {
+    private func flush(retryIfBusy: Bool = false) async {
         // Gate: pre-init or offline.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
-        guard !isFlushing else { return }
+        guard !isFlushing else {
+            flushRequested = flushRequested || retryIfBusy
+            return
+        }
         isFlushing = true
         defer { isFlushing = false }
 
+        repeat {
+            flushRequested = false
+            await drainAndSend()
+        } while flushRequested && flushInterval.isFinite && !Task.isCancelled
+    }
+
+    private func drainAndSend() async {
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
         // backoff. The per-head check in the send loop is the authoritative gate. The run loop
         // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.

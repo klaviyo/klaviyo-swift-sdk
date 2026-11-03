@@ -163,6 +163,23 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testReconnectDuringSuspendedSendFlushesRestoredRequestWithoutATick() async {
+        enqueueOne()
+        let started = expectation(description: "flush parked mid-send")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(spy)
+        let flush = Task.detached { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2.0)
+
+        await queue.networkConnectivityChanged(.notReachable)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        spy.release()
+        await flush.value
+
+        XCTAssertEqual(spy.sentIds, ["r", "r"])
+        await queue.stop()
+    }
+
     func testEscalationIsNotPinnedAtFirstAttempt() async throws {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
