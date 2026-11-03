@@ -26,6 +26,11 @@ enum IAFNativeBridgeEvent: Decodable, Equatable {
     case refreshJwt
     case formsPreviewEnded(reason: String, token: String?)
 
+    /// The event's case name, without any associated values.
+    var typeName: String {
+        String(String(describing: self).prefix { $0 != "(" })
+    }
+
     private enum CodingKeys: String, CodingKey {
         case type
         case data
