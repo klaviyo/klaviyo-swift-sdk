@@ -160,10 +160,13 @@ public actor RequestQueue {
         isFlushing = true
         defer { isFlushing = false }
 
-        repeat {
-            flushRequested = false
-            await drainAndSend()
-        } while flushRequested && flushInterval.isFinite && !Task.isCancelled
+        flushRequested = false
+        await drainAndSend()
+        // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task,
+        // not this one (which `stop()` may have cancelled). No restart if still stopped or offline.
+        if flushRequested, flushInterval.isFinite, runLoop != nil {
+            startLoop(flushImmediately: true)
+        }
     }
 
     private func drainAndSend() async {

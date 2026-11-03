@@ -180,6 +180,23 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testReconnectDuringSuspendedRunLoopSendFlushesRestoredRequestWithoutATick() async {
+        enqueueOne()
+        let started = expectation(description: "run loop parked mid-send")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(spy)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        await fulfillment(of: [started], timeout: 2.0)
+
+        await queue.networkConnectivityChanged(.notReachable)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        spy.release()
+
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
+        XCTAssertEqual(spy.sentIds, ["r", "r"])
+        await queue.stop()
+    }
+
     func testEscalationIsNotPinnedAtFirstAttempt() async throws {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
