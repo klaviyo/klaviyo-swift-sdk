@@ -482,18 +482,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 return
             }
 
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.redactingJSONToken.prettyPrintedJSON)")
-            }
-
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
                 let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.debug("Received native bridge message: \(messageBusEvent.typeName, privacy: .public)")
+                }
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
-                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.redactingJSONToken.prettyPrintedJSON)")
+                    Logger.webViewLogger.warning("Failed to decode native bridge message")
                 }
             }
         }
