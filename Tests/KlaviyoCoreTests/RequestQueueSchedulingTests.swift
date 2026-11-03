@@ -176,7 +176,7 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         spy.release()
         await flush.value
 
-        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
+        XCTAssertTrue(spy.waitForSends(atLeast: 2))
         XCTAssertEqual(spy.sentIds, ["r", "r"])
         await queue.stop()
     }
@@ -193,7 +193,7 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         spy.release()
 
-        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
+        XCTAssertTrue(spy.waitForSends(atLeast: 2))
         XCTAssertEqual(spy.sentIds, ["r", "r"])
         await queue.stop()
     }
