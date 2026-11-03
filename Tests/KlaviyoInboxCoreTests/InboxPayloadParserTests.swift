@@ -8,9 +8,11 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxPayloadParserTests: XCTestCase {
+@Suite
+struct InboxPayloadParserTests {
     private let received = Date(timeIntervalSince1970: 1_800_000_000)
     private let tm = InboxPayloadFixtures.transmissionID
 
@@ -19,136 +21,155 @@ final class InboxPayloadParserTests: XCTestCase {
     }
 
     private func url(_ string: String) throws -> URL {
-        try XCTUnwrap(URL(string: string))
+        try #require(URL(string: string))
     }
 
     // MARK: Identity and gating
 
-    func testFullPayloadMapsEveryCoreField() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
-        XCTAssertEqual(record.attribution.transmissionID, tm)
-        XCTAssertEqual(record.title, "Sale")
-        XCTAssertEqual(record.body, "50% off")
-        XCTAssertEqual(record.defaultDestination, try .deepLink(url("myapp://home")))
-        XCTAssertEqual(record.mediaURL, try url("https://example.com/i.png"))
-        XCTAssertEqual(record.mediaType, "png")
-        XCTAssertEqual(record.customData, ["k1": "v1", "n": "2"])
-        XCTAssertEqual(record.sentAt, Date(timeIntervalSince1970: 1_791_460_800))
-        XCTAssertEqual(record.receivedAt, received)
+    @Test
+    func fullPayloadMapsEveryCoreField() throws {
+        let record = try #require(parse(InboxPayloadFixtures.full))
+        #expect(record.attribution.transmissionID == tm)
+        #expect(record.title == "Sale")
+        #expect(record.body == "50% off")
+        try #expect(record.defaultDestination == .deepLink(url("myapp://home")))
+        try #expect(record.mediaURL == url("https://example.com/i.png"))
+        #expect(record.mediaType == "png")
+        #expect(record.customData == ["k1": "v1", "n": "2"])
+        #expect(record.sentAt == Date(timeIntervalSince1970: 1_791_460_800))
+        #expect(record.receivedAt == received)
     }
 
-    func testPayloadWithoutKlaviyoMetadataIsNotParsed() {
-        XCTAssertNil(parse(#"{"aps": {"alert": "hi"}}"#))
-        XCTAssertFalse(InboxPayloadParser.hasKlaviyoMetadata(InboxPayloadFixtures.userInfo(#"{"aps": {}}"#)))
+    @Test
+    func payloadWithoutKlaviyoMetadataIsNotParsed() {
+        #expect(parse(#"{"aps": {"alert": "hi"}}"#) == nil)
+        #expect(!(InboxPayloadParser.hasKlaviyoMetadata(InboxPayloadFixtures.userInfo(#"{"aps": {}}"#))))
     }
 
-    func testMetadataThatIsNotADictionaryIsNotParsedAndDoesNotCrash() {
+    @Test
+    func metadataThatIsNotADictionaryIsNotParsedAndDoesNotCrash() {
         // Existing SDK tests use a bare string for `_k`.
-        XCTAssertNil(parse(#"{"body": {"_k": "test_deep_link_regression"}}"#))
-        XCTAssertFalse(InboxPayloadParser.hasKlaviyoMetadata(
+        #expect(parse(#"{"body": {"_k": "test_deep_link_regression"}}"#) == nil)
+        #expect(!(InboxPayloadParser.hasKlaviyoMetadata(
             InboxPayloadFixtures.userInfo(#"{"body": {"_k": "x"}}"#)
-        ))
+        )))
     }
 
-    func testMissingOrEmptyTransmissionIDIsNotParsedButIsKlaviyoMetadata() {
-        XCTAssertNil(parse(#"{"body": {"_k": {"$flow": "F1"}}}"#))
-        XCTAssertNil(parse(#"{"body": {"_k": {"tm": ""}}}"#))
-        XCTAssertTrue(InboxPayloadParser.hasKlaviyoMetadata(
+    @Test
+    func missingOrEmptyTransmissionIDIsNotParsedButIsKlaviyoMetadata() {
+        #expect(parse(#"{"body": {"_k": {"$flow": "F1"}}}"#) == nil)
+        #expect(parse(#"{"body": {"_k": {"tm": ""}}}"#) == nil)
+        #expect(InboxPayloadParser.hasKlaviyoMetadata(
             InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": ""}}}"#)
         ))
     }
 
-    func testNumericTransmissionIDIsStringified() {
-        XCTAssertEqual(parse(#"{"body": {"_k": {"tm": 12345}}}"#)?.attribution.transmissionID, "12345")
+    @Test
+    func numericTransmissionIDIsStringified() {
+        #expect(parse(#"{"body": {"_k": {"tm": 12345}}}"#)?.attribution.transmissionID == "12345")
     }
 
-    func testBodyAsNonDictionaryIsNotParsed() {
-        XCTAssertNil(parse(#"{"body": "plain string"}"#))
+    @Test
+    func bodyAsNonDictionaryIsNotParsed() {
+        #expect(parse(#"{"body": "plain string"}"#) == nil)
     }
 
     // MARK: Title and body
 
-    func testAlertAsBareStringBecomesTheBody() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""aps": {"alert": "Hello"}"#)))
-        XCTAssertNil(record.title)
-        XCTAssertEqual(record.body, "Hello")
+    @Test
+    func alertAsBareStringBecomesTheBody() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal(#""aps": {"alert": "Hello"}"#)))
+        #expect(record.title == nil)
+        #expect(record.body == "Hello")
     }
 
-    func testMissingAlertStillCapturesWithNilTitleAndBody() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal()))
-        XCTAssertNil(record.title)
-        XCTAssertNil(record.body)
+    @Test
+    func missingAlertStillCapturesWithNilTitleAndBody() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal()))
+        #expect(record.title == nil)
+        #expect(record.body == nil)
     }
 
-    func testAlertWithLocalizationKeysOnlyKeepsTitleAndBody() throws {
+    @Test
+    func alertWithLocalizationKeysOnlyKeepsTitleAndBody() throws {
         let alert = #""aps": {"alert": {"title": "T", "loc-key": "K", "loc-args": ["a"]}}"#
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(alert)))
-        XCTAssertEqual(record.title, "T")
-        XCTAssertNil(record.body)
+        let record = try #require(parse(InboxPayloadFixtures.minimal(alert)))
+        #expect(record.title == "T")
+        #expect(record.body == nil)
     }
 
     // MARK: Default destination
 
-    func testDeepLinkUrlWinsOverWebUrl() throws {
+    @Test
+    func deepLinkUrlWinsOverWebUrl() throws {
         let urls = #""url": "myapp://a", "web_url": "https://b.com""#
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(urls)))
-        XCTAssertEqual(record.defaultDestination, try .deepLink(url("myapp://a")))
+        let record = try #require(parse(InboxPayloadFixtures.minimal(urls)))
+        try #expect(record.defaultDestination == .deepLink(url("myapp://a")))
     }
 
-    func testWebUrlIsUsedWhenUrlIsAbsentOrEmpty() throws {
+    @Test
+    func webUrlIsUsedWhenUrlIsAbsentOrEmpty() throws {
         for members in [#""web_url": "https://b.com""#, #""url": "", "web_url": "https://b.com""#] {
-            let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(members)))
-            XCTAssertEqual(record.defaultDestination, try .openUrl(url("https://b.com")), members)
+            let record = try #require(parse(InboxPayloadFixtures.minimal(members)))
+            try #expect(record.defaultDestination == .openUrl(url("https://b.com")), Comment(rawValue: members))
         }
     }
 
-    func testDisallowedWebUrlSchemeFallsBackToOpenApp() throws {
+    @Test
+    func disallowedWebUrlSchemeFallsBackToOpenApp() throws {
         for scheme in ["javascript:alert(1)", "file:///etc/passwd", "smsto:123"] {
-            let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""web_url": "\#(scheme)""#)))
-            XCTAssertEqual(record.defaultDestination, .openApp, scheme)
+            let record = try #require(parse(InboxPayloadFixtures.minimal(#""web_url": "\#(scheme)""#)))
+            #expect(record.defaultDestination == .openApp, Comment(rawValue: scheme))
         }
     }
 
-    func testNoUrlsMeansOpenApp() throws {
-        XCTAssertEqual(try XCTUnwrap(parse(InboxPayloadFixtures.minimal())).defaultDestination, .openApp)
+    @Test
+    func noUrlsMeansOpenApp() throws {
+        try #expect(#require(parse(InboxPayloadFixtures.minimal())).defaultDestination == .openApp)
     }
 
     // MARK: Media, custom data, timestamp
 
-    func testMediaTypeIsNilWhenAbsentAndMediaUrlIsNilWhenAbsent() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal()))
-        XCTAssertNil(record.mediaURL)
-        XCTAssertNil(record.mediaType)
+    @Test
+    func mediaTypeIsNilWhenAbsentAndMediaUrlIsNilWhenAbsent() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal()))
+        #expect(record.mediaURL == nil)
+        #expect(record.mediaType == nil)
         let media = InboxPayloadFixtures.minimal(#""rich-media": "https://x.com/a.png""#)
-        let withUrl = try XCTUnwrap(parse(media))
-        XCTAssertNotNil(withUrl.mediaURL)
-        XCTAssertNil(withUrl.mediaType, "no default type is invented")
+        let withUrl = try #require(parse(media))
+        #expect(withUrl.mediaURL != nil)
+        #expect(withUrl.mediaType == nil, "no default type is invented")
     }
 
-    func testCustomDataStringifiesNestedValuesAndDropsNulls() throws {
+    @Test
+    func customDataStringifiesNestedValuesAndDropsNulls() throws {
         let pairs = #""key_value_pairs": {"s": "v", "n": 3, "o": {"b": 1}, "l": [1, 2], "z": null}"#
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(pairs)))
-        XCTAssertEqual(record.customData, ["s": "v", "n": "3", "o": #"{"b":1}"#, "l": "[1,2]"])
+        let record = try #require(parse(InboxPayloadFixtures.minimal(pairs)))
+        #expect(record.customData == ["s": "v", "n": "3", "o": #"{"b":1}"#, "l": "[1,2]"])
     }
 
-    func testCustomDataThatIsNotADictionaryIsEmpty() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""key_value_pairs": "oops""#)))
-        XCTAssertTrue(record.customData.isEmpty)
+    @Test
+    func customDataThatIsNotADictionaryIsEmpty() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal(#""key_value_pairs": "oops""#)))
+        #expect(record.customData.isEmpty)
     }
 
-    func testUnparseableTimestampKeepsTheRecordWithNilSentAt() throws {
-        let record = try XCTUnwrap(parse(#"{"body": {"_k": {"tm": "t", "timestamp": "garbage"}}}"#))
-        XCTAssertNil(record.sentAt)
+    @Test
+    func unparseableTimestampKeepsTheRecordWithNilSentAt() throws {
+        let record = try #require(parse(#"{"body": {"_k": {"tm": "t", "timestamp": "garbage"}}}"#))
+        #expect(record.sentAt == nil)
     }
 
-    func testNonFiniteTimestampKeepsTheRecordWithNilSentAt() throws {
+    @Test
+    func nonFiniteTimestampKeepsTheRecordWithNilSentAt() throws {
         for value in ["nan", "inf", "-infinity"] {
-            let record = try XCTUnwrap(parse(#"{"body": {"_k": {"tm": "t", "timestamp": "\#(value)"}}}"#))
-            XCTAssertNil(record.sentAt, value)
+            let record = try #require(parse(#"{"body": {"_k": {"tm": "t", "timestamp": "\#(value)"}}}"#))
+            #expect(record.sentAt == nil, Comment(rawValue: value))
         }
     }
 
-    func testTimestampAcceptsFractionsAndEpochNumbers() throws {
+    @Test
+    func timestampAcceptsFractionsAndEpochNumbers() throws {
         let base = Date(timeIntervalSince1970: 1_791_460_800)
         let cases: [(String, Date)] = [
             (#""2026-10-08T12:00:00.500Z""#, base.addingTimeInterval(0.5)),
@@ -156,46 +177,48 @@ final class InboxPayloadParserTests: XCTestCase {
             ("1791460800000", base)
         ]
         for (value, expected) in cases {
-            let record = try XCTUnwrap(parse(#"{"body": {"_k": {"tm": "t", "timestamp": \#(value)}}}"#))
-            XCTAssertEqual(record.sentAt, expected, value)
+            let record = try #require(parse(#"{"body": {"_k": {"tm": "t", "timestamp": \#(value)}}}"#))
+            #expect(record.sentAt == expected, Comment(rawValue: value))
         }
     }
 
-    func testReceivedAtComesFromTheCallerNotThePayload() throws {
-        XCTAssertEqual(try XCTUnwrap(parse(InboxPayloadFixtures.full)).receivedAt, received)
+    @Test
+    func receivedAtComesFromTheCallerNotThePayload() throws {
+        try #expect(#require(parse(InboxPayloadFixtures.full)).receivedAt == received)
     }
 
     // MARK: Action buttons
 
     private func actions(_ buttons: String) throws -> [InboxAction] {
         let json = #"{"body": {"_k": {"tm": "t"}, "action_buttons": \#(buttons)}}"#
-        return try XCTUnwrap(parse(json)).actions
+        return try #require(parse(json)).actions
     }
 
     // Which buttons are valid is covered by `ActionButtonParserTests` in `KlaviyoFoundationTests`.
-    func testActionsKeepPayloadOrderAndDropUnknownTypes() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
-        XCTAssertEqual(record.actions, [
+    @Test
+    func actionsKeepPayloadOrderAndDropUnknownTypes() throws {
+        let record = try #require(parse(InboxPayloadFixtures.full))
+        #expect(record.actions == [
             try InboxAction(id: "a1", label: "Shop", destination: .deepLink(url("myapp://sale"))),
             try InboxAction(id: "a3", label: "Web", destination: .openUrl(url("https://example.com")))
         ])
     }
 
-    func testOpenAppButtonHasNoUrl() throws {
-        XCTAssertEqual(
-            try actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#),
-            [InboxAction(id: "a", label: "Open", destination: .openApp)]
-        )
+    @Test
+    func openAppButtonHasNoUrl() throws {
+        try #expect(actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#) == [InboxAction(id: "a", label: "Open", destination: .openApp)])
     }
 
-    func testAtMostThreeActionsAreKeptInOrder() throws {
+    @Test
+    func atMostThreeActionsAreKeptInOrder() throws {
         let buttons = (1...5)
             .map { #"{"id": "\#($0)", "action": "open_app", "label": "B\#($0)"}"# }
             .joined(separator: ",")
-        XCTAssertEqual(try actions("[\(buttons)]").map(\.id), ["1", "2", "3"])
+        try #expect(actions("[\(buttons)]").map(\.id) == ["1", "2", "3"])
     }
 
-    func testDroppedButtonsDoNotCountTowardTheCap() throws {
+    @Test
+    func droppedButtonsDoNotCountTowardTheCap() throws {
         let buttons = """
         [
           {"id": "bad", "action": "deep_link", "label": "x"},
@@ -205,36 +228,37 @@ final class InboxPayloadParserTests: XCTestCase {
           {"id": "4", "action": "open_app", "label": "x"}
         ]
         """
-        XCTAssertEqual(try actions(buttons).map(\.id), ["1", "2", "3"])
+        try #expect(actions(buttons).map(\.id) == ["1", "2", "3"])
     }
 
-    func testMissingOrNonArrayActionButtonsMeansNoActions() throws {
-        XCTAssertTrue(try XCTUnwrap(parse(InboxPayloadFixtures.minimal())).actions.isEmpty)
-        XCTAssertTrue(try actions(#""oops""#).isEmpty)
-        XCTAssertTrue(try actions("[]").isEmpty)
+    @Test
+    func missingOrNonArrayActionButtonsMeansNoActions() throws {
+        try #expect(#require(parse(InboxPayloadFixtures.minimal())).actions.isEmpty)
+        try #expect(actions(#""oops""#).isEmpty)
+        try #expect(actions("[]").isEmpty)
     }
 
     // MARK: Badge, transport, raw payload
 
-    func testFullPayloadBadgeAndTransport() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
+    @Test
+    func fullPayloadBadgeAndTransport() throws {
+        let record = try #require(parse(InboxPayloadFixtures.full))
         let expectedBadge = InboxBadge(apsBadge: 3, config: "set_count", value: 5, notificationCount: 7)
-        XCTAssertEqual(record.badge, expectedBadge)
-        XCTAssertEqual(
-            record.transport,
-            InboxTransportFlags(
-                mutableContent: true, contentAvailable: false, priority: "10", sound: "default"
-            )
-        )
+        #expect(record.badge == expectedBadge)
+        #expect(record.transport == InboxTransportFlags(
+            mutableContent: true, contentAvailable: false, priority: "10", sound: "default"
+        ))
     }
 
-    func testNoBadgeKeysMeansNilBadgeAndEmptyTransport() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal()))
-        XCTAssertNil(record.badge)
-        XCTAssertEqual(record.transport, InboxTransportFlags())
+    @Test
+    func noBadgeKeysMeansNilBadgeAndEmptyTransport() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal()))
+        #expect(record.badge == nil)
+        #expect(record.transport == InboxTransportFlags())
     }
 
-    func testEachBadgeKeyAloneProducesABadge() throws {
+    @Test
+    func eachBadgeKeyAloneProducesABadge() throws {
         let cases: [(String, InboxBadge)] = [
             (#""aps": {"badge": 4}"#, InboxBadge(apsBadge: 4)),
             (#""badge_config": "increment_one""#, InboxBadge(config: "increment_one")),
@@ -242,56 +266,59 @@ final class InboxPayloadParserTests: XCTestCase {
             (#""notification_count": 2"#, InboxBadge(notificationCount: 2))
         ]
         for (members, expected) in cases {
-            let badge = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(members))).badge
-            XCTAssertEqual(badge, expected, members)
+            let badge = try #require(parse(InboxPayloadFixtures.minimal(members))).badge
+            #expect(badge == expected, Comment(rawValue: members))
         }
     }
 
-    func testTransportFlagsAcceptBooleansAndNumbers() throws {
-        let asBools = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(
+    @Test
+    func transportFlagsAcceptBooleansAndNumbers() throws {
+        let asBools = try #require(parse(InboxPayloadFixtures.minimal(
             #""aps": {"mutable-content": true, "content-available": false}"#
         )))
-        XCTAssertEqual(asBools.transport.mutableContent, true)
-        XCTAssertEqual(asBools.transport.contentAvailable, false)
-        let asNumbers = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(
+        #expect(asBools.transport.mutableContent == true)
+        #expect(asBools.transport.contentAvailable == false)
+        let asNumbers = try #require(parse(InboxPayloadFixtures.minimal(
             #""aps": {"mutable-content": 1, "content-available": 1}"#
         )))
-        XCTAssertEqual(asNumbers.transport.mutableContent, true)
-        XCTAssertEqual(asNumbers.transport.contentAvailable, true)
+        #expect(asNumbers.transport.mutableContent == true)
+        #expect(asNumbers.transport.contentAvailable == true)
     }
 
-    func testSoundThatIsADictionaryIsNotRecordedAsATypedValue() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""aps": {"sound": {"name": "x"}}"#)))
-        XCTAssertNil(record.transport.sound)
+    @Test
+    func soundThatIsADictionaryIsNotRecordedAsATypedValue() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal(#""aps": {"sound": {"name": "x"}}"#)))
+        #expect(record.transport.sound == nil)
     }
 
-    func testUnmappedKeysAreNotKept() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.minimal(#""m": "alias", "c": 1, "t": 2"#)))
-        XCTAssertNil(record.sentAt, "the non-normative `t` alias is never read into a typed field")
-        let properties = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any]
-        )
-        XCTAssertNil(properties["m"])
+    @Test
+    func unmappedKeysAreNotKept() throws {
+        let record = try #require(parse(InboxPayloadFixtures.minimal(#""m": "alias", "c": 1, "t": 2"#)))
+        #expect(record.sentAt == nil, "the non-normative `t` alias is never read into a typed field")
+        let properties = try #require(JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any])
+        #expect(properties["m"] == nil)
     }
 
-    func testAttributionRawPropertiesDropTheDeviceTokenAndKeepTheRest() throws {
-        let record = try XCTUnwrap(parse(InboxPayloadFixtures.full))
-        let properties = try XCTUnwrap(
-            JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any]
-        )
-        XCTAssertNil(properties["pt"])
-        XCTAssertEqual(properties["tm"] as? String, tm)
-        XCTAssertEqual(properties["$flow"] as? String, "F1")
+    @Test
+    func attributionRawPropertiesDropTheDeviceTokenAndKeepTheRest() throws {
+        let record = try #require(parse(InboxPayloadFixtures.full))
+        let properties = try #require(JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any])
+        #expect(properties["pt"] == nil)
+        #expect(properties["tm"] as? String == tm)
+        #expect(properties["$flow"] as? String == "F1")
     }
 
-    func testPayloadWithUnrepresentableValuesStillParses() throws {
+    @Test
+    func payloadWithUnrepresentableValuesStillParses() throws {
         let userInfo: [AnyHashable: Any] = [
             "body": ["_k": ["tm": "t", "pt": "x"]],
             "weird": [Double.nan, Data([1]), Date(timeIntervalSince1970: 0)],
             7: "non-string key"
         ]
-        let record = try XCTUnwrap(InboxPayloadParser.parse(userInfo: userInfo, receivedAt: received))
-        XCTAssertNotNil(try JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any])
-        XCTAssertEqual(record.attribution.transmissionID, "t")
+        let record = try #require(InboxPayloadParser.parse(userInfo: userInfo, receivedAt: received))
+        try #expect(JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any] != nil)
+        #expect(record.attribution.transmissionID == "t")
     }
 }
+
+#endif

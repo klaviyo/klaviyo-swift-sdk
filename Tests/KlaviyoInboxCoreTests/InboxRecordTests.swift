@@ -7,16 +7,19 @@
 
 import Foundation
 import KlaviyoInboxCore
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxRecordTests: XCTestCase {
-    func testRecordSurvivesAJSONRoundTrip() throws {
+@Suite
+struct InboxRecordTests {
+    @Test
+    func recordSurvivesAJSONRoundTrip() throws {
         let rawProperties = Data(#"{"tm":"tm-1"}"#.utf8)
         let record = try InboxRecord(
             attribution: InboxAttribution(transmissionID: "tm-1", rawProperties: rawProperties),
             title: "Title",
             body: "Body",
-            defaultDestination: .deepLink(XCTUnwrap(URL(string: "myapp://home"))),
+            defaultDestination: .deepLink(#require(URL(string: "myapp://home"))),
             mediaURL: URL(string: "https://example.com/i.png"),
             mediaType: "png",
             customData: ["k": "v"],
@@ -25,9 +28,9 @@ final class InboxRecordTests: XCTestCase {
                 try InboxAction(
                     id: "b",
                     label: "B",
-                    destination: .openUrl(XCTUnwrap(URL(string: "https://x.com")))
+                    destination: .openUrl(#require(URL(string: "https://x.com")))
                 ),
-                InboxAction(id: "c", label: "C", destination: .deepLink(XCTUnwrap(URL(string: "myapp://c"))))
+                InboxAction(id: "c", label: "C", destination: .deepLink(#require(URL(string: "myapp://c"))))
             ],
             sentAt: Date(timeIntervalSince1970: 100),
             receivedAt: Date(timeIntervalSince1970: 200),
@@ -37,18 +40,21 @@ final class InboxRecordTests: XCTestCase {
             )
         )
         let decoded = try JSONDecoder().decode(InboxRecord.self, from: JSONEncoder().encode(record))
-        XCTAssertEqual(decoded, record)
+        #expect(decoded == record)
     }
 
-    func testDefaultsAreEmptyAndOpenApp() {
+    @Test
+    func defaultsAreEmptyAndOpenApp() {
         let record = InboxRecord(
             attribution: InboxAttribution(transmissionID: "tm", rawProperties: Data()),
             receivedAt: Date(timeIntervalSince1970: 0)
         )
-        XCTAssertEqual(record.defaultDestination, .openApp)
-        XCTAssertTrue(record.actions.isEmpty)
-        XCTAssertTrue(record.customData.isEmpty)
-        XCTAssertNil(record.badge)
-        XCTAssertEqual(record.transport, InboxTransportFlags())
+        #expect(record.defaultDestination == .openApp)
+        #expect(record.actions.isEmpty)
+        #expect(record.customData.isEmpty)
+        #expect(record.badge == nil)
+        #expect(record.transport == InboxTransportFlags())
     }
 }
+
+#endif

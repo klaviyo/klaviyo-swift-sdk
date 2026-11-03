@@ -8,16 +8,13 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxStoreRetentionTests: XCTestCase {
-    private var appGroup: InboxAppGroup!
+@Suite
+struct InboxStoreRetentionTests {
+    private let appGroup = InboxStoreFixtures.temporaryAppGroup()
     private let company = InboxStoreFixtures.company
-
-    override func setUp() {
-        super.setUp()
-        appGroup = InboxStoreFixtures.temporaryAppGroup()
-    }
 
     private func makeStore(maxMessages: Int = 3) -> InboxStore {
         InboxStore(appGroup: appGroup, maxMessages: maxMessages)
@@ -42,17 +39,19 @@ final class InboxStoreRetentionTests: XCTestCase {
         return found
     }
 
-    func testTheOldestMessageBySortTimeIsEvictedOverTheLimit() async throws {
+    @Test
+    func theOldestMessageBySortTimeIsEvictedOverTheLimit() async throws {
         let store = makeStore()
         await capture(store, "tm-1", secondsAfterBase: 1)
         await capture(store, "tm-2", secondsAfterBase: 2)
         await capture(store, "tm-3", secondsAfterBase: 3)
         await capture(store, "tm-4", secondsAfterBase: 4)
         let kept = try await present(store, ["tm-1", "tm-2", "tm-3", "tm-4"])
-        XCTAssertEqual(kept, ["tm-2", "tm-3", "tm-4"])
+        #expect(kept == ["tm-2", "tm-3", "tm-4"])
     }
 
-    func testEvictionFollowsSortTimeNotArrivalOrder() async throws {
+    @Test
+    func evictionFollowsSortTimeNotArrivalOrder() async throws {
         let store = makeStore()
         await capture(store, "tm-1", secondsAfterBase: 10)
         await capture(store, "tm-2", secondsAfterBase: 20)
@@ -60,30 +59,33 @@ final class InboxStoreRetentionTests: XCTestCase {
         // Arrives last but was sent first, so it is the oldest and goes straight out.
         await capture(store, "tm-0", secondsAfterBase: 5)
         let kept = try await present(store, ["tm-0", "tm-1", "tm-2", "tm-3"])
-        XCTAssertEqual(kept, ["tm-1", "tm-2", "tm-3"])
+        #expect(kept == ["tm-1", "tm-2", "tm-3"])
     }
 
-    func testRetentionIsPerCompany() async throws {
+    @Test
+    func retentionIsPerCompany() async throws {
         let store = makeStore()
         await capture(store, "other-1", secondsAfterBase: 1, company: "XyZ789")
         for index in 1...4 {
             await capture(store, "tm-\(index)", secondsAfterBase: TimeInterval(index))
         }
         let kept = try await present(store, ["other-1", "tm-1", "tm-2", "tm-3", "tm-4"])
-        XCTAssertEqual(kept, ["other-1", "tm-2", "tm-3", "tm-4"])
+        #expect(kept == ["other-1", "tm-2", "tm-3", "tm-4"])
     }
 
-    func testIdenticalSortTimesEvictTheLowestTransmissionIDFirst() async throws {
+    @Test
+    func identicalSortTimesEvictTheLowestTransmissionIDFirst() async throws {
         let store = makeStore()
         await capture(store, "tm-b", secondsAfterBase: 1)
         await capture(store, "tm-a", secondsAfterBase: 1)
         await capture(store, "tm-d", secondsAfterBase: 1)
         await capture(store, "tm-c", secondsAfterBase: 1)
         let kept = try await present(store, ["tm-a", "tm-b", "tm-c", "tm-d"])
-        XCTAssertEqual(kept, ["tm-b", "tm-c", "tm-d"])
+        #expect(kept == ["tm-b", "tm-c", "tm-d"])
     }
 
-    func testADuplicateNeverDeletesAnything() async throws {
+    @Test
+    func aDuplicateNeverDeletesAnything() async throws {
         let store = makeStore()
         await capture(store, "tm-1", secondsAfterBase: 1)
         await capture(store, "tm-2", secondsAfterBase: 2)
@@ -93,12 +95,15 @@ final class InboxStoreRetentionTests: XCTestCase {
             InboxStoreFixtures.record(tm: "tm-3", sentAt: InboxStoreFixtures.baseDate.addingTimeInterval(3)),
             companyID: company
         )
-        XCTAssertEqual(replay, .duplicate)
+        #expect(replay == .duplicate)
         let kept = try await present(store, ["tm-1", "tm-2", "tm-3"])
-        XCTAssertEqual(kept, ["tm-1", "tm-2", "tm-3"])
+        #expect(kept == ["tm-1", "tm-2", "tm-3"])
     }
 
-    func testTheDefaultLimitIsOneHundred() {
-        XCTAssertEqual(InboxStore.defaultMaxMessages, 100)
+    @Test
+    func theDefaultLimitIsOneHundred() {
+        #expect(InboxStore.defaultMaxMessages == 100)
     }
 }
+
+#endif

@@ -8,16 +8,19 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+#if canImport(Testing)
+import Testing
 
 /// Two independent stores on one file stand in for the app and the Notification Service Extension:
 /// separate coordinators and contexts, as in two processes, sharing only the SQLite file.
-final class InboxStoreConcurrencyTests: XCTestCase {
+@Suite
+struct InboxStoreConcurrencyTests {
     private let company = "AbC123"
     private let ownPerWriter = 50
     private let shared = 10
 
-    func testTwoWritersLoseNothingAndDeduplicateSharedTransmissionIDs() async throws {
+    @Test
+    func twoWritersLoseNothingAndDeduplicateSharedTransmissionIDs() async throws {
         let appGroup = InboxStoreFixtures.temporaryAppGroup()
         let app = InboxStore(appGroup: appGroup, maxMessages: 1000)
         let extensionStore = InboxStore(appGroup: appGroup, maxMessages: 1000)
@@ -45,10 +48,10 @@ final class InboxStoreConcurrencyTests: XCTestCase {
         }
         let elapsed = Date().timeIntervalSince(started)
 
-        XCTAssertEqual(results.filter { $0 == .failed }.count, 0, "no capture may fail under contention")
-        XCTAssertEqual(results.filter { $0 == .captured }.count, ownPerWriter * 2 + shared)
-        XCTAssertEqual(results.filter { $0 == .duplicate }.count, shared)
-        XCTAssertLessThan(elapsed, 10, "contended writes must finish in bounded time")
+        #expect(results.filter { $0 == .failed }.isEmpty, "no capture may fail under contention")
+        #expect(results.filter { $0 == .captured }.count == (ownPerWriter * 2 + shared))
+        #expect(results.filter { $0 == .duplicate }.count == shared)
+        #expect(elapsed < 10, "contended writes must finish in bounded time")
 
         // A third, fresh store reads what is really on disk: every transmission ID is present.
         let reader = InboxStore(appGroup: appGroup)
@@ -56,15 +59,16 @@ final class InboxStoreConcurrencyTests: XCTestCase {
         for name in ["app", "nse"] { expected += (0..<ownPerWriter).map { "\(name)-\($0)" } }
         for id in expected {
             let stored = try await reader.message(id: id)
-            XCTAssertNotNil(stored, "\(id) is missing from the store")
+            #expect(stored != nil, "\(id) is missing from the store")
         }
         let extra = try await reader.message(id: "app-\(ownPerWriter)")
-        XCTAssertNil(extra)
+        #expect(extra == nil)
     }
 
     /// The first capture in each process creates the store. If the app and the extension do that at the
     /// same moment, neither may mistake the other's half-created file for a corrupt one and move it aside.
-    func testConcurrentFirstOpensNeverRebuildAHealthyStore() async {
+    @Test
+    func concurrentFirstOpensNeverRebuildAHealthyStore() async {
         for run in 0..<20 {
             let appGroup = InboxStoreFixtures.temporaryAppGroup()
             let diagnostics = RecordingStoreDiagnostics()
@@ -76,9 +80,11 @@ final class InboxStoreConcurrencyTests: XCTestCase {
             async let second = extensionStore.capture(InboxStoreFixtures.record(tm: "nse-\(run)"), companyID: company)
             let results = await [first, second]
 
-            XCTAssertEqual(results, [.captured, .captured], "run \(run)")
-            XCTAssertFalse(diagnostics.hasRecovered, "run \(run) rebuilt a healthy store")
-            XCTAssertFalse(diagnostics.hasDegraded, "run \(run) degraded")
+            #expect(results == [.captured, .captured], "run \(run)")
+            #expect(!diagnostics.hasRecovered, "run \(run) rebuilt a healthy store")
+            #expect(!diagnostics.hasDegraded, "run \(run) degraded")
         }
     }
 }
+
+#endif

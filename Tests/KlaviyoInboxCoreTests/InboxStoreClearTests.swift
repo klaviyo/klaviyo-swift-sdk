@@ -8,42 +8,43 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxStoreClearTests: XCTestCase {
-    private var appGroup: InboxAppGroup!
+@Suite
+struct InboxStoreClearTests {
+    private let appGroup = InboxStoreFixtures.temporaryAppGroup()
     private let company = InboxStoreFixtures.company
-
-    override func setUp() {
-        super.setUp()
-        appGroup = InboxStoreFixtures.temporaryAppGroup()
-    }
 
     private func makeStore() -> InboxStore {
         InboxStore(appGroup: appGroup)
     }
 
-    func testClearRemovesOnlyThatCompany() async throws {
+    @Test
+    func clearRemovesOnlyThatCompany() async throws {
         let store = makeStore()
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
         await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 2, companyID: "XyZ789")
         try await store.clear(companyID: company)
         let remaining = try await store.message(id: "tm-1")
         let other = try await store.message(id: "other-1")
-        XCTAssertNil(remaining)
-        XCTAssertNotNil(other)
+        #expect(remaining == nil)
+        #expect(other != nil)
     }
 
-    func testClearAllRemovesEverythingAndAMessageCanBeCapturedAgain() async throws {
+    @Test
+    func clearAllRemovesEverythingAndAMessageCanBeCapturedAgain() async throws {
         let store = makeStore()
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
         await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 2, companyID: "XyZ789")
         try await store.clearAll()
         let first = try await store.message(id: "tm-1")
         let other = try await store.message(id: "other-1")
-        XCTAssertNil(first)
-        XCTAssertNil(other)
+        #expect(first == nil)
+        #expect(other == nil)
         let again = await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        XCTAssertEqual(again, .captured)
+        #expect(again == .captured)
     }
 }
+
+#endif

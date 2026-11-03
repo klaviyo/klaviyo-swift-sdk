@@ -10,17 +10,20 @@ import CoreData
 import Foundation
 import KlaviyoInboxTestSupport
 import SQLite3
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxStoreRecoveryTests: XCTestCase {
-    private var appGroup: InboxAppGroup!
+#if targetEnvironment(simulator)
+private let runsOnSimulator = true
+#else
+private let runsOnSimulator = false
+#endif
+
+@Suite
+struct InboxStoreRecoveryTests {
+    private let appGroup = InboxStoreFixtures.temporaryAppGroup()
     private let company = InboxStoreFixtures.company
     private let epoch = Date(timeIntervalSince1970: 1_800_000_000)
-
-    override func setUp() {
-        super.setUp()
-        appGroup = InboxStoreFixtures.temporaryAppGroup()
-    }
 
     // MARK: - Helpers
 
@@ -33,13 +36,13 @@ final class InboxStoreRecoveryTests: XCTestCase {
     }
 
     private func storeURL() throws -> URL {
-        try XCTUnwrap(appGroup.inboxDirectory()).appendingPathComponent(InboxStore.storeFileName)
+        try #require(appGroup.inboxDirectory()).appendingPathComponent(InboxStore.storeFileName)
     }
 
     /// Every SQLite file in the Inbox directory. A rebuild leaves only the live store, never a copy of
     /// the bad one.
     private func sqliteFiles() throws -> [String] {
-        let directory = try XCTUnwrap(appGroup.inboxDirectory())
+        let directory = try #require(appGroup.inboxDirectory())
         return try FileManager.default.contentsOfDirectory(atPath: directory.path)
             .filter { $0.hasSuffix(".sqlite") }
             .sorted()
@@ -54,8 +57,8 @@ final class InboxStoreRecoveryTests: XCTestCase {
 
     /// The current model plus one more attribute, standing in for a newer build's model.
     private func newerModel() throws -> NSManagedObjectModel {
-        let copy = try XCTUnwrap(InboxStoreModel.current.copy() as? NSManagedObjectModel)
-        let entity = try XCTUnwrap(copy.entitiesByName[InboxStoreModel.entityName])
+        let copy = try #require(InboxStoreModel.current.copy() as? NSManagedObjectModel)
+        let entity = try #require(copy.entitiesByName[InboxStoreModel.entityName])
         let attribute = NSAttributeDescription()
         attribute.name = "futureField"
         attribute.attributeType = .stringAttributeType
@@ -81,7 +84,7 @@ final class InboxStoreRecoveryTests: XCTestCase {
             do {
                 for tm in transmissionIDs {
                     let record = InboxStoreFixtures.record(tm: tm, sentAt: epoch)
-                    let entity = try XCTUnwrap(NSEntityDescription.entity(
+                    let entity = try #require(NSEntityDescription.entity(
                         forEntityName: InboxStoreModel.entityName,
                         in: context
                     ))
@@ -115,43 +118,46 @@ final class InboxStoreRecoveryTests: XCTestCase {
 
     // MARK: - Unreachable App Group
 
-    func testMissingAppGroupIdentifierFailsWithoutThrowing() async {
+    @Test
+    func missingAppGroupIdentifierFailsWithoutThrowing() async {
         let group = InboxAppGroup(identifier: { nil }, containerURL: { _ in URL(fileURLWithPath: "/tmp") })
         let (store, recorder) = makeStore(group: group)
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        XCTAssertEqual(result, .failed)
-        XCTAssertTrue(recorder.hasDegraded)
+        #expect(result == .failed)
+        #expect(recorder.hasDegraded)
     }
 
-    func testUnreachableContainerFailsWithoutThrowing() async {
+    @Test
+    func unreachableContainerFailsWithoutThrowing() async {
         let group = InboxAppGroup(identifier: { "group.test" }, containerURL: { _ in nil })
         let (store, recorder) = makeStore(group: group)
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        XCTAssertEqual(result, .failed)
-        XCTAssertTrue(recorder.hasDegraded)
+        #expect(result == .failed)
+        #expect(recorder.hasDegraded)
     }
 
     // MARK: - Transient failures must never cost the user their messages
 
-    func testOnlyLockResourceAndIOErrorsAreTransient() {
+    @Test
+    func onlyLockResourceAndIOErrorsAreTransient() {
         func sqlite(_ code: Int) -> Error { NSError(domain: NSSQLiteErrorDomain, code: code) }
-        XCTAssertTrue(InboxStoreError.isTransient(sqlite(5)))
-        XCTAssertTrue(InboxStoreError.isTransient(sqlite(6)))
-        XCTAssertTrue(InboxStoreError.isTransient(sqlite(13)))
+        #expect(InboxStoreError.isTransient(sqlite(5)))
+        #expect(InboxStoreError.isTransient(sqlite(6)))
+        #expect(InboxStoreError.isTransient(sqlite(13)))
         // Disk I/O errors, including extended codes such as 6922 (a file moved under an open connection),
         // say nothing about the file's content.
-        XCTAssertTrue(InboxStoreError.isTransient(sqlite(10)))
-        XCTAssertTrue(InboxStoreError.isTransient(sqlite(6922)))
+        #expect(InboxStoreError.isTransient(sqlite(10)))
+        #expect(InboxStoreError.isTransient(sqlite(6922)))
         // Corruption and "not a database" are the cases that do justify a rebuild.
-        XCTAssertFalse(InboxStoreError.isTransient(sqlite(11)))
-        XCTAssertFalse(InboxStoreError.isTransient(sqlite(26)))
-        XCTAssertFalse(InboxStoreError.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_030)))
+        #expect(!InboxStoreError.isTransient(sqlite(11)))
+        #expect(!InboxStoreError.isTransient(sqlite(26)))
+        #expect(!(InboxStoreError.isTransient(NSError(domain: NSCocoaErrorDomain, code: 134_030))))
         let wrapped = NSError(
             domain: NSCocoaErrorDomain,
             code: 134_030,
             userInfo: [NSUnderlyingErrorKey: sqlite(5)]
         )
-        XCTAssertTrue(InboxStoreError.isTransient(wrapped))
+        #expect(InboxStoreError.isTransient(wrapped))
     }
 
     // MARK: - A store that keeps failing to open must eventually be rebuilt
@@ -176,7 +182,8 @@ final class InboxStoreRecoveryTests: XCTestCase {
         }
     }
 
-    func testARepeatedlyFailingStoreIsLeftAloneAtFirstThenRebuilt() throws {
+    @Test
+    func aRepeatedlyFailingStoreIsLeftAloneAtFirstThenRebuilt() throws {
         try writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"])
         let url = try storeURL()
         let diagnostics = RecordingStoreDiagnostics()
@@ -187,85 +194,80 @@ final class InboxStoreRecoveryTests: XCTestCase {
         )
 
         // One-off contention (another process still creating the file) must never cost the user a store.
-        XCTAssertThrowsError(try opener.open(coordinator, at: url))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
-        XCTAssertFalse(diagnostics.hasRecovered)
+        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
+        #expect(FileManager.default.fileExists(atPath: url.path))
+        #expect(!diagnostics.hasRecovered)
 
         // The same failure after the store has kept failing means the file itself is the problem.
-        XCTAssertThrowsError(try opener.open(coordinator, at: url, rebuildTransientFailures: true))
-        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
-        XCTAssertTrue(diagnostics.hasRecovered)
+        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url, rebuildTransientFailures: true) }
+        #expect(!(FileManager.default.fileExists(atPath: url.path)))
+        #expect(diagnostics.hasRecovered)
     }
 
     // MARK: - Diagnostics carry a code someone can act on
 
-    func testDiagnosticCodesNameTheSQLiteErrorWhereThereIsOne() {
+    @Test
+    func diagnosticCodesNameTheSQLiteErrorWhereThereIsOne() {
         func sqlite(_ code: Int) -> NSError { NSError(domain: NSSQLiteErrorDomain, code: code) }
-        XCTAssertEqual(InboxStoreError.diagnosticCode(for: sqlite(5)), 5)
-        XCTAssertEqual(InboxStoreError.diagnosticCode(for: InboxStoreError.underlying(sqlite(6922))), 6922)
+        #expect(InboxStoreError.diagnosticCode(for: sqlite(5)) == 5)
+        #expect(InboxStoreError.diagnosticCode(for: InboxStoreError.underlying(sqlite(6922))) == 6922)
         let wrapped = NSError(domain: NSCocoaErrorDomain, code: 134_030, userInfo: [NSUnderlyingErrorKey: sqlite(11)])
-        XCTAssertEqual(InboxStoreError.diagnosticCode(for: wrapped), 11)
-        XCTAssertEqual(InboxStoreError.diagnosticCode(for: InboxStoreError.underlying(wrapped)), 11)
+        #expect(InboxStoreError.diagnosticCode(for: wrapped) == 11)
+        #expect(InboxStoreError.diagnosticCode(for: InboxStoreError.underlying(wrapped)) == 11)
     }
 
-    func testDiagnosticCodesFallBackToTheErrorCodeAndNameAnUnavailableStore() {
-        XCTAssertEqual(
-            InboxStoreError.diagnosticCode(for: NSError(domain: NSCocoaErrorDomain, code: 512)),
-            512
-        )
-        XCTAssertEqual(
-            InboxStoreError.diagnosticCode(for: InboxStoreError.unavailable),
-            InboxStoreError.unavailableCode
-        )
-        XCTAssertLessThan(InboxStoreError.unavailableCode, 0)
+    @Test
+    func diagnosticCodesFallBackToTheErrorCodeAndNameAnUnavailableStore() {
+        #expect(InboxStoreError.diagnosticCode(for: NSError(domain: NSCocoaErrorDomain, code: 512)) == 512)
+        #expect(InboxStoreError.diagnosticCode(for: InboxStoreError.unavailable) == InboxStoreError.unavailableCode)
+        #expect(InboxStoreError.unavailableCode < 0)
     }
 
     // MARK: - Corrupt or foreign store
 
-    func testACorruptStoreIsRebuiltAndCaptureWorksAfterwards() async throws {
+    @Test
+    func aCorruptStoreIsRebuiltAndCaptureWorksAfterwards() async throws {
         try writeGarbage(over: storeURL())
         let (store, recorder) = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        XCTAssertEqual(result, .captured)
-        XCTAssertTrue(recorder.hasRecovered)
+        #expect(result == .captured)
+        #expect(recorder.hasRecovered)
         let stored = try await store.message(id: "tm-1")
-        XCTAssertNotNil(stored)
-        XCTAssertEqual(try sqliteFiles(), [InboxStore.storeFileName])
+        #expect(stored != nil)
+        try #expect(sqliteFiles() == [InboxStore.storeFileName])
     }
 
-    func testAStoreFromADifferentModelIsRebuilt() async throws {
+    @Test
+    func aStoreFromADifferentModelIsRebuilt() async throws {
         try writeStore(model: newerModel(), transmissionIDs: ["tm-1"])
         let (store, recorder) = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
-        XCTAssertEqual(result, .captured)
-        XCTAssertTrue(recorder.hasRecovered)
+        #expect(result == .captured)
+        #expect(recorder.hasRecovered)
         let old = try await store.message(id: "tm-1")
-        XCTAssertNil(old)
-        XCTAssertEqual(try sqliteFiles(), [InboxStore.storeFileName])
+        #expect(old == nil)
+        try #expect(sqliteFiles() == [InboxStore.storeFileName])
     }
 
     // MARK: - Journal mode, protection, bounded waiting
 
-    func testTheStoreIsInWALMode() async throws {
+    @Test
+    func theStoreIsInWALMode() async throws {
         let (store, _) = makeStore()
         _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        XCTAssertEqual(try journalMode(at: storeURL()), "wal")
+        try #expect(journalMode(at: storeURL()) == "wal")
     }
 
-    func testStoreFilesAreReadableWhileTheDeviceIsLocked() async throws {
+    @Test(.disabled(if: runsOnSimulator, "The simulator does not report a file protection class."))
+    func storeFilesAreReadableWhileTheDeviceIsLocked() async throws {
         let (store, _) = makeStore()
         _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         let url = try storeURL()
-        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
-        let protection = attributes[.protectionKey] as? FileProtectionType
-        try XCTSkipIf(protection == nil, "This platform does not report a file protection class.")
         for suffix in ["", "-wal", "-shm"] where FileManager.default.fileExists(atPath: url.path + suffix) {
             let item = try FileManager.default.attributesOfItem(atPath: url.path + suffix)
-            XCTAssertEqual(
-                item[.protectionKey] as? FileProtectionType,
-                .completeUntilFirstUserAuthentication,
-                "store file \(suffix.isEmpty ? "main" : suffix)"
-            )
+            #expect(item[.protectionKey] as? FileProtectionType == .completeUntilFirstUserAuthentication, "store file \(suffix.isEmpty ? "main" : suffix)")
         }
     }
 }
+
+#endif
