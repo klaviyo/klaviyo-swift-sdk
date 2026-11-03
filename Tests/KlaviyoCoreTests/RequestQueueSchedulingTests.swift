@@ -176,6 +176,7 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         spy.release()
         await flush.value
 
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
         XCTAssertEqual(spy.sentIds, ["r", "r"])
         await queue.stop()
     }
