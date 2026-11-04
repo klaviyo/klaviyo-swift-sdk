@@ -159,6 +159,10 @@ let package = Package(
             name: "KlaviyoInbox",
             dependencies: ["KlaviyoCore", "KlaviyoInboxCore"],
             path: "Sources/KlaviyoInbox"
+        ),
+        .testTarget(
+            name: "KlaviyoInboxTests",
+            dependencies: ["KlaviyoInbox", "KlaviyoInboxCore", "KlaviyoInboxTestSupport"]
         )
     ]
 )
