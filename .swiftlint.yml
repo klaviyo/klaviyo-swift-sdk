@@ -57,7 +57,13 @@ identifier_name:
   min_length:
     warning: 3
     error: 2
+  max_length:
+    warning: 60
+    error: 80
   excluded: # excluded via string array
+    - x
+    - y
+    - z
     - id
     - url
     - URL
@@ -65,4 +71,16 @@ identifier_name:
     - rhs
     - GlobalAPIKey
     - sms
+    - W
+    - R
+    - c
+    - t
+    - i
+    - C
+    - D
+    - l
+    - d
+    - r
+    - p
+  allowed_symbols: ["_"]
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
