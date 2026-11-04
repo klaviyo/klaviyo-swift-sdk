@@ -18,6 +18,11 @@ private let incomingProfile = ProfileData(email: "new@example.com", anonymousId:
 
 @MainActor
 final class IAFWebViewModelIdentityChangeTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private var clock: TestClock!
     private var sleepGate: SleepGate!
     private var manager: AuthTokenManager!
