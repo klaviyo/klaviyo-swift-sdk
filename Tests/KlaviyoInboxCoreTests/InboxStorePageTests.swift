@@ -137,6 +137,26 @@ struct InboxStorePageTests {
         #expect(ids(second) == ["tm-a"])
     }
 
+    /// Page order and the cursor's `<` have to compare IDs the same way, or a message at a page boundary
+    /// is skipped or repeated. Upper and lower case sort differently under binary and locale-aware
+    /// comparison, so mixed case tells them apart.
+    @Test
+    func messagesWithTheSameSortTimePageOnceEachWhateverTheCase() async throws {
+        let store = makeStore()
+        let all = ["tm-B", "tm-a", "tm-Z", "tm-b", "tm-A", "tm-z", "tm-_", "tm-1"]
+        for id in all {
+            await capture(store, id, secondsAfterBase: 1)
+        }
+        var seen: [String] = []
+        var cursor: InboxStoreCursor?
+        repeat {
+            let page = try await store.page(companyID: company, limit: 1, after: cursor)
+            seen += ids(page)
+            cursor = page.next
+        } while cursor != nil
+        #expect(seen == all.sorted { $0.utf8.lexicographicallyPrecedes($1.utf8) }.reversed())
+    }
+
     @Test
     func aPageOnlyHoldsTheRequestedCompany() async throws {
         let store = makeStore()
