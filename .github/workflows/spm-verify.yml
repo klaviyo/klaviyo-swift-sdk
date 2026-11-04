@@ -38,7 +38,9 @@ jobs:
       RELEASE_URL: ${{ github.event.release.html_url || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.tag) }}
     steps:
       - name: Record job start
-        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+        run: |
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
@@ -83,6 +85,21 @@ jobs:
         if: (success() || failure()) && steps.version_check.outcome != 'failure'
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
+      - name: Dispatch SDK bump to iOS test app
+        id: test_app_dispatch
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+        run: |
+          if [[ "$TAG" == *-* ]]; then
+            echo "Prerelease tag $TAG, skipping test app bump."
+            exit 0
+          fi
+          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
+            -f event_type=sdk-released \
+            -F client_payload[version]="$TAG"
+
       - name: Classify cancellation
         id: stop
         if: cancelled()
@@ -101,13 +118,16 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
-          status: ${{ job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure') }}
-          title: Swift SDK ${{ env.TAG }} SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}
-          body: CI check, SPM resolve and build at the tag.
+          status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || (job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure')) }}
+          title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
+          body: CI check, SPM resolve and build at `${{ env.TAG }}`.${{ steps.test_app_dispatch.outcome == 'failure' && ' The iOS test app SDK bump dispatch failed. Bump `klaviyo-ios-test-app` by hand or re-run this job.' || '' }}
           fields: |
-            Version: ${{ env.TAG }}
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
             Author: ${{ github.actor }}
-          links: Release|${{ env.RELEASE_URL }}
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Checkout full history for Linear sync
         id: linear-checkout
@@ -138,16 +158,3 @@ jobs:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: complete
           version: ${{ env.TAG }}
-
-      - name: Dispatch SDK bump to iOS test app
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
-        run: |
-          if [[ "$TAG" == *-* ]]; then
-            echo "Prerelease tag $TAG, skipping test app bump."
-            exit 0
-          fi
-          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
-            -f event_type=sdk-released \
-            -F client_payload[version]="$TAG"
