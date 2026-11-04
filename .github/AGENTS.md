@@ -10,6 +10,7 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 - Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Swift SDK", `:merlin-orb-swift:`).
 - `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
 - Report a cancelled job only on timeout: the `Classify cancellation` step in `spm-verify.yml` and `cocoapods-publish.yml`.
+- `spm-verify.yml` dispatches the iOS test app SDK bump before it notifies Slack. A failed dispatch posts the verify result as `warning` with a "bump by hand" note and does not fail the job.
 - `publish-release.yml` passes `slack_thread_ts` to `spm-verify.yml` and `cocoapods-publish.yml`, so they reply in the release thread. Release-triggered runs post fresh. Jobs in `publish-release.yml` sparse-checkout `.github/actions` into `_slack/`.
 - `check-release-version` posts its mismatch alert through `notify-slack`; pass it `token` and `thread_ts`.
 - `notify-slack` stays byte-identical in all 7 repos: klaviyo-android-sdk, klaviyo-android-test-app, klaviyo-swift-sdk, klaviyo-ios-test-app, klaviyo-react-native-sdk, klaviyo-expo-plugin, klaviyo-flutter-sdk.
