@@ -142,18 +142,22 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             request.predicate = NSPredicate(format: "%K == %@", InboxStoreModel.Key.transmissionID, id)
             request.fetchLimit = 1
             guard let object = try context.fetch(request).first else { return nil }
-            typealias Key = InboxStoreModel.Key
-            guard let payload = object.value(forKey: Key.payload) as? Data,
-                  let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
-                throw InboxStoreError.unavailable
-            }
-            return try StoredInboxMessage(
-                id: transmissionID,
-                record: JSONDecoder().decode(InboxRecord.self, from: payload),
-                isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
-                isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false
-            )
+            return try Self.storedMessage(from: object)
         }
+    }
+
+    static func storedMessage(from object: NSManagedObject) throws -> StoredInboxMessage {
+        typealias Key = InboxStoreModel.Key
+        guard let payload = object.value(forKey: Key.payload) as? Data,
+              let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
+            throw InboxStoreError.unavailable
+        }
+        return try StoredInboxMessage(
+            id: transmissionID,
+            record: JSONDecoder().decode(InboxRecord.self, from: payload),
+            isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
+            isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false
+        )
     }
 
     // MARK: - Context access
