@@ -234,7 +234,8 @@ struct InboxStoreRecoveryTests {
         #expect(recorder.hasRecovered)
         let stored = try await store.message(id: "tm-1")
         #expect(stored != nil)
-        try #expect(sqliteFiles() == [InboxStore.storeFileName])
+        let files = try sqliteFiles()
+        #expect(files == [InboxStore.storeFileName])
     }
 
     @Test
@@ -246,7 +247,8 @@ struct InboxStoreRecoveryTests {
         #expect(recorder.hasRecovered)
         let old = try await store.message(id: "tm-1")
         #expect(old == nil)
-        try #expect(sqliteFiles() == [InboxStore.storeFileName])
+        let files = try sqliteFiles()
+        #expect(files == [InboxStore.storeFileName])
     }
 
     // MARK: - Journal mode, protection, bounded waiting
@@ -255,7 +257,8 @@ struct InboxStoreRecoveryTests {
     func theStoreIsInWALMode() async throws {
         let (store, _) = makeStore()
         _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
-        try #expect(journalMode(at: storeURL()) == "wal")
+        let url = try storeURL()
+        #expect(journalMode(at: url) == "wal")
     }
 
     @Test(.disabled(if: runsOnSimulator, "The simulator does not report a file protection class."))

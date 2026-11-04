@@ -32,8 +32,10 @@ struct InboxPayloadParserTests {
         #expect(record.attribution.transmissionID == tm)
         #expect(record.title == "Sale")
         #expect(record.body == "50% off")
-        try #expect(record.defaultDestination == .deepLink(url("myapp://home")))
-        try #expect(record.mediaURL == url("https://example.com/i.png"))
+        let home = try url("myapp://home")
+        #expect(record.defaultDestination == .deepLink(home))
+        let image = try url("https://example.com/i.png")
+        #expect(record.mediaURL == image)
         #expect(record.mediaType == "png")
         #expect(record.customData == ["k1": "v1", "n": "2"])
         #expect(record.sentAt == Date(timeIntervalSince1970: 1_791_460_800))
@@ -104,14 +106,16 @@ struct InboxPayloadParserTests {
     func deepLinkUrlWinsOverWebUrl() throws {
         let urls = #""url": "myapp://a", "web_url": "https://b.com""#
         let record = try #require(parse(InboxPayloadFixtures.minimal(urls)))
-        try #expect(record.defaultDestination == .deepLink(url("myapp://a")))
+        let linkA = try url("myapp://a")
+        #expect(record.defaultDestination == .deepLink(linkA))
     }
 
     @Test
     func webUrlIsUsedWhenUrlIsAbsentOrEmpty() throws {
         for members in [#""web_url": "https://b.com""#, #""url": "", "web_url": "https://b.com""#] {
             let record = try #require(parse(InboxPayloadFixtures.minimal(members)))
-            try #expect(record.defaultDestination == .openUrl(url("https://b.com")), Comment(rawValue: members))
+            let web = try url("https://b.com")
+            #expect(record.defaultDestination == .openUrl(web), Comment(rawValue: members))
         }
     }
 
@@ -125,7 +129,8 @@ struct InboxPayloadParserTests {
 
     @Test
     func noUrlsMeansOpenApp() throws {
-        try #expect(#require(parse(InboxPayloadFixtures.minimal())).defaultDestination == .openApp)
+        let minimal = try #require(parse(InboxPayloadFixtures.minimal()))
+        #expect(minimal.defaultDestination == .openApp)
     }
 
     // MARK: Media, custom data, timestamp
@@ -184,7 +189,8 @@ struct InboxPayloadParserTests {
 
     @Test
     func receivedAtComesFromTheCallerNotThePayload() throws {
-        try #expect(#require(parse(InboxPayloadFixtures.full)).receivedAt == received)
+        let full = try #require(parse(InboxPayloadFixtures.full))
+        #expect(full.receivedAt == received)
     }
 
     // MARK: Action buttons
@@ -198,15 +204,18 @@ struct InboxPayloadParserTests {
     @Test
     func actionsKeepPayloadOrderAndDropUnknownTypes() throws {
         let record = try #require(parse(InboxPayloadFixtures.full))
+        let sale = try url("myapp://sale")
+        let web = try url("https://example.com")
         #expect(record.actions == [
-            try InboxAction(id: "a1", label: "Shop", destination: .deepLink(url("myapp://sale"))),
-            try InboxAction(id: "a3", label: "Web", destination: .openUrl(url("https://example.com")))
+            InboxAction(id: "a1", label: "Shop", destination: .deepLink(sale)),
+            InboxAction(id: "a3", label: "Web", destination: .openUrl(web))
         ])
     }
 
     @Test
     func openAppButtonHasNoUrl() throws {
-        try #expect(actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#) == [InboxAction(id: "a", label: "Open", destination: .openApp)])
+        let parsed = try actions(#"[{"id": "a", "action": "open_app", "label": "Open"}]"#)
+        #expect(parsed == [InboxAction(id: "a", label: "Open", destination: .openApp)])
     }
 
     @Test
@@ -214,7 +223,8 @@ struct InboxPayloadParserTests {
         let buttons = (1...5)
             .map { #"{"id": "\#($0)", "action": "open_app", "label": "B\#($0)"}"# }
             .joined(separator: ",")
-        try #expect(actions("[\(buttons)]").map(\.id) == ["1", "2", "3"])
+        let kept = try actions("[\(buttons)]")
+        #expect(kept.map(\.id) == ["1", "2", "3"])
     }
 
     @Test
@@ -228,14 +238,18 @@ struct InboxPayloadParserTests {
           {"id": "4", "action": "open_app", "label": "x"}
         ]
         """
-        try #expect(actions(buttons).map(\.id) == ["1", "2", "3"])
+        let kept = try actions(buttons)
+        #expect(kept.map(\.id) == ["1", "2", "3"])
     }
 
     @Test
     func missingOrNonArrayActionButtonsMeansNoActions() throws {
-        try #expect(#require(parse(InboxPayloadFixtures.minimal())).actions.isEmpty)
-        try #expect(actions(#""oops""#).isEmpty)
-        try #expect(actions("[]").isEmpty)
+        let minimal = try #require(parse(InboxPayloadFixtures.minimal()))
+        #expect(minimal.actions.isEmpty)
+        let notAnArray = try actions(#""oops""#)
+        #expect(notAnArray.isEmpty)
+        let none = try actions("[]")
+        #expect(none.isEmpty)
     }
 
     // MARK: Badge, transport, raw payload
@@ -316,7 +330,8 @@ struct InboxPayloadParserTests {
             7: "non-string key"
         ]
         let record = try #require(InboxPayloadParser.parse(userInfo: userInfo, receivedAt: received))
-        try #expect(JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any] != nil)
+        let object = try JSONSerialization.jsonObject(with: record.attribution.rawProperties)
+        #expect(object as? [String: Any] != nil)
         #expect(record.attribution.transmissionID == "t")
     }
 }
