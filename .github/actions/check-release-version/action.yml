@@ -40,10 +40,11 @@ runs:
         token: ${{ inputs.token }}
         thread_ts: ${{ inputs.thread_ts }}
         status: failure
-        title: Release version mismatch detected
+        title: Release version mismatch for `${{ env.EXPECTED_VERSION }}`
         body: ${{ inputs.consequence }}
         fields: |
-          Repository: ${{ github.repository }}
-          Version: ${{ env.EXPECTED_VERSION }}
-          Version.swift version: ${{ env.SWIFT_VERSION }}
-          Podspec versions: ${{ env.PODSPEC_VERSIONS }}
+          Repository: `${{ github.repository }}`
+          Version: `${{ env.EXPECTED_VERSION }}`
+          Version.swift version: `${{ env.SWIFT_VERSION }}`
+          Podspec versions: `${{ env.PODSPEC_VERSIONS }}`
+        links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}

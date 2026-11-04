@@ -38,7 +38,9 @@ jobs:
       RELEASE_URL: ${{ github.event.release.html_url || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.tag) }}
     steps:
       - name: Record job start
-        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+        run: |
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - uses: actions/checkout@v4
         with:
@@ -117,12 +119,15 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || (job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure')) }}
-          title: Swift SDK ${{ env.TAG }} SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
-          body: CI check, SPM resolve and build at the tag.${{ steps.test_app_dispatch.outcome == 'failure' && ' The iOS test app SDK bump dispatch failed. Bump klaviyo-ios-test-app by hand or re-run this job.' || '' }}
+          title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
+          body: CI check, SPM resolve and build at `${{ env.TAG }}`.${{ steps.test_app_dispatch.outcome == 'failure' && ' The iOS test app SDK bump dispatch failed. Bump `klaviyo-ios-test-app` by hand or re-run this job.' || '' }}
           fields: |
-            Version: ${{ env.TAG }}
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
             Author: ${{ github.actor }}
-          links: Release|${{ env.RELEASE_URL }}
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Checkout full history for Linear sync
         id: linear-checkout

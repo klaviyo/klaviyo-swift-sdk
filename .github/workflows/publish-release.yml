@@ -61,6 +61,7 @@ jobs:
       pull-requests: read
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
+      short_sha: ${{ steps.commit.outputs.short_sha }}
       draft_url: ${{ steps.draft.outputs.url }}
       slack_ts: ${{ steps.slack_pending.outputs.ts }}
     steps:
@@ -81,7 +82,9 @@ jobs:
 
       - name: Resolve commit
         id: commit
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Require a commit on master or rel/*
         id: branch-check
@@ -186,14 +189,15 @@ jobs:
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           status: pending
-          title: Swift SDK ${{ inputs.version }} ${{ env.PRERELEASE == 'true' && 'prerelease' || 'release' }} awaiting approval${{ inputs.skip_ci_check && ' (iOS SDK CI check skipped)' || '' }}
+          title: Swift SDK `${{ inputs.version }}` ${{ env.PRERELEASE == 'true' && 'prerelease' || 'release' }} awaiting approval${{ inputs.skip_ci_check && ' (iOS SDK CI check skipped)' || '' }}
           body: Review the draft release notes, then approve the `publish` job on this run.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ steps.commit.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
             Requested by: ${{ github.actor }}
           links: |
             Draft release|${{ steps.draft.outputs.url }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
 
       - name: Find failed step
         id: failed
@@ -231,11 +235,12 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_pending.outputs.ts }}
           status: failure
-          title: Swift SDK ${{ inputs.version }} release failed
+          title: Swift SDK `${{ inputs.version }}` release failed
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ steps.commit.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ steps.commit.outputs.short_sha }}`
             Stage: Prepare release draft
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
 
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
@@ -260,6 +265,7 @@ jobs:
       started: ${{ steps.started.outputs.started }}
     env:
       SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
+      SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
     steps:
       - name: Mark job started
         id: started
@@ -341,12 +347,14 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
           status: success
-          title: Swift SDK ${{ inputs.version }} published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
+          title: Swift SDK `${{ inputs.version }}` published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
           body: SPM verify and CocoaPods publish dispatched at the tag. They reply in this thread with their results.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ needs.prepare.outputs.sha }}
-          links: Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
+          links: |
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
 
       - name: Find failed step
         id: failed
@@ -384,11 +392,12 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
           status: failure
-          title: Swift SDK ${{ inputs.version }} release failed
+          title: Swift SDK `${{ inputs.version }}` release failed
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ needs.prepare.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
             Stage: Publish
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
 
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
@@ -441,8 +450,9 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ needs.prepare.outputs.slack_ts }}
           status: stopped
-          title: Swift SDK ${{ inputs.version }} release stopped, ${{ steps.reason.outputs.reason }}
+          title: Swift SDK `${{ inputs.version }}` release stopped, ${{ steps.reason.outputs.reason }}
           body: Nothing more will publish from this run.
           fields: |
-            Version: ${{ inputs.version }}
-            Commit: ${{ needs.prepare.outputs.sha }}
+            Version: `${{ inputs.version }}`
+            Commit: `${{ needs.prepare.outputs.short_sha }}`
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}

@@ -35,7 +35,9 @@ jobs:
 
     steps:
       - name: Record job start
-        run: echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+        run: |
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -177,13 +179,15 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: success
-          title: Swift SDK ${{ env.VERSION }} published to CocoaPods
+          title: Swift SDK `${{ env.VERSION }}` published to CocoaPods
           body: "Published KlaviyoCore, KlaviyoSwiftExtension, KlaviyoSwift, KlaviyoForms and KlaviyoLocation."
           fields: |
-            Version: ${{ env.VERSION }}
+            Version: `${{ env.VERSION }}`
+            Commit: `${{ env.SHORT_SHA }}`
             Trigger: ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}
           links: |
             ${{ github.event.release.html_url && format('Release|{0}', github.event.release.html_url) || '' }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Classify cancellation
         id: stop
@@ -204,7 +208,9 @@ jobs:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ job.status == 'cancelled' && 'stopped' || 'failure' }}
-          title: Swift SDK ${{ env.VERSION }} CocoaPods publish ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
+          title: Swift SDK `${{ env.VERSION }}` CocoaPods publish ${{ job.status == 'cancelled' && 'timed out' || 'failed' }}
           body: Failed to publish one or more podspecs to CocoaPods trunk. Re-running resumes after the pods already on trunk.
           fields: |
-            Version: ${{ env.VERSION }}
+            Version: `${{ env.VERSION }}`
+            Commit: `${{ env.SHORT_SHA }}`
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
