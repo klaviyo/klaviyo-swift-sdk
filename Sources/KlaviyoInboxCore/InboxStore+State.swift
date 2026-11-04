@@ -36,10 +36,12 @@ extension InboxStore {
         id: String,
         companyID: String
     ) async throws -> Bool {
-        try await perform { context in
+        let changed = try await perform { context in
             defer { context.reset() }
             return try Self.apply(state, id: id, companyID: companyID, in: context)
         }
+        if changed { changeSignal.post() }
+        return changed
     }
 
     /// The change `setState` makes, on a context the caller owns, so a caller that needs more in the

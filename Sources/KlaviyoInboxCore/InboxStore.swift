@@ -24,6 +24,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     let appGroup: InboxAppGroup
     let maxMessages: Int
     let diagnostics: (InboxStoreEvent) -> Void
+    let changeSignal: InboxChangeSignaling
 
     /// One coordinator and one private-queue context for the life of the store. Creating them does no
     /// I/O; the persistent store is added on the context's queue the first time it is needed.
@@ -52,11 +53,13 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     package init(
         appGroup: InboxAppGroup,
         maxMessages: Int = InboxStore.defaultMaxMessages,
-        diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic
+        diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic,
+        changeSignal: InboxChangeSignaling = NoInboxChangeSignal()
     ) {
         self.appGroup = appGroup
         self.maxMessages = maxMessages
         self.diagnostics = diagnostics
+        self.changeSignal = changeSignal
         stack = Stack(model: InboxStoreModel.current)
     }
 
@@ -71,7 +74,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
         do {
             let payload = try JSONEncoder().encode(record)
             let sortTime = record.sentAt ?? record.receivedAt
-            return try await perform { context in
+            let result = try await perform { context in
                 defer { context.reset() }
                 let result = try Self.insert(
                     record,
@@ -86,6 +89,8 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
                 }
                 return result
             }
+            if result == .captured { changeSignal.post() }
+            return result
         } catch {
             diagnostics(.writeFailed(code: InboxStoreError.diagnosticCode(for: error)))
             return .failed

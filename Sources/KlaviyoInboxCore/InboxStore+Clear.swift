@@ -10,31 +10,37 @@ import Foundation
 
 extension InboxStore {
     package func clear(companyID: String) async throws {
-        try await perform { context in
+        let removed = try await perform { context in
             defer { context.reset() }
             let predicate = NSPredicate(format: "%K == %@", InboxStoreModel.Key.companyID, companyID)
-            try Self.batchDelete(matching: predicate, in: context)
+            return try Self.batchDelete(matching: predicate, in: context)
         }
+        if removed > 0 { changeSignal.post() }
     }
 
     package func clearAll() async throws {
-        try await perform { context in
+        let removed = try await perform { context in
             defer { context.reset() }
-            try Self.batchDelete(matching: nil, in: context)
+            return try Self.batchDelete(matching: nil, in: context)
         }
+        if removed > 0 { changeSignal.post() }
     }
 
-    private static func batchDelete(matching predicate: NSPredicate?, in context: NSManagedObjectContext) throws {
+    /// Returns how many rows were removed.
+    private static func batchDelete(
+        matching predicate: NSPredicate?,
+        in context: NSManagedObjectContext
+    ) throws -> Int {
         let request = NSFetchRequest<NSFetchRequestResult>(entityName: InboxStoreModel.entityName)
         request.predicate = predicate
         let delete = NSBatchDeleteRequest(fetchRequest: request)
         delete.resultType = .resultTypeObjectIDs
         let result = try context.execute(delete) as? NSBatchDeleteResult
-        if let deleted = result?.result as? [NSManagedObjectID] {
-            NSManagedObjectContext.mergeChanges(
-                fromRemoteContextSave: [NSDeletedObjectsKey: deleted],
-                into: [context]
-            )
-        }
+        guard let deleted = result?.result as? [NSManagedObjectID] else { return 0 }
+        NSManagedObjectContext.mergeChanges(
+            fromRemoteContextSave: [NSDeletedObjectsKey: deleted],
+            into: [context]
+        )
+        return deleted.count
     }
 }
