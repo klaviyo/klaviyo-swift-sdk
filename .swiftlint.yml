@@ -3,6 +3,8 @@ disabled_rules: # rule identifiers turned on by default to exclude from running
   - colon
   - comma
   - control_statement
+  # SwiftFormat's --operatorfunc no-space setting owns this formatting decision.
+  - function_name_whitespace
 opt_in_rules: # some rules are turned off by default, so you need to opt-in
   - empty_count # Find all the available rules by running: `swiftlint rules`
 
@@ -12,9 +14,12 @@ opt_in_rules: # some rules are turned off by default, so you need to opt-in
 #   - vertical_whitespace
 
 included: # paths to include during linting. `--path` is ignored if present.
-  - Source
+  - Sources
+  - Tests
 excluded: # paths to ignore during linting. Takes precedence over `included`.
+  - Examples
   - Tests/KlaviyoSwiftTests/__Snapshots__
+baseline: .swiftlint.baseline
 analyzer_rules: # Rules run by `swiftlint analyze` (experimental)
   - explicit_self
 
@@ -25,7 +30,12 @@ force_try:
   severity: warning # explicitly
 # rules that have both warning and error levels, can set just the warning level
 # implicitly
-line_length: 110
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+  ignores_interpolated_strings: true
+  ignores_multiline_strings: true
 # they can set both implicitly with an array
 type_body_length:
   - 300 # warning
@@ -44,11 +54,23 @@ type_name:
   excluded: iPhone # excluded via string
   allowed_symbols: ["_"] # these are allowed in type names
 identifier_name:
-  min_length: # only min_length
-    error: 4 # only error
+  min_length:
+    warning: 3
+    error: 2
+  max_length:
+    warning: 60
+    error: 80
   excluded: # excluded via string array
+    - x
+    - y
+    - z
     - id
+    - url
     - URL
+    - lhs
+    - rhs
     - GlobalAPIKey
     - sms
+    - i
+  allowed_symbols: ["_"]
 reporter: "xcode" # reporter type (xcode, json, csv, checkstyle, codeclimate, junit, html, emoji, sonarqube, markdown, github-actions-logging)
