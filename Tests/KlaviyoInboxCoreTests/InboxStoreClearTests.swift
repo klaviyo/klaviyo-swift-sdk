@@ -17,7 +17,7 @@ struct InboxStoreClearTests {
     private let company = InboxStoreFixtures.company
 
     private func makeStore() -> InboxStore {
-        InboxStore(appGroup: appGroup)
+        InboxStoreFixtures.store(appGroup: appGroup)
     }
 
     @Test

@@ -27,6 +27,16 @@ package enum InboxStoreFixtures {
         )
     }
 
+    /// A store on `appGroup` that signals `changeSignal`, which counts posts by default, so a test never
+    /// sends a real cross-process notification unless it asks to.
+    package static func store(
+        appGroup: InboxAppGroup,
+        maxMessages: Int = InboxStore.defaultMaxMessages,
+        changeSignal: InboxChangeSignaling = RecordingInboxChangeSignal()
+    ) -> InboxStore {
+        InboxStore(appGroup: appGroup, maxMessages: maxMessages, changeSignal: changeSignal)
+    }
+
     package struct SQLFailure: Error {
         package let code: Int32
     }

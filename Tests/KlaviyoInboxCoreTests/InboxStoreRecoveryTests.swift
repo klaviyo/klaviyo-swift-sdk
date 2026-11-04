@@ -28,7 +28,7 @@ struct InboxStoreRecoveryTests {
     // MARK: - Helpers
 
     private func makeStore(group: InboxAppGroup? = nil) -> InboxStore {
-        InboxStore(appGroup: group ?? appGroup)
+        InboxStoreFixtures.store(appGroup: group ?? appGroup)
     }
 
     private func storeURL() throws -> URL {

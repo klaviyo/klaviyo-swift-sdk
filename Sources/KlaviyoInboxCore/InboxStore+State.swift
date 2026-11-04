@@ -33,12 +33,14 @@ extension InboxStore {
     }
 
     private func set(_ value: Bool, forKey key: String, id: String, companyID: String) async throws -> InboxStateUpdate {
-        try await perform { context in
+        let update = try await perform { context in
             defer { context.reset() }
             let update = try Self.apply(value, forKey: key, id: id, companyID: companyID, in: context)
             if update == .changed { try context.save() }
             return update
         }
+        if update == .changed { changeSignal.post() }
+        return update
     }
 
     /// The change a setter makes, on a context the caller owns, so a caller that needs more in the
