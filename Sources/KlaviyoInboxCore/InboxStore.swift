@@ -21,6 +21,9 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     package static let defaultMaxMessages = 100
     package static let storeFileName = "klaviyo-inbox.sqlite"
 
+    /// One store per process, created on first use: the one capture writes to and the app reads from.
+    package static let shared = InboxStore(appGroup: .system, changeSignal: DarwinInboxChangeSignal())
+
     let appGroup: InboxAppGroup
     let maxMessages: Int
     let changeSignal: InboxChangeSignaling

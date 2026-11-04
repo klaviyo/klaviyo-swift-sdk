@@ -15,10 +15,7 @@ import Foundation
 package struct InboxStoreCaptureSink: InboxCaptureSink {
     private let store: () -> InboxCapturing
 
-    /// One store per process, created on first use. A static so `InboxCapture`'s default sink shares it.
-    private static let shared = InboxStore(appGroup: .system, changeSignal: DarwinInboxChangeSignal())
-
-    package init(store: @escaping () -> InboxCapturing = { InboxStoreCaptureSink.shared }) {
+    package init(store: @escaping () -> InboxCapturing = { InboxStore.shared }) {
         self.store = store
     }
 
