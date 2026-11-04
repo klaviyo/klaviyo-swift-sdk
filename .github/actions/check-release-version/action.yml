@@ -32,6 +32,24 @@ runs:
         echo "EXPECTED_VERSION=$VERSION" >> "$GITHUB_ENV"
         "$GITHUB_WORKSPACE/scripts/check-version.sh" "$VERSION"
 
+    - name: Format podspec versions for the alert
+      if: failure() && steps.check.outcome == 'failure'
+      shell: bash
+      env:
+        PODSPEC_VERSIONS: ${{ env.PODSPEC_VERSIONS }}
+      run: |
+        pair_list="${PODSPEC_VERSIONS:-}"
+        if [ -n "${pair_list// /}" ]; then
+          {
+            echo "PODSPEC_BODY<<EOF_PODSPEC"
+            echo "Podspec versions:"
+            for pair in $pair_list; do
+              echo "• \`$pair\`"
+            done
+            echo "EOF_PODSPEC"
+          } >> "$GITHUB_ENV"
+        fi
+
     - name: Notify Slack of version mismatch
       if: failure() && steps.check.outcome == 'failure'
       continue-on-error: true
@@ -41,10 +59,11 @@ runs:
         thread_ts: ${{ inputs.thread_ts }}
         status: failure
         title: Release version mismatch for `${{ env.EXPECTED_VERSION }}`
-        body: ${{ inputs.consequence }}
+        body: |
+          ${{ inputs.consequence }}
+          ${{ env.PODSPEC_BODY }}
         fields: |
           Repository: `${{ github.repository }}`
           Version: `${{ env.EXPECTED_VERSION }}`
           Version.swift version: `${{ env.SWIFT_VERSION }}`
-          Podspec versions: `${{ env.PODSPEC_VERSIONS }}`
         links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
