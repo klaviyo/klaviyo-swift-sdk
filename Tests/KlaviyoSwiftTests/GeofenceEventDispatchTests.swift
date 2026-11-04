@@ -111,11 +111,11 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // immediate flush on the Core RequestQueue actor, which drains the durable QueueStore.
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
 
-        // Then: the durable queue drains (the actor flush is async/off-store, so poll it).
+        // Then: the forced flush sends the geofence event and leaves the durable queue empty.
         try await waitForConditionOrFail(
-            "Queue should be empty after a geofence event forces a flush"
-        ) { readQueue().isEmpty }
-        assertGeofenceEventSent(sentRequests.value)
+            "the forced flush must send the geofence event and both queued requests"
+        ) { Self.flushSentEverything(sentRequests.value) }
+        XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
     }
 
     func testCreateGeofenceEvent_ignoresEventWhenAPIKeyDoesNotMatch() async throws {
@@ -196,31 +196,24 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // and forces an immediate flush on the Core RequestQueue actor, which drains the queue.
         GeofenceEventDispatch.dispatch(event: makeGeofenceEvent(), apiKey: apiKey)
 
-        // Then: the event was processed — the forced flush drains the durable queue (async/off-store).
+        // Then: the forced flush sends the geofence event and leaves the durable queue empty.
         try await waitForConditionOrFail(
-            "Queue should be empty after a geofence event forces a flush"
-        ) { readQueue().isEmpty }
-        assertGeofenceEventSent(sentRequests.value)
+            "the forced flush must send the geofence event and both queued requests"
+        ) { Self.flushSentEverything(sentRequests.value) }
+        XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "MATCHING_KEY", "API key should remain unchanged"
         )
     }
 
-    /// Asserts the sent requests include the geofence event carrying `$geofence_id`.
-    private func assertGeofenceEventSent(
-        _ sent: [KlaviyoRequest],
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
-        let geofenceIds: [String] = sent.compactMap { request in
-            guard case let .createEvent(_, payload) = request.endpoint else { return nil }
+    /// Whether `sent` holds the geofence event carrying `$geofence_id` plus the two requests
+    /// `seedInitialized(apiKey:withQueuedItems:)` queues.
+    private nonisolated static func flushSentEverything(_ sent: [KlaviyoRequest]) -> Bool {
+        let sentGeofenceEvent = sent.contains { request in
+            guard case let .createEvent(_, payload) = request.endpoint else { return false }
             let props = payload.data.attributes.properties.value as? [String: Any]
-            return props?["$geofence_id"] as? String
+            return props?["$geofence_id"] as? String == "test-location-id"
         }
-        XCTAssertTrue(
-            geofenceIds.contains("test-location-id"),
-            "the drained batch must send the geofence event with its $geofence_id",
-            file: file, line: line
-        )
+        return sentGeofenceEvent && sent.count >= 3
     }
 }
