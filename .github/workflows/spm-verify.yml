@@ -101,6 +101,7 @@ jobs:
         run: ./scripts/check-ci-green.sh "$TAG"
 
       - name: Notify Slack - gates passed
+        id: slack_stage
         if: steps.ci_check.outcome == 'success'
         continue-on-error: true
         uses: ./.github/actions/notify-slack
@@ -171,7 +172,7 @@ jobs:
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          ts: ${{ steps.slack_pending.outputs.ts }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || (job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure')) }}
           title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || (steps.failed.outputs.gate == 'true' && format('blocked, {0} failed', steps.failed.outputs.name) || 'failed')) }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
