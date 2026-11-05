@@ -171,6 +171,7 @@ jobs:
       - name: Notify Slack
         if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}

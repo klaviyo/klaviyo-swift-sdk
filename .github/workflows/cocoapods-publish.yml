@@ -44,9 +44,15 @@ jobs:
           RAW_VERSION: ${{ github.event.release.tag_name || github.event.inputs.version }}
         run: echo "VERSION=${RAW_VERSION#v}" >> "$GITHUB_ENV"
 
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref }}
+
       - name: Checkout Slack action
         if: ${{ !cancelled() }}
         continue-on-error: true
+        timeout-minutes: 2
         uses: actions/checkout@v4
         with:
           ref: ${{ github.sha }}
@@ -72,12 +78,6 @@ jobs:
           links: |
             ${{ github.event.release.html_url && format('Release|{0}', github.event.release.html_url) || '' }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
-
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          clean: false
-          ref: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref }}
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
