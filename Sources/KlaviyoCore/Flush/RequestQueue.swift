@@ -72,6 +72,11 @@ public actor RequestQueue {
         }
     }
 
+    /// Minimum retry delay: one flush interval, or the Wi-Fi interval while offline (infinite).
+    private var retryFloor: TimeInterval {
+        flushInterval.isFinite ? flushInterval : FlushConstants.wifiFlushInterval
+    }
+
     /// How long the run loop sleeps: until the head's retry deadline, else one flush interval.
     private func nextDelay() -> TimeInterval {
         // Pre-init and offline flushes no-op, so a due head must not turn the loop into a busy spin.
@@ -237,7 +242,9 @@ public actor RequestQueue {
             return .continueSending
 
         case .abandonAttempt:
-            // Cancelled, not failed: keep the lease as-is with no attempt or backoff recorded.
+            // Cancelled, not failed: no attempt recorded. A head with a due deadline waits one floor
+            // interval so a repeatable cancel can't hot-loop.
+            requestsInFlight[0].deferRetry(by: retryFloor, now: environment.date())
             if #available(iOS 14.0, *) {
                 Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
             }
@@ -248,10 +255,9 @@ public actor RequestQueue {
             // Transport, rate-limit or server error: the backoff and attempt count belong to this
             // request alone. Drop it once it exhausts its own `maxRetries` (parity: `requestFailed`).
             // Floor the delay at one flush interval (finite fallback when offline).
-            let floor = flushInterval.isFinite ? flushInterval : FlushConstants.wifiFlushInterval
             var failed = head
             failed.recordRetryableFailure(
-                retryAfter: max(backoff, Int(floor.rounded(.up))),
+                retryAfter: max(backoff, Int(retryFloor.rounded(.up))),
                 now: environment.date()
             )
             if failed.hasExhaustedRetries {

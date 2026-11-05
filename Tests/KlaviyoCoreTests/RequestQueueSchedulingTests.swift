@@ -147,6 +147,22 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testCancelledResendOfDueHeadWaitsOneInterval() async {
+        let spy = SendSpy(results: [networkFailure, .failure(.networkError(URLError(.cancelled)))])
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.flushNow()
+        wallClock.advance(by: 60)
+
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2], "the due head is resent once and cancelled")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [1], "a cancel records no attempt")
+        XCTAssertEqual(headDelay, FlushConstants.wifiFlushInterval)
+
+        await queue.flushNow()
+        XCTAssertEqual(spy.sentAttempts, [1, 2], "no resend before the next interval")
+    }
+
     func testOneHourTransportOutageStaysWithinAttemptBudget() async {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()
