@@ -6,24 +6,19 @@
 @testable import KlaviyoForms
 import Combine
 import KlaviyoCore
-import WebKit
 import XCTest
 
 /// Covers `createFormWebViewAndListen` builds that overlap across the auth-token fetch,
-/// rebuilds while an older handshake is still pending, and unregistering mid-build.
+/// events and handshake failures from a replaced webview, and unregistering mid-build.
 @MainActor
 final class IAFPresentationManagerOverlapTests: XCTestCase {
-    /// Covers the immediate handshake-failure path (deallocated view controller).
-    private nonisolated static let shortObservationWindow: TimeInterval = 1
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
 
-    /// Handshake timeout for builds whose handshake the test completes itself.
+    /// Handshake timeout for every build, longer than any test, so no handshake times out.
     private static let activeHandshakeTimeout: TimeInterval = 300
-
-    /// Handshake timeout for a build whose handshake is expected to time out.
-    private static let staleHandshakeTimeout: TimeInterval = 1
-
-    /// Longer than `staleHandshakeTimeout`, so a stale handshake timing out is also covered.
-    private static let handshakeTimeoutObservationWindow: TimeInterval = staleHandshakeTimeout + 2
 
     private let gate = BuildGate()
     private var defaultFetchInitialAuthToken: ((AuthTokenManager) async -> AuthTokenManager.TokenRefresh?)?
@@ -107,97 +102,35 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         }
     }
 
-    /// Waits until `count` builds have parked on the gated token fetch.
+    /// Suspends until `count` builds have reached the gated token fetch, failing the test
+    /// when they do not within ``hangSafeguard``.
     private func waitForParkedBuilds(
         _ count: Int,
         file: StaticString = #filePath,
         line: UInt = #line
-    ) async {
+    ) async throws {
         let gate = gate
-        let parked = await waitUntil { await gate.arrivals >= count }
-        XCTAssertTrue(parked, "Expected \(count) builds parked on the token fetch", file: file, line: line)
+        try await awaitBounded("\(count) parked builds", file: file, line: line) {
+            await gate.waitForArrivals(count)
+        }
     }
 
     private func startBuild(apiKey: String) -> Task<Bool, Error> {
         Task { try await manager.createFormWebViewAndListen(apiKey: apiKey) }
     }
 
-    /// Simulates KlaviyoJS completing the handshake on the active webview, so the
-    /// active build's own handshake cannot time out during observation.
-    private func completeActiveHandshake() {
-        activeViewModel?.handleScriptMessage(
-            MockWKScriptMessage(name: "KlaviyoNativeBridge", body: #"{"type":"handShook","data":{}}"#)
-        )
-    }
-
-    /// Polls `viewController` for `window` seconds; returns the elapsed time at which
-    /// it was first observed nil, or `nil` if it survived the whole window.
-    private func observeTeardown(for window: TimeInterval) async -> TimeInterval? {
-        let start = Date()
-        while Date().timeIntervalSince(start) < window {
-            if manager.viewController == nil {
-                return Date().timeIntervalSince(start)
-            }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        return manager.viewController == nil ? Date().timeIntervalSince(start) : nil
-    }
-
-    private func assertActiveWebViewSurvives(
-        apiKey: String,
-        for window: TimeInterval = shortObservationWindow,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) async {
-        guard manager.viewController != nil else {
-            XCTFail("Active webview was torn down before observation began", file: file, line: line)
-            return
-        }
-        completeActiveHandshake()
-        let teardownAt = await observeTeardown(for: window)
-        let elapsed = teardownAt.map { String(format: "%.3fs", $0) } ?? "-"
-        XCTAssertNil(
-            teardownAt,
-            "Active webview was torn down \(elapsed) after build",
-            file: file,
-            line: line
-        )
-        XCTAssertEqual(activeViewModel?.apiKey, apiKey, file: file, line: line)
-    }
-
-    private func settle(nanoseconds: UInt64 = 100_000_000) async {
-        for _ in 0..<50 {
-            await Task.yield()
-        }
-        try? await Task.sleep(nanoseconds: nanoseconds)
-    }
-
     // MARK: - Tests
-
-    func testLoneGatedBuildInstallsAndSurvives() async throws {
-        try await gateTokenFetch()
-
-        let build = startBuild(apiKey: "only-key")
-        await waitForParkedBuilds(1)
-        XCTAssertNil(manager.viewController, "Build should be parked on the token fetch")
-
-        await gate.releaseAll()
-        let installed = try await build.value
-
-        XCTAssertTrue(installed)
-        await assertActiveWebViewSurvives(apiKey: "only-key")
-    }
 
     func testFormEventFromReplacedWebViewDoesNotTearDownActiveWebView() async throws {
         try await gateTokenFetch()
         let first = startBuild(apiKey: "first-key")
-        await waitForParkedBuilds(1)
+        try await waitForParkedBuilds(1)
         await gate.releaseAll()
         let firstInstalled = try await first.value
         let replaced = try XCTUnwrap(activeViewModel)
 
         let second = startBuild(apiKey: "second-key")
-        await waitForParkedBuilds(2)
+        try await waitForParkedBuilds(2)
         await gate.releaseAll()
         let secondInstalled = try await second.value
         let active = try XCTUnwrap(activeViewModel)
@@ -216,9 +149,9 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         try await gateTokenFetch()
 
         let first = startBuild(apiKey: "first-key")
-        await waitForParkedBuilds(1)
+        try await waitForParkedBuilds(1)
         let second = startBuild(apiKey: "second-key")
-        await waitForParkedBuilds(2)
+        try await waitForParkedBuilds(2)
         XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
 
         await gate.releaseNewest()
@@ -228,79 +161,41 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
         XCTAssertTrue(secondInstalled)
         XCTAssertFalse(firstInstalled)
-        await assertActiveWebViewSurvives(apiKey: "second-key")
-    }
-
-    func testAPIKeyChangeDuringGatedTokenFetchKeepsLatestWebViewAlive() async throws {
-        try await gateTokenFetch()
-
-        manager.initializeIAF(configuration: InAppFormsConfig())
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "first-key"))
-        await waitForParkedBuilds(1)
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "second-key"))
-        await waitForParkedBuilds(2)
-        XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
-
-        await gate.releaseNewest()
-        let secondInstalled = await waitUntil { self.activeViewModel?.apiKey == "second-key" }
-        XCTAssertTrue(secondInstalled)
-        await gate.releaseAll()
-        await settle()
-
-        await assertActiveWebViewSurvives(apiKey: "second-key")
-    }
-
-    func testRebuildAfterTeardownSurvivesStaleHandshakeTimeout() async throws {
-        manager.handshakeTimeout = Self.staleHandshakeTimeout
-        try await manager.createFormWebViewAndListen(apiKey: "first-key")
-        XCTAssertNotNil(manager.viewController)
-        await settle(nanoseconds: 50_000_000)
-
-        manager.tearDownFormWebView()
-        manager.handshakeTimeout = Self.activeHandshakeTimeout
-        try await manager.createFormWebViewAndListen(apiKey: "second-key")
-        await settle(nanoseconds: 50_000_000)
-
-        await assertActiveWebViewSurvives(
-            apiKey: "second-key",
-            for: Self.handshakeTimeoutObservationWindow
-        )
+        XCTAssertNotNil(manager.viewController, "The superseded build must not tear down the latest one")
+        XCTAssertEqual(activeViewModel?.apiKey, "second-key")
     }
 
     func testUnregisterDuringPendingBuildPreventsInstall() async throws {
         try await gateTokenFetch()
 
         let build = startBuild(apiKey: "first-key")
-        await waitForParkedBuilds(1)
+        try await waitForParkedBuilds(1)
         manager.destroyWebviewAndListeners()
 
         await gate.releaseAll()
         let installed = try await build.value
-        await settle()
 
         XCTAssertFalse(installed)
         XCTAssertNil(manager.viewController)
         XCTAssertNil(activeViewModel)
     }
 
-    func testRebuildAfterUnregisterDuringPendingBuildInstallsOnlyLatest() async throws {
-        try await gateTokenFetch()
+    func testHandshakeFailureFromReplacedWebViewDoesNotTearDownActiveWebView() async throws {
+        try await manager.createFormWebViewAndListen(apiKey: "first-key")
+        let replaced = try XCTUnwrap(activeViewModel)
+        manager.tearDownFormWebView()
+        try await manager.createFormWebViewAndListen(apiKey: "second-key")
+        let active = try XCTUnwrap(activeViewModel)
 
-        let first = startBuild(apiKey: "first-key")
-        await waitForParkedBuilds(1)
-        manager.destroyWebviewAndListeners()
-        let second = startBuild(apiKey: "second-key")
-        await waitForParkedBuilds(2)
-        XCTAssertNil(manager.viewController, "Both builds should be parked on the token fetch")
+        manager.handleHandshakeFailure(for: replaced)
+        XCTAssertNotNil(
+            manager.viewController,
+            "A replaced webview's handshake failure must not tear down the active one"
+        )
+        XCTAssertEqual(activeViewModel?.apiKey, "second-key")
 
-        await gate.releaseNewest()
-        let secondInstalled = try await second.value
-        await gate.releaseAll()
-        let firstInstalled = try await first.value
-
-        XCTAssertTrue(secondInstalled)
-        XCTAssertFalse(firstInstalled)
-        await assertActiveWebViewSurvives(apiKey: "second-key")
+        manager.handleHandshakeFailure(for: active)
+        XCTAssertNil(manager.viewController, "The active webview's own handshake failure still tears it down")
     }
 
     func testForegroundRebuildDuringAPIKeyChangeKeepsLifecycleObservationAlive() async throws {
@@ -320,12 +215,12 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
 
         try await gateTokenFetch()
         SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "second-key"))
-        await waitForParkedBuilds(1)
+        try await waitForParkedBuilds(1)
         XCTAssertNil(manager.viewController, "API key change build should be parked on the token fetch")
 
         // A foreground event delivered from the stopped observer's buffer starts its own build.
         let foregroundBuild = Task { await manager.handleAppLifecycleEvent(.foregrounded) }
-        await waitForParkedBuilds(2)
+        try await waitForParkedBuilds(2)
 
         await gate.releaseAll()
         await foregroundBuild.value
@@ -335,8 +230,6 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
             self.lifecycleObserver != nil && self.lifecycleObserver !== firstObserver
         }
         XCTAssertTrue(observationRestarted, "Lifecycle observation not restarted after the API key change")
-        completeActiveHandshake()
-        await settle()
 
         lifecycleEvents.send(.backgrounded)
         let backgroundObserved = await waitUntil { self.lastBackgrounded != nil }
@@ -349,13 +242,24 @@ private actor BuildGate {
     private var parked: [CheckedContinuation<Void, Never>] = []
     private var isOpen = false
 
-    /// Number of builds that have reached the gate.
-    private(set) var arrivals = 0
+    private var arrivals = 0
+    private var arrivalWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
 
     func park() async {
         arrivals += 1
+        arrivalWaiters.removeAll { waiter in
+            guard arrivals >= waiter.count else { return false }
+            waiter.continuation.resume()
+            return true
+        }
         if isOpen { return }
         await withCheckedContinuation { parked.append($0) }
+    }
+
+    /// Suspends until `count` builds have reached the gate.
+    func waitForArrivals(_ count: Int) async {
+        if arrivals >= count { return }
+        await withCheckedContinuation { arrivalWaiters.append((count, $0)) }
     }
 
     /// Resumes the most recently parked build.

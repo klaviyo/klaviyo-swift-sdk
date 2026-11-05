@@ -28,6 +28,11 @@ private final class SpyDispatcher: EventDispatching {
 }
 
 final class IAFWebViewModelTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // MARK: - Properties
 
     var viewModel: IAFWebViewModel!

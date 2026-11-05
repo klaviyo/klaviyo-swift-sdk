@@ -9,6 +9,11 @@ on:
         description: Existing release tag to verify (e.g. 5.5.0)
         required: true
         type: string
+      slack_thread_ts:
+        description: Slack message ts to reply under. Set by publish-release.yml; leave empty to post a new message
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -19,6 +24,10 @@ concurrency:
   group: spm-verify-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: true
 
+env:
+  SLACK_USERNAME: Swift SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-swift:'
+
 jobs:
   verify:
     name: Resolve and build tag via SPM
@@ -28,13 +37,40 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       RELEASE_URL: ${{ github.event.release.html_url || format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, inputs.tag) }}
     steps:
+      - name: Record job start
+        run: |
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${GITHUB_SHA:0:7}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
             .github/actions
             scripts/spm-verify.sh
             scripts/check-ci-green.sh
+            scripts/check-version.sh
           sparse-checkout-cone-mode: false
+
+      - name: Check out version files at ${{ env.TAG }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: tag-src
+          persist-credentials: false
+          sparse-checkout: |
+            Sources/KlaviyoCore/Utils/Version.swift
+            /*.podspec
+          sparse-checkout-cone-mode: false
+
+      - name: Check ${{ env.TAG }} matches version in code
+        id: version_check
+        uses: ./.github/actions/check-release-version
+        with:
+          version: ${{ env.TAG }}
+          path: tag-src
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          consequence: SPM consumers resolve this tag directly, so they already see it, and the SDK reports the Version.swift version at runtime. Skipped SPM verification, the Linear release sync and the iOS test app bump. Fix the release and tag so the tag name matches Version.swift.
 
       - name: Select Xcode 16.4
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
@@ -46,20 +82,52 @@ jobs:
         run: ./scripts/check-ci-green.sh "$TAG"
 
       - name: Resolve and build ${{ env.TAG }}
-        if: success() || failure()
+        if: (success() || failure()) && steps.version_check.outcome != 'failure'
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
-      - name: Notify Slack
-        if: success() || failure()
+      - name: Dispatch SDK bump to iOS test app
+        id: test_app_dispatch
+        if: success()
         continue-on-error: true
-        uses: ./.github/actions/notify-slack-publish
+        env:
+          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+        run: |
+          if [[ "$TAG" == *-* ]]; then
+            echo "Prerelease tag $TAG, skipping test app bump."
+            exit 0
+          fi
+          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
+            -f event_type=sdk-released \
+            -F client_payload[version]="$TAG"
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        env:
+          TIMEOUT_MINUTES: 30
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Slack
+        if: (success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && steps.version_check.outcome != 'failure'
+        continue-on-error: true
+        uses: ./.github/actions/notify-slack
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-          result: ${{ job.status == 'success' && 'success' || 'failure' }}
-          package: Swift SDK (SPM)
-          action_label: CI check + SPM resolve + build
-          version_label: ${{ env.TAG }}
-          release_url: ${{ env.RELEASE_URL }}
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || (job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure')) }}
+          title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
+          body: CI check, SPM resolve and build at `${{ env.TAG }}`.${{ steps.test_app_dispatch.outcome == 'failure' && ' The iOS test app SDK bump dispatch failed. Bump `klaviyo-ios-test-app` by hand or re-run this job.' || '' }}
+          fields: |
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Author: ${{ github.actor }}
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Checkout full history for Linear sync
         id: linear-checkout
@@ -90,16 +158,3 @@ jobs:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: complete
           version: ${{ env.TAG }}
-
-      - name: Dispatch SDK bump to iOS test app
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
-        run: |
-          if [[ "$TAG" == *-* ]]; then
-            echo "Prerelease tag $TAG, skipping test app bump."
-            exit 0
-          fi
-          gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
-            -f event_type=sdk-released \
-            -F client_payload[version]="$TAG"
