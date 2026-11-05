@@ -46,6 +46,11 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
@@ -96,6 +101,11 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
 }
 
 final class IAFWebViewModelScriptTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // MARK: - Properties
 
     private var config: WKWebViewConfiguration!

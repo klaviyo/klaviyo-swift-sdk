@@ -41,6 +41,7 @@ struct CheckoutView: View {
                             }
                             .font(.headline)
                             .foregroundColor(.blue)
+                            .accessibilityIdentifier("checkout_header_close_button")
                         }
                         .padding(.horizontal, 20)
                         .padding(.vertical, 16)
@@ -60,6 +61,7 @@ struct CheckoutView: View {
                             }
                             .padding(.horizontal, 16)
                         }
+                        .accessibilityIdentifier("checkout_items_list")
 
                         // Order Total
                         VStack(spacing: 16) {
@@ -90,6 +92,7 @@ struct CheckoutView: View {
                                 .buttonStyle(.bordered)
                                 .controlSize(.large)
                                 .frame(maxWidth: .infinity)
+                                .accessibilityIdentifier("checkout_back_to_menu_button")
 
                                 Button(action: checkout) {
                                     Text("Check Out")
@@ -98,6 +101,7 @@ struct CheckoutView: View {
                                 .buttonStyle(.borderedProminent)
                                 .tint(.green)
                                 .controlSize(.large)
+                                .accessibilityIdentifier("checkout_check_out_button")
                             }
                             .padding(.horizontal, 20)
                         }
@@ -110,6 +114,7 @@ struct CheckoutView: View {
                     Button("Close", systemImage: "xmark") {
                         dismiss()
                     }
+                    .accessibilityIdentifier("checkout_toolbar_close_button")
                 }
             }
             .navigationTitle("Items in your Cart")
@@ -210,6 +215,8 @@ struct CheckoutItemRow: View {
                             .foregroundColor(.red)
                             .font(.title2)
                     }
+                    .accessibilityLabel("Decrease quantity of \(cartItem.menuItem.name)")
+                    .accessibilityIdentifier("checkout_decrease_quantity_button_\(cartItem.menuItem.id)")
 
                     Text("\(cartItem.quantity)")
                         .font(.headline)
@@ -223,6 +230,8 @@ struct CheckoutItemRow: View {
                             .foregroundColor(.green)
                             .font(.title2)
                     }
+                    .accessibilityLabel("Increase quantity of \(cartItem.menuItem.name)")
+                    .accessibilityIdentifier("checkout_increase_quantity_button_\(cartItem.menuItem.id)")
                 }
             }
         }
@@ -257,6 +266,7 @@ struct EmptyCartView: View {
             Button("Back to Menu") {
                 dismiss?()
             }
+            .accessibilityIdentifier("checkout_empty_back_to_menu_button")
 
             Spacer()
         }

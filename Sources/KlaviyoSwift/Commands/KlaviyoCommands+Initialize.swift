@@ -84,7 +84,8 @@ extension KlaviyoCommands {
             }
 
             // Prompt an immediate flush so the unregister drains promptly.
-            Task { await klaviyoSwiftEnvironment.requestQueue.flushNow() }
+            let requestQueue = klaviyoSwiftEnvironment.requestQueue
+            Task { await requestQueue.flushNow() }
             return
         }
 
@@ -186,9 +187,11 @@ extension KlaviyoCommands {
     /// `setPushEnablement` rejoins the main funnel and can't race host identity/token writes.
     @MainActor
     private static func runLifecycle() async {
+        let requestQueue = klaviyoSwiftEnvironment.requestQueue
+
         @Sendable
         func handleForeground() async {
-            await klaviyoSwiftEnvironment.requestQueue.start()
+            await requestQueue.start()
             let settings = await environment.getNotificationSettings()
             // Direct call instead of `send(.setPushEnablement(settings))`.
             setPushEnablement(settings)
@@ -202,7 +205,7 @@ extension KlaviyoCommands {
 
         @Sendable
         func handleBackground() async {
-            await klaviyoSwiftEnvironment.requestQueue.stop()
+            await requestQueue.stop()
             await MainActor.run { BadgeManager.syncBadgeCount() }
         }
 
@@ -215,7 +218,7 @@ extension KlaviyoCommands {
             case .backgrounded, .terminated:
                 await handleBackground()
             case let .reachabilityChanged(status):
-                await klaviyoSwiftEnvironment.requestQueue.networkConnectivityChanged(status)
+                await requestQueue.networkConnectivityChanged(status)
             }
         }
     }

@@ -198,10 +198,7 @@ extension KlaviyoAPI {
 }
 
 extension LoggerClient {
-    static var lastLoggedMessage: String?
-    static let test = LoggerClient { message in
-        lastLoggedMessage = message
-    }
+    static let test = LoggerClient { _ in }
 }
 
 extension NetworkSession {
