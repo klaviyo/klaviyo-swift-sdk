@@ -198,6 +198,28 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
+    func testRepeatedReachableStatusKeepsBackoffButSwitchResetsIt() async {
+        let spy = SendSpy(results: [
+            .failure(.rateLimitError(backOff: 120)),
+            .failure(.rateLimitError(backOff: 120)),
+            .success(Data())
+        ])
+        enqueueOne()
+        let queue = makeQueue(spy)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(spy.waitForSends(atLeast: 1))
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
+        XCTAssertEqual(headDelay, 120)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertEqual(spy.sentIds, ["r"])
+        XCTAssertEqual(headDelay, 120)
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+        XCTAssertTrue(spy.waitForSends(atLeast: 2))
+        await queue.stop()
+    }
+
     func testEscalationIsNotPinnedAtFirstAttempt() async throws {
         let spy = SendSpy(results: [networkFailure])
         enqueueOne()

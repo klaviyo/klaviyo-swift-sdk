@@ -38,6 +38,8 @@ public actor RequestQueue {
     /// The active run loop, or `nil` when stopped.
     private var runLoop: Task<Void, Never>?
     private var isFlushing = false
+    /// Last status applied by `networkConnectivityChanged`; `nil` until the first callback.
+    private var lastNetworkStatus: Reachability.NetworkStatus?
     /// Set by a reconnect flush that found another flush running; that flush re-runs before returning.
     private var flushRequested = false
 
@@ -123,6 +125,9 @@ public actor RequestQueue {
     }
 
     public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
+        // Reachability flags can change while the status stays the same; only real transitions act.
+        guard status != lastNetworkStatus else { return }
+        lastNetworkStatus = status
         switch status {
         case .notReachable:
             flushInterval = .infinity
