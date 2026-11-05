@@ -8,35 +8,7 @@
 @testable import KlaviyoCore
 import XCTest
 
-final class RequestQueueTests: XCTestCase {
-    private var fileIO: FileIODouble!
-    private var wallClock: TestClock!
-
-    override func setUp() {
-        super.setUp()
-        SDKConfigStore.shared.reset()
-        IdentityStore.shared.reset()
-        QueueStore.resetShared()
-        fileIO = FileIODouble()
-        // Settable wall clock (shared `TestClock`) so `nextAttemptAt` gating is driven by time.
-        wallClock = TestClock(Date(timeIntervalSince1970: 1_234_567_890))
-        environment = fileIO.makeEnvironment()
-        let wallClock = wallClock!
-        environment.date = { wallClock.now() }
-        // An apiKey is required for `flush()` to run (pre-init flushing stays gated).
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
-    }
-
-    override func tearDown() {
-        SDKConfigStore.shared.reset()
-        IdentityStore.shared.reset()
-        QueueStore.resetShared()
-        fileIO = nil
-        wallClock = nil
-        environment = KlaviyoEnvironment.test()
-        super.tearDown()
-    }
-
+final class RequestQueueTests: RequestQueueTestCase {
     // MARK: - flush()
 
     /// `willDrain` runs before the drain, so a request it enqueues is part of the leased batch and
@@ -292,7 +264,7 @@ final class RequestQueueTests: XCTestCase {
     // MARK: - Failure handling
 
     /// A transient network error stops the flush and restores the head to the queue (not dropped),
-    /// with its own attempt count advanced. Once its backoff (2^1 = 2s) elapses it resends as attempt 2.
+    /// with its own attempt count advanced. Once its floored backoff (10s) elapses it resends as attempt 2.
     func testNetworkErrorRetriesAfterOwnBackoffAndIncrementsCount() async {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [networkFailure, .success(Data())])
@@ -304,7 +276,7 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [1],
                        "network error restores the request with its own attempt counted")
 
-        wallClock.advance(by: 2)
+        wallClock.advance(by: FlushConstants.wifiFlushInterval)
         await queue.flushNow()
         XCTAssertEqual(spy.sentAttempts, [1, 2], "attempt number advances on the resend")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after success")
@@ -349,7 +321,7 @@ final class RequestQueueTests: XCTestCase {
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["srv"], "not resent inside the backoff window")
 
-        wallClock.advance(by: 5)
+        wallClock.advance(by: 10)
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["srv", "srv"], "resent once the backoff elapsed")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "request dequeued after successful resend")
@@ -357,8 +329,8 @@ final class RequestQueueTests: XCTestCase {
 
     // MARK: - Transport error backoff
 
-    /// Successive transport errors escalate the request's own backoff 2, 4, 8 ... (no jitter in the
-    /// test env). Each resend is gated on that request's deadline, and its attempt keeps climbing.
+    /// Successive transport errors (2, 4, 8s, floored to 10s here) are each gated on the request's own
+    /// deadline, and its attempt keeps climbing. Escalation past the floor is in the scheduling tests.
     func testSuccessiveNetworkErrorsEscalateOwnBackoff() async {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [networkFailure, networkFailure, networkFailure, .success(Data())])
@@ -366,11 +338,10 @@ final class RequestQueueTests: XCTestCase {
         let queue = RequestQueue(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
-        for expectedBackoff in [2.0, 4.0, 8.0] {
-            wallClock.advance(by: expectedBackoff - 1)
+        for sent in 1...3 {
+            wallClock.advance(by: FlushConstants.wifiFlushInterval - 1)
             await queue.flushNow()
-            XCTAssertEqual(spy.sentIds.count, Int(log2(expectedBackoff)),
-                           "still gated 1s before the \(expectedBackoff)s deadline")
+            XCTAssertEqual(spy.sentIds.count, sent, "still gated 1s before the floored deadline")
             wallClock.advance(by: 1)
             await queue.flushNow()
         }
@@ -380,7 +351,7 @@ final class RequestQueueTests: XCTestCase {
     }
 
     /// A rate-limited request that then hits a transport error keeps escalating on its own count:
-    /// attempt 2 fails → 2^2 = 4s, not a reset to attempt 1.
+    /// attempt 2 fails and backs off (floored to 10s), not a reset to attempt 1.
     func testRateLimitBackoffSurvivesASubsequentNetworkError() async {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 25)), networkFailure, .success(Data())])
@@ -394,9 +365,9 @@ final class RequestQueueTests: XCTestCase {
         XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [2],
                        "the transport failure after a 429 restores the request, not drops it")
 
-        wallClock.advance(by: 3)
+        wallClock.advance(by: 9)
         await queue.flushNow()
-        XCTAssertEqual(spy.sentAttempts, [1, 2], "2^2 = 4s backoff still pending after 3s")
+        XCTAssertEqual(spy.sentAttempts, [1, 2], "floored 10s backoff still pending after 9s")
         wallClock.advance(by: 1)
         await queue.flushNow()
         XCTAssertEqual(spy.sentAttempts, [1, 2, 3], "attempt escalates again, not reset to 1")
@@ -415,7 +386,7 @@ final class RequestQueueTests: XCTestCase {
 
         await queue.flushNow()
         await queue.networkConnectivityChanged(.notReachable)
-        wallClock.advance(by: 2)
+        wallClock.advance(by: FlushConstants.wifiFlushInterval)
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["offline-net"], "flush must no-op while offline; no resend attempted")
         XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["offline-net"],
@@ -426,6 +397,38 @@ final class RequestQueueTests: XCTestCase {
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["offline-net", "offline-net"], "resent once reconnected")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty, "dequeued on successful resend after reconnect")
+    }
+
+    /// A non-retryable transport error dequeues on its first occurrence, the queue advances, and the
+    /// next request's attempts are untouched.
+    func testNonRetryableTransportErrorDequeuesAndQueueAdvances() async {
+        QueueStore.register(makeQueueStore())
+        let spy = SendSpy(results: [.failure(.networkError(URLError(.badURL))), .success(Data())])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "next"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["bad", "next"])
+        XCTAssertEqual(spy.sentAttempts, [1, 1])
+        XCTAssertTrue(QueueStore.shared.requests.isEmpty)
+    }
+
+    /// A cancelled send leaves the head in place with no attempt or backoff recorded.
+    func testCancelledSendLeavesHeadUntouched() async {
+        QueueStore.register(makeQueueStore())
+        let spy = SendSpy(results: [.failure(.networkError(URLError(.cancelled)))])
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "head"), persist: .synchronous)
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
+        let queue = RequestQueue(clock: .immediate, send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["head"], "flush stops after the cancelled send")
+        XCTAssertEqual(QueueStore.shared.requests.map(\.id), ["head", "tail"])
+        XCTAssertEqual(QueueStore.shared.entries.map(\.attempts), [0, 0])
+        XCTAssertNil(QueueStore.shared.entries.first?.nextAttemptAt)
     }
 
     /// A request whose own attempts reach its endpoint's `maxRetries` is dropped, not restored. The
@@ -453,7 +456,7 @@ final class RequestQueueTests: XCTestCase {
 
         for _ in 0..<(request.endpoint.maxRetries + 5) {
             await queue.flushNow()
-            wallClock.advance(by: 1)
+            wallClock.advance(by: FlushConstants.wifiFlushInterval)
         }
 
         XCTAssertEqual(spy.sentAttempts, Array(1...request.endpoint.maxRetries),
@@ -738,7 +741,7 @@ final class RequestQueueTests: XCTestCase {
         )
         IdentityStore.shared.update(ProfileData(anonymousId: "anon-1"))
         IdentityStore.shared.updatePushToken(PushTokenData(payload))
-        let spy = SendSpy(results: [.failure(.networkError(NSError(domain: "test", code: -1)))])
+        let spy = SendSpy(results: [networkFailure])
         QueueStore.shared.enqueue(
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
             persist: .synchronous

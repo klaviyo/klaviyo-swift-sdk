@@ -47,4 +47,11 @@ public struct QueuedRequest: Equatable, Identifiable {
         lastFailedAt = now
         nextAttemptAt = now.addingTimeInterval(TimeInterval(max(delay, 0)))
     }
+
+    /// Pushes an already-scheduled retry out by `delay` seconds without counting an attempt.
+    mutating func deferRetry(by delay: TimeInterval, now: Date) {
+        guard nextAttemptAt != nil else { return }
+        lastFailedAt = now
+        nextAttemptAt = now.addingTimeInterval(delay)
+    }
 }

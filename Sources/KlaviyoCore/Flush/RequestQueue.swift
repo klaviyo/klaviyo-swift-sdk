@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Core-owned flush engine: drains `QueueStore.shared` on a timed cadence and sends through an
 /// injected transport. `flush()` leases the pending batch and sends it head-first (FIFO), writing a
@@ -61,7 +62,7 @@ public actor RequestQueue {
                 // `flush()` (on backgrounding the interval is still finite, so the guard alone wouldn't
                 // catch it).
                 do {
-                    try await self.clock.sleep(self.flushInterval)
+                    try await self.clock.sleep(self.nextDelay())
                 } catch {
                     return
                 }
@@ -69,6 +70,24 @@ public actor RequestQueue {
                 await self.flush()
             }
         }
+    }
+
+    /// Minimum retry delay: one flush interval, or the Wi-Fi interval while offline (infinite).
+    private var retryFloor: TimeInterval {
+        flushInterval.isFinite ? flushInterval : FlushConstants.wifiFlushInterval
+    }
+
+    /// How long the run loop sleeps: until the head's retry deadline, else one flush interval.
+    private func nextDelay() -> TimeInterval {
+        // Pre-init and offline flushes no-op, so a due head must not turn the loop into a busy spin.
+        guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else {
+            return flushInterval
+        }
+        return nextFlushDelay(
+            head: QueueStore.shared.head,
+            now: environment.date(),
+            flushInterval: flushInterval
+        )
     }
 
     /// Cancels the run loop and restores any in-flight lease to `QueueStore` so it survives shutdown.
@@ -116,8 +135,8 @@ public actor RequestQueue {
         defer { isFlushing = false }
 
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
-        // backoff. The per-head check in the send loop is the authoritative gate. A due retry
-        // still waits for the next flush tick.
+        // backoff. The per-head check in the send loop is the authoritative gate. The run loop
+        // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.
         if QueueStore.shared.head?.isAwaitingRetry(at: environment.date()) == true {
             return
         }
@@ -222,11 +241,25 @@ public actor RequestQueue {
             requestsInFlight.removeFirst()
             return .continueSending
 
+        case .abandonAttempt:
+            // Cancelled, not failed: no attempt recorded. A head with a due deadline waits one floor
+            // interval so a repeatable cancel can't hot-loop.
+            requestsInFlight[0].deferRetry(by: retryFloor, now: environment.date())
+            if #available(iOS 14.0, *) {
+                Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
+            }
+            restoreLease()
+            return .stopFlush
+
         case let .retry(backoff):
             // Transport, rate-limit or server error: the backoff and attempt count belong to this
             // request alone. Drop it once it exhausts its own `maxRetries` (parity: `requestFailed`).
+            // Floor the delay at one flush interval (finite fallback when offline).
             var failed = head
-            failed.recordRetryableFailure(retryAfter: backoff, now: environment.date())
+            failed.recordRetryableFailure(
+                retryAfter: max(backoff, Int(retryFloor.rounded(.up))),
+                now: environment.date()
+            )
             if failed.hasExhaustedRetries {
                 clearOptimisticPushToken(head.request, error: error)
                 requestsInFlight.removeFirst()
