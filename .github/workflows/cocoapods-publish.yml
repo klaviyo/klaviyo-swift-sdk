@@ -75,6 +75,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          clean: false
           ref: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref }}
 
       - name: Set up Ruby
