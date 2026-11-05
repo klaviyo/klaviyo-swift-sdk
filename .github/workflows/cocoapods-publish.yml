@@ -57,6 +57,7 @@ jobs:
       - name: Notify Slack - publishing
         id: slack_pending
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -110,6 +111,7 @@ jobs:
       - name: Notify Slack - pushing to trunk
         id: slack_stage
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./_slack/.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}

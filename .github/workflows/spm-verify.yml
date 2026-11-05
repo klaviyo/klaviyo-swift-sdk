@@ -54,6 +54,7 @@ jobs:
       - name: Notify Slack - verifying
         id: slack_pending
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -104,6 +105,7 @@ jobs:
         id: slack_stage
         if: steps.ci_check.outcome == 'success'
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
