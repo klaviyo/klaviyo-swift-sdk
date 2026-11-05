@@ -39,7 +39,8 @@ extension InboxStore {
         limit: Int,
         after: InboxStoreCursor?
     ) async throws -> InboxStorePage {
-        try await perform { context in
+        guard limit > 0 else { return InboxStorePage(messages: [], next: nil) }
+        return try await perform { context in
             defer { context.reset() }
             typealias Key = InboxStoreModel.Key
             let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
