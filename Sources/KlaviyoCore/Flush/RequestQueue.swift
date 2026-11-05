@@ -38,6 +38,10 @@ public actor RequestQueue {
     /// The active run loop, or `nil` when stopped.
     private var runLoop: Task<Void, Never>?
     private var isFlushing = false
+    /// Last status applied by `networkConnectivityChanged`; `nil` until the first callback.
+    private var lastNetworkStatus: Reachability.NetworkStatus?
+    /// Set by a reconnect flush that found another flush running; that flush re-runs before returning.
+    private var flushRequested = false
 
     public init(
         clock: SleepClock,
@@ -54,10 +58,21 @@ public actor RequestQueue {
     /// (Re)starts the run loop. Any existing loop is cancelled first so `start()` is idempotent and
     /// never leaves two loops racing.
     public func start() {
+        startLoop(flushImmediately: false)
+    }
+
+    /// `flushImmediately` skips the first sleep (used on reconnect).
+    private func startLoop(flushImmediately: Bool) {
         runLoop?.cancel()
         runLoop = Task { [weak self] in
+            var skipSleep = flushImmediately
             while !Task.isCancelled {
                 guard let self else { return }
+                if skipSleep {
+                    skipSleep = false
+                    await self.flush(retryIfBusy: true)
+                    continue
+                }
                 // If `stop()` cancels the loop while parked here, exit instead of running a trailing
                 // `flush()` (on backgrounding the interval is still finite, so the guard alone wouldn't
                 // catch it).
@@ -110,16 +125,29 @@ public actor RequestQueue {
     }
 
     public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
+        // Reachability flags can change while the status stays the same; only real transitions act.
+        guard status != lastNetworkStatus else { return }
+        lastNetworkStatus = status
         switch status {
         case .notReachable:
             flushInterval = .infinity
             stop()
         case .reachableViaWiFi:
             flushInterval = FlushConstants.wifiFlushInterval
-            start()
+            clearBackoffs()
+            startLoop(flushImmediately: true)
         case .reachableViaWWAN:
             flushInterval = FlushConstants.cellularFlushInterval
-            start()
+            clearBackoffs()
+            startLoop(flushImmediately: true)
+        }
+    }
+
+    /// Drops pending backoff on queued and leased entries, keeping `attempts`.
+    private func clearBackoffs() {
+        QueueStore.shared.clearBackoffs()
+        for index in requestsInFlight.indices {
+            requestsInFlight[index].clearBackoff()
         }
     }
 
@@ -127,13 +155,26 @@ public actor RequestQueue {
 
     /// Runs `willDrain`, leases the whole `QueueStore` batch, and sends head-first (FIFO). See the
     /// type doc for the success/failure handling.
-    private func flush() async {
+    private func flush(retryIfBusy: Bool = false) async {
         // Gate: pre-init or offline.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
-        guard !isFlushing else { return }
+        guard !isFlushing else {
+            flushRequested = flushRequested || retryIfBusy
+            return
+        }
         isFlushing = true
         defer { isFlushing = false }
 
+        flushRequested = false
+        await drainAndSend()
+        // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task,
+        // not this one (which `stop()` may have cancelled). No restart if still stopped or offline.
+        if flushRequested, flushInterval.isFinite, runLoop != nil {
+            startLoop(flushImmediately: true)
+        }
+    }
+
+    private func drainAndSend() async {
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
         // backoff. The per-head check in the send loop is the authoritative gate. The run loop
         // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.

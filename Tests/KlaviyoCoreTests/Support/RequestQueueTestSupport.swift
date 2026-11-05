@@ -99,6 +99,16 @@ final class SendSpy: @unchecked Sendable {
     /// The `attemptNumber` from the `RequestAttemptInfo` passed with each `send` call, in order.
     var sentAttempts: [Int] { lock.lock(); defer { lock.unlock() }; return _sentAttempts }
 
+    /// Blocks (bounded) until at least `count` sends have been made.
+    func waitForSends(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sentIds.count >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return sentIds.count >= count
+    }
+
     // MARK: - Send closure
 
     var send: RequestQueue.Send {
