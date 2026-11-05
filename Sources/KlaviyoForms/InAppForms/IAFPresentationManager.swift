@@ -18,7 +18,14 @@ class IAFPresentationManager {
 
     private var companyObserver: CompanyObserver?
     private var companyEventsTask: Task<Void, Never>?
-    private var isInitializingOrInitialized = false
+    private var isInitializingOrInitialized = false {
+        didSet {
+            guard isInitializingOrInitialized != oldValue else { return }
+            registrationStateHandler?(isInitializingOrInitialized)
+        }
+    }
+
+    private var registrationStateHandler: (@MainActor (Bool) -> Void)?
 
     private var lifecycleObserver: LifecycleObserver?
     private var lifecycleEventsTask: Task<Void, Never>?
@@ -100,6 +107,15 @@ class IAFPresentationManager {
             }
         }
         formLifecycleHandler = nil
+    }
+
+    // MARK: - Registration State Handler
+
+    /// Calls `handler` with the current registration state, then on every change, including
+    /// the SDK's own teardown after a handshake failure or an `abort` from KlaviyoJS.
+    func setRegistrationStateHandler(_ handler: (@MainActor (Bool) -> Void)?) {
+        registrationStateHandler = handler
+        handler?(isInitializingOrInitialized)
     }
 
     func invokeLifecycleHandler(for event: FormLifecycleEvent) {

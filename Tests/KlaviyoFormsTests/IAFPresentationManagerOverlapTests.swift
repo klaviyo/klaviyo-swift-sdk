@@ -198,6 +198,71 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         XCTAssertNil(manager.viewController, "The active webview's own handshake failure still tears it down")
     }
 
+    // MARK: Registration state handler
+
+    @MainActor
+    private final class RegistrationStateRecorder {
+        private(set) var values: [Bool] = []
+        func append(_ value: Bool) {
+            values.append(value)
+        }
+    }
+
+    /// Installs a handler that records every registration-state report, and removes it on teardown.
+    private func recordRegistrationStates() -> RegistrationStateRecorder {
+        let states = RegistrationStateRecorder()
+        manager.setRegistrationStateHandler { states.append($0) }
+        addTeardownBlock { @MainActor in self.manager.setRegistrationStateHandler(nil) }
+        return states
+    }
+
+    func testRegistrationStateHandlerReportsCurrentStateOnInstall() {
+        let states = recordRegistrationStates()
+        XCTAssertEqual(states.values, [false])
+    }
+
+    func testRegistrationStateHandlerReportsRegisterAndUnregister() {
+        let states = recordRegistrationStates()
+
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        manager.destroyWebviewAndListeners()
+        manager.destroyWebviewAndListeners()
+
+        XCTAssertEqual(states.values, [false, true, false], "Calls that don't change state are not reported")
+    }
+
+    func testRegistrationStateHandlerReportsSelfTeardownOnHandshakeFailure() async throws {
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        try await manager.createFormWebViewAndListen(apiKey: "key")
+        let active = try XCTUnwrap(activeViewModel)
+        let states = recordRegistrationStates()
+
+        manager.handleHandshakeFailure(for: active)
+
+        XCTAssertEqual(states.values, [true, false])
+    }
+
+    func testRegistrationStateHandlerReportsSelfTeardownOnAbort() async throws {
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        try await manager.createFormWebViewAndListen(apiKey: "key")
+        let active = try XCTUnwrap(activeViewModel)
+        let states = recordRegistrationStates()
+
+        manager.dispatchFormEvent(.abort, from: active)
+
+        XCTAssertEqual(states.values, [true, false])
+    }
+
+    func testRemovedRegistrationStateHandlerIsNotCalled() {
+        let states = recordRegistrationStates()
+        manager.setRegistrationStateHandler(nil)
+
+        manager.initializeIAF(configuration: InAppFormsConfig())
+
+        XCTAssertEqual(states.values, [false])
+    }
+
     func testForegroundRebuildDuringAPIKeyChangeKeepsLifecycleObservationAlive() async throws {
         let lifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
         environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
