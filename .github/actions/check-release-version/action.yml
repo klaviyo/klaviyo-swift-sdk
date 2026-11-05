@@ -1,0 +1,69 @@
+name: Check release version
+description: Fails unless Version.swift and every *.podspec in the given directory match the version, and posts a Slack alert on a mismatch.
+inputs:
+  version:
+    description: Expected version (a leading 'v' is stripped)
+    required: true
+  token:
+    description: Slack bot token. Pass secrets.SLACK_BOT_TOKEN. The alert is skipped when empty.
+    required: true
+  thread_ts:
+    description: Slack message ts to reply under. When empty, the alert is posted as a new message.
+    required: false
+    default: ''
+  consequence:
+    description: What the caller did because of the mismatch, shown in the Slack alert
+    required: true
+  path:
+    description: Directory holding the checked-out code to compare against
+    required: false
+    default: .
+runs:
+  using: composite
+  steps:
+    - name: Check version matches version in code
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        RAW_VERSION: ${{ inputs.version }}
+      run: |
+        VERSION="${RAW_VERSION#v}"
+        echo "EXPECTED_VERSION=$VERSION" >> "$GITHUB_ENV"
+        "$GITHUB_WORKSPACE/scripts/check-version.sh" "$VERSION"
+
+    - name: Format podspec versions for the alert
+      if: failure() && steps.check.outcome == 'failure'
+      shell: bash
+      env:
+        PODSPEC_VERSIONS: ${{ env.PODSPEC_VERSIONS }}
+      run: |
+        pair_list="${PODSPEC_VERSIONS:-}"
+        if [ -n "${pair_list// /}" ]; then
+          {
+            echo "PODSPEC_BODY<<EOF_PODSPEC"
+            echo "Podspec versions:"
+            for pair in $pair_list; do
+              echo "• \`$pair\`"
+            done
+            echo "EOF_PODSPEC"
+          } >> "$GITHUB_ENV"
+        fi
+
+    - name: Notify Slack of version mismatch
+      if: failure() && steps.check.outcome == 'failure'
+      continue-on-error: true
+      uses: ./.github/actions/notify-slack
+      with:
+        token: ${{ inputs.token }}
+        thread_ts: ${{ inputs.thread_ts }}
+        status: failure
+        title: Release version mismatch for `${{ env.EXPECTED_VERSION }}`
+        body: |
+          ${{ inputs.consequence }}
+          ${{ env.PODSPEC_BODY }}
+        fields: |
+          Repository: `${{ github.repository }}`
+          Version: `${{ env.EXPECTED_VERSION }}`
+          Version.swift version: `${{ env.SWIFT_VERSION }}`
+        links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}

@@ -12,6 +12,11 @@ import XCTest
 
 @MainActor
 final class IAFPresentationManagerBuildRaceTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private let profileA = ProfileData(email: "a@example.com", anonymousId: "anon-1")
     private let profileB = ProfileData(email: "b@example.com", anonymousId: "anon-1")
     private var provider: ScriptedTokenProvider!
