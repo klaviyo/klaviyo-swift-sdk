@@ -45,6 +45,15 @@ struct InboxStorePageTests {
         #expect(ids(page) == ["tm-3", "tm-2", "tm-1"])
     }
 
+    @Test(arguments: [0, -1])
+    func aNonpositiveLimitReturnsAnEmptyPage(limit: Int) async throws {
+        let store = makeStore()
+        await capture(store, "tm-1", secondsAfterBase: 1)
+        let page = try await store.page(companyID: company, limit: limit, after: nil)
+        #expect(page.messages.isEmpty)
+        #expect(page.next == nil)
+    }
+
     @Test
     func theCursorContinuesWhereThePreviousPageEnded() async throws {
         let store = makeStore()
