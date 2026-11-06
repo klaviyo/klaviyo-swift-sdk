@@ -335,7 +335,7 @@ jobs:
           exit "$failed"
 
       - name: Dispatch next release branch
-        if: ${{ !inputs.dry_run && !contains(env.VERSION, '-') }}
+        if: ${{ !cancelled() && steps.publish-release.outcome == 'success' && !inputs.dry_run && !contains(env.VERSION, '-') }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
