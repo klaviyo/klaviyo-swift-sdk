@@ -29,6 +29,10 @@ on:
         type: string
         required: false
         default: master
+      triggered_by:
+        description: Person to credit in Slack when another workflow starts this one
+        type: string
+        required: false
   schedule:
     - cron: '0 13 * * 1-5'
 
@@ -55,6 +59,10 @@ jobs:
     name: Create release branch
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      branch: ${{ steps.resolve.outputs.branch }}
+      triggered_by: ${{ steps.trigger.outputs.value }}
     steps:
       - name: Check out base
         id: checkout
@@ -107,6 +115,26 @@ jobs:
             echo "short_sha=$(git rev-parse --short HEAD)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Resolve trigger
+        id: trigger
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_TRIGGERED_BY: ${{ inputs.triggered_by }}
+          ACTOR: ${{ github.triggering_actor || github.actor }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT" = schedule ]; then
+            value=schedule
+          elif [ -n "$INPUT_TRIGGERED_BY" ]; then
+            value=$INPUT_TRIGGERED_BY
+          elif [[ "$ACTOR" == *"[bot]" ]]; then
+            value="Release Branch (automation)"
+          else
+            value=$ACTOR
+          fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
       - name: Create branch
         id: push
         env:
@@ -142,12 +170,43 @@ jobs:
             exit 1
           fi
 
+      - name: Dispatch native train to wrapper SDKs
+        id: dispatch
+        if: steps.push.outputs.created == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.X_REPO_PAT }}
+          NATIVE_INPUT: ios
+          VERSION: ${{ steps.resolve.outputs.version }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+          TRIGGERED_BY: ${{ steps.trigger.outputs.value }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$VERSION" == *-* ]]; then
+            echo "Skipping prerelease $VERSION"
+            exit 0
+          fi
+
+          failed=0
+          for wrapper in klaviyo-react-native-sdk klaviyo-flutter-sdk; do
+            if gh workflow run rel-branch.yml -R "klaviyo/$wrapper" --ref master -f "$NATIVE_INPUT=$BRANCH" -f "triggered_by=$TRIGGERED_BY"; then
+              echo "Dispatched $wrapper"
+            else
+              echo "::warning::Could not dispatch $wrapper"
+              failed=1
+            fi
+          done
+          exit "$failed"
+
       - name: Open draft PR
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.resolve.outputs.version }}
           BRANCH: ${{ steps.resolve.outputs.branch }}
+          STEPS: ${{ github.event_name != 'workflow_dispatch' && 1 || inputs.steps }}
+          EXPLICIT_VERSION: ${{ inputs.version }}
           ACTOR: ${{ github.actor }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -183,9 +242,48 @@ jobs:
             assignee=(--assignee "$ACTOR")
           fi
 
+          # Ship day is the last weekday of a month and test week is the five weekdays ending on it.
+          # Releases are slated for the first month whose test week has not started yet, plus (steps - 1) months.
+          # 2026-11-06 -> November, 2026-11-24 -> December (the November test week starts on 2026-11-24),
+          # 2026-12-31 -> January. An explicit version adds no months.
+          title="rel: $VERSION"
+          if [ "$patch" = 0 ]; then
+            month=$(python3 - "$STEPS" "$EXPLICIT_VERSION" "${SLATE_TODAY:-}" <<'PY'
+          import calendar
+          import datetime
+          import sys
+
+          steps, explicit, today_arg = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+          today = datetime.date.fromisoformat(today_arg) if today_arg else datetime.date.today()
+
+
+          def test_week_start(year, month):
+              day = datetime.date(year, month, calendar.monthrange(year, month)[1])
+              while day.weekday() > 4:
+                  day -= datetime.timedelta(days=1)
+              weekdays = 1
+              while weekdays < 5:
+                  day -= datetime.timedelta(days=1)
+                  if day.weekday() < 5:
+                      weekdays += 1
+              return day
+
+
+          year, month = today.year, today.month
+          if today >= test_week_start(year, month):
+              month += 1
+          month += 0 if explicit else steps - 1
+          year += (month - 1) // 12
+          month = (month - 1) % 12 + 1
+          print(calendar.month_name[month])
+          PY
+            )
+            title="rel: $VERSION (slated for $month)"
+          fi
+
           # shellcheck disable=SC2016
           body=$(printf 'Release PR for `%s`. Feature PRs for this release target `%s`. Merge this after `%s` is published.\n\nOpened by [Release Branch](%s).' "$VERSION" "$BRANCH" "$VERSION" "$RUN_URL")
-          url=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base master --head "$BRANCH" "${assignee[@]}" --title "rel: $VERSION" --label "$label" --body "$body")
+          url=$(gh pr create --repo "$GITHUB_REPOSITORY" --draft --base master --head "$BRANCH" "${assignee[@]}" --title "$title" --label "$label" --body "$body")
           echo "Opened $url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
@@ -212,7 +310,8 @@ jobs:
             Version: `${{ steps.resolve.outputs.version }}`
             Base: `${{ inputs.base || 'master' }}`
             Trigger: `${{ github.event_name }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ steps.trigger.outputs.value }}`
+            Wrappers: ${{ steps.dispatch.outcome == 'success' && '`React Native`, `Flutter` dispatched' || 'not dispatched' }}
           links: |
             Branch|${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.resolve.outputs.branch }}
             Pull request|${{ steps.pr.outputs.url }}
@@ -229,4 +328,4 @@ jobs:
           fields: |
             Base: `${{ inputs.base || 'master' }}`
             Trigger: `${{ github.event_name }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ steps.trigger.outputs.value || github.triggering_actor || github.actor }}`
