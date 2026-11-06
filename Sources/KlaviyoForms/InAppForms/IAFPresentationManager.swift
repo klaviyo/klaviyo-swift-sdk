@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import Combine
 import Foundation
 import KlaviyoCore
 import OSLog
@@ -21,11 +22,11 @@ class IAFPresentationManager {
     private var isInitializingOrInitialized = false {
         didSet {
             guard isInitializingOrInitialized != oldValue else { return }
-            registrationStateHandler?(isInitializingOrInitialized)
+            registrationStateSubject.send(isInitializingOrInitialized)
         }
     }
 
-    private var registrationStateHandler: (@MainActor (Bool) -> Void)?
+    private let registrationStateSubject = CurrentValueSubject<Bool, Never>(false)
 
     private var lifecycleObserver: LifecycleObserver?
     private var lifecycleEventsTask: Task<Void, Never>?
@@ -109,13 +110,16 @@ class IAFPresentationManager {
         formLifecycleHandler = nil
     }
 
-    // MARK: - Registration State Handler
+    // MARK: - Registration State
 
-    /// Calls `handler` with the current registration state, then on every change, including
-    /// the SDK's own teardown after a handshake failure or an `abort` from KlaviyoJS.
-    func setRegistrationStateHandler(_ handler: (@MainActor (Bool) -> Void)?) {
-        registrationStateHandler = handler
-        handler?(isInitializingOrInitialized)
+    /// Yields the current registration state, then every change, including the SDK's own
+    /// teardown after a handshake failure or an `abort` from KlaviyoJS. Each call returns an
+    /// independent stream; cancelling its iteration ends the subscription.
+    func registrationStates() -> AsyncStream<Bool> {
+        AsyncStream { [registrationStateSubject] continuation in
+            let cancellable = registrationStateSubject.sink { continuation.yield($0) }
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
     }
 
     func invokeLifecycleHandler(for event: FormLifecycleEvent) {
