@@ -8,52 +8,50 @@
 import CoreData
 import Foundation
 
-/// A local state a message can be put into. Read and archive are independent of each other.
-package enum InboxMessageState: Equatable {
-    case read
-    case unread
-    case archived
-    case unarchived
+/// What a state change found. `unchanged` and `changed` both mean the message exists.
+package enum InboxStateUpdate: Equatable {
+    case changed
+    case unchanged
+    case missing
 
-    /// The stored attribute this state sets, and the value it sets it to.
-    fileprivate var attribute: (key: String, value: Bool) {
-        typealias Key = InboxStoreModel.Key
-        switch self {
-        case .read: return (Key.isRead, true)
-        case .unread: return (Key.isRead, false)
-        case .archived: return (Key.isArchived, true)
-        case .unarchived: return (Key.isArchived, false)
-        }
-    }
+    package var messageExists: Bool { self != .missing }
 }
 
 extension InboxStore {
-    /// Puts the message into `state`. Returns whether anything changed, so putting a message into the
-    /// state it is already in is a no-op that returns false.
+    /// Sets whether the message is read. Setting a message to the value it already has is a no-op that
+    /// reports `unchanged`.
     @discardableResult
-    package func setState(
-        _ state: InboxMessageState,
-        id: String,
-        companyID: String
-    ) async throws -> Bool {
+    package func setRead(_ isRead: Bool, id: String, companyID: String) async throws -> InboxStateUpdate {
+        try await set(isRead, forKey: InboxStoreModel.Key.isRead, id: id, companyID: companyID)
+    }
+
+    /// Sets whether the message is archived, independently of whether it is read. Setting a message to the
+    /// value it already has is a no-op that reports `unchanged`.
+    @discardableResult
+    package func setArchived(_ isArchived: Bool, id: String, companyID: String) async throws -> InboxStateUpdate {
+        try await set(isArchived, forKey: InboxStoreModel.Key.isArchived, id: id, companyID: companyID)
+    }
+
+    private func set(_ value: Bool, forKey key: String, id: String, companyID: String) async throws -> InboxStateUpdate {
         try await perform { context in
             defer { context.reset() }
-            let changed = try Self.apply(state, id: id, companyID: companyID, in: context)
-            if changed { try context.save() }
-            return changed
+            let update = try Self.apply(value, forKey: key, id: id, companyID: companyID, in: context)
+            if update == .changed { try context.save() }
+            return update
         }
     }
 
-    /// The change `setState` makes, on a context the caller owns, so a caller that needs more in the
-    /// same transaction can run it inside its own `perform`. Returns whether it changed anything, and leaves
+    /// The change a setter makes, on a context the caller owns, so a caller that needs more in the
+    /// same transaction can run it inside its own `perform`. Reports what it found, and leaves
     /// the change unsaved: Core Data saves every pending change in a context, so the caller saves once its
     /// other work has succeeded.
     static func apply(
-        _ state: InboxMessageState,
+        _ value: Bool,
+        forKey key: String,
         id: String,
         companyID: String,
         in context: NSManagedObjectContext
-    ) throws -> Bool {
+    ) throws -> InboxStateUpdate {
         typealias Key = InboxStoreModel.Key
         let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
         request.predicate = NSPredicate(
@@ -61,10 +59,9 @@ extension InboxStore {
             Key.transmissionID, id, Key.companyID, companyID
         )
         request.fetchLimit = 1
-        guard let object = try context.fetch(request).first else { return false }
-        let (key, value) = state.attribute
-        guard object.value(forKey: key) as? Bool != value else { return false }
+        guard let object = try context.fetch(request).first else { return .missing }
+        guard object.value(forKey: key) as? Bool != value else { return .unchanged }
         object.setValue(value, forKey: key)
-        return true
+        return .changed
     }
 }

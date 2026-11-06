@@ -25,28 +25,28 @@ struct InboxStoreStateTests {
     @Test
     func markingAMessageReadSetsItReadAndReportsAChange() async throws {
         let store = await makeStoreWithMessage()
-        let changed = try await store.setState(.read, id: "tm-1", companyID: company)
+        let changed = try await store.setRead(true, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(changed)
+        #expect(changed == .changed)
         #expect(message?.isRead == true)
     }
 
     @Test
     func markingAReadMessageUnreadClearsItsReadState() async throws {
         let store = await makeStoreWithMessage()
-        try await store.setState(.read, id: "tm-1", companyID: company)
-        let changed = try await store.setState(.unread, id: "tm-1", companyID: company)
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let changed = try await store.setRead(false, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(changed)
+        #expect(changed == .changed)
         #expect(message?.isRead == false)
     }
 
     @Test
     func archivingAndUnarchivingToggleOnlyTheArchivedState() async throws {
         let store = await makeStoreWithMessage()
-        try await store.setState(.archived, id: "tm-1", companyID: company)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
         let archived = try await store.message(id: "tm-1")
-        try await store.setState(.unarchived, id: "tm-1", companyID: company)
+        try await store.setArchived(false, id: "tm-1", companyID: company)
         let unarchived = try await store.message(id: "tm-1")
         #expect(archived?.isArchived == true)
         #expect(archived?.isRead == false)
@@ -56,9 +56,9 @@ struct InboxStoreStateTests {
     @Test
     func readAndArchivedAreIndependent() async throws {
         let store = await makeStoreWithMessage()
-        try await store.setState(.read, id: "tm-1", companyID: company)
-        try await store.setState(.archived, id: "tm-1", companyID: company)
-        try await store.setState(.unread, id: "tm-1", companyID: company)
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
+        try await store.setRead(false, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
         #expect(message?.isRead == false)
         #expect(message?.isArchived == true)
@@ -71,11 +71,17 @@ struct InboxStoreStateTests {
         let store = await makeStoreWithMessage()
         let changed = try await store.perform { context in
             defer { context.reset() }
-            let changed = try InboxStore.apply(.read, id: "tm-1", companyID: company, in: context)
+            let changed = try InboxStore.apply(
+                true,
+                forKey: InboxStoreModel.Key.isRead,
+                id: "tm-1",
+                companyID: company,
+                in: context
+            )
             context.rollback()
             return changed
         }
-        #expect(changed)
+        #expect(changed == .changed)
         let message = try await store.message(id: "tm-1")
         #expect(message?.isRead == false)
     }
@@ -83,26 +89,29 @@ struct InboxStoreStateTests {
     @Test
     func applyingAStateTheMessageAlreadyHasChangesNothing() async throws {
         let store = await makeStoreWithMessage()
-        let unreadAgain = try await store.setState(.unread, id: "tm-1", companyID: company)
-        let unarchivedAgain = try await store.setState(.unarchived, id: "tm-1", companyID: company)
-        try await store.setState(.read, id: "tm-1", companyID: company)
-        let readAgain = try await store.setState(.read, id: "tm-1", companyID: company)
-        #expect(!unreadAgain)
-        #expect(!unarchivedAgain)
-        #expect(!readAgain)
+        let unreadAgain = try await store.setRead(false, id: "tm-1", companyID: company)
+        let unarchivedAgain = try await store.setArchived(false, id: "tm-1", companyID: company)
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let readAgain = try await store.setRead(true, id: "tm-1", companyID: company)
+        // The message exists, so it is reported as unchanged and not as missing.
+        #expect(unreadAgain == .unchanged)
+        #expect(unarchivedAgain == .unchanged)
+        #expect(readAgain == .unchanged)
+        #expect(readAgain.messageExists)
     }
 
     @Test
     func anUnknownMessageChangesNothing() async throws {
         let store = await makeStoreWithMessage()
-        let changed = try await store.setState(.read, id: "missing", companyID: company)
-        #expect(!changed)
+        let update = try await store.setRead(true, id: "missing", companyID: company)
+        #expect(update == .missing)
+        #expect(!update.messageExists)
     }
 
     @Test
     func aStateChangeIsVisibleToAnotherStoreOnTheSameAppGroup() async throws {
         let store = await makeStoreWithMessage()
-        try await store.setState(.archived, id: "tm-1", companyID: company)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
         let other = InboxStore(appGroup: appGroup)
         let message = try await other.message(id: "tm-1")
         #expect(message?.isArchived == true)
@@ -111,8 +120,8 @@ struct InboxStoreStateTests {
     @Test
     func replayingACapturedPushKeepsTheMessageState() async throws {
         let store = await makeStoreWithMessage()
-        try await store.setState(.read, id: "tm-1", companyID: company)
-        try await store.setState(.archived, id: "tm-1", companyID: company)
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
         let replay = await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
         let message = try await store.message(id: "tm-1")
         #expect(replay == .duplicate)
@@ -123,9 +132,9 @@ struct InboxStoreStateTests {
     @Test
     func aMessageOfAnotherCompanyIsLeftAlone() async throws {
         let store = await makeStoreWithMessage()
-        let changed = try await store.setState(.read, id: "tm-1", companyID: "XyZ789")
+        let changed = try await store.setRead(true, id: "tm-1", companyID: "XyZ789")
         let message = try await store.message(id: "tm-1")
-        #expect(!changed)
+        #expect(changed == .missing)
         #expect(message?.isRead == false)
     }
 }
