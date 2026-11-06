@@ -180,11 +180,17 @@ jobs:
           VERSION: ${{ steps.resolve.outputs.version }}
           BRANCH: ${{ steps.resolve.outputs.branch }}
           TRIGGERED_BY: ${{ steps.trigger.outputs.value }}
+          DEFAULT_TRAIN: ${{ github.event_name != 'workflow_dispatch' || (inputs.bump == 'minor' && inputs.steps == 1 && inputs.version == '') }}
         run: |
           set -euo pipefail
 
           if [[ "$VERSION" == *-* ]]; then
             echo "Skipping prerelease $VERSION"
+            exit 0
+          fi
+          if [ "$DEFAULT_TRAIN" != true ]; then
+            echo "::notice::$BRANCH isn't the next-minor train, so wrapper pins aren't dispatched. Pin each wrapper's matching train by hand."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -311,7 +317,7 @@ jobs:
             Base: `${{ inputs.base || 'master' }}`
             Trigger: `${{ github.event_name }}`
             Triggered by: `${{ steps.trigger.outputs.value }}`
-            Wrappers: ${{ steps.dispatch.outcome == 'success' && '`React Native`, `Flutter` dispatched' || 'not dispatched' }}
+            Wrappers: ${{ steps.dispatch.outputs.skipped == 'true' && 'not dispatched, not the next-minor train' || (steps.dispatch.outcome == 'success' && '`React Native`, `Flutter` dispatched' || 'dispatch failed, pin by hand') }}
           links: |
             Branch|${{ github.server_url }}/${{ github.repository }}/tree/${{ steps.resolve.outputs.branch }}
             Pull request|${{ steps.pr.outputs.url }}
