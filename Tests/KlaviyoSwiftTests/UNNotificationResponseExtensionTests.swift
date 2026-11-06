@@ -349,14 +349,17 @@ class UNNotificationResponseExtensionTests: XCTestCase {
 
     private let previewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
 
+    private func formsPreview(for properties: [String: Any]) throws -> (token: String?, properties: [String: Any]) {
+        let response = try UNNotificationResponse.with(userInfo: properties)
+        return response.klaviyoFormsPreview(in: properties)
+    }
+
     func testKlaviyoFormsPreview_ReadsAndStripsKeyValuePairs() throws {
         let properties: [String: Any] = [
             "body": ["_k": "{}"],
             "key_value_pairs": ["klaviyo-forms-preview": previewToken, "other": "1"]
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertEqual(preview.token, previewToken)
         XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
@@ -368,9 +371,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
             "key_value_pairs": ["klaviyo-forms-preview": previewToken],
             "url": "klaviyo://home?klaviyo-forms-preview=other&x=1"
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertEqual(preview.token, previewToken)
         XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
@@ -382,9 +383,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
             "key_value_pairs": ["other": "1"],
             "url": "klaviyo://home?x=1"
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertNil(preview.token)
         XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
@@ -397,9 +396,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
             "key_value_pairs": ["klaviyo-forms-preview": 42, "other": "1"],
             "url": "klaviyo://home?klaviyo-forms-preview=\(previewToken)&x=1"
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertEqual(preview.token, previewToken)
         XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
@@ -411,9 +408,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
             "body": ["_k": "{}"],
             "key_value_pairs": ["klaviyo-forms-preview": 42]
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertNil(preview.token)
         XCTAssertEqual((preview.properties["key_value_pairs"] as? [String: Any])?.isEmpty, true)
@@ -424,9 +419,7 @@ class UNNotificationResponseExtensionTests: XCTestCase {
             "body": ["_k": "{}"],
             "url": "ht tp://home?q=a%2Bb&klaviyo-forms-preview=\(previewToken)#top"
         ]
-        let response = try UNNotificationResponse.with(userInfo: properties)
-
-        let preview = response.klaviyoFormsPreview(in: properties)
+        let preview = try formsPreview(for: properties)
 
         XCTAssertEqual(preview.token, previewToken)
         XCTAssertEqual(preview.properties["url"] as? String, "ht tp://home?q=a%2Bb#top")
