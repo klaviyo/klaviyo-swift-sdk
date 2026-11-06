@@ -439,7 +439,7 @@ public struct KlaviyoSDK {
         deepLinkHandler: ((URL) -> Void)?
     ) {
         if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL(in: properties) {
-            if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+            if notificationResponse.klaviyoWebUrl(in: properties) != nil, #available(iOS 14.0, *) {
                 Logger.notifications.warning(
                     "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
                 )
@@ -451,7 +451,7 @@ public struct KlaviyoSDK {
             } else {
                 Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
             }
-        } else if let webUrl = notificationResponse.klaviyoWebUrl {
+        } else if let webUrl = notificationResponse.klaviyoWebUrl(in: properties) {
             Task { @MainActor in await DeepLinkManager.openExternalURL(webUrl) }
         }
     }
@@ -484,7 +484,7 @@ public struct KlaviyoSDK {
             actionProperties["Button Action"] = actionType.displayName()
         }
 
-        if let url = notificationResponse.actionButtonURL {
+        if let url = notificationResponse.actionButtonURL(in: properties) {
             switch notificationResponse.actionButtonType {
             case .deepLink:
                 actionProperties["Button Link"] = url.absoluteString
