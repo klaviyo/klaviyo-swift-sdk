@@ -16,7 +16,7 @@ struct InboxRecordTests {
     func recordSurvivesAJSONRoundTrip() throws {
         let rawProperties = Data(#"{"tm":"tm-1"}"#.utf8)
         let record = try InboxRecord(
-            attribution: InboxAttribution(transmissionID: "tm-1", rawProperties: rawProperties),
+            attribution: InboxAttribution(transmissionID: "tm-1", companyID: "AbC123", rawProperties: rawProperties),
             title: "Title",
             body: "Body",
             defaultDestination: .deepLink(#require(URL(string: "myapp://home"))),
@@ -46,7 +46,7 @@ struct InboxRecordTests {
     @Test
     func defaultsAreEmptyAndOpenApp() {
         let record = InboxRecord(
-            attribution: InboxAttribution(transmissionID: "tm", rawProperties: Data()),
+            attribution: InboxAttribution(transmissionID: "tm", companyID: "AbC123", rawProperties: Data()),
             receivedAt: Date(timeIntervalSince1970: 0)
         )
         #expect(record.defaultDestination == .openApp)

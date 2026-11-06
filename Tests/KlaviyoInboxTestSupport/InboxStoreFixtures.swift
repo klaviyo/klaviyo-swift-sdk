@@ -33,7 +33,11 @@ package enum InboxStoreFixtures {
         receivedAt: Date = Date(timeIntervalSince1970: 1_800_000_000)
     ) -> InboxRecord {
         InboxRecord(
-            attribution: InboxAttribution(transmissionID: tm, rawProperties: Data(#"{"tm":"\#(tm)"}"#.utf8)),
+            attribution: InboxAttribution(
+                transmissionID: tm,
+                companyID: company,
+                rawProperties: Data(#"{"tm":"\#(tm)","c":"\#(company)"}"#.utf8)
+            ),
             title: "Sale",
             body: "50% off",
             defaultDestination: .deepLink(URL(string: "myapp://home")!),

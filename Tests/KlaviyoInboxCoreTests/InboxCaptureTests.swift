@@ -59,6 +59,17 @@ struct InboxCaptureTests {
     }
 
     @Test
+    func klaviyoPushWithoutCompanyIDIsSkipped() async {
+        let sink = RecordingInboxCaptureSink()
+        let userInfo = InboxPayloadFixtures.userInfo(
+            #"{"body": {"_k": {"tm": "\#(InboxPayloadFixtures.transmissionID)"}}}"#
+        )
+        let result = await makeCapture(sink: sink).capture(userInfo: userInfo)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
+    }
+
+    @Test
     func sinkResultsPassThrough() async {
         for expected in [InboxCaptureResult.duplicate, .skipped, .captured, .failed, .timedOut] {
             let sink = RecordingInboxCaptureSink(result: expected)
@@ -79,10 +90,8 @@ struct InboxCaptureTests {
     }
 
     @Test
-    func defaultSinkIsANoOpThatSkips() async {
-        let capture = InboxCapture(isAuthorized: { true }, now: { [now] in now })
-        let result = await capture.capture(userInfo: klaviyoPush)
-        #expect(result == .skipped)
+    func theDefaultSinkIsTheStoreBackedOne() {
+        #expect(InboxCapture.sink is InboxStoreCaptureSink)
     }
 
     @Test

@@ -58,11 +58,14 @@ package struct InboxRecord: Equatable, Codable {
 package struct InboxAttribution: Equatable, Codable {
     /// `_k.tm`: unique per delivery, the deduplication key.
     package var transmissionID: String
+    /// `_k.c`: the company that sent the push, which the store files the record under.
+    package var companyID: String
     /// JSON of `_k` with the device token (`pt`) removed.
     package var rawProperties: Data
 
-    package init(transmissionID: String, rawProperties: Data) {
+    package init(transmissionID: String, companyID: String, rawProperties: Data) {
         self.transmissionID = transmissionID
+        self.companyID = companyID
         self.rawProperties = rawProperties
     }
 }
