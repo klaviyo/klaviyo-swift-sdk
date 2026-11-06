@@ -20,6 +20,7 @@ package enum InboxPayloadParser {
         static let body = "body"
         static let metadata = "_k"
         static let transmissionID = "tm"
+        static let companyID = "c"
         static let timestamp = "timestamp"
         static let url = "url"
         static let webURL = "web_url"
@@ -41,11 +42,15 @@ package enum InboxPayloadParser {
         klaviyoMetadata(in: userInfo) != nil
     }
 
-    /// `nil` when the payload is not a Klaviyo push or has no usable `_k.tm` (the dedup key).
+    /// `nil` when the payload is not a Klaviyo push or has no usable `_k.tm` (the dedup key) or `_k.c`
+    /// (the company the record is filed under). A company is never guessed.
     package static func parse(userInfo: [AnyHashable: Any], receivedAt: Date) -> InboxRecord? {
         guard let metadata = klaviyoMetadata(in: userInfo),
               let transmissionID = InboxPayload.string(metadata[Key.transmissionID]),
-              !transmissionID.isEmpty else {
+              !transmissionID.isEmpty,
+              let companyID = InboxPayload.string(metadata[Key.companyID])?
+              .trimmingCharacters(in: .whitespacesAndNewlines),
+              !companyID.isEmpty else {
             return nil
         }
         let payload = PayloadValue.dictionary(userInfo) ?? [:]
@@ -55,6 +60,7 @@ package enum InboxPayloadParser {
         return InboxRecord(
             attribution: InboxAttribution(
                 transmissionID: transmissionID,
+                companyID: companyID,
                 rawProperties: InboxPayload.snapshot(metadata)
             ),
             title: alert.title,

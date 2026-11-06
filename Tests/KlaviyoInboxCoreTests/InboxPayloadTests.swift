@@ -7,77 +7,87 @@
 
 import Foundation
 import KlaviyoInboxCore
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxPayloadTests: XCTestCase {
+@Suite
+struct InboxPayloadTests {
     private func json(_ data: Data) throws -> [String: Any] {
-        try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
-    func testStringAcceptsNumbersAndRejectsNullAndContainers() {
-        XCTAssertEqual(InboxPayload.string("x"), "x")
-        XCTAssertEqual(InboxPayload.string(42), "42")
-        XCTAssertNil(InboxPayload.string(NSNull()))
-        XCTAssertNil(InboxPayload.string(["a"]))
-        XCTAssertNil(InboxPayload.string(nil))
+    @Test
+    func stringAcceptsNumbersAndRejectsNullAndContainers() {
+        #expect(InboxPayload.string("x") == "x")
+        #expect(InboxPayload.string(42) == "42")
+        #expect(InboxPayload.string(NSNull()) == nil)
+        #expect(InboxPayload.string(["a"]) == nil)
+        #expect(InboxPayload.string(nil) == nil)
     }
 
-    func testStringifiedHandlesNestedValuesAndNull() {
-        XCTAssertEqual(InboxPayload.stringified("x"), "x")
-        XCTAssertEqual(InboxPayload.stringified(2), "2")
-        XCTAssertEqual(InboxPayload.stringified(["b": 1, "a": 2]), #"{"a":2,"b":1}"#)
-        XCTAssertEqual(InboxPayload.stringified([1, 2]), "[1,2]")
-        XCTAssertNil(InboxPayload.stringified(NSNull()))
+    @Test
+    func stringifiedHandlesNestedValuesAndNull() {
+        #expect(InboxPayload.stringified("x") == "x")
+        #expect(InboxPayload.stringified(2) == "2")
+        #expect(InboxPayload.stringified(["b": 1, "a": 2]) == #"{"a":2,"b":1}"#)
+        #expect(InboxPayload.stringified([1, 2]) == "[1,2]")
+        #expect(InboxPayload.stringified(NSNull()) == nil)
     }
 
-    func testIntAcceptsIntDoubleNumericStringAndRejectsJunk() {
-        XCTAssertEqual(InboxPayload.int(3), 3)
-        XCTAssertEqual(InboxPayload.int(3.7), 3)
-        XCTAssertEqual(InboxPayload.int(" 5 "), 5)
-        XCTAssertEqual(InboxPayload.int(NSNumber(value: 9)), 9)
-        XCTAssertNil(InboxPayload.int("abc"))
-        XCTAssertNil(InboxPayload.int(Double.nan))
-        XCTAssertNil(InboxPayload.int(NSNull()))
+    @Test
+    func intAcceptsIntDoubleNumericStringAndRejectsJunk() {
+        #expect(InboxPayload.int(3) == 3)
+        #expect(InboxPayload.int(3.7) == 3)
+        #expect(InboxPayload.int(" 5 ") == 5)
+        #expect(InboxPayload.int(NSNumber(value: 9)) == 9)
+        #expect(InboxPayload.int("abc") == nil)
+        #expect(InboxPayload.int(Double.nan) == nil)
+        #expect(InboxPayload.int(NSNull()) == nil)
     }
 
-    func testIntRejectsOutOfRangeFiniteDoublesWithoutTrapping() {
-        XCTAssertNil(InboxPayload.int(1e30))
-        XCTAssertNil(InboxPayload.int(-1e30))
-        XCTAssertNil(InboxPayload.int(NSNumber(value: 1e30)))
-        XCTAssertNil(InboxPayload.int(Double(Int.max)))
-        XCTAssertEqual(InboxPayload.int(3), 3)
-        XCTAssertEqual(InboxPayload.int(3.7), 3)
-        XCTAssertEqual(InboxPayload.int(" 5 "), 5)
+    @Test
+    func intRejectsOutOfRangeFiniteDoublesWithoutTrapping() {
+        #expect(InboxPayload.int(1e30) == nil)
+        #expect(InboxPayload.int(-1e30) == nil)
+        #expect(InboxPayload.int(NSNumber(value: 1e30)) == nil)
+        #expect(InboxPayload.int(Double(Int.max)) == nil)
+        #expect(InboxPayload.int(3) == 3)
+        #expect(InboxPayload.int(3.7) == 3)
+        #expect(InboxPayload.int(" 5 ") == 5)
     }
 
-    func testBoolAcceptsBoolAndZeroOne() {
-        XCTAssertEqual(InboxPayload.bool(true), true)
-        XCTAssertEqual(InboxPayload.bool(1), true)
-        XCTAssertEqual(InboxPayload.bool(0), false)
-        XCTAssertEqual(InboxPayload.bool(2), true)
-        XCTAssertEqual(InboxPayload.bool(NSNumber(value: true)), true)
-        XCTAssertNil(InboxPayload.bool("yes"))
-        XCTAssertNil(InboxPayload.bool(nil))
+    @Test
+    func boolAcceptsBoolAndZeroOne() {
+        #expect(InboxPayload.bool(true) == true)
+        #expect(InboxPayload.bool(1) == true)
+        #expect(InboxPayload.bool(0) == false)
+        #expect(InboxPayload.bool(2) == true)
+        #expect(InboxPayload.bool(NSNumber(value: true)) == true)
+        #expect(InboxPayload.bool("yes") == nil)
+        #expect(InboxPayload.bool(nil) == nil)
     }
 
-    func testBoolRejectsNonFiniteAndOutOfRangeNumbers() {
-        XCTAssertNil(InboxPayload.bool(NSNumber(value: 1e30)))
-        XCTAssertNil(InboxPayload.bool(Double.nan))
-        XCTAssertNil(InboxPayload.bool(-1e30))
+    @Test
+    func boolRejectsNonFiniteAndOutOfRangeNumbers() {
+        #expect(InboxPayload.bool(NSNumber(value: 1e30)) == nil)
+        #expect(InboxPayload.bool(Double.nan) == nil)
+        #expect(InboxPayload.bool(-1e30) == nil)
     }
 
-    func testDateAcceptsISOAndEpochSecondsAndMilliseconds() {
+    @Test
+    func dateAcceptsISOAndEpochSecondsAndMilliseconds() {
         let base = Date(timeIntervalSince1970: 1_791_460_800)
         // ISO parsing itself is covered by `DateISO8601Tests`; this checks `date` delegates to it.
-        XCTAssertEqual(InboxPayload.date("2026-10-08T12:00:00Z"), base)
-        XCTAssertEqual(InboxPayload.date(1_791_460_800), base)
-        XCTAssertEqual(InboxPayload.date(1_791_460_800_000), base)
-        XCTAssertEqual(InboxPayload.date("1791460800"), base)
-        XCTAssertNil(InboxPayload.date("not a date"))
-        XCTAssertNil(InboxPayload.date(nil))
+        #expect(InboxPayload.date("2026-10-08T12:00:00Z") == base)
+        #expect(InboxPayload.date(1_791_460_800) == base)
+        #expect(InboxPayload.date(1_791_460_800_000) == base)
+        #expect(InboxPayload.date("1791460800") == base)
+        #expect(InboxPayload.date("not a date") == nil)
+        #expect(InboxPayload.date(nil) == nil)
     }
 
-    func testSnapshotSanitizesValuesJSONCannotRepresent() throws {
+    @Test
+    func snapshotSanitizesValuesJSONCannotRepresent() throws {
         let properties: [String: Any] = [
             "nan": Double.nan,
             "data": Data([1, 2, 3]),
@@ -86,17 +96,20 @@ final class InboxPayloadTests: XCTestCase {
             "nested": ["list": [1, "two", Data([4])]]
         ]
         let snapshot = try json(InboxPayload.snapshot(properties))
-        XCTAssertEqual(snapshot["data"] as? String, Data([1, 2, 3]).base64EncodedString())
-        XCTAssertEqual(snapshot["date"] as? String, "1970-01-01T00:00:00Z")
-        XCTAssertTrue(snapshot["nan"] is String)
-        XCTAssertTrue(snapshot["null"] is NSNull)
-        XCTAssertEqual(snapshot.count, 5)
+        #expect(snapshot["data"] as? String == Data([1, 2, 3]).base64EncodedString())
+        #expect(snapshot["date"] as? String == "1970-01-01T00:00:00Z")
+        #expect(snapshot["nan"] is String)
+        #expect(snapshot["null"] is NSNull)
+        #expect(snapshot.count == 5)
     }
 
-    func testPropertiesSnapshotRemovesTopLevelDeviceToken() throws {
+    @Test
+    func propertiesSnapshotRemovesTopLevelDeviceToken() throws {
         let input: [String: Any] = ["tm": "t", "pt": "secret", "$flow": "F1"]
         let snapshot = try json(InboxPayload.snapshot(input))
-        XCTAssertNil(snapshot["pt"])
-        XCTAssertEqual(snapshot["$flow"] as? String, "F1")
+        #expect(snapshot["pt"] == nil)
+        #expect(snapshot["$flow"] as? String == "F1")
     }
 }
+
+#endif

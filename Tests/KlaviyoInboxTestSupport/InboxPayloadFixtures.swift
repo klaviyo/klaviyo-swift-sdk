@@ -11,6 +11,7 @@ import Foundation
 /// `NSArray` and `NSNumber` the way APNs delivers them.
 package enum InboxPayloadFixtures {
     package static let transmissionID = "01KV8CN3SH8N7MM5ZYNX40QCFH"
+    package static let companyID = "AbC123"
 
     /// Every field the parser reads, including an unknown action type among the buttons, which the parser drops.
     package static let full = """
@@ -25,6 +26,7 @@ package enum InboxPayloadFixtures {
       "body": {
         "_k": {
           "tm": "\(transmissionID)",
+          "c": "\(companyID)",
           "timestamp": "2026-10-08T12:00:00Z",
           "pt": "device-token",
           "$flow": "F1"
@@ -58,6 +60,6 @@ package enum InboxPayloadFixtures {
     /// A Klaviyo payload with only `tm`, plus extra top-level JSON members (for example `"url": "x"`).
     package static func minimal(_ members: String = "") -> String {
         let extra = members.isEmpty ? "" : ", \(members)"
-        return #"{"body": {"_k": {"tm": "\#(transmissionID)"}}\#(extra)}"#
+        return #"{"body": {"_k": {"tm": "\#(transmissionID)", "c": "\#(companyID)"}}\#(extra)}"#
     }
 }
