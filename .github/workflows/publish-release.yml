@@ -330,17 +330,13 @@ jobs:
           exit "$failed"
 
       - name: Dispatch next release branch
-        if: ${{ !inputs.dry_run && env.PRERELEASE != 'true' }}
+        if: ${{ !inputs.dry_run && !contains(env.VERSION, '-') }}
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION"; then
-            echo "Dispatched rel-branch.yml from $VERSION"
-            echo "- Dispatched rel-branch.yml with base \`$VERSION\`" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::warning::Could not dispatch rel-branch.yml; the weekday schedule will pick it up"
-          fi
+          gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION"
+          echo "Dispatched rel-branch.yml from $VERSION"
 
       - name: Checkout Slack action
         if: ${{ !cancelled() }}
