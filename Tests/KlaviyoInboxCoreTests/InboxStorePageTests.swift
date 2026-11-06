@@ -69,6 +69,44 @@ struct InboxStorePageTests {
         #expect(third.next == nil)
     }
 
+    /// A row whose payload no longer decodes, such as one written before an `InboxRecord` change.
+    @Test
+    func aMessageThatCannotBeReadIsSkippedAndTheRestStillPage() async throws {
+        let store = makeStore()
+        for index in 1...5 {
+            await capture(store, "tm-\(index)", secondsAfterBase: TimeInterval(index))
+        }
+        try InboxStoreFixtures.execute(
+            "UPDATE ZINBOXMESSAGE SET ZPAYLOAD = X'00' WHERE ZTRANSMISSIONID = 'tm-4';",
+            in: appGroup
+        )
+
+        let first = try await store.page(companyID: company, limit: 2, after: nil)
+        #expect(ids(first) == ["tm-5"])
+        #expect(first.next != nil)
+        let second = try await store.page(companyID: company, limit: 2, after: first.next)
+        #expect(ids(second) == ["tm-3", "tm-2"])
+        let third = try await store.page(companyID: company, limit: 2, after: second.next)
+        #expect(ids(third) == ["tm-1"])
+        #expect(third.next == nil)
+    }
+
+    @Test
+    func aPageOfOnlyUnreadableMessagesStillHasANextCursor() async throws {
+        let store = makeStore()
+        for index in 1...3 {
+            await capture(store, "tm-\(index)", secondsAfterBase: TimeInterval(index))
+        }
+        try InboxStoreFixtures.execute("UPDATE ZINBOXMESSAGE SET ZPAYLOAD = X'00';", in: appGroup)
+
+        let first = try await store.page(companyID: company, limit: 2, after: nil)
+        #expect(first.messages.isEmpty)
+        #expect(first.next != nil)
+        let second = try await store.page(companyID: company, limit: 2, after: first.next)
+        #expect(second.messages.isEmpty)
+        #expect(second.next == nil)
+    }
+
     @Test
     func aPageThatExactlyEndsTheInboxHasNoNextCursor() async throws {
         let store = makeStore()
