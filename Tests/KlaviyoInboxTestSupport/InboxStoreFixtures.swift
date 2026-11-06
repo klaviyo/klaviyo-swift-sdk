@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoInboxCore
+import SQLite3
 
 /// Shared setup for tests that need a store: a throwaway App Group and ready-made records.
 package enum InboxStoreFixtures {
@@ -24,6 +25,22 @@ package enum InboxStoreFixtures {
             identifier: { groupIdentifier },
             containerURL: { _ in directory }
         )
+    }
+
+    package struct SQLFailure: Error {
+        package let code: Int32
+    }
+
+    /// Runs SQL against the store file from a second connection, the way another process would.
+    package static func execute(_ sql: String, in appGroup: InboxAppGroup) throws {
+        guard let directory = appGroup.inboxDirectory() else { throw SQLFailure(code: SQLITE_CANTOPEN) }
+        let path = directory.appendingPathComponent(InboxStore.storeFileName).path
+        var db: OpaquePointer?
+        defer { sqlite3_close(db) }
+        let opened = sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, nil)
+        guard opened == SQLITE_OK else { throw SQLFailure(code: opened) }
+        let result = sqlite3_exec(db, sql, nil, nil, nil)
+        guard result == SQLITE_OK else { throw SQLFailure(code: result) }
     }
 
     /// A record with every optional field filled in, so round-trip tests exercise all of them.

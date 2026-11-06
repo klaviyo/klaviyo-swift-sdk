@@ -7,6 +7,7 @@
 
 import CoreData
 import Foundation
+import OSLog
 
 /// A position in a company's messages: the sort position of the last message on a page.
 package struct InboxStoreCursor: Equatable {
@@ -34,6 +35,10 @@ package struct InboxStorePage: Equatable {
 extension InboxStore {
     /// One page of the company's messages, newest first by `sortTime`, then `transmissionID`.
     /// Pages by keyset, so a message captured or removed between pages never shifts a page boundary.
+    ///
+    /// A stored row that cannot be decoded, such as one written by an older `InboxRecord`, is skipped and
+    /// logged, so it cannot keep the rest of the inbox from loading. The page can then hold fewer than
+    /// `limit` messages while `next` is still set.
     package func page(
         companyID: String,
         limit: Int,
@@ -62,9 +67,23 @@ extension InboxStore {
             request.fetchLimit = limit + 1
             let fetched = try context.fetch(request)
             let objects = Array(fetched.prefix(limit))
-            let messages = try objects.map { try Self.storedMessage(from: $0) }
+            // Built before decoding, so a row that cannot be decoded still lets the caller page past it.
             let next = fetched.count > limit ? try objects.last.map(Self.cursor(after:)) : nil
+            let messages = objects.compactMap { Self.decodedOrSkipped($0) }
             return InboxStorePage(messages: messages, next: next)
+        }
+    }
+
+    private static func decodedOrSkipped(_ object: NSManagedObject) -> StoredInboxMessage? {
+        do {
+            return try storedMessage(from: object)
+        } catch {
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxStore.warning(
+                    "Skipped a stored message that could not be read (error \(InboxStoreError.diagnosticCode(for: error)))."
+                )
+            }
+            return nil
         }
     }
 
