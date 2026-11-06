@@ -32,9 +32,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
         let context: NSManagedObjectContext
         /// Only read or written on the context's queue.
         var isLoaded = false
-        /// Whether an earlier attempt to open the store failed, so the next one rebuilds a store that keeps
-        /// failing instead of retrying it forever. Only read or written on the context's queue.
-        var hasFailedToOpen = false
 
         init(model: NSManagedObjectModel) {
             coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
@@ -80,9 +77,15 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
                     companyID: companyID,
                     into: context
                 )
-                // Only a fresh insert can push the company over the limit; a replay never deletes.
+                // Only a fresh insert can push the company over the limit; a replay never deletes. The message
+                // is already saved, so a failed trim must not report the capture as failed: the next
+                // capture trims everything beyond the limit.
                 if result == .captured {
-                    try Self.trim(companyID: companyID, keeping: self.maxMessages, in: context)
+                    do {
+                        try Self.trim(companyID: companyID, keeping: self.maxMessages, in: context)
+                    } catch {
+                        self.diagnostics(.trimFailed(code: InboxStoreError.diagnosticCode(for: error)))
+                    }
                 }
                 return result
             }
@@ -182,16 +185,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             throw InboxStoreError.unavailable
         }
         let opener = InboxStoreOpener(diagnostics: diagnostics)
-        do {
-            try opener.open(
-                stack.coordinator,
-                at: directory.appendingPathComponent(Self.storeFileName),
-                rebuildTransientFailures: stack.hasFailedToOpen
-            )
-        } catch {
-            stack.hasFailedToOpen = true
-            throw error
-        }
+        try opener.open(stack.coordinator, at: directory.appendingPathComponent(Self.storeFileName))
         stack.isLoaded = true
     }
 }

@@ -34,4 +34,8 @@ package final class RecordingStoreDiagnostics: @unchecked Sendable {
     package var hasRecovered: Bool {
         events.contains { if case .recovered = $0 { return true } else { return false } }
     }
+
+    package var hasTrimFailed: Bool {
+        events.contains { if case .trimFailed = $0 { return true } else { return false } }
+    }
 }

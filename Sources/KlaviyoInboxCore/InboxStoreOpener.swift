@@ -9,9 +9,10 @@ import CoreData
 import Foundation
 import SQLite3
 
-/// Opens the Inbox's persistent store so that a bad file can never block capture. A store that cannot
-/// be opened, whether corrupt, unreadable, or written by a different model version, is deleted and
-/// rebuilt, and the messages in it are lost.
+/// Opens the Inbox's persistent store so that a bad file can never block capture. A store that is
+/// corrupt, or written by a different model version, is deleted and rebuilt, and the messages in it are
+/// lost. Any other failure leaves the files alone and fails the open, so the next capture tries again:
+/// losing one capture is better than deleting messages that may be fine.
 ///
 /// There is no migration: the model has one version. The first schema change has to add one here.
 struct InboxStoreOpener {
@@ -34,17 +35,10 @@ struct InboxStoreOpener {
     /// moment make Core Data fail one of them with a plain Cocoa write error ("File unexpectedly appeared
     /// during sanity check") that carries no SQLite code, and a healthy store gets rebuilt.
     /// `NSFileCoordinator` also passes the tests, but it waits as long as the holder does, with no timeout.
-    /// Best effort: if the lock cannot be taken in time, opening proceeds without it. The C calls are
-    /// `Darwin.`-qualified only because a bare `open` resolves to this method.
-    ///
-    /// - Parameter rebuildTransientFailures: Set once this store has already failed to open. A failure
-    ///   that looked transient the first time is then treated as the file's problem, so a store that keeps
-    ///   returning a disk I/O error is rebuilt instead of failing every capture for the life of the install.
-    func open(
-        _ coordinator: NSPersistentStoreCoordinator,
-        at url: URL,
-        rebuildTransientFailures: Bool = false
-    ) throws {
+    /// Best effort: if the lock cannot be taken in time, opening proceeds without it, but a store that
+    /// needs a rebuild is then left alone, because deleting files another process may have open can corrupt
+    /// them. The C calls are `Darwin.`-qualified only because a bare `open` resolves to this method.
+    func open(_ coordinator: NSPersistentStoreCoordinator, at url: URL) throws {
         let lockPath = url.deletingLastPathComponent().appendingPathComponent(Self.lockFileName).path
         let descriptor = Darwin.open(lockPath, O_CREAT | O_RDWR, 0o600)
         defer { if descriptor >= 0 { Darwin.close(descriptor) } }
@@ -56,20 +50,20 @@ struct InboxStoreOpener {
             locked = flock(descriptor, LOCK_EX | LOCK_NB) == 0
         }
         defer { if locked { flock(descriptor, LOCK_UN) } }
-        try openLocked(coordinator, at: url, rebuildTransientFailures: rebuildTransientFailures)
+        try openLocked(coordinator, at: url, holdsLock: locked)
     }
 
-    private func openLocked(
-        _ coordinator: NSPersistentStoreCoordinator,
-        at url: URL,
-        rebuildTransientFailures: Bool
-    ) throws {
+    private func openLocked(_ coordinator: NSPersistentStoreCoordinator, at url: URL, holdsLock: Bool) throws {
         let started = ProcessInfo.processInfo.systemUptime
         protectDirectory(of: url)
         do {
             try openRetryingTransientFailures(coordinator, at: url)
         } catch {
-            if InboxStoreError.isTransient(error), !rebuildTransientFailures {
+            guard InboxStoreError.indicatesCorruption(error) else {
+                throw InboxStoreError.underlying(error)
+            }
+            guard holdsLock else {
+                diagnostics(.degraded(reason: "store needs a rebuild but the open lock is not held"))
                 throw InboxStoreError.underlying(error)
             }
             rebuild(url, after: error)
@@ -145,8 +139,7 @@ struct InboxStoreOpener {
 
 extension InboxStoreError {
     /// Failures that say nothing about the file's content: another process holds a lock or is still
-    /// creating the file, the disk is full, or memory ran out. The store is left alone, never
-    /// rebuilt, and the open is retried or the next capture tries again.
+    /// creating the file, the disk is full, or memory ran out. The open is retried briefly.
     ///
     /// SQLite reports extended codes (for example 6922, a disk I/O error from a file that moved under an
     /// open connection), so only the low byte, the primary code, is compared.
@@ -161,8 +154,26 @@ extension InboxStoreError {
     ]
     private static let primaryCodeMask = 0xFF
 
+    /// The only failures that justify deleting the store: the file is corrupt or not a database, or it was
+    /// written by a model this build cannot open. Everything else, including errors that carry no SQLite
+    /// code, leaves the store alone and fails the open.
+    package static func indicatesCorruption(_ error: Error) -> Bool {
+        if let sqlite = sqliteError(in: error) {
+            return corruptionPrimaryCodes.contains(sqlite.code & primaryCodeMask)
+        }
+        if case let .underlying(inner)? = error as? InboxStoreError { return indicatesCorruption(inner) }
+        let cocoa = error as NSError
+        return cocoa.domain == NSCocoaErrorDomain && incompatibleModelCodes.contains(cocoa.code)
+    }
+
+    /// SQLite primary result codes: CORRUPT, NOTADB.
+    private static let corruptionPrimaryCodes: Set<Int> = [Int(SQLITE_CORRUPT), Int(SQLITE_NOTADB)]
+    /// `NSPersistentStoreIncompatibleVersionHashError` and `NSMigrationMissingSourceModelError`.
+    private static let incompatibleModelCodes: Set<Int> = [134_100, 134_130]
+
     /// The SQLite error behind `error`, looking through `InboxStoreError.underlying` and one level of
-    /// Cocoa wrapping.
+    /// Cocoa wrapping. Core Data reports the code either as an underlying error or, for a file that is not
+    /// a database, as a number under the `NSSQLiteErrorDomain` key of `userInfo`.
     private static func sqliteError(in error: Error) -> NSError? {
         if case let .underlying(inner)? = error as? InboxStoreError { return sqliteError(in: inner) }
         let nsError = error as NSError
@@ -170,6 +181,9 @@ extension InboxStoreError {
         if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError,
            underlying.domain == NSSQLiteErrorDomain {
             return underlying
+        }
+        if let code = (nsError.userInfo[NSSQLiteErrorDomain] as? NSNumber)?.intValue {
+            return NSError(domain: NSSQLiteErrorDomain, code: code)
         }
         return nil
     }

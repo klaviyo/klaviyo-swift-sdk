@@ -28,6 +28,8 @@ package enum InboxStoreEvent: Equatable {
     case opened(milliseconds: Double)
     case recovered(reason: String)
     case writeFailed(code: Int)
+    /// A message was stored but the retention trim after it failed; the next capture trims again.
+    case trimFailed(code: Int)
     case lockContention(retries: Int)
     case degraded(reason: String)
 }

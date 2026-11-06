@@ -160,10 +160,44 @@ struct InboxStoreRecoveryTests {
         #expect(InboxStoreError.isTransient(wrapped))
     }
 
-    // MARK: - A store that keeps failing to open must eventually be rebuilt
+    // MARK: - Only corruption justifies deleting the store
 
-    /// A coordinator whose store can never be added, standing in for a file that keeps returning a disk
-    /// I/O error.
+    @Test
+    func onlyCorruptionAndIncompatibleModelsAreRebuilt() {
+        func sqlite(_ code: Int) -> NSError { NSError(domain: NSSQLiteErrorDomain, code: code) }
+        func cocoa(_ code: Int, underlying: NSError? = nil) -> NSError {
+            NSError(
+                domain: NSCocoaErrorDomain,
+                code: code,
+                userInfo: underlying.map { [NSUnderlyingErrorKey: $0] } ?? [:]
+            )
+        }
+        #expect(InboxStoreError.indicatesCorruption(sqlite(11)))
+        #expect(InboxStoreError.indicatesCorruption(sqlite(26)))
+        #expect(InboxStoreError.indicatesCorruption(sqlite(267))) // SQLITE_CORRUPT_VTAB, an extended code
+        #expect(InboxStoreError.indicatesCorruption(cocoa(134_100)))
+        #expect(InboxStoreError.indicatesCorruption(cocoa(134_130)))
+        #expect(InboxStoreError.indicatesCorruption(cocoa(134_030, underlying: sqlite(11))))
+        #expect(InboxStoreError.indicatesCorruption(InboxStoreError.underlying(cocoa(134_100))))
+        // Contention, resource pressure, I/O errors, and errors with no SQLite code say nothing about the file.
+        for code in [5, 6, 7, 10, 13, 14, 6922] {
+            #expect(!InboxStoreError.indicatesCorruption(sqlite(code)), "SQLite \(code)")
+        }
+        // A file that is not a database: Cocoa 259 with the SQLite code as a number in `userInfo`.
+        let notADatabase = NSError(
+            domain: NSCocoaErrorDomain,
+            code: 259,
+            userInfo: [NSSQLiteErrorDomain: NSNumber(value: 26)]
+        )
+        #expect(InboxStoreError.indicatesCorruption(notADatabase))
+        #expect(InboxStoreError.diagnosticCode(for: notADatabase) == 26)
+        #expect(!InboxStoreError.indicatesCorruption(cocoa(134_030)))
+        #expect(!InboxStoreError.indicatesCorruption(InboxStoreError.unavailable))
+    }
+
+    // MARK: - A store that keeps failing to open is never deleted
+
+    /// A coordinator whose store can never be added, standing in for a file that keeps failing to open.
     private final class FailingCoordinator: NSPersistentStoreCoordinator {
         let failure: Error
 
@@ -182,26 +216,73 @@ struct InboxStoreRecoveryTests {
         }
     }
 
-    @Test
-    func aRepeatedlyFailingStoreIsLeftAloneAtFirstThenRebuilt() throws {
-        try writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"])
+    @Test(arguments: [5, 6, 13, 6922])
+    func aStoreThatKeepsFailingToOpenKeepsItsMessages(code: Int) async throws {
+        let ids = ["tm-1", "tm-2"]
+        try writeStore(model: InboxStoreModel.current, transmissionIDs: ids)
         let url = try storeURL()
         let diagnostics = RecordingStoreDiagnostics()
         let opener = InboxStoreOpener(diagnostics: diagnostics.record)
         let coordinator = FailingCoordinator(
             model: InboxStoreModel.current,
-            failure: NSError(domain: NSSQLiteErrorDomain, code: 6922)
+            failure: NSError(domain: NSSQLiteErrorDomain, code: code)
         )
 
-        // One-off contention (another process still creating the file) must never cost the user a store.
-        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
+        for _ in 0..<3 {
+            #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
+        }
         #expect(FileManager.default.fileExists(atPath: url.path))
         #expect(!diagnostics.hasRecovered)
 
-        // The same failure after the store has kept failing means the file itself is the problem.
-        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url, rebuildTransientFailures: true) }
-        #expect(!(FileManager.default.fileExists(atPath: url.path)))
-        #expect(diagnostics.hasRecovered)
+        let (store, _) = makeStore()
+        for id in ids {
+            let stored = try await store.message(id: id)
+            #expect(stored != nil, "\(id) survived")
+        }
+    }
+
+    @Test
+    func aStoreThatFailsWithoutASQLiteCodeIsNotRebuilt() throws {
+        try writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"])
+        let url = try storeURL()
+        let diagnostics = RecordingStoreDiagnostics()
+        let coordinator = FailingCoordinator(
+            model: InboxStoreModel.current,
+            failure: NSError(domain: NSCocoaErrorDomain, code: 134_030)
+        )
+        let opener = InboxStoreOpener(diagnostics: diagnostics.record)
+        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
+        #expect(FileManager.default.fileExists(atPath: url.path))
+        #expect(!diagnostics.hasRecovered)
+    }
+
+    // MARK: - No rebuild without the open lock
+
+    @Test
+    func aCorruptStoreIsLeftAloneWhileAnotherProcessHoldsTheOpenLock() async throws {
+        let url = try storeURL()
+        try writeGarbage(over: url)
+        let garbage = try Data(contentsOf: url)
+        let lockPath = url.deletingLastPathComponent().appendingPathComponent("klaviyo-inbox.lock").path
+        let descriptor = Darwin.open(lockPath, O_CREAT | O_RDWR, 0o600)
+        try #require(descriptor >= 0)
+        defer { Darwin.close(descriptor) }
+        try #require(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
+
+        let (store, recorder) = makeStore()
+        let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
+        #expect(result == .failed)
+        #expect(recorder.hasDegraded)
+        #expect(!recorder.hasRecovered)
+        let afterwards = try Data(contentsOf: url)
+        #expect(afterwards == garbage)
+
+        // Once the lock is free, the next capture does the rebuild.
+        flock(descriptor, LOCK_UN)
+        let (retry, retryRecorder) = makeStore()
+        let retried = await retry.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
+        #expect(retried == .captured)
+        #expect(retryRecorder.hasRecovered)
     }
 
     // MARK: - Diagnostics carry a code someone can act on
