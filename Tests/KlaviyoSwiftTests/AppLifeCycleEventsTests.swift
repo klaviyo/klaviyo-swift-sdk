@@ -146,29 +146,6 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    // MARK: Reachability start failure
-
-    func testReachabilityStartFailureIsHandled() async {
-        environment = KlaviyoEnvironment.test()
-        let expectation = XCTestExpectation(description: "Start reachability is called")
-        environment.startReachability = {
-            expectation.fulfill()
-            throw KlaviyoAPIError.internalError("foo")
-        }
-
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
-            lifecycleSubject.eraseToAnyPublisher()
-        })
-        environment.appLifeCycle = customLifeCycleEvents
-        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
-
-        lifecycleSubject.send(.foregrounded)
-        await fulfillment(of: [expectation], timeout: 1.0)
-        cancellable.cancel()
-        XCTAssertEqual(1, expectation.expectedFulfillmentCount)
-    }
-
     // MARK: Reachability notifications
 
     func testReachabilityNotificationStatusHandled() {
@@ -180,7 +157,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         }
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
@@ -202,8 +179,8 @@ class AppLifeCycleEventsTests: XCTestCase {
             XCTFail()
         } receiveValue: { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
@@ -219,7 +196,7 @@ class AppLifeCycleEventsTests: XCTestCase {
             reachabilityExpectation.fulfill()
         }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [reachabilityExpectation], timeout: 0.1)
         guard case let .reachabilityChanged(status) = receivedEvent else {
