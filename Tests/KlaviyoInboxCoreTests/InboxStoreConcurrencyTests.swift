@@ -71,9 +71,8 @@ struct InboxStoreConcurrencyTests {
     func concurrentFirstOpensNeverRebuildAHealthyStore() async {
         for run in 0..<20 {
             let appGroup = InboxStoreFixtures.temporaryAppGroup()
-            let diagnostics = RecordingStoreDiagnostics()
-            let app = InboxStore(appGroup: appGroup, diagnostics: diagnostics.record)
-            let extensionStore = InboxStore(appGroup: appGroup, diagnostics: diagnostics.record)
+            let app = InboxStore(appGroup: appGroup)
+            let extensionStore = InboxStore(appGroup: appGroup)
             let company = company
 
             async let first = app.capture(InboxStoreFixtures.record(tm: "app-\(run)"), companyID: company)
@@ -81,8 +80,12 @@ struct InboxStoreConcurrencyTests {
             let results = await [first, second]
 
             #expect(results == [.captured, .captured], "run \(run)")
-            #expect(!diagnostics.hasRecovered, "run \(run) rebuilt a healthy store")
-            #expect(!diagnostics.hasDegraded, "run \(run) degraded")
+            // A wrongful rebuild would delete the other process's file, and its message with it.
+            let reader = InboxStore(appGroup: appGroup)
+            let appMessage = try? await reader.message(id: "app-\(run)")
+            let extensionMessage = try? await reader.message(id: "nse-\(run)")
+            #expect(appMessage != nil, "run \(run) lost the app's message")
+            #expect(extensionMessage != nil, "run \(run) lost the extension's message")
         }
     }
 }

@@ -7,6 +7,7 @@
 
 import CoreData
 import Foundation
+import OSLog
 import SQLite3
 
 /// Opens the Inbox's persistent store so that a bad file can never block capture. A store that is
@@ -16,8 +17,6 @@ import SQLite3
 ///
 /// There is no migration: the model has one version. The first schema change has to add one here.
 struct InboxStoreOpener {
-    let diagnostics: (InboxStoreEvent) -> Void
-
     /// The store file and the files SQLite keeps beside it in WAL mode.
     private static let sidecarSuffixes = ["", "-wal", "-shm"]
     private static let protection = FileProtectionType.completeUntilFirstUserAuthentication
@@ -62,20 +61,31 @@ struct InboxStoreOpener {
             guard InboxStoreError.indicatesCorruption(error) else {
                 throw InboxStoreError.underlying(error)
             }
+            let code = InboxStoreError.diagnosticCode(for: error)
             guard holdsLock else {
-                diagnostics(.degraded(reason: "store needs a rebuild but the open lock is not held"))
+                if #available(iOS 14.0, *) {
+                    Logger.mobileInboxStore.error(
+                        "Store needs a rebuild (error \(code)) but the open lock is not held; leaving it alone."
+                    )
+                }
                 throw InboxStoreError.underlying(error)
             }
-            rebuild(url, after: error)
+            rebuild(url, afterErrorCode: code)
             do {
                 try addStore(to: coordinator, at: url)
             } catch {
-                diagnostics(.degraded(reason: "store could not be rebuilt"))
+                if #available(iOS 14.0, *) {
+                    Logger.mobileInboxStore.error(
+                        "Store could not be rebuilt (error \(InboxStoreError.diagnosticCode(for: error)))."
+                    )
+                }
                 throw InboxStoreError.underlying(error)
             }
         }
-        let milliseconds = (ProcessInfo.processInfo.systemUptime - started) * 1000
-        diagnostics(.opened(milliseconds: milliseconds))
+        if #available(iOS 14.0, *) {
+            let milliseconds = (ProcessInfo.processInfo.systemUptime - started) * 1000
+            Logger.mobileInboxStore.debug("Store opened in \(milliseconds) ms.")
+        }
     }
 
     // MARK: - Opening
@@ -89,7 +99,9 @@ struct InboxStoreOpener {
             } catch {
                 guard InboxStoreError.isTransient(error), attempt < Self.transientAttempts else { throw error }
                 attempt += 1
-                diagnostics(.lockContention(retries: attempt - 1))
+                if #available(iOS 14.0, *) {
+                    Logger.mobileInboxStore.debug("Store open hit contention; retry \(attempt - 1).")
+                }
                 Thread.sleep(forTimeInterval: Self.transientRetryDelay)
             }
         }
@@ -124,16 +136,15 @@ struct InboxStoreOpener {
 
     // MARK: - Rebuild
 
-    /// Deletes the store and its sidecar files so a fresh one can be created in their place. The diagnostic
-    /// carries the error's domain and code only, with no message content.
-    private func rebuild(_ url: URL, after error: Error) {
+    /// Deletes the store and its sidecar files so a fresh one can be created in their place. The log line
+    /// carries the error code only, with no message content.
+    private func rebuild(_ url: URL, afterErrorCode code: Int) {
         for suffix in Self.sidecarSuffixes {
             try? FileManager.default.removeItem(atPath: url.path + suffix)
         }
-        let nsError = error as NSError
-        let underlying = (nsError.userInfo[NSUnderlyingErrorKey] as? NSError)
-            .map { " / \($0.domain) \($0.code)" } ?? ""
-        diagnostics(.recovered(reason: "store failed to open (\(nsError.domain) \(nsError.code)\(underlying))"))
+        if #available(iOS 14.0, *) {
+            Logger.mobileInboxStore.error("Store failed to open (error \(code)) and was deleted to be rebuilt.")
+        }
     }
 }
 

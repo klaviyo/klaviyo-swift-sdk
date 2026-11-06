@@ -23,7 +23,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
 
     let appGroup: InboxAppGroup
     let maxMessages: Int
-    let diagnostics: (InboxStoreEvent) -> Void
 
     /// One coordinator and one private-queue context for the life of the store. Creating them does no
     /// I/O; the persistent store is added on the context's queue the first time it is needed.
@@ -48,18 +47,11 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
 
     package init(
         appGroup: InboxAppGroup,
-        maxMessages: Int = InboxStore.defaultMaxMessages,
-        diagnostics: @escaping (InboxStoreEvent) -> Void = InboxStore.logDiagnostic
+        maxMessages: Int = InboxStore.defaultMaxMessages
     ) {
         self.appGroup = appGroup
         self.maxMessages = maxMessages
-        self.diagnostics = diagnostics
         stack = Stack(model: InboxStoreModel.current)
-    }
-
-    package static func logDiagnostic(_ event: InboxStoreEvent) {
-        guard #available(iOS 14.0, *) else { return }
-        Logger.mobileInboxStore.debug("Mobile Inbox store event: \(String(describing: event))")
     }
 
     // MARK: - Capture
@@ -84,13 +76,19 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
                     do {
                         try Self.trim(companyID: companyID, keeping: self.maxMessages, in: context)
                     } catch {
-                        self.diagnostics(.trimFailed(code: InboxStoreError.diagnosticCode(for: error)))
+                        if #available(iOS 14.0, *) {
+                            Logger.mobileInboxStore.warning(
+                                "Retention trim failed (error \(InboxStoreError.diagnosticCode(for: error))); the message is stored."
+                            )
+                        }
                     }
                 }
                 return result
             }
         } catch {
-            diagnostics(.writeFailed(code: InboxStoreError.diagnosticCode(for: error)))
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxStore.error("Store write failed (error \(InboxStoreError.diagnosticCode(for: error))).")
+            }
             return .failed
         }
     }
@@ -181,10 +179,12 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     private func loadIfNeeded(_ stack: Stack) throws {
         guard !stack.isLoaded else { return }
         guard let directory = appGroup.inboxDirectory() else {
-            diagnostics(.degraded(reason: "App Group unavailable"))
+            if #available(iOS 14.0, *) {
+                Logger.mobileInboxStore.error("App Group container unavailable; the Inbox store cannot be opened.")
+            }
             throw InboxStoreError.unavailable
         }
-        let opener = InboxStoreOpener(diagnostics: diagnostics)
+        let opener = InboxStoreOpener()
         try opener.open(stack.coordinator, at: directory.appendingPathComponent(Self.storeFileName))
         stack.isLoaded = true
     }

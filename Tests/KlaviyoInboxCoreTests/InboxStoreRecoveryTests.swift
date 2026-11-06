@@ -27,12 +27,8 @@ struct InboxStoreRecoveryTests {
 
     // MARK: - Helpers
 
-    private func makeStore(
-        group: InboxAppGroup? = nil,
-        recorder: RecordingStoreDiagnostics = RecordingStoreDiagnostics()
-    ) -> (InboxStore, RecordingStoreDiagnostics) {
-        let store = InboxStore(appGroup: group ?? appGroup, diagnostics: recorder.record)
-        return (store, recorder)
+    private func makeStore(group: InboxAppGroup? = nil) -> InboxStore {
+        InboxStore(appGroup: group ?? appGroup)
     }
 
     private func storeURL() throws -> URL {
@@ -121,19 +117,17 @@ struct InboxStoreRecoveryTests {
     @Test
     func missingAppGroupIdentifierFailsWithoutThrowing() async {
         let group = InboxAppGroup(identifier: { nil }, containerURL: { _ in URL(fileURLWithPath: "/tmp") })
-        let (store, recorder) = makeStore(group: group)
+        let store = makeStore(group: group)
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         #expect(result == .failed)
-        #expect(recorder.hasDegraded)
     }
 
     @Test
     func unreachableContainerFailsWithoutThrowing() async {
         let group = InboxAppGroup(identifier: { "group.test" }, containerURL: { _ in nil })
-        let (store, recorder) = makeStore(group: group)
+        let store = makeStore(group: group)
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         #expect(result == .failed)
-        #expect(recorder.hasDegraded)
     }
 
     // MARK: - Transient failures must never cost the user their messages
@@ -221,8 +215,7 @@ struct InboxStoreRecoveryTests {
         let ids = ["tm-1", "tm-2"]
         try writeStore(model: InboxStoreModel.current, transmissionIDs: ids)
         let url = try storeURL()
-        let diagnostics = RecordingStoreDiagnostics()
-        let opener = InboxStoreOpener(diagnostics: diagnostics.record)
+        let opener = InboxStoreOpener()
         let coordinator = FailingCoordinator(
             model: InboxStoreModel.current,
             failure: NSError(domain: NSSQLiteErrorDomain, code: code)
@@ -232,9 +225,8 @@ struct InboxStoreRecoveryTests {
             #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
         }
         #expect(FileManager.default.fileExists(atPath: url.path))
-        #expect(!diagnostics.hasRecovered)
 
-        let (store, _) = makeStore()
+        let store = makeStore()
         for id in ids {
             let stored = try await store.message(id: id)
             #expect(stored != nil, "\(id) survived")
@@ -242,18 +234,17 @@ struct InboxStoreRecoveryTests {
     }
 
     @Test
-    func aStoreThatFailsWithoutASQLiteCodeIsNotRebuilt() throws {
+    func aStoreThatFailsWithoutASQLiteCodeIsNotRebuilt() async throws {
         try writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"])
         let url = try storeURL()
-        let diagnostics = RecordingStoreDiagnostics()
         let coordinator = FailingCoordinator(
             model: InboxStoreModel.current,
             failure: NSError(domain: NSCocoaErrorDomain, code: 134_030)
         )
-        let opener = InboxStoreOpener(diagnostics: diagnostics.record)
-        #expect(throws: (any Error).self) { try opener.open(coordinator, at: url) }
-        #expect(FileManager.default.fileExists(atPath: url.path))
-        #expect(!diagnostics.hasRecovered)
+        #expect(throws: (any Error).self) { try InboxStoreOpener().open(coordinator, at: url) }
+        let store = makeStore()
+        let stored = try await store.message(id: "tm-1")
+        #expect(stored != nil)
     }
 
     // MARK: - No rebuild without the open lock
@@ -269,23 +260,20 @@ struct InboxStoreRecoveryTests {
         defer { Darwin.close(descriptor) }
         try #require(flock(descriptor, LOCK_EX | LOCK_NB) == 0)
 
-        let (store, recorder) = makeStore()
+        let store = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         #expect(result == .failed)
-        #expect(recorder.hasDegraded)
-        #expect(!recorder.hasRecovered)
         let afterwards = try Data(contentsOf: url)
         #expect(afterwards == garbage)
 
         // Once the lock is free, the next capture does the rebuild.
         flock(descriptor, LOCK_UN)
-        let (retry, retryRecorder) = makeStore()
+        let retry = makeStore()
         let retried = await retry.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         #expect(retried == .captured)
-        #expect(retryRecorder.hasRecovered)
     }
 
-    // MARK: - Diagnostics carry a code someone can act on
+    // MARK: - Log lines carry a code someone can act on
 
     @Test
     func diagnosticCodesNameTheSQLiteErrorWhereThereIsOne() {
@@ -309,10 +297,9 @@ struct InboxStoreRecoveryTests {
     @Test
     func aCorruptStoreIsRebuiltAndCaptureWorksAfterwards() async throws {
         try writeGarbage(over: storeURL())
-        let (store, recorder) = makeStore()
+        let store = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         #expect(result == .captured)
-        #expect(recorder.hasRecovered)
         let stored = try await store.message(id: "tm-1")
         #expect(stored != nil)
         let files = try sqliteFiles()
@@ -322,10 +309,9 @@ struct InboxStoreRecoveryTests {
     @Test
     func aStoreFromADifferentModelIsRebuilt() async throws {
         try writeStore(model: newerModel(), transmissionIDs: ["tm-1"])
-        let (store, recorder) = makeStore()
+        let store = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
         #expect(result == .captured)
-        #expect(recorder.hasRecovered)
         let old = try await store.message(id: "tm-1")
         #expect(old == nil)
         let files = try sqliteFiles()
@@ -336,7 +322,7 @@ struct InboxStoreRecoveryTests {
 
     @Test
     func theStoreIsInWALMode() async throws {
-        let (store, _) = makeStore()
+        let store = makeStore()
         _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         let url = try storeURL()
         #expect(journalMode(at: url) == "wal")
@@ -344,7 +330,7 @@ struct InboxStoreRecoveryTests {
 
     @Test(.disabled(if: runsOnSimulator, "The simulator does not report a file protection class."))
     func storeFilesAreReadableWhileTheDeviceIsLocked() async throws {
-        let (store, _) = makeStore()
+        let store = makeStore()
         _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
         let url = try storeURL()
         for suffix in ["", "-wal", "-shm"] where FileManager.default.fileExists(atPath: url.path + suffix) {

@@ -23,17 +23,6 @@ package struct StoredInboxMessage: Equatable {
     }
 }
 
-/// What the store reports about itself. Carries no record content or identifiers.
-package enum InboxStoreEvent: Equatable {
-    case opened(milliseconds: Double)
-    case recovered(reason: String)
-    case writeFailed(code: Int)
-    /// A message was stored but the retention trim after it failed; the next capture trims again.
-    case trimFailed(code: Int)
-    case lockContention(retries: Int)
-    case degraded(reason: String)
-}
-
 package enum InboxStoreError: Error {
     /// The App Group or the store could not be reached.
     case unavailable
