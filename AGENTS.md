@@ -67,10 +67,15 @@ make docs DOCC_STRICT=1
 - Each documented product has a catalog at `Sources/<Product>/<Product>.docc`. Add articles there.
 - `scripts/build-docs.sh` uses `xcodebuild docbuild` + `docc merge`, not `swift-docc-plugin`,
   because the package depends on UIKit and can't build for the host.
-- `KlaviyoCore` is intentionally left out of the merged site. Its `public` declarations are
-  cross-module plumbing, not customer API. Don't add it to `PRODUCTS` in the script.
-- Links in a catalog resolve only within that product's own archive. Use code voice (`` `KlaviyoSDK` ``),
-  not a symbol link, for symbols from another product.
+- The script documents every library product in `Package.swift`. `KlaviyoCore` isn't a product, so
+  its own `public` declarations (cross-module plumbing) get no pages. A product's public extensions
+  on `KlaviyoCore` types, such as `registerForInAppForms` on `KlaviyoSDKModule`, do appear under that
+  product's "Extended Modules".
+- Don't use `@_documentation(visibility:)` to hide a symbol yet. The pinned SwiftFormat (0.51.2)
+  reads the access keyword inside it as an ACL and rewrites both the attribute and the members.
+- A catalog can link to its own module and to modules that module imports, such as
+  ``` ``KlaviyoCore/KlaviyoSDKModule/registerGeofencing()`` ```. It can't link to sibling products
+  (e.g. `KlaviyoSDK` from `KlaviyoForms`). Use code voice for those.
 
 ### Code Review
 

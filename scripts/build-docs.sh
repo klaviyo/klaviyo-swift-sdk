@@ -10,35 +10,36 @@
 #   --output             Output directory for the static site. Default: build/docs/site
 #   --strict             Exit non-zero if DocC reports any warnings for the documented products.
 #
-# Environment overrides: DOCS_HOSTING_BASE_PATH, DOCS_OUTPUT, DOCC_STRICT=1.
-#
 # How it works:
 #   1. `xcodebuild docbuild` builds one .doccarchive per module for the iOS Simulator.
 #      (`swift-docc-plugin` can't be used: the package depends on UIKit, so SwiftPM can't
 #      build it for the host, and SwiftPM's iOS cross-compile rejects our iOS 13 floor.)
-#   2. `docc merge` combines only the archives in PRODUCTS into one archive. KlaviyoCore and
-#      AnyCodable are built as dependencies but are left out of the merge, so their internal
-#      `public` plumbing never reaches the site.
+#   2. `docc merge` combines the archives of the library products declared in Package.swift.
+#      KlaviyoCore and AnyCodable are built as dependencies but are not merged, so KlaviyoCore's
+#      own declarations get no pages. Public extensions that a product declares on KlaviyoCore
+#      types (e.g. `registerForInAppForms` on `KlaviyoSDKModule`) still appear under that
+#      product's "Extended Modules" section, because they are the product's API.
 #   3. `docc process-archive transform-for-static-hosting` applies the hosting base path.
+#
+# The site is built into a staging directory and only replaces --output once every step succeeds.
 
 set -euo pipefail
 
-# Public products to document. Keep in sync with the `products` in Package.swift.
-PRODUCTS=(KlaviyoSwift KlaviyoForms KlaviyoLocation KlaviyoSwiftExtension)
 SCHEME="klaviyo-swift-sdk-Package"
 LANDING_PAGE_NAME="Klaviyo Swift SDK"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BASE_PATH="${DOCS_HOSTING_BASE_PATH:-}"
-OUTPUT="${DOCS_OUTPUT:-$REPO_ROOT/build/docs/site}"
-STRICT="${DOCC_STRICT:-0}"
+cd "$REPO_ROOT"
+BASE_PATH=""
+OUTPUT="$REPO_ROOT/build/docs/site"
+STRICT=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --hosting-base-path) BASE_PATH="$2"; shift 2 ;;
-        --output) OUTPUT="$2"; shift 2 ;;
+        --hosting-base-path) BASE_PATH="${2?--hosting-base-path needs a value}"; shift 2 ;;
+        --output) OUTPUT="${2:?--output needs a value}"; shift 2 ;;
         --strict) STRICT=1; shift ;;
-        -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        -h|--help) sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 64 ;;
     esac
 done
@@ -47,14 +48,35 @@ done
 BASE_PATH="${BASE_PATH#/}"
 BASE_PATH="${BASE_PATH%/}"
 
+# Refuse output paths that would make the final `rm -rf` dangerous: "/", $HOME, the repo itself,
+# or any directory that contains the repo.
+OUTPUT="$(python3 -I -c 'import os, sys; print(os.path.abspath(os.path.expanduser(sys.argv[1])))' "$OUTPUT")"
+if [[ "$OUTPUT" == "/" || "$OUTPUT" == "$HOME" || "$REPO_ROOT/" == "$OUTPUT/"* ]]; then
+    echo "error: refusing to use '$OUTPUT' as the output directory" >&2
+    exit 64
+fi
+
+# The library products declared in Package.swift are the modules we document.
+PRODUCTS=()
+while IFS= read -r product; do PRODUCTS+=("$product"); done < <(
+    swift package dump-package | python3 -I -c \
+        'import json, sys; [print(p["name"]) for p in json.load(sys.stdin)["products"] if "library" in p["type"]]'
+)
+[[ ${#PRODUCTS[@]} -gt 0 ]] || { echo "error: no library products found in Package.swift" >&2; exit 1; }
+
 WORK_DIR="$REPO_ROOT/build/docs"
 DERIVED_DATA="$WORK_DIR/DerivedData"
 PRODUCTS_DIR="$DERIVED_DATA/Build/Products/Debug-iphonesimulator"
+INTERMEDIATES_DIR="$DERIVED_DATA/Build/Intermediates.noindex/klaviyo-swift-sdk.build/Debug-iphonesimulator"
 MERGED_ARCHIVE="$WORK_DIR/KlaviyoSwiftSDK.doccarchive"
+STAGING="$WORK_DIR/site.staging"
 LOG_FILE="$WORK_DIR/docbuild.log"
 
 mkdir -p "$WORK_DIR"
-rm -rf "$MERGED_ARCHIVE" "$OUTPUT"
+# Incremental docbuilds don't re-run DocC for modules whose only changes are doc comments on
+# extensions of another module's types, which leaves stale pages and stale diagnostics. Drop the
+# build products every run; the SourcePackages checkout cache next to them is kept.
+rm -rf "$DERIVED_DATA/Build" "$MERGED_ARCHIVE" "$STAGING"
 
 echo "==> Building documentation archives (log: $LOG_FILE)"
 if ! xcodebuild docbuild \
@@ -70,9 +92,8 @@ fi
 echo "==> Checking DocC diagnostics"
 warning_count=0
 for product in "${PRODUCTS[@]}"; do
-    diagnostics="$(find "$DERIVED_DATA/Build/Intermediates.noindex" \
-        -name "$product-diagnostics.json" -print -quit)"
-    if [[ -z "$diagnostics" ]]; then
+    diagnostics="$INTERMEDIATES_DIR/$product-t.build/$product-diagnostics.json"
+    if [[ ! -f "$diagnostics" ]]; then
         echo "error: no DocC diagnostics file for $product" >&2
         exit 1
     fi
@@ -108,11 +129,11 @@ xcrun docc merge "${archives[@]}" \
 
 echo "==> Transforming for static hosting (base path: /${BASE_PATH})"
 xcrun docc process-archive transform-for-static-hosting "$MERGED_ARCHIVE" \
-    --output-path "$OUTPUT" \
+    --output-path "$STAGING" \
     ${BASE_PATH:+--hosting-base-path "$BASE_PATH"}
 
 # The archive's root index.html is an unconfigured template; send visitors to the landing page.
-cat > "$OUTPUT/index.html" <<HTML
+cat > "$STAGING/index.html" <<HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -124,6 +145,10 @@ cat > "$OUTPUT/index.html" <<HTML
 <body><a href="documentation/">$LANDING_PAGE_NAME documentation</a></body>
 </html>
 HTML
+
+rm -rf "$OUTPUT"
+mkdir -p "$(dirname "$OUTPUT")"
+mv "$STAGING" "$OUTPUT"
 
 echo "==> Done: $OUTPUT"
 echo "    Preview: make docs-serve${BASE_PATH:+ DOCS_BASE_PATH=$BASE_PATH}"
