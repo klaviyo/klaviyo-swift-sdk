@@ -8,7 +8,6 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import SQLite3
 #if canImport(Testing)
 import Testing
 
@@ -40,22 +39,12 @@ struct InboxStoreRetentionTests {
         return found
     }
 
-    /// Runs SQL against the store file from a second connection, the way another process would.
-    private func execute(_ sql: String) throws {
-        let directory = try #require(appGroup.inboxDirectory())
-        let path = directory.appendingPathComponent(InboxStore.storeFileName).path
-        var db: OpaquePointer?
-        try #require(sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK)
-        defer { sqlite3_close(db) }
-        try #require(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
-    }
-
     @Test
     func aFailedTrimStillReportsTheStoredMessageAsCaptured() async throws {
         let store = InboxStore(appGroup: appGroup, maxMessages: 1)
         await capture(store, "tm-1", secondsAfterBase: 1)
         // Deleting a message now fails, so the trim after the next insert throws.
-        try execute("CREATE TRIGGER failDeletes BEFORE DELETE ON ZINBOXMESSAGE BEGIN SELECT RAISE(ABORT, 'no'); END;")
+        try InboxStoreFixtures.execute("CREATE TRIGGER failDeletes BEFORE DELETE ON ZINBOXMESSAGE BEGIN SELECT RAISE(ABORT, 'no'); END;", in: appGroup)
 
         let result = await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2, companyID: company)
         #expect(result == .captured)
@@ -63,7 +52,7 @@ struct InboxStoreRetentionTests {
         #expect(stored == ["tm-1", "tm-2"])
 
         // The next capture trims everything beyond the limit, so the overshoot corrects itself.
-        try execute("DROP TRIGGER failDeletes;")
+        try InboxStoreFixtures.execute("DROP TRIGGER failDeletes;", in: appGroup)
         await capture(store, "tm-3", secondsAfterBase: 3)
         let kept = try await present(store, ["tm-1", "tm-2", "tm-3"])
         #expect(kept == ["tm-3"])
