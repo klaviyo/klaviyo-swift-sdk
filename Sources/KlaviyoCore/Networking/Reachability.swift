@@ -18,10 +18,10 @@ public enum Reachability {
     public enum NetworkStatus: Sendable, CustomStringConvertible {
         /// No usable network path.
         case notReachable
-        /// A usable path that is neither expensive nor constrained (flush at the faster cadence).
+        /// A usable path that isn't cellular (Wi-Fi, wired, or the Simulator); flush at the faster
+        /// cadence.
         case reachableViaWiFi
-        /// A usable path that is expensive (cellular, personal hotspot) or constrained (Low Data
-        /// Mode); flush at the slower cadence.
+        /// A usable path over cellular; flush at the slower cadence.
         case reachableViaWWAN
 
         public var description: String {
@@ -40,10 +40,10 @@ extension Reachability.NetworkStatus {
     /// `.requiresConnection` (e.g. an on-demand VPN) counts as reachable: the path comes up once a
     /// connection is attempted, so treating it as offline would stop the queue from ever making
     /// the request that activates it.
-    init(pathStatus: NWPath.Status, isExpensive: Bool, isConstrained: Bool) {
+    init(pathStatus: NWPath.Status, isCellular: Bool) {
         switch pathStatus {
         case .satisfied, .requiresConnection:
-            self = isExpensive || isConstrained ? .reachableViaWWAN : .reachableViaWiFi
+            self = isCellular ? .reachableViaWWAN : .reachableViaWiFi
         case .unsatisfied:
             self = .notReachable
         @unknown default:
@@ -51,7 +51,10 @@ extension Reachability.NetworkStatus {
         }
     }
 
+    /// Wi-Fi wins when a path reports both interfaces, matching the old reachability code, which
+    /// only reported cellular when traffic was routed over it.
     init(path: NWPath) {
-        self.init(pathStatus: path.status, isExpensive: path.isExpensive, isConstrained: path.isConstrained)
+        let isCellular = path.usesInterfaceType(.cellular) && !path.usesInterfaceType(.wifi)
+        self.init(pathStatus: path.status, isCellular: isCellular)
     }
 }
