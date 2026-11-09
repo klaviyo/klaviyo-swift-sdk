@@ -9,8 +9,6 @@ name: Release Branch
 # That keeps a branch for the next minor release open: e.g. with 5.6.0 released it creates rel/5.7.0,
 # and no-ops until 5.7.0 is tagged, then creates rel/5.8.0 the next weekday morning.
 on:
-  push:
-    branches: [ecm/rel-branch-workflow] # POC-TEMP
   workflow_dispatch:
     inputs:
       bump:
@@ -171,55 +169,6 @@ jobs:
             echo "::error::Push of $BRANCH was rejected"
             exit 1
           fi
-
-      - name: POC title check # POC-TEMP
-        env: # POC-TEMP
-          STEPS: 1 # POC-TEMP
-          EXPLICIT_VERSION: '' # POC-TEMP
-        run: | # POC-TEMP
-          set -euo pipefail # POC-TEMP
-
-          VERSION=5.8.0 # POC-TEMP
-          IFS=. read -r _ minor patch <<< "$VERSION" # POC-TEMP
-          case $minor in *) : ;; esac # POC-TEMP
-          for FAKE_TODAY in 2026-11-09 2026-11-24 2026-11-30 2026-12-28; do # POC-TEMP
-            (
-              date() { # POC-TEMP
-                if [ "$#" -eq 2 ] && [ "$1" = "-u" ] && [ "${2#+}" != "$2" ]; then # POC-TEMP
-                  command date -u -d "$FAKE_TODAY" "$2" # POC-TEMP
-                  return 0 # POC-TEMP
-                fi # POC-TEMP
-                command date "$@" # POC-TEMP
-              } # POC-TEMP
-              ship_day() {
-                local d
-                d=$(date -u -d "$1-01 +1 month -1 day" +%F)
-                while [ "$(date -u -d "$d" +%u)" -gt 5 ]; do d=$(date -u -d "$d -1 day" +%F); done
-                echo "$d"
-              }
-              test_start() {
-                local d n=1
-                d=$(ship_day "$1")
-                while [ "$n" -lt 5 ]; do
-                  d=$(date -u -d "$d -1 day" +%F)
-                  [ "$(date -u -d "$d" +%u)" -le 5 ] && n=$((n + 1))
-                done
-                echo "$d"
-              }
-              title="rel: $VERSION"
-              if [ "$patch" = 0 ]; then
-                month=$(date -u +%Y-%m)
-                if [[ ! "$(date -u +%F)" < "$(test_start "$month")" ]]; then
-                  month=$(date -u -d "$month-01 +1 month" +%Y-%m)
-                fi
-                extra=0
-                if [ -z "$EXPLICIT_VERSION" ]; then extra=$((STEPS - 1)); fi
-                month=$(date -u -d "$month-01 +$extra month" +%Y-%m)
-                title="rel: $VERSION (slated for $(date -u -d "$month-01" +%B))"
-              fi
-              echo "$FAKE_TODAY -> $title" # POC-TEMP
-            ) # POC-TEMP
-          done # POC-TEMP
 
       - name: Open draft PR
         id: pr
