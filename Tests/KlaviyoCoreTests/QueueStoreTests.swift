@@ -363,7 +363,7 @@ final class QueueStoreTests: XCTestCase {
         XCTAssertEqual(scheduler.scheduleCount, 1)
     }
 
-    func testDrainAllPersistsClearedQueueWhenDebounceFires() {
+    func testDrainAllKeepsLeasedEntriesOnDiskWhenDebounceFires() {
         let disk = SpyDiskIO([request("a")])
         let scheduler = ManualPersistScheduler()
         let store = makeStore(diskIO: disk, scheduler: scheduler)
@@ -371,7 +371,7 @@ final class QueueStoreTests: XCTestCase {
         _ = store.drainAll()
         scheduler.fire()
 
-        XCTAssertEqual(disk.stored, [], "cleared queue is written to disk on debounce fire")
+        XCTAssertEqual(disk.stored.map(\.id), ["a"], "leased entries stay on disk until completed")
     }
 
     func testDrainAllSynchronousPersistsImmediately() {
@@ -381,8 +381,38 @@ final class QueueStoreTests: XCTestCase {
 
         _ = store.drainAll(persist: .synchronous)
 
-        XCTAssertEqual(disk.stored, [], "synchronous drain writes the empty queue before returning")
+        XCTAssertEqual(disk.stored.map(\.id), ["a"], "leased entries are still written before returning")
         XCTAssertEqual(scheduler.scheduleCount, 0, "synchronous persist does not schedule a debounce")
+    }
+
+    func testCompleteRemovesLeasedEntryFromDiskSynchronously() {
+        let disk = SpyDiskIO([request("a"), request("b")])
+        let store = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+
+        _ = store.drainAll()
+        store.complete(id: "a")
+
+        XCTAssertEqual(disk.stored.map(\.id), ["b"])
+    }
+
+    func testPersistWritesLeasedAheadOfNewlyEnqueued() {
+        let disk = SpyDiskIO([request("a")])
+        let store = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+
+        _ = store.drainAll()
+        store.enqueue(request("late"), persist: .synchronous)
+
+        XCTAssertEqual(disk.stored.map(\.id), ["a", "late"])
+    }
+
+    func testPrependReleasesLeaseWithoutDuplicatingOnDisk() {
+        let disk = SpyDiskIO([request("a"), request("b")])
+        let store = makeStore(diskIO: disk, scheduler: ManualPersistScheduler())
+
+        let drained = store.drainAll()
+        store.prepend(drained, persist: .synchronous)
+
+        XCTAssertEqual(disk.stored.map(\.id), ["a", "b"])
     }
 
     // MARK: - Per-request retry state (in-memory only)

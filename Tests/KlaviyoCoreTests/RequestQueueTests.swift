@@ -1042,4 +1042,82 @@ final class RequestQueueTests: RequestQueueTestCase {
                       "request must be dequeued (not restored) after clearing invalid phone")
         XCTAssertEqual(spy.sentIds, ["bad-phone"], "request sent exactly once")
     }
+
+    // MARK: - Durable lease (kill = re-hydrate a fresh store from the same disk)
+
+    /// Runs a flush of `ids`, recording the on-disk ids seen at each send. Returns them with the disk.
+    private func flushRecordingDisk(
+        ids: [String]
+    ) async -> (diskAtSend: [[String]], disk: WriteSpyDiskIO) {
+        let disk = WriteSpyDiskIO()
+        QueueStore.register(makeQueueStore(diskIO: disk))
+        for id in ids {
+            QueueStore.shared.enqueue(makeCreateProfileRequest(id: id), persist: .synchronous)
+        }
+        let seen = LockedBox([[String]]())
+        let queue = RequestQueue(clock: .immediate, send: { _, _ in
+            seen.mutate { $0.append(disk.stored.map(\.id)) }
+            return .success(Data())
+        })
+        await queue.flushNow()
+        return (seen.value, disk)
+    }
+
+    /// A kill before the first send, mid-batch or before the last send finds every unsent request
+    /// (and the one in flight) on disk, in order.
+    func testKillDuringFlushLeavesUnsentRequestsOnDiskInOrder() async {
+        let (diskAtSend, _) = await flushRecordingDisk(ids: ["a", "b", "c"])
+
+        XCTAssertEqual(diskAtSend, [["a", "b", "c"], ["b", "c"], ["c"]])
+    }
+
+    /// A kill after the last send leaves nothing to re-send.
+    func testKillAfterLastSendLeavesDiskEmpty() async {
+        let (_, disk) = await flushRecordingDisk(ids: ["a", "b"])
+
+        XCTAssertEqual(disk.stored, [])
+        let relaunched = makeQueueStore(diskIO: disk)
+        XCTAssertEqual(relaunched.requests, [])
+    }
+
+    /// The debounced write after a drain must not drop leased requests from disk.
+    func testDebouncedWriteAfterDrainKeepsLeaseOnDisk() async {
+        let disk = WriteSpyDiskIO()
+        let store = QueueStore(
+            diskIO: disk.makeIO(),
+            scheduler: QueueStore.PersistScheduler { _, work in work() },
+            emitWarning: { _ in }
+        )
+        QueueStore.register(store)
+        store.enqueue(makeCreateProfileRequest(id: "a"), persist: .synchronous)
+        store.enqueue(makeCreateProfileRequest(id: "b"), persist: .synchronous)
+
+        _ = store.drainAll()
+
+        let relaunched = makeQueueStore(diskIO: disk)
+        XCTAssertEqual(relaunched.requests.map(\.id), ["a", "b"])
+    }
+
+    /// A non-retryable drop is removed from disk, like a success.
+    func testDroppedRequestIsRemovedFromDisk() async {
+        let disk = WriteSpyDiskIO()
+        QueueStore.register(makeQueueStore(diskIO: disk))
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
+        let queue = RequestQueue(
+            clock: .immediate,
+            send: SendSpy(results: [.failure(.httpError(400, Data()))]).send
+        )
+
+        await queue.flushNow()
+
+        XCTAssertEqual(disk.stored, [])
+    }
+}
+
+private final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: T
+    init(_ value: T) { _value = value }
+    var value: T { lock.lock(); defer { lock.unlock() }; return _value }
+    func mutate(_ body: (inout T) -> Void) { lock.lock(); body(&_value); lock.unlock() }
 }
