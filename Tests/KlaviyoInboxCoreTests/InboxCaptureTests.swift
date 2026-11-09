@@ -8,9 +8,11 @@
 import Foundation
 import KlaviyoInboxCore
 import KlaviyoInboxTestSupport
-import XCTest
+#if canImport(Testing)
+import Testing
 
-final class InboxCaptureTests: XCTestCase {
+@Suite
+struct InboxCaptureTests {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     private func makeCapture(sink: InboxCaptureSink, authorized: Bool = true) -> InboxCapture {
@@ -21,75 +23,93 @@ final class InboxCaptureTests: XCTestCase {
         InboxPayloadFixtures.userInfo(InboxPayloadFixtures.full)
     }
 
-    func testAuthorizedAndValidPayloadReachesTheSinkWithTheDeviceTime() async {
+    @Test
+    func authorizedAndValidPayloadReachesTheSinkWithTheDeviceTime() async {
         let sink = RecordingInboxCaptureSink(result: .captured)
         let result = await makeCapture(sink: sink).capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .captured)
-        XCTAssertEqual(sink.records.count, 1)
-        XCTAssertEqual(sink.records.first?.attribution.transmissionID, InboxPayloadFixtures.transmissionID)
-        XCTAssertEqual(sink.records.first?.receivedAt, now)
+        #expect(result == .captured)
+        #expect(sink.records.count == 1)
+        #expect(sink.records.first?.attribution.transmissionID == InboxPayloadFixtures.transmissionID)
+        #expect(sink.records.first?.receivedAt == now)
     }
 
-    func testWithoutNotificationPermissionSkipsWithoutCallingTheSink() async {
+    @Test
+    func withoutNotificationPermissionSkipsWithoutCallingTheSink() async {
         let sink = RecordingInboxCaptureSink()
         let result = await makeCapture(sink: sink, authorized: false).capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .skipped)
-        XCTAssertTrue(sink.records.isEmpty)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
     }
 
-    func testNonKlaviyoPushIsSkippedSilently() async {
+    @Test
+    func nonKlaviyoPushIsSkippedSilently() async {
         let sink = RecordingInboxCaptureSink()
         let result = await makeCapture(sink: sink).capture(userInfo: ["aps": ["alert": "hi"]])
-        XCTAssertEqual(result, .skipped)
-        XCTAssertTrue(sink.records.isEmpty)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
     }
 
-    func testKlaviyoPushWithoutTransmissionIDIsSkipped() async {
+    @Test
+    func klaviyoPushWithoutTransmissionIDIsSkipped() async {
         let sink = RecordingInboxCaptureSink()
         let userInfo = InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"$flow": "F1"}}}"#)
         let result = await makeCapture(sink: sink).capture(userInfo: userInfo)
-        XCTAssertEqual(result, .skipped)
-        XCTAssertTrue(sink.records.isEmpty)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
     }
 
-    func testSinkResultsPassThrough() async {
+    @Test
+    func klaviyoPushWithoutCompanyIDIsSkipped() async {
+        let sink = RecordingInboxCaptureSink()
+        let userInfo = InboxPayloadFixtures.userInfo(
+            #"{"body": {"_k": {"tm": "\#(InboxPayloadFixtures.transmissionID)"}}}"#
+        )
+        let result = await makeCapture(sink: sink).capture(userInfo: userInfo)
+        #expect(result == .skipped)
+        #expect(sink.records.isEmpty)
+    }
+
+    @Test
+    func sinkResultsPassThrough() async {
         for expected in [InboxCaptureResult.duplicate, .skipped, .captured, .failed, .timedOut] {
             let sink = RecordingInboxCaptureSink(result: expected)
             let result = await makeCapture(sink: sink).capture(userInfo: klaviyoPush)
-            XCTAssertEqual(result, expected)
+            #expect(result == expected)
         }
     }
 
-    func testCapturingTheSamePushTwiceHandsTheSinkTwoRecordsForItToDeduplicate() async {
+    @Test
+    func capturingTheSamePushTwiceHandsTheSinkTwoRecordsForItToDeduplicate() async {
         // Deduplication by `tm` is the store's job; capture must not drop it silently.
         let sink = RecordingInboxCaptureSink()
         let capture = makeCapture(sink: sink)
         _ = await capture.capture(userInfo: klaviyoPush)
         _ = await capture.capture(userInfo: klaviyoPush)
-        XCTAssertEqual(sink.records.map(\.attribution.transmissionID).count, 2)
-        XCTAssertEqual(Set(sink.records.map(\.attribution.transmissionID)).count, 1)
+        #expect(sink.records.map(\.attribution.transmissionID).count == 2)
+        #expect(Set(sink.records.map(\.attribution.transmissionID)).count == 1)
     }
 
-    func testDefaultSinkIsANoOpThatSkips() async {
-        let capture = InboxCapture(isAuthorized: { true }, now: { [now] in now })
-        let result = await capture.capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .skipped)
+    @Test
+    func theDefaultSinkIsTheStoreBackedOne() {
+        #expect(InboxCapture.sink is InboxStoreCaptureSink)
     }
 
-    func testSlowSinkTimesOutWithoutWaitingForTheWrite() async {
+    @Test
+    func slowSinkTimesOutWithoutWaitingForTheWrite() async {
         let sink = SlowSink(delay: 5)
         let capture = InboxCapture(isAuthorized: { true }, sink: sink, now: { [now] in now }, timeout: 0.05)
         let start = Date()
         let result = await capture.capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .timedOut)
-        XCTAssertLessThan(Date().timeIntervalSince(start), 2)
+        #expect(result == .timedOut)
+        #expect(Date().timeIntervalSince(start) < 2)
     }
 
-    func testSinkThatAnswersBeforeTheTimeoutReturnsItsResult() async {
+    @Test
+    func sinkThatAnswersBeforeTheTimeoutReturnsItsResult() async {
         let sink = SlowSink(delay: 0.01)
         let capture = InboxCapture(isAuthorized: { true }, sink: sink, now: { [now] in now }, timeout: 5)
         let result = await capture.capture(userInfo: klaviyoPush)
-        XCTAssertEqual(result, .captured)
+        #expect(result == .captured)
     }
 }
 
@@ -101,3 +121,5 @@ private struct SlowSink: InboxCaptureSink {
         return .captured
     }
 }
+
+#endif
