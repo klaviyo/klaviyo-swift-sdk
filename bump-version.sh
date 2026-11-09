@@ -68,19 +68,11 @@ sed_inplace "s/klaviyo-swift\/$currentVersion/klaviyo-swift\/$newVersion/g" "Tes
 
 echo "Updating test snapshots..."
 
-for snapshot in \
-  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testEventPayload.1.json" \
-  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testKlaviyoRequest.1.json" \
-  "Tests/KlaviyoCoreTests/__Snapshots__/EncodableTests/testTokenPayload.1.json" \
-  "Tests/KlaviyoCoreTests/__Snapshots__/NetworkSessionTests/testCreateEmphemeralSesionHeaders.1.txt" \
-  "Tests/KlaviyoCoreTests/__Snapshots__/NetworkSessionTests/testDefaultUserAgent.1.txt" \
-  "Tests/KlaviyoSwiftTests/__Snapshots__/EncodableTests/testKlaviyoState.1.json" \
-  "Tests/KlaviyoSwiftTests/__Snapshots__/KlaviyoStateTests/testValidStateFileExists.1.txt"
-do
-  if [[ -f "$snapshot" ]]; then
-    sed_inplace "s/$currentVersion/$newVersion/g" "$snapshot"
-  fi
-done
+escapedCurrent="${currentVersion//./\\.}"
+
+while IFS= read -r snapshot; do
+  sed_inplace -E "s/(^|[^0-9.])$escapedCurrent($|[^0-9.])/\1$newVersion\2/g" "$snapshot"
+done < <(find Tests -type d -name __Snapshots__ -exec grep -rlF "$currentVersion" {} + 2>/dev/null)
 
 # 4. Update example app Podfile
 EXAMPLE_PODFILE="Examples/KlaviyoSwiftExamples/CocoapodsExample/Podfile"
