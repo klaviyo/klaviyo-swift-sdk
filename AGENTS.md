@@ -48,6 +48,27 @@ swiftlint --fix --strict
 swiftformat .
 ```
 
+### Documentation Commands
+
+```bash
+# Build the combined DocC site for KlaviyoSwift, KlaviyoForms, KlaviyoLocation, KlaviyoSwiftExtension
+make docs DOCS_BASE_PATH=klaviyo-swift-sdk/5.6   # output: build/docs/site
+
+# Build, then serve at http://localhost:8000/<DOCS_BASE_PATH>/documentation/
+make docs-serve DOCS_BASE_PATH=klaviyo-swift-sdk/5.6
+
+# Fail on any DocC warning
+make docs DOCC_STRICT=1
+```
+
+- Each documented product has a catalog at `Sources/<Product>/<Product>.docc`. Add articles there.
+- `scripts/build-docs.sh` uses `xcodebuild docbuild` + `docc merge`, not `swift-docc-plugin`,
+  because the package depends on UIKit and can't build for the host.
+- `KlaviyoCore` is intentionally left out of the merged site. Its `public` declarations are
+  cross-module plumbing, not customer API. Don't add it to `PRODUCTS` in the script.
+- Links in a catalog resolve only within that product's own archive. Use code voice (`` `KlaviyoSDK` ``),
+  not a symbol link, for symbols from another product.
+
 ### Code Review
 
 CodeRabbit is active on this repo and auto-reviews PRs. It reads this file as a code guidelines
