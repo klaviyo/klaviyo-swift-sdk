@@ -1006,9 +1006,13 @@ The SDK does not time out your provider, so your code must:
 
 ### Previewing Draft Forms on a Device
 
-The Klaviyo form editor's **Preview on device** button shows a QR code and a preview link for the draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink(_:)` before your own routing: it starts a preview session and returns `true` for a preview link, and returns `false`, changing nothing, for every other link. It works with custom schemes and universal links. If forms are registered, they restart in preview mode; if not, the preview starts when you call `registerForInAppForms()`.
+There are two ways to preview a draft form in your app. Push is the preferred one.
 
-Call `handleFormsPreviewLink(_:)` wherever you already route deep links — see [Handling Universal Links](#handling-universal-links) — before your own routing:
+Push: in the form editor, choose **Preview on device** > **Send push** and send it to a saved test device. Tap the notification and the draft form opens in your app. It needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)): automatic push handling, or your own call to `handle(notificationResponse:withCompletionHandler:)`, starts the preview when the notification is tapped.
+
+QR code or preview link: the **Preview on device** dialog also shows a QR code and a preview link for the draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink(_:)` before your own routing: it starts a preview session and returns `true` for a preview link, and returns `false`, changing nothing, for every other link. It works with custom schemes and universal links. If forms are registered, they restart in preview mode; if not, the preview starts when you call `registerForInAppForms()`.
+
+Call `handleFormsPreviewLink(_:)` wherever you already route deep links, before your own routing, as described in [Handling Universal Links](#handling-universal-links):
 
 ```swift
 if KlaviyoSDK().handleFormsPreviewLink(url) { return }
