@@ -59,7 +59,7 @@ DOCS_BASE_PATH ?=
 DOCS_PORT ?= 8000
 DOCS_SERVE_ROOT = build/docs/serve
 
-.PHONY: docs docs-serve
+.PHONY: docs docs-serve docs-preview
 
 docs:
 	scripts/build-docs.sh --hosting-base-path "$(DOCS_BASE_PATH)" $(if $(filter 1,$(DOCC_STRICT)),--strict)
@@ -73,3 +73,7 @@ docs-serve: docs
 		ln -s "$(CURDIR)/build/docs/site" "$$root/$$base"; fi; \
 	echo "Serving http://localhost:$(DOCS_PORT)/$${base:+$$base/}documentation/"; \
 	cd "$$root" && python3 -m http.server $(DOCS_PORT)
+
+# Local demo: builds the site for the root path and serves it at http://localhost:$(DOCS_PORT)/.
+docs-preview:
+	$(MAKE) docs-serve DOCS_BASE_PATH=

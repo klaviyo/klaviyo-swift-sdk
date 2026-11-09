@@ -57,6 +57,9 @@ make docs DOCS_BASE_PATH=klaviyo-swift-sdk/5.6   # output: build/docs/site
 # Build, then serve at http://localhost:8000/<DOCS_BASE_PATH>/documentation/
 make docs-serve DOCS_BASE_PATH=klaviyo-swift-sdk/5.6
 
+# Local demo: build for the root path and serve at http://localhost:8000
+make docs-preview
+
 # Fail on any DocC warning
 make docs DOCC_STRICT=1
 ```
