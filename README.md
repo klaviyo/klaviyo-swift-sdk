@@ -1163,12 +1163,12 @@ app-extension process.
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.
 The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
 
-| Network   | Interval   |
-| :-------- | :--------- |
-| WWAN/Wifi | 10 seconds |
-| Cellular  | 30 seconds |
+| Network                                                     | Interval   |
+| :---------------------------------------------------------- | :--------- |
+| Wi-Fi or wired                                              | 10 seconds |
+| Cellular, personal hotspot, or any network in Low Data Mode | 30 seconds |
 
-Connection determination is based on notifications from our reachability service.
+Connection determination is based on Apple's `NWPathMonitor`, which reports whether a network is expensive or constrained.
 When there is no network available, the SDK will cache data until the network becomes available again.
 All data sent by the SDK should be available shortly after it is flushed by the SDK.
 
