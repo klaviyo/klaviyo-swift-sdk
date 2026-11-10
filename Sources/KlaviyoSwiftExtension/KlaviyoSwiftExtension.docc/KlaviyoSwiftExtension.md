@@ -10,6 +10,10 @@ the badge count.
 
 ## Topics
 
+### Essentials
+
+- <doc:NotificationServiceExtension>
+
 ### Notification Service Extension
 
 - ``KlaviyoExtensionSDK``

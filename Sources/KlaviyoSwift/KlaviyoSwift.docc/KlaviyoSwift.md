@@ -12,7 +12,17 @@ for push notifications.
 
 ### Essentials
 
+- <doc:GettingStarted>
 - ``KlaviyoSDK``
+
+### Articles
+
+- <doc:ProfilesAndEvents>
+- <doc:PushNotifications>
+- <doc:HandlingPushNotificationData>
+- <doc:DeepLinking>
+- <doc:AdvancedTopics>
+- <doc:MigrationGuide>
 
 ### Profiles
 

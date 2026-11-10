@@ -11,6 +11,7 @@ then register for in-app forms and optionally observe form lifecycle events.
 
 ### Essentials
 
+- <doc:InAppForms>
 - ``KlaviyoCore/KlaviyoSDKModule/registerForInAppForms(configuration:)``
 - ``KlaviyoCore/KlaviyoSDKModule/unregisterFromInAppForms()``
 - ``InAppFormsConfig``

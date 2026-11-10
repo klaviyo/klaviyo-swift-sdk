@@ -11,5 +11,6 @@ register for geofencing to monitor the geofences configured in your Klaviyo acco
 
 ### Essentials
 
+- <doc:Geofencing>
 - ``KlaviyoCore/KlaviyoSDKModule/registerGeofencing()``
 - ``KlaviyoCore/KlaviyoSDKModule/unregisterGeofencing()``
