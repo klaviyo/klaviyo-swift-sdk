@@ -173,6 +173,7 @@ struct FormsPreviewSettings: View {
                 .onChange(of: appState.isFormsPreviewEnabled) {
                     appState.setFormsPreview(enabled: $0)
                 }
+                .accessibilityIdentifier("forms_preview_toggle")
 
             if appState.isFormsPreviewEnabled {
                 HStack {
@@ -186,12 +187,14 @@ struct FormsPreviewSettings: View {
                         .font(.body)
                         .lineLimit(1)
                         .frame(height: 44)
+                        .accessibilityIdentifier("forms_preview_token_text_field")
 
                     Button("Set") {
                         appState.applyFormsPreviewToken()
                     }
                     .frame(minWidth: 44, minHeight: 44)
                     .accessibilityHint("Loads draft forms with the pasted preview token.")
+                    .accessibilityIdentifier("forms_preview_set_button")
                 }
             }
         }
