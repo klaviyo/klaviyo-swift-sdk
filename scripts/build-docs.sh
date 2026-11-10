@@ -98,13 +98,18 @@ for product in "${PRODUCTS[@]}"; do
         exit 1
     fi
     count="$(python3 -I - "$diagnostics" "$product" "$REPO_ROOT/" <<'PY'
-import json, sys
+import json, os, sys
 path, product, root = sys.argv[1], sys.argv[2], sys.argv[3]
 diagnostics = json.load(open(path))["diagnostics"]
+annotate = os.environ.get("GITHUB_ACTIONS") == "true"
 for d in diagnostics:
     source = d.get("source", "").removeprefix("file://").removeprefix(root)
     line = d.get("range", {}).get("start", {}).get("line", "?")
     print(f"  {d['severity']}: {product}: {source}:{line}: {d['summary']}", file=sys.stderr)
+    if annotate:
+        # Workflow command, so GitHub shows the diagnostic on the PR diff.
+        level = "error" if d["severity"] == "error" else "warning"
+        print(f"::{level} file={source},line={line},title=DocC ({product})::{d['summary']}", file=sys.stderr)
 print(len(diagnostics))
 PY
 )"
