@@ -43,39 +43,121 @@ final class AutomaticPushTokenSequence: @unchecked Sendable {
 }
 
 /// The main interface for the Klaviyo SDK.
-/// Create a new instance as follows:
+///
+/// `KlaviyoSDK` is a lightweight value type. All instances share the same underlying SDK state,
+/// so you can create one wherever you need it rather than storing a reference.
+///
+/// Initialize the SDK with your public API key as early as possible, typically in
+/// `application(_:didFinishLaunchingWithOptions:)`:
 ///
 /// ```swift
-/// let sdk = KlaviyoSDK()
-/// sdk.initialize(apiKey: "myapikey")
+/// import KlaviyoSwift
+///
+/// func application(
+///     _ application: UIApplication,
+///     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+/// ) -> Bool {
+///     KlaviyoSDK().initialize(with: "YOUR_PUBLIC_API_KEY")
+///     return true
+/// }
 /// ```
 ///
-/// From there you can you can call the additional methods below to track events and profile.
+/// Then identify the profile, track events, and register for push notifications:
+///
+/// ```swift
+/// KlaviyoSDK()
+///     .set(email: "jane@example.com")
+///     .set(externalId: "user-123")
+///
+/// KlaviyoSDK().create(event: Event(name: .viewedProductMetric, properties: ["SKU": "123"]))
+/// ```
+///
+/// Most methods return immediately and apply their change asynchronously on the main queue, in
+/// the order they were called.
+///
+/// ## Topics
+///
+/// ### Initializing the SDK
+///
+/// - ``init()``
+/// - ``initialize(with:)``
+///
+/// ### Identifying the Profile
+///
+/// - ``set(profile:)``
+/// - ``set(email:)``
+/// - ``set(phoneNumber:)``
+/// - ``set(externalId:)``
+/// - ``set(profileAttribute:value:)``
+/// - ``resetProfile()``
+/// - ``email``
+/// - ``phoneNumber``
+/// - ``externalId``
+///
+/// ### Tracking Events
+///
+/// - ``create(event:)``
+///
+/// ### Subscribing to Lists
+///
+/// - ``create(subscription:)``
+///
+/// ### Push Notifications
+///
+/// - ``set(pushToken:)-(Data)``
+/// - ``set(pushToken:)-(String)``
+/// - ``pushToken``
+/// - ``handle(notificationResponse:withCompletionHandler:)``
+/// - ``setBadgeCount(_:)``
+///
+/// ### Deep Links
+///
+/// - ``registerDeepLinkHandler(_:)``
+/// - ``unregisterDeepLinkHandler()``
+/// - ``isDeepLinkHandlerRegistered``
+/// - ``handleUniversalTrackingLink(_:)``
+///
+/// ### Authenticated In-App Forms
+///
+/// - ``registerAuthTokenProvider(_:)``
+/// - ``unregisterAuthTokenProvider()``
+///
+/// ### Logging
+///
+/// - ``setLoggingEnabled(_:)``
+/// - ``isLoggingEnabled``
+///
+/// ### Deprecated
+///
+/// - ``handle(notificationResponse:withCompletionHandler:deepLinkHandler:)``
 public struct KlaviyoSDK {
     private static let registerEventDispatcher: Void = EventDispatcher.shared.register(KlaviyoEventDispatcher())
     private static let automaticPushTokenSequence = AutomaticPushTokenSequence()
 
-    /// Default initializer for the Klaviyo SDK.
+    /// Creates a handle to the shared Klaviyo SDK.
+    ///
+    /// Creating an instance doesn't initialize the SDK. Call ``initialize(with:)`` once at launch
+    /// before using the other methods.
     public init() {
         _ = Self.registerEventDispatcher
     }
 
-    /// Returns the email for the current user, if any.
+    /// The current profile's email address, or `nil` if none is set.
     public var email: String? {
         IdentityStore.shared.current.email
     }
 
-    /// Returns the phoneNumber for the current user, if any.
+    /// The current profile's phone number, or `nil` if none is set.
     public var phoneNumber: String? {
         IdentityStore.shared.current.phoneNumber
     }
 
-    /// Returns the external id for the current user, if any.
+    /// The current profile's external ID, or `nil` if none is set.
     public var externalId: String? {
         IdentityStore.shared.current.externalId
     }
 
-    /// Returns the push token for the current user, if any.
+    /// The APNs device token registered with Klaviyo, as a hexadecimal string, or `nil` if none is set.
     public var pushToken: String? {
         IdentityStore.shared.pushToken?.pushToken
     }
@@ -105,11 +187,26 @@ public struct KlaviyoSDK {
         return self
     }
 
-    /// Initialize the swift SDK with the given api key.
-    /// NOTE: if the SDK has been initialized previously this will result in the profile
-    /// information being reset and the token data being reassigned (see ``resetProfile()`` for details.)
-    /// - Parameter apiKey: your public api key from the Klaviyo console
-    /// - Returns: a KlaviyoSDK instance
+    /// Initializes the SDK with your Klaviyo public API key.
+    ///
+    /// Call this once, as early as possible in your app's launch, typically from
+    /// `application(_:didFinishLaunchingWithOptions:)`:
+    ///
+    /// ```swift
+    /// KlaviyoSDK().initialize(with: "YOUR_PUBLIC_API_KEY")
+    /// ```
+    ///
+    /// Initialization restores the profile and push token persisted from previous launches, sends
+    /// any push token that was set before initialization, and starts sending queued requests.
+    /// Calls made before initialization that change the profile, such as ``set(email:)`` or
+    /// ``set(profile:)``, are dropped with a warning, so initialize first.
+    ///
+    /// Calling this again with the same key does nothing. Calling it with a different key switches
+    /// to that Klaviyo account: the push token is unregistered from the previous account and
+    /// registered with the new one.
+    ///
+    /// - Parameter apiKey: Your public API key (site ID), from your Klaviyo account settings.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
@@ -118,26 +215,62 @@ public struct KlaviyoSDK {
         return self
     }
 
-    /// Set a profile in your Klaviyo account.
-    /// Future SDK calls will use this data when making api requests to Klaviyo.
-    /// NOTE: this will move any set push tokens over to this profile.
-    /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
-    /// - Parameter profile: a profile object to send to Klaviyo
+    /// Identifies the current profile and sends its attributes to Klaviyo.
+    ///
+    /// ```swift
+    /// let profile = Profile(
+    ///     email: "jane@example.com",
+    ///     externalId: "user-123",
+    ///     firstName: "Jane",
+    ///     properties: ["Plan": "Premium"]
+    /// )
+    /// KlaviyoSDK().set(profile: profile)
+    /// ```
+    ///
+    /// Later events and requests are attributed to this profile. If a push token is registered, it
+    /// moves to this profile.
+    ///
+    /// If the current profile is already identified and `profile` has a different email, phone
+    /// number or external ID, the SDK first starts a new profile, as ``resetProfile()`` does, so two
+    /// people are never merged into one Klaviyo profile. If the identifiers are unchanged and
+    /// `profile` carries no other attributes, no request is sent.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. A profile set before initialization is dropped.
+    /// - Parameter profile: The profile to identify and send to Klaviyo.
     public func set(profile: Profile) {
         dispatchOnMainThread { KlaviyoCommands.enqueueProfile(profile) }
     }
 
-    /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
-    /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
-    /// from the current profile. Existing token data will be associated with a new anonymous profile.
-    /// This should be called whenever an active user in your app is removed (e.g. after a logout).
+    /// Clears the current profile's identifiers and starts a new anonymous profile.
+    ///
+    /// Call this when the user logs out, so later activity isn't attributed to them:
+    ///
+    /// ```swift
+    /// KlaviyoSDK().resetProfile()
+    /// ```
+    ///
+    /// The email, phone number, external ID and any pending profile attributes are cleared. If the
+    /// profile was identified, the SDK creates a new anonymous ID. If a push token is registered,
+    /// it moves to the new anonymous profile.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. A reset before initialization is ignored.
     public func resetProfile() {
         dispatchOnMainThread { KlaviyoCommands.resetProfile() }
     }
 
-    /// Sets the badge number on the application icon. Syncs with the persisted count
-    /// stored in the User Defaults suite set up with the App Group. Used to set the badge count
-    /// to 0 when autoclearing is turned on (in the plist). Can be called otherwise as well.
+    /// Sets the app icon's badge number and saves it to the shared App Group.
+    ///
+    /// The saved count is the one `KlaviyoSwiftExtension` increments when a push notification asks
+    /// it to, so set the badge with this method rather than directly to keep the two in sync.
+    ///
+    /// This method requires an App Group shared by your app and its Notification Service
+    /// Extension, named by the `klaviyo_app_group` key in your app's `Info.plist`. Without it, this
+    /// method does nothing. You can call it before ``initialize(with:)``.
+    ///
+    /// When badge autoclearing is on (the default, controlled by the `klaviyo_badge_autoclearing`
+    /// `Info.plist` key), the SDK resets the badge to 0 each time the app comes to the foreground.
+    ///
+    /// - Parameter count: The badge number to show. Pass `0` to clear the badge.
     public func setBadgeCount(_ count: Int) {
         // No initialization gate: setting the badge is a purely local operation
         // (OS badge + app-group UserDefaults) with no dependency on the SDK's API
@@ -149,43 +282,80 @@ public struct KlaviyoSDK {
         }
     }
 
-    /// Set the current user's email.
-    /// - Parameter email: a string containing the user's email.
-    /// - Returns: a KlaviyoSDK instance
+    /// Sets the current profile's email address.
+    ///
+    /// ```swift
+    /// KlaviyoSDK().set(email: "jane@example.com")
+    /// ```
+    ///
+    /// Leading and trailing whitespace is trimmed. An empty string, or the email that's already
+    /// set, is ignored. To change identifiers on an identified profile and start a separate profile,
+    /// use ``set(profile:)`` or call ``resetProfile()`` first.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. An email set before initialization is dropped.
+    /// - Parameter email: The profile's email address.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
         dispatchOnMainThread { KlaviyoCommands.setEmail(email) }
         return self
     }
 
-    /// Set the current user's phone number.
-    /// NOTE: The phone number should be in a format that Klaviyo accepts.
-    /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
-    /// for information on phone numbers Klaviyo accepts.
-    /// - Parameter phoneNumber: a string containing the user's phone number.
-    /// - Returns: a KlaviyoSDK instance
+    /// Sets the current profile's phone number.
+    ///
+    /// Use a format Klaviyo accepts, such as E.164 (`+15555550100`). See
+    /// [Accepted phone number formats](https://help.klaviyo.com/hc/en-us/articles/360046055671).
+    ///
+    /// Leading and trailing whitespace is trimmed. An empty string, or the number that's already
+    /// set, is ignored.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. A phone number set before initialization is dropped.
+    /// - Parameter phoneNumber: The profile's phone number.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
         dispatchOnMainThread { KlaviyoCommands.setPhoneNumber(phoneNumber) }
         return self
     }
 
-    /// Set the current user's external id.
-    /// This could be an id from a system external to Klaviyo, for example your backend's user id.
-    /// NOTE: Please consult with https://help.klaviyo.com/hc/en-us/articles/12902308138011-Understanding-identity-resolution-in-Klaviyo-
-    /// and familiarize yourself with identity resolution before using this identifier.
-    /// - Parameter externalId: a string containing an external id
-    /// - Returns: a KlaviyoSDK instance
+    /// Sets the current profile's external ID.
+    ///
+    /// An external ID is an identifier from a system outside Klaviyo, such as your backend's user
+    /// ID. Read
+    /// [Understanding identity resolution](https://help.klaviyo.com/hc/en-us/articles/12902308138011)
+    /// before you use it.
+    ///
+    /// Leading and trailing whitespace is trimmed. An empty string, or the ID that's already set,
+    /// is ignored.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. An external ID set before initialization is dropped.
+    /// - Parameter externalId: The profile's external ID.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
         dispatchOnMainThread { KlaviyoCommands.setExternalId(externalId) }
         return self
     }
 
-    /// Set a profile property on the current user's propfile.
-    /// - Parameter profileAttribute: a profile attribute key to be set on the user's profile.
-    /// - Parameter value: any encodable value profile property value.
-    /// - Returns: a KlaviyoSDK instance
+    /// Sets a single attribute on the current profile.
+    ///
+    /// ```swift
+    /// KlaviyoSDK()
+    ///     .set(profileAttribute: .firstName, value: "Jane")
+    ///     .set(profileAttribute: .custom(customKey: "Plan"), value: "Premium")
+    /// ```
+    ///
+    /// The SDK collects attributes and sends them with its next batch of requests, so several calls
+    /// in a row are sent together.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. An attribute set before initialization is dropped.
+    /// - Parameters:
+    ///   - profileAttribute: The attribute to set. Use ``Profile/ProfileKey/custom(customKey:)`` for
+    ///     a custom property.
+    ///   - value: The attribute's value. It must be encodable as JSON. ``Profile/ProfileKey/latitude``
+    ///     and ``Profile/ProfileKey/longitude`` take a `Double`; the other built-in keys take a
+    ///     `String`.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
@@ -195,17 +365,39 @@ public struct KlaviyoSDK {
         return self
     }
 
-    /// Create and send an event for the current user.
-    /// - Parameter event: the event to be tracked in Klaviyo
+    /// Tracks an event for the current profile.
+    ///
+    /// ```swift
+    /// let event = Event(
+    ///     name: .addedToCartMetric,
+    ///     properties: ["ProductName": "Hoodie", "SKU": "HD-001"],
+    ///     value: 59.99,
+    ///     valueCurrency: "USD"
+    /// )
+    /// KlaviyoSDK().create(event: event)
+    /// ```
+    ///
+    /// The event is attributed to the profile that's current when it's sent and queued until the
+    /// SDK can send it. Events can also trigger in-app forms configured in your Klaviyo account.
+    ///
+    /// - Note: Call ``initialize(with:)`` first. Events created before initialization are dropped.
+    /// - Parameter event: The event to track.
     public func create(event: Event) {
         dispatchOnMainThread { KlaviyoCommands.enqueueEvent(event) }
     }
 
-    /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
+    /// Subscribes the current profile to a Klaviyo list and records consent for the email, SMS
+    /// and WhatsApp channels.
     ///
-    /// This method subscribes the currently tracked profile to the specified Klaviyo list.
-    /// The profile must have at least an email address or phone number set (email keys the email
-    /// channel; phone number keys the SMS and WhatsApp channels).
+    /// ```swift
+    /// KlaviyoSDK()
+    ///     .set(email: "jane@example.com")
+    ///     .create(subscription: .allAvailableMarketing(listId: "LIST_ID"))
+    /// ```
+    ///
+    /// The profile must have the identifiers the requested channels need: an email for EMAIL, and a
+    /// phone number for SMS and WhatsApp. If an identifier is missing, or no channel is requested,
+    /// the SDK logs a warning and sends nothing.
     ///
     /// Use ``Subscription/allAvailableMarketing(listId:customSource:)`` to grant MARKETING consent on
     /// the channels the profile has identifiers for (email and SMS), or the
@@ -218,15 +410,38 @@ public struct KlaviyoSDK {
         dispatchOnMainThread { KlaviyoCommands.enqueueSubscription(subscription) }
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
-    /// - Parameter pushToken: data object containing a push token.
+    /// Registers the APNs device token with Klaviyo, so the current profile can receive push
+    /// notifications.
+    ///
+    /// Call this from your app delegate when APNs returns a device token:
+    ///
+    /// ```swift
+    /// func application(
+    ///     _ application: UIApplication,
+    ///     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+    /// ) {
+    ///     KlaviyoSDK().set(pushToken: deviceToken)
+    /// }
+    /// ```
+    ///
+    /// The SDK also records whether the user has authorized notifications. Setting the token that's
+    /// already registered, with unchanged settings, sends nothing. A token set before
+    /// ``initialize(with:)`` is held in memory and registered once the SDK is initialized.
+    ///
+    /// - Parameter pushToken: The device token passed to
+    ///   `application(_:didRegisterForRemoteNotificationsWithDeviceToken:)`.
     public func set(pushToken: Data) {
         let apnDeviceToken = pushToken.map { String(format: "%02.2hhx", $0) }.joined()
         set(pushToken: apnDeviceToken)
     }
 
-    /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
-    /// - Parameter pushToken: String formatted push token.
+    /// Registers an APNs device token, already converted to a hexadecimal string, with Klaviyo.
+    ///
+    /// Use this overload when your app receives the token as a string, for example from another
+    /// SDK. Otherwise, pass the `Data` token to ``set(pushToken:)-(Data)``. This overload behaves
+    /// the same way.
+    ///
+    /// - Parameter pushToken: The device token as a hexadecimal string.
     public func set(pushToken: String) {
         Task {
             let enablement = await environment.getNotificationSettings()
@@ -249,10 +464,34 @@ public struct KlaviyoSDK {
         }
     }
 
-    /// Handles a Klaviyo universal tracking link URL by resolving it to a destination URL asynchronously and invoking the registered Deep Link Handler or invoking the AppDelegate or SceneDelegate's link handling logic.
+    /// Resolves a Klaviyo universal tracking link and opens its destination.
     ///
-    /// - Parameter url: the Klaviyo universal tracking link URL.
-    /// - Returns: `true` if the URL is a valid Klaviyo universal tracking link; `false` otherwise.
+    /// Call this when your app receives a universal link, and handle the URL yourself if it returns
+    /// `false`:
+    ///
+    /// ```swift
+    /// func application(
+    ///     _ application: UIApplication,
+    ///     continue userActivity: NSUserActivity,
+    ///     restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+    /// ) -> Bool {
+    ///     guard let url = userActivity.webpageURL else { return false }
+    ///     if KlaviyoSDK().handleUniversalTrackingLink(url) {
+    ///         return true
+    ///     }
+    ///     // Handle your other universal links here.
+    ///     return false
+    /// }
+    /// ```
+    ///
+    /// The SDK resolves the link in the background, then opens the destination URL with the handler
+    /// you registered with ``registerDeepLinkHandler(_:)``. If you haven't registered one, it routes
+    /// the destination through your app delegate or scene delegate. If the link can't be resolved,
+    /// the SDK records the click so Klaviyo can still count it.
+    ///
+    /// - Parameter url: The universal link URL your app received.
+    /// - Returns: `true` if `url` is a Klaviyo universal tracking link (an `http` or `https` URL whose
+    ///   path starts with `/u/`) and the SDK is handling it; otherwise `false`.
     public func handleUniversalTrackingLink(_ url: URL) -> Bool {
         if !url.isUniversalTrackingUrl {
             if #available(iOS 14.0, *) {
@@ -265,36 +504,89 @@ public struct KlaviyoSDK {
         return true
     }
 
-    /// Register a custom deep link handler to be used by the SDK when opening Klaviyo deep links.
+    /// Registers the closure the SDK calls to open deep links from Klaviyo push notifications, in-app
+    /// forms and tracking links.
     ///
-    /// If set, this handler will be invoked instead of the default URL opener.
-    /// - Parameter handler: a closure receiving the deep link `URL` to handle.
-    /// - Returns: a KlaviyoSDK instance for chaining.
+    /// Register a handler at launch so your app routes Klaviyo deep links itself:
+    ///
+    /// ```swift
+    /// KlaviyoSDK().registerDeepLinkHandler { url in
+    ///     router.open(url)
+    /// }
+    /// ```
+    ///
+    /// Without a handler, the SDK tries your app delegate's or scene delegate's universal link
+    /// handling for `http` and `https` URLs, then falls back to `UIApplication.open(_:)`. External
+    /// web URLs that a notification or button marks to open outside the app bypass this handler.
+    /// Registering again replaces the previous handler.
+    ///
+    /// - Parameter handler: A closure that opens the deep link. The SDK calls it on the main thread.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func registerDeepLinkHandler(_ handler: @escaping (URL) -> Void) -> KlaviyoSDK {
         environment.linkHandler.registerCustomHandler(handler)
         return self
     }
 
-    /// Unregisters any custom deep link handler that was previously registered, reverting the SDK to using a fallback deep link handler implementation.
+    /// Removes the deep link handler registered with ``registerDeepLinkHandler(_:)``.
     ///
-    /// - Note: For stability and future-proofing, we recommend always having a deep link handler registered
+    /// The SDK then opens deep links with its fallback behavior, described in
+    /// ``registerDeepLinkHandler(_:)``.
+    ///
+    /// - Note: We recommend keeping a deep link handler registered, so your app controls how Klaviyo
+    ///   deep links open.
+    /// - Returns: The `KlaviyoSDK` instance, for chaining.
     @discardableResult
     public func unregisterDeepLinkHandler() -> KlaviyoSDK {
         environment.linkHandler.unregisterCustomHandler()
         return self
     }
 
-    /// Returns true if a custom deep link handler is currently registered.
+    /// Whether a deep link handler is registered with ``registerDeepLinkHandler(_:)``.
     public var isDeepLinkHandlerRegistered: Bool {
         environment.linkHandler.hasCustomHandler
     }
 
-    /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
+    /// Tracks the user's response to a Klaviyo push notification and opens its link.
+    ///
+    /// Call this from your `UNUserNotificationCenterDelegate`, and call the completion handler
+    /// yourself when it returns `false`:
+    ///
+    /// ```swift
+    /// func userNotificationCenter(
+    ///     _ center: UNUserNotificationCenter,
+    ///     didReceive response: UNNotificationResponse,
+    ///     withCompletionHandler completionHandler: @escaping () -> Void
+    /// ) {
+    ///     let handled = KlaviyoSDK().handle(
+    ///         notificationResponse: response,
+    ///         withCompletionHandler: completionHandler
+    ///     )
+    ///     if !handled {
+    ///         // Not a Klaviyo notification; handle it yourself.
+    ///         completionHandler()
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// For a Klaviyo notification, the SDK:
+    ///
+    /// - Tracks an `$opened_push` event, including the button's label, ID and action when the user
+    ///   tapped an action button.
+    /// - Opens the notification's or button's link. Deep links go to the handler registered with
+    ///   ``registerDeepLinkHandler(_:)``; web links marked to open externally open in the browser.
+    /// - Does nothing more if the user dismissed the notification, or if the SDK already handled
+    ///   this response through automatic push open tracking.
+    ///
+    /// For any other notification, it returns `false` without calling `completionHandler`.
+    ///
     /// - Parameters:
-    ///   - remoteNotification: the remote notification that was opened
-    ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
-    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
+    ///   - notificationResponse: The response passed to
+    ///     `userNotificationCenter(_:didReceive:withCompletionHandler:)`.
+    ///   - completionHandler: The completion handler passed to the same method. For a Klaviyo
+    ///     notification, the SDK calls it on the main thread once it has handled the response.
+    /// - Returns: `true` if the notification came from Klaviyo and the SDK handled it; otherwise
+    ///   `false`.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
               let properties = notificationResponse.klaviyoProperties else {
@@ -338,14 +630,23 @@ public struct KlaviyoSDK {
         handle(notificationResponse: notificationResponse, withCompletionHandler: {})
     }
 
-    /// Track a notificationResponse open event in Klaviyo. NOTE: all callbacks will be made on the main thread.
+    /// Tracks the user's response to a Klaviyo push notification, passing the notification's deep
+    /// link to a closure.
+    ///
+    /// This behaves like ``handle(notificationResponse:withCompletionHandler:)``, except that a deep
+    /// link in the notification body goes to `deepLinkHandler` instead of the handler registered
+    /// with ``registerDeepLinkHandler(_:)``. Action-button links and external web URLs don't use
+    /// `deepLinkHandler`.
+    ///
     /// - Parameters:
-    ///   - remoteNotification: the remote notification that was opened
-    ///   - completionHandler: a completion handler that will be called with a result for Klaviyo notifications
-    ///   - deepLinkHandler: a completion handler that will be called when a notification contains a deep link.
-    ///     The handler is invoked only for deep links; external web URLs always route through the
-    ///     SDK's external URL opener and bypass this closure.
-    /// - Returns: true if the notification originated from Klaviyo, false otherwise.
+    ///   - notificationResponse: The response passed to
+    ///     `userNotificationCenter(_:didReceive:withCompletionHandler:)`.
+    ///   - completionHandler: The completion handler passed to the same method. For a Klaviyo
+    ///     notification, the SDK calls it on the main thread once it has handled the response.
+    ///   - deepLinkHandler: A closure the SDK calls on the main thread with the deep link in the
+    ///     notification body. Pass `nil` to use the registered deep link handler.
+    /// - Returns: `true` if the notification came from Klaviyo and the SDK handled it; otherwise
+    ///   `false`.
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,

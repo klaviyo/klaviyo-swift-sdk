@@ -23,13 +23,32 @@ private enum AuthTokenProviderSequencer {
     }
 }
 
-/// Re-exports ``KlaviyoCore/AuthTokenProvider`` so host code that imports only
-/// `KlaviyoSwift` can reference the closure type without a second import.
+/// A closure that returns a JSON Web Token (JWT) authenticating the current profile, for
+/// personalized in-app forms.
+///
+/// Register a provider with ``KlaviyoSDK/registerAuthTokenProvider(_:)``. The SDK calls it when it
+/// needs a token: right after registration, when the cached token expires or is about to, and
+/// after the server rejects the current token. It caches the token between calls, so return a
+/// freshly issued token every time.
+///
+/// The closure can be long-running, such as a request to your auth backend. The SDK respects task
+/// cancellation. If the closure throws, the SDK logs the error; if the error is a `URLError` for
+/// lost connectivity, it calls the provider again once the network is back. If the closure
+/// returns a malformed or expired token, the SDK discards it, logs the failure and doesn't retry
+/// on its own.
+///
+/// `AuthTokenProvider` is defined in `KlaviyoCore` and re-exported here, so you only need to import
+/// `KlaviyoSwift`.
 public typealias AuthTokenProvider = KlaviyoCore.AuthTokenProvider
 
 extension KlaviyoSDK {
-    /// Registers the host-supplied closure that produces the auth JWT used for
-    /// personalized in-app forms.
+    /// Registers the closure that produces the auth JWT used for personalized in-app forms.
+    ///
+    /// ```swift
+    /// KlaviyoSDK().registerAuthTokenProvider {
+    ///     try await authService.fetchKlaviyoToken()
+    /// }
+    /// ```
     ///
     /// Each call invalidates any cached token and, for an identified profile (one with an
     /// email, phone number or external ID), triggers an eager fetch to warm the cache. If
@@ -47,7 +66,7 @@ extension KlaviyoSDK {
     /// `com.klaviyo.klaviyo-swift-sdk.klaviyoCore`, category `Auth`, and only
     /// when SDK logging is enabled) and via form-display behavior.
     ///
-    /// - Parameter provider: an `@Sendable` async closure that returns a JWT.
+    /// - Parameter provider: A `@Sendable` async closure that returns a JWT.
     ///   The SDK caches the returned token and calls the provider again when it
     ///   needs a new one, for example before expiry or after the server rejected
     ///   the current token. Return a freshly issued token on every call; don't
