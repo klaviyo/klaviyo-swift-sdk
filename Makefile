@@ -59,7 +59,7 @@ DOCS_BASE_PATH ?=
 DOCS_PORT ?= 8000
 DOCS_SERVE_ROOT = build/docs/serve
 
-.PHONY: docs docs-serve docs-preview
+.PHONY: docs docs-serve docs-preview docs-publish-dry-run docs-publish-serve
 
 docs:
 	scripts/build-docs.sh --hosting-base-path "$(DOCS_BASE_PATH)" $(if $(filter 1,$(DOCC_STRICT)),--strict)
@@ -77,3 +77,21 @@ docs-serve: docs
 # Local demo: builds the site for the root path and serves it at http://localhost:$(DOCS_PORT)/.
 docs-preview:
 	$(MAKE) docs-serve DOCS_BASE_PATH=
+
+# Local dry run of .github/workflows/docs-publish.yml: builds this checkout into the same docs/ tree
+# the workflow commits to the `documentation` branch, under $(DOCS_PAGES_DIR)/docs. Pushes nothing.
+# Earlier dry-run output is kept, so run it twice with different DOCS_VERSIONs to see how versions
+# coexist. DOCS_VERSION defaults to the version in Version.swift.
+DOCS_VERSION ?= $(shell grep -o '__klaviyoSwiftVersion = "[^"]*"' Sources/KlaviyoCore/Utils/Version.swift | cut -d'"' -f2)
+DOCS_PAGES_DIR ?= build/docs/pages
+
+docs-publish-dry-run:
+	scripts/publish-docs.sh --version "$(DOCS_VERSION)" --docs-dir "$(DOCS_PAGES_DIR)/docs"
+
+# Serves the dry-run tree at http://localhost:$(DOCS_PORT)/klaviyo-swift-sdk/, as GitHub Pages would.
+docs-publish-serve:
+	@test -d "$(DOCS_PAGES_DIR)/docs" || { echo "Run 'make docs-publish-dry-run' first"; exit 1; }
+	@root="$(DOCS_SERVE_ROOT)"; rm -rf "$$root"; mkdir -p "$$root"; \
+	ln -s "$(abspath $(DOCS_PAGES_DIR))/docs" "$$root/klaviyo-swift-sdk"; \
+	echo "Serving http://localhost:$(DOCS_PORT)/klaviyo-swift-sdk/"; \
+	cd "$$root" && python3 -m http.server $(DOCS_PORT)
