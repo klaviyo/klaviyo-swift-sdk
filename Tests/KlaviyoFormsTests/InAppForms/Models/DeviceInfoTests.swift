@@ -110,20 +110,16 @@ final class DeviceInfoTests: XCTestCase {
 
     // MARK: - JS injection script shape
 
-    func testAsAttributeAssignmentScriptWrapsJsonInStringify() {
+    func testAsAttributeAssignmentScriptSetsJsonAsStringLiteral() {
         let info = DeviceInfo(
             screen: .init(width: 402, height: 874),
             safeAreaInsets: .init(top: 47, bottom: 34, left: 0, right: 0),
             orientation: "portrait-primary",
             dpr: 3
         )
-        let script = info.asAttributeAssignmentScript()
-        // We rely on JSON being a valid JS expression: embed the object literal directly
-        // and let the engine JSON.stringify it — no JS-string escaping required.
-        XCTAssertTrue(
-            script.hasPrefix("document.head.setAttribute('data-klaviyo-device', JSON.stringify(")
+        XCTAssertEqual(
+            info.asAttributeAssignmentScript(),
+            "document.head.setAttribute(\"data-klaviyo-device\", \(info.toJsonString().javaScriptStringLiteral));"
         )
-        XCTAssertTrue(script.hasSuffix("));"))
-        XCTAssertTrue(script.contains(info.toJsonString()))
     }
 }
