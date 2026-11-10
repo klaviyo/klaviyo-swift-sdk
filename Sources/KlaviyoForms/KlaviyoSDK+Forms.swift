@@ -45,16 +45,29 @@ extension KlaviyoSDKModule {
         return self
     }
 
-    /// Registers app to receive and display In-App Forms from Klaviyo.
+    /// Registers the app to receive and display in-app forms from Klaviyo.
     ///
-    /// This will load forms data and establish ongoing listeners to present a form to the user
-    /// whenever a form is triggered by an event or condition according to the targeting and behavior
-    /// settings configured for forms in your Klaviyo account.
+    /// Call this after initializing `KlaviyoSDK`, typically at launch:
     ///
-    /// - Parameter configuration: Configuration options for In-App Forms, including session timeout duration.
-    ///   Defaults to a 1-hour session timeout.
+    /// ```swift
+    /// import KlaviyoForms
+    /// import KlaviyoSwift
     ///
-    /// - Note: a public API key is required, so ``KlaviyoSDK().initialize(with:)`` must be called first. If the API key changes, the session will be re-initialized automatically with the new key.
+    /// KlaviyoSDK()
+    ///     .initialize(with: "YOUR_PUBLIC_API_KEY")
+    ///     .registerForInAppForms()
+    /// ```
+    ///
+    /// The SDK loads your forms and shows one whenever its targeting and behavior settings in your
+    /// Klaviyo account are met, for example after an event you track. Registering again while
+    /// already registered has no effect; to change the configuration, call
+    /// ``unregisterFromInAppForms()`` first.
+    ///
+    /// - Note: Forms need your public API key, so call `KlaviyoSDK().initialize(with:)` first. If
+    ///   the API key changes later, forms reload for the new account automatically.
+    /// - Parameter configuration: Options for in-app forms. The default uses a one-hour session
+    ///   timeout; see ``InAppFormsConfig``.
+    /// - Returns: The SDK instance, for chaining.
     @MainActor
     @discardableResult
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
@@ -66,7 +79,12 @@ extension KlaviyoSDKModule {
         return self
     }
 
-    /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
+    /// Stops displaying in-app forms and releases their resources.
+    ///
+    /// Any form on screen is dismissed, and the SDK tears down the web view and listeners used for
+    /// forms. Call ``registerForInAppForms(configuration:)`` to show forms again.
+    ///
+    /// - Returns: The SDK instance, for chaining.
     @MainActor
     @discardableResult
     public func unregisterFromInAppForms() -> Self {
@@ -92,7 +110,8 @@ extension KlaviyoSDKModule {
     ///
     /// The handler is called on the main thread.
     ///
-    /// Example usage:
+    /// Registering again replaces the previous handler.
+    ///
     /// ```swift
     /// KlaviyoSDK().registerFormLifecycleHandler { event in
     ///     switch event {
@@ -110,8 +129,8 @@ extension KlaviyoSDKModule {
     /// }
     /// ```
     ///
-    /// - Parameter handler: A closure receiving the ``FormLifecycleEvent`` with all contextual data.
-    /// - Returns: A KlaviyoSDK instance for chaining.
+    /// - Parameter handler: A closure that receives each ``FormLifecycleEvent``.
+    /// - Returns: The SDK instance, for chaining.
     @MainActor
     @discardableResult
     public func registerFormLifecycleHandler(_ handler: @escaping (FormLifecycleEvent) -> Void) -> Self {
@@ -119,9 +138,9 @@ extension KlaviyoSDKModule {
         return self
     }
 
-    /// Unregisters any form lifecycle handler that was previously registered.
+    /// Removes the handler registered with ``registerFormLifecycleHandler(_:)``.
     ///
-    /// - Returns: A KlaviyoSDK instance for chaining.
+    /// - Returns: The SDK instance, for chaining.
     @MainActor
     @discardableResult
     public func unregisterFormLifecycleHandler() -> Self {

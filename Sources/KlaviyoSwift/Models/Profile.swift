@@ -9,35 +9,84 @@ import AnyCodable
 import Foundation
 import KlaviyoCore
 
+/// The identifiers and attributes of a Klaviyo profile.
+///
+/// Pass a profile to ``KlaviyoSDK/set(profile:)`` to identify the current user and update their
+/// attributes in one call:
+///
+/// ```swift
+/// let profile = Profile(
+///     email: "jane@example.com",
+///     phoneNumber: "+15555550100",
+///     externalId: "user-123",
+///     firstName: "Jane",
+///     lastName: "Doe",
+///     location: Profile.Location(city: "Boston", country: "United States"),
+///     properties: ["Loyalty Tier": "Gold"]
+/// )
+/// KlaviyoSDK().set(profile: profile)
+/// ```
+///
+/// To set a single attribute instead, use ``KlaviyoSDK/set(profileAttribute:value:)`` with a
+/// ``ProfileKey``.
 public struct Profile: Equatable, Codable {
+    /// A profile attribute you can set with ``KlaviyoSDK/set(profileAttribute:value:)``.
     public enum ProfileKey: Equatable, Hashable, Codable {
+        /// The profile's first name. Takes a `String`.
         case firstName
+        /// The profile's last name. Takes a `String`.
         case lastName
+        /// The first line of the profile's street address. Takes a `String`.
         case address1
+        /// The second line of the profile's street address. Takes a `String`.
         case address2
+        /// The profile's job title. Takes a `String`.
         case title
+        /// The name of the profile's organization. Takes a `String`.
         case organization
+        /// The profile's city. Takes a `String`.
         case city
+        /// The profile's region within a country, such as a state or province. Takes a `String`.
         case region
+        /// The profile's country. Takes a `String`.
         case country
+        /// The profile's zip or postal code. Takes a `String`.
         case zip
+        /// The URL of the profile's image. Takes a `String`.
         case image
+        /// The latitude of the profile's location. Takes a `Double`.
         case latitude
+        /// The longitude of the profile's location. Takes a `Double`.
         case longitude
+        /// A custom profile property.
+        ///
+        /// - Parameter customKey: The custom property's name.
         case custom(customKey: String)
     }
 
+    /// The location attributes of a profile.
     public struct Location: Equatable, Codable {
+        /// The first line of the street address.
         public var address1: String?
+        /// The second line of the street address.
         public var address2: String?
+        /// The city name.
         public var city: String?
+        /// The country name.
         public var country: String?
+        /// The latitude coordinate.
         public var latitude: Double?
+        /// The longitude coordinate.
         public var longitude: Double?
+        /// The region within the country, such as a state or province.
         public var region: String?
+        /// The zip or postal code.
         public var zip: String?
+        /// The time zone name, from the IANA Time Zone Database (for example, `America/New_York`).
         public var timezone: String?
 
+        /// Creates a location.
+        ///
         /// - Parameters:
         ///   - address1: First line of street address
         ///   - address2: Second line of street address
@@ -48,6 +97,7 @@ public struct Profile: Equatable, Codable {
         ///   - region: Region within a country, such as state or province
         ///   - zip: Zip code
         ///   - timezone: Time zone name. We recommend using time zones from the IANA Time Zone Database.
+        ///     Defaults to the device's current time zone.
         public init(address1: String? = nil,
                     address2: String? = nil,
                     city: String? = nil,
@@ -69,15 +119,25 @@ public struct Profile: Equatable, Codable {
         }
     }
 
+    /// The profile's email address.
     public let email: String?
+    /// The profile's phone number, in a format Klaviyo accepts, such as E.164.
     public let phoneNumber: String?
+    /// An identifier for the profile from a system outside Klaviyo, such as your backend's user ID.
     public let externalId: String?
+    /// The profile's first name.
     public let firstName: String?
+    /// The profile's last name.
     public let lastName: String?
+    /// The name of the profile's organization.
     public let organization: String?
+    /// The profile's job title.
     public let title: String?
+    /// The URL of the profile's image.
     public let image: String?
+    /// The profile's location.
     public let location: Location?
+    /// The profile's custom properties, keyed by property name.
     public var properties: [String: Any] {
         _properties.value as! [String: Any]
     }
@@ -91,7 +151,11 @@ public struct Profile: Equatable, Codable {
         self != Profile(email: email, phoneNumber: phoneNumber, externalId: externalId)
     }
 
-    /// Create or update properties about a profile without tracking an associated event.
+    /// Creates a profile.
+    ///
+    /// Every argument is optional. When you pass the profile to ``KlaviyoSDK/set(profile:)``, an
+    /// identifier you leave out counts as removed, so include every identifier the profile has.
+    ///
     /// - Parameters:
     ///   - email: Individual's email address
     ///   - phoneNumber: Individual's phone number in E.164 format

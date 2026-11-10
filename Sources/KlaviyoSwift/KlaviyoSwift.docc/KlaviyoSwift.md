@@ -17,11 +17,14 @@ for push notifications.
 ### Profiles
 
 - ``Profile``
-- ``Subscription``
 
 ### Events
 
 - ``Event``
+
+### Subscriptions
+
+- ``Subscription``
 
 ### Authentication
 

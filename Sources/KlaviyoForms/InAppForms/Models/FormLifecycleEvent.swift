@@ -11,12 +11,13 @@ import Foundation
 ///
 /// Each case carries the contextual data relevant to that event, including
 /// `formId` and `formName` for all events, and CTA-specific fields for
-/// ``formCtaClicked``.
+/// ``formCtaClicked(formId:formName:buttonLabel:deepLinkUrl:)``.
 ///
 /// Use these events to track form interactions and send engagement data
 /// to third-party analytics platforms.
 ///
-/// Example usage:
+/// Register a handler with `registerFormLifecycleHandler(_:)`:
+///
 /// ```swift
 /// KlaviyoSDK().registerFormLifecycleHandler { event in
 ///     switch event {
@@ -36,6 +37,10 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// Triggered when a form is shown to the user.
     ///
     /// Fired after the SDK has initiated form presentation.
+    ///
+    /// - Parameters:
+    ///   - formId: The form's unique identifier.
+    ///   - formName: The form's display name.
     case formShown(formId: String, formName: String)
 
     /// Triggered when a form is dismissed by the user.
@@ -44,6 +49,10 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// user-initiated dismissals (e.g. tapping outside, close button).
     /// Does **not** fire when the SDK tears down the form internally
     /// (session timeouts, aborts).
+    ///
+    /// - Parameters:
+    ///   - formId: The form's unique identifier.
+    ///   - formName: The form's display name.
     case formDismissed(formId: String, formName: String)
 
     /// Triggered when a user taps a call-to-action (CTA) button in a form
@@ -55,10 +64,13 @@ public enum FormLifecycleEvent: Equatable, Sendable {
     /// host app cannot open the URL. Not emitted if no URL is configured for
     /// the CTA.
     ///
-    /// - `buttonLabel`: The label text of the tapped button.
-    /// - `deepLinkUrl`: The URL associated with the CTA. For historical reasons
-    ///   this parameter is named `deepLinkUrl`, but it also carries external/
-    ///   system URLs.
+    /// - Parameters:
+    ///   - formId: The form's unique identifier.
+    ///   - formName: The form's display name.
+    ///   - buttonLabel: The label text of the tapped button.
+    ///   - deepLinkUrl: The URL associated with the CTA. For historical reasons
+    ///     this parameter is named `deepLinkUrl`, but it also carries external/
+    ///     system URLs.
     case formCtaClicked(formId: String, formName: String, buttonLabel: String, deepLinkUrl: URL)
 
     /// The unique identifier of the form that triggered this event.

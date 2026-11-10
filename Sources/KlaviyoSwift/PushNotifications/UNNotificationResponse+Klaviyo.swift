@@ -15,20 +15,21 @@ import OSLog
 import UserNotifications
 
 extension UNNotification {
-    /// Determines if this notification originated from Klaviyo.
+    /// Whether this notification was sent by Klaviyo.
     ///
-    /// A notification is considered a Klaviyo notification if it contains
-    /// a "body" dictionary with a "_k" key in its userInfo.
+    /// A notification is a Klaviyo notification if its `userInfo` has a `body` dictionary
+    /// containing a `_k` key. Use this to decide whether to pass a notification to the SDK.
     public var isKlaviyoNotification: Bool {
         request.content.isKlaviyoNotification
     }
 }
 
 extension UNNotificationResponse {
-    /// Determines if a notification originated from Klaviyo.
+    /// Whether the notification the user responded to was sent by Klaviyo.
     ///
-    /// A notification is considered a Klaviyo notification if it contains
-    /// a "body" dictionary with a "_k" key in its userInfo.
+    /// A notification is a Klaviyo notification if its `userInfo` has a `body` dictionary
+    /// containing a `_k` key. ``KlaviyoSDK/handle(notificationResponse:withCompletionHandler:)``
+    /// checks this for you and returns `false` for other notifications.
     public var isKlaviyoNotification: Bool {
         notification.isKlaviyoNotification
     }

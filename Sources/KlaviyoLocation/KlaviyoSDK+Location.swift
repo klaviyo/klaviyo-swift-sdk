@@ -10,9 +10,35 @@ import Foundation
 import KlaviyoCore
 
 extension KlaviyoSDKModule {
-    /// Registers app for geofencing. Geofencing will only be set up when "authorized always" permission level is granted.
-    /// App will begin listening for geofence events (enter, exit, dwell) according to the geofences configured in your Klaviyo account.
-    /// This method returns immediately and performs the registration asynchronously in the background.
+    /// Starts monitoring the geofences configured in your Klaviyo account.
+    ///
+    /// Call this after initializing `KlaviyoSDK`, typically at launch:
+    ///
+    /// ```swift
+    /// import KlaviyoLocation
+    /// import KlaviyoSwift
+    ///
+    /// KlaviyoSDK()
+    ///     .initialize(with: "YOUR_PUBLIC_API_KEY")
+    ///     .registerGeofencing()
+    /// ```
+    ///
+    /// When the user enters or exits one of your geofences, the SDK tracks a `$geofence_enter` or
+    /// `$geofence_exit` event for the current profile. Repeated transitions for the same geofence
+    /// within a short cooldown are skipped.
+    ///
+    /// Your app's `Info.plist` must include `location` in `UIBackgroundModes`. Without it, this
+    /// method crashes, because the SDK enables background location updates.
+    ///
+    /// Geofencing needs "Always" location authorization with full accuracy. Your app must request
+    /// that permission itself; the SDK doesn't prompt. Until it's granted, this method sets nothing
+    /// up, and the SDK starts monitoring automatically once the user grants it. If the user later
+    /// downgrades the permission, monitoring stops. The geofence list follows the API key, so it
+    /// updates if you initialize with a different key.
+    ///
+    /// The method returns immediately and registers in the background.
+    ///
+    /// - Returns: The SDK instance, for chaining.
     @discardableResult
     public func registerGeofencing() -> Self {
         Task { @MainActor in
@@ -22,8 +48,13 @@ extension KlaviyoSDKModule {
         return self
     }
 
-    /// Unregisters app for geofencing. Stops monitoring for geofences and cleans up resources.
-    /// This method returns immediately and performs the unregistration asynchronously in the background.
+    /// Stops monitoring Klaviyo geofences.
+    ///
+    /// The SDK stops monitoring every Klaviyo geofence region and stops observing API key and app
+    /// lifecycle changes. Regions your app monitors itself aren't affected. The method returns
+    /// immediately and unregisters in the background.
+    ///
+    /// - Returns: The SDK instance, for chaining.
     @discardableResult
     public func unregisterGeofencing() -> Self {
         Task { @MainActor in
