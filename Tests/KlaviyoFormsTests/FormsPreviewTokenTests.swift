@@ -14,6 +14,11 @@ let otherPreviewToken = "ZYXWVUTSRQPONMLKJIHGFEDCBAzyxwvutsrqponm987"
 
 @MainActor
 final class FormsPreviewTokenWebViewModelTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private var store: FormsPreviewTokenStore!
 
     override func setUp() async throws {
