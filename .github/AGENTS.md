@@ -10,7 +10,7 @@ For agents and humans editing workflows and actions here. `CLAUDE.md` in this di
 - Live status: a pipeline posts a `pending` message when it starts, edits it at a stage change, and makes a final edit (`if: success() || failure() || timed-out cancel`) to success, failure, stopped or timed out. A gate failure edits it to `blocked, <gate> failed`. Don't announce runs that were never going to deploy.
 - Each workflow sets `SLACK_USERNAME` and `SLACK_ICON_EMOJI` in its top-level `env:` ("Swift SDK", `:merlin-orb-swift:`).
 - `continue-on-error: true` on Slack notify steps and Slack-action checkout steps.
-- Report a cancelled job only on timeout: the `Classify cancellation` step in `spm-verify.yml` and `cocoapods-publish.yml`.
+- Report a cancelled job only on timeout: the `Classify cancellation` step in `spm-verify.yml`, `cocoapods-publish.yml` and `docs-publish.yml`.
 - `spm-verify.yml` and `cocoapods-publish.yml` follow the live-status pattern: `slack_pending` announces (a reply in the release thread when `slack_thread_ts` is set, else top-level), one stage edit (`gates passed` / `podspecs validated`), and a final `Notify Slack` edit. `check-release-version` replies under `slack_thread_ts`, else under the announce message.
 - `spm-verify.yml` dispatches the iOS test app SDK bump before it notifies Slack. A failed dispatch posts the verify result as `warning` with a "bump by hand" note and does not fail the job.
 - `docs-publish.yml` follows the same pattern: a `pending` announce, a `pushed, waiting for GitHub Pages` stage edit, and a final edit (docs live, Pages build failed or timed out, Pages not enabled, unchanged, or failed at a named step).

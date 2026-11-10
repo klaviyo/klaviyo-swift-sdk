@@ -42,7 +42,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$VERSION" && -n "$DOCS_DIR" ]] || { echo "error: --version and --docs-dir are required" >&2; exit 64; }
-VERSION="${VERSION#v}"
 if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+$ ]]; then
     echo "error: version must be X.Y.Z (prereleases aren't published), got '$VERSION'" >&2
     exit 64
@@ -57,6 +56,11 @@ prefixed() { echo "${SITE_PATH:+$SITE_PATH/}$1"; }
 SOURCE="$(cd "$SOURCE" && pwd)"
 mkdir -p "$DOCS_DIR"
 DOCS_DIR="$(cd "$DOCS_DIR" && pwd)"
+# Version folders are replaced with `rm -rf`, so refuse "/", $HOME and any directory containing this repo.
+if [[ "$DOCS_DIR" == "/" || "$DOCS_DIR" == "$HOME" || "$TOOLS_ROOT/" == "$DOCS_DIR/"* ]]; then
+    echo "error: refusing to use '$DOCS_DIR' as the docs directory" >&2
+    exit 64
+fi
 
 BUILD_SCRIPT="$SOURCE/scripts/build-docs.sh"
 if [[ ! -x "$BUILD_SCRIPT" ]]; then
@@ -84,13 +88,13 @@ for page in site.rglob("*.html"):
     tags = f'<link rel="canonical" href="{canonical_root}/{rel}">'
     if noindex:
         tags += '<meta name="robots" content="noindex">'
-    html = existing_canonical.sub("", page.read_text())
+    html = existing_canonical.sub("", page.read_text(encoding="utf-8"))
     html, n = re.subn(r"<head>", "<head>" + tags, html, count=1)
     if n != 1:
         sys.exit(f"error: no <head> in {page}")
-    page.write_text(html)
+    page.write_text(html, encoding="utf-8")
     count += 1
-print(f"    tagged {count} pages (canonical: {canonical_root}/, noindex: {noindex})")
+print(f"    tagged {count} pages (canonical: {canonical_root}/{', noindex' if noindex else ''})")
 PY
 }
 
