@@ -93,12 +93,18 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         environment.appLifeCycle.lifeCycleEvents = { lifecycleSubject.eraseToAnyPublisher() }
         environment.startReachability = {
             lifecycleSubject.send(.reachabilityChanged(status: .notReachable))
-            lifecycleSubject.send(completion: .finished)
         }
         environment.getBadgeAutoClearingSetting = { true }
 
         seedInitializing(apiKey: "fake-key", anonymousId: "anon-launch-offline")
-        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
+        let lifecycle = Task { await KlaviyoCommands.completeInitialization(apiKey: "fake-key") }
+        // Bounded so a launch that never starts reachability fails here instead of hanging.
+        try await waitForConditionOrFail("launch status never reached the queue") { [spyQueue] in
+            await spyQueue?.getConnectivityStatuses().isEmpty == false
+        }
+        // End the lifecycle stream so `completeInitialization` returns either way.
+        lifecycleSubject.send(completion: .finished)
+        await lifecycle.value
 
         let statuses = await spyQueue.getConnectivityStatuses()
         XCTAssertEqual(statuses, [.notReachable])
