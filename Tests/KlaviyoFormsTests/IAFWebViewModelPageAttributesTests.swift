@@ -39,7 +39,8 @@ final class IAFWebViewModelPageAttributesTests: XCTestCase {
             authToken: trickyValue
         )
         viewModel.initializeLoadScripts()
-        let page = try await PageLoader.load(scripts: XCTUnwrap(viewModel.loadScripts))
+        let scripts = try XCTUnwrap(viewModel.loadScripts)
+        let page = try await awaitBounded("page load") { try await PageLoader.load(scripts: scripts) }
 
         let head = try await page.headAttributes()
         XCTAssertEqual(
@@ -49,7 +50,10 @@ final class IAFWebViewModelPageAttributesTests: XCTestCase {
         XCTAssertEqual(head["data-klaviyo-jwt"], trickyValue)
         XCTAssertEqual(head["data-sdk-name"], environment.sdkName())
         XCTAssertEqual(head["data-sdk-version"], environment.sdkVersion())
-        XCTAssertEqual(head["data-native-bridge-handshake"], IAFNativeBridgeEvent.handshake)
+        XCTAssertEqual(
+            try jsonObject(head["data-native-bridge-handshake"]),
+            try jsonObject(IAFNativeBridgeEvent.handshake)
+        )
         // The load-time device script runs before `document.head` exists, so check the push path.
         let device = DeviceInfo(
             screen: .init(width: 402, height: 874),
@@ -75,12 +79,17 @@ final class IAFWebViewModelPageAttributesTests: XCTestCase {
 @MainActor
 private final class PageLoader: NSObject, WKNavigationDelegate {
     private let webView: WKWebView
+    // A window keeps the web content process in the foreground; without one CI can stall the load.
+    private let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
     private var finished: CheckedContinuation<Void, Error>?
 
     private init(scripts: Set<WKUserScript>) {
         let config = WKWebViewConfiguration()
         scripts.forEach(config.userContentController.addUserScript)
-        webView = WKWebView(frame: .zero, configuration: config)
+        webView = WKWebView(frame: window.bounds, configuration: config)
+        super.init()
+        window.addSubview(webView)
+        window.isHidden = false
     }
 
     static func load(scripts: Set<WKUserScript>) async throws -> PageLoader {
