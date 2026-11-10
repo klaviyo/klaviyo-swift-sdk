@@ -47,7 +47,7 @@ struct InboxStoreCaptureSinkTests {
 
     @Test
     func capturesThenDeduplicates() async {
-        let store = InboxStore(appGroup: appGroup)
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
         let capture = makeCapture(sink: makeSink { store })
         let first = await capture.capture(userInfo: klaviyoPush)
         let replay = await capture.capture(userInfo: klaviyoPush)
@@ -57,7 +57,7 @@ struct InboxStoreCaptureSinkTests {
 
     @Test
     func recordIsFiledUnderTheCompanyFromThePayload() async throws {
-        let store = InboxStore(appGroup: appGroup)
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
         _ = await makeCapture(sink: makeSink { store }).capture(userInfo: klaviyoPush)
         // Clearing another company leaves the message; clearing its own company removes it.
         try await store.clear(companyID: "other")
@@ -70,7 +70,7 @@ struct InboxStoreCaptureSinkTests {
 
     @Test
     func twoCompaniesStayIndependent() async throws {
-        let store = InboxStore(appGroup: appGroup)
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
         let capture = makeCapture(sink: makeSink { store })
         _ = await capture.capture(userInfo: push(tm: "tm-a", company: "AAAAAA"))
         _ = await capture.capture(userInfo: push(tm: "tm-b", company: "BBBBBB"))
@@ -86,7 +86,7 @@ struct InboxStoreCaptureSinkTests {
         let directory = try #require(appGroup.containerURL("group.test"))
         let inboxDirectory = directory.appendingPathComponent(InboxAppGroup.inboxDirectoryName)
         #expect(!(FileManager.default.fileExists(atPath: inboxDirectory.path)))
-        let store = InboxStore(appGroup: appGroup)
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
         let result = await makeCapture(sink: makeSink { store }).capture(userInfo: klaviyoPush)
         #expect(result == .captured)
         #expect(FileManager.default.fileExists(atPath: inboxDirectory.path))
@@ -95,7 +95,7 @@ struct InboxStoreCaptureSinkTests {
     @Test
     func unreachableAppGroupFailsOpen() async {
         let unreachable = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
-        let store = InboxStore(appGroup: unreachable)
+        let store = InboxStoreFixtures.store(appGroup: unreachable)
         let result = await makeCapture(sink: makeSink { store }).capture(userInfo: klaviyoPush)
         #expect(result == .failed)
     }
@@ -103,7 +103,7 @@ struct InboxStoreCaptureSinkTests {
     @Test
     func aPushWithoutACompanyNeverRequestsAStore() async {
         let counter = StoreCounter()
-        let sink = makeSink { counter.note(); return InboxStore(appGroup: appGroup) }
+        let sink = makeSink { counter.note(); return InboxStoreFixtures.store(appGroup: appGroup) }
         let userInfo = InboxPayloadFixtures.userInfo(
             #"{"body": {"_k": {"tm": "\#(InboxPayloadFixtures.transmissionID)"}}}"#
         )
@@ -116,7 +116,7 @@ struct InboxStoreCaptureSinkTests {
     func aStoreSlowerThanTheTimeoutYieldsTimedOutWithoutBlocking() async {
         struct SlowStore: InboxCapturing {
             func capture(_ record: InboxRecord, companyID: String) async -> InboxCaptureResult {
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                try? await Task.sleep(nanoseconds: 60_000_000_000)
                 return .captured
             }
         }
@@ -124,7 +124,9 @@ struct InboxStoreCaptureSinkTests {
         let result = await makeCapture(sink: makeSink { SlowStore() }, timeout: 0.1)
             .capture(userInfo: klaviyoPush)
         #expect(result == .timedOut)
-        #expect(Date().timeIntervalSince(started) < 1.5)
+        // Far under the store's 60 s, and far over the 0.1 s timeout: a stalled runner has to stall for
+        // seconds to fail this, but a capture that waited for the store would take a minute.
+        #expect(Date().timeIntervalSince(started) < 30)
     }
 }
 

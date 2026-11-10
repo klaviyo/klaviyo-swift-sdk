@@ -17,7 +17,7 @@ struct InboxStoreRetentionTests {
     private let company = InboxStoreFixtures.company
 
     private func makeStore(maxMessages: Int = 3) -> InboxStore {
-        InboxStore(appGroup: appGroup, maxMessages: maxMessages)
+        InboxStoreFixtures.store(appGroup: appGroup, maxMessages: maxMessages)
     }
 
     private func capture(
@@ -41,7 +41,7 @@ struct InboxStoreRetentionTests {
 
     @Test
     func aFailedTrimStillReportsTheStoredMessageAsCaptured() async throws {
-        let store = InboxStore(appGroup: appGroup, maxMessages: 1)
+        let store = InboxStoreFixtures.store(appGroup: appGroup, maxMessages: 1)
         await capture(store, "tm-1", secondsAfterBase: 1)
         // Deleting a message now fails, so the trim after the next insert throws.
         try InboxStoreFixtures.execute("CREATE TRIGGER failDeletes BEFORE DELETE ON ZINBOXMESSAGE BEGIN SELECT RAISE(ABORT, 'no'); END;", in: appGroup)

@@ -22,8 +22,8 @@ struct InboxStoreConcurrencyTests {
     @Test
     func twoWritersLoseNothingAndDeduplicateSharedTransmissionIDs() async throws {
         let appGroup = InboxStoreFixtures.temporaryAppGroup()
-        let app = InboxStore(appGroup: appGroup, maxMessages: 1000)
-        let extensionStore = InboxStore(appGroup: appGroup, maxMessages: 1000)
+        let app = InboxStoreFixtures.store(appGroup: appGroup, maxMessages: 1000)
+        let extensionStore = InboxStoreFixtures.store(appGroup: appGroup, maxMessages: 1000)
         let company = company
         let ownPerWriter = ownPerWriter
         let shared = shared
@@ -54,7 +54,7 @@ struct InboxStoreConcurrencyTests {
         #expect(elapsed < 10, "contended writes must finish in bounded time")
 
         // A third, fresh store reads what is really on disk: every transmission ID is present.
-        let reader = InboxStore(appGroup: appGroup)
+        let reader = InboxStoreFixtures.store(appGroup: appGroup)
         var expected = (0..<shared).map { "shared-\($0)" }
         for name in ["app", "nse"] { expected += (0..<ownPerWriter).map { "\(name)-\($0)" } }
         for id in expected {
@@ -71,8 +71,8 @@ struct InboxStoreConcurrencyTests {
     func concurrentFirstOpensNeverRebuildAHealthyStore() async {
         for run in 0..<20 {
             let appGroup = InboxStoreFixtures.temporaryAppGroup()
-            let app = InboxStore(appGroup: appGroup)
-            let extensionStore = InboxStore(appGroup: appGroup)
+            let app = InboxStoreFixtures.store(appGroup: appGroup)
+            let extensionStore = InboxStoreFixtures.store(appGroup: appGroup)
             let company = company
 
             async let first = app.capture(InboxStoreFixtures.record(tm: "app-\(run)"), companyID: company)
@@ -81,7 +81,7 @@ struct InboxStoreConcurrencyTests {
 
             #expect(results == [.captured, .captured], "run \(run)")
             // A wrongful rebuild would delete the other process's file, and its message with it.
-            let reader = InboxStore(appGroup: appGroup)
+            let reader = InboxStoreFixtures.store(appGroup: appGroup)
             let appMessage = try? await reader.message(id: "app-\(run)")
             let extensionMessage = try? await reader.message(id: "nse-\(run)")
             #expect(appMessage != nil, "run \(run) lost the app's message")

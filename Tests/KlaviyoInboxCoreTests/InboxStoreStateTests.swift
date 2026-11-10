@@ -17,7 +17,7 @@ struct InboxStoreStateTests {
     private let company = InboxStoreFixtures.company
 
     private func makeStoreWithMessage(_ id: String = "tm-1") async -> InboxStore {
-        let store = InboxStore(appGroup: appGroup)
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
         await InboxStoreFixtures.capture(store, id, sentAfterBase: 1)
         return store
     }
@@ -112,7 +112,7 @@ struct InboxStoreStateTests {
     func aStateChangeIsVisibleToAnotherStoreOnTheSameAppGroup() async throws {
         let store = await makeStoreWithMessage()
         try await store.setArchived(true, id: "tm-1", companyID: company)
-        let other = InboxStore(appGroup: appGroup)
+        let other = InboxStoreFixtures.store(appGroup: appGroup)
         let message = try await other.message(id: "tm-1")
         #expect(message?.isArchived == true)
     }

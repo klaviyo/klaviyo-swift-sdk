@@ -17,7 +17,7 @@ struct InboxStoreTests {
     private let company = InboxStoreFixtures.company
 
     private func makeStore(maxMessages: Int = InboxStore.defaultMaxMessages) -> InboxStore {
-        InboxStore(appGroup: appGroup, maxMessages: maxMessages)
+        InboxStoreFixtures.store(appGroup: appGroup, maxMessages: maxMessages)
     }
 
     @Test
