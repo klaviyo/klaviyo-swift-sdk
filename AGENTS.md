@@ -62,7 +62,31 @@ make docs-preview
 
 # Fail on any DocC warning
 make docs DOCC_STRICT=1
+
+# Build the exact docs/ tree the publish workflow commits (pushes nothing), then serve it
+make docs-publish-dry-run DOCS_VERSION=5.6.0     # output: build/docs/pages/docs; version defaults to Version.swift
+make docs-publish-serve                          # http://localhost:8000/klaviyo-swift-sdk/
 ```
+
+#### Publishing docs
+
+- `.github/workflows/docs-publish.yml` commits the site to the `documentation` branch, which GitHub
+  Pages serves from `/docs`. `publish-release.yml` dispatches it at the tag for stable releases;
+  `release: released` covers releases published by hand.
+- Layout: `docs/<major.minor>/` per minor (a patch overwrites it), `docs/latest/` (rebuilt only when
+  the release is the highest minor published), and `docs/index.html`, which redirects to `latest/`.
+  Versioned pages carry `noindex` and a canonical link to the same page under `latest/`.
+- **Republish a version by hand:** `gh workflow run docs-publish.yml --ref master -f version=X.Y.Z`.
+  The run uses master's publish scripts and documents the tag's sources, so it works for tags cut
+  before DocC landed. Publishing an older minor leaves `latest/` alone. To rebuild `latest/` too,
+  republish the newest release.
+- **First run:** Pages can't be pointed at `documentation` until the branch exists. The first run
+  (a release or a manual dispatch) creates the branch and reports "GitHub Pages not enabled". Then a
+  repo admin enables Pages on `documentation` at `/docs`, and republishes the newest release.
+- Runs share one concurrency group, and GitHub keeps only one run pending. Space releases out by
+  about one docs run (~15 minutes), or republish any version whose run was dropped.
+- `.github/workflows/docs.yml` runs `make docs DOCC_STRICT=1` on every PR and annotates the diff with
+  DocC warnings.
 
 - Each documented product has a catalog at `Sources/<Product>/<Product>.docc`. Add articles there.
 - `scripts/build-docs.sh` uses `xcodebuild docbuild` + `docc merge`, not `swift-docc-plugin`,

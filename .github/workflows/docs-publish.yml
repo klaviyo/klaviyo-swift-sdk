@@ -1,0 +1,302 @@
+# Builds the DocC site for a release and commits it to the `documentation` branch, which GitHub
+# Pages serves from `/docs` at https://klaviyo.github.io/klaviyo-swift-sdk/.
+#
+# docs/<major.minor>/ holds each minor's docs (a patch overwrites its minor's folder), with
+# `noindex` and canonical links to latest/. docs/latest/ is rebuilt when the release is the highest
+# minor published, and docs/index.html redirects to it. See scripts/publish-docs.sh for the layout
+# and `make docs-publish-dry-run` to build the same tree locally.
+#
+# publish-release.yml dispatches this at the tag for non-prerelease versions (releases it publishes
+# with GITHUB_TOKEN don't fire `release` events). `release: released` covers releases published by
+# hand. To republish a version, run it from master: gh workflow run docs-publish.yml -f version=X.Y.Z
+#
+# Needs GitHub Pages enabled on the `documentation` branch at `/docs`. The first run creates the
+# branch if it doesn't exist.
+
+name: Publish Docs
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Released version to publish (X.Y.Z). Overwrites that minor's folder
+        required: true
+        type: string
+      slack_thread_ts:
+        description: Slack message ts to reply under. Set by publish-release.yml; leave empty to post a new message
+        required: false
+        default: ''
+        type: string
+      triggered_by:
+        description: Login of the person who started this run. Set by publish-release.yml; leave empty to use the actor
+        required: false
+        default: ''
+        type: string
+
+# Every run pushes to the same branch, so runs never overlap. GitHub keeps only one pending run per
+# group: a third run queued behind a pending one cancels it before it starts, with no Slack message.
+# Space releases out by one docs run (~15 min), or republish the dropped version by hand.
+concurrency:
+  group: docs-publish
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || inputs.triggered_by || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
+  SLACK_USERNAME: Swift SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-swift:'
+  DOCS_BRANCH: documentation
+  DOCS_URL: https://klaviyo.github.io/klaviyo-swift-sdk
+
+jobs:
+  publish:
+    name: Build and publish DocC
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pages: write
+    env:
+      VERSION: ${{ github.event.release.tag_name || inputs.version }}
+    steps:
+      - name: Record job start
+        id: start
+        run: |
+          echo "JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Validate version format
+        id: version-format
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version must be X.Y.Z (prereleases aren't published), got '$VERSION'"
+            exit 1
+          fi
+
+      # The workflow's own commit supplies the publish scripts and the Slack action. The release
+      # tag supplies the sources, so a republish from master documents the tag as it shipped.
+      - name: Checkout publish scripts
+        id: checkout
+        uses: actions/checkout@v4
+
+      - name: Notify Slack - deploying
+        id: slack_pending
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Swift SDK `${{ env.VERSION }}` docs deploying
+          body: Building DocC for `${{ env.VERSION }}` and committing it to the `${{ env.DOCS_BRANCH }}` branch.
+          fields: |
+            Version: `${{ env.VERSION }}`
+            Trigger: ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: Docs|${{ env.DOCS_URL }}/latest/documentation/
+
+      - name: Check out ${{ env.VERSION }} and the documentation branch
+        id: worktrees
+        run: |
+          set -euo pipefail
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git fetch --no-tags --depth 1 origin "refs/tags/${VERSION}:refs/tags/${VERSION}"
+          git worktree add --detach src "refs/tags/$VERSION"
+          echo "short_sha=$(git -C src rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          if git ls-remote --exit-code --heads origin "$DOCS_BRANCH" > /dev/null; then
+            git fetch --no-tags --depth 1 origin "+refs/heads/${DOCS_BRANCH}:refs/remotes/origin/${DOCS_BRANCH}"
+            git worktree add -B "$DOCS_BRANCH" site "origin/$DOCS_BRANCH"
+          else
+            echo "::notice::$DOCS_BRANCH branch doesn't exist yet; creating it as an orphan branch"
+            git worktree add --orphan -b "$DOCS_BRANCH" site
+          fi
+
+      - name: Select Xcode 26.5
+        id: xcode
+        run: sudo xcode-select -s /Applications/Xcode_26.5.app
+
+      - name: Build DocC and stage docs/
+        id: build
+        run: ./scripts/publish-docs.sh --version "$VERSION" --source src --docs-dir site/docs --site-url "$DOCS_URL"
+
+      - name: Commit and push documentation
+        id: push
+        env:
+          SHORT_SHA: ${{ steps.worktrees.outputs.short_sha }}
+          MINOR: ${{ steps.build.outputs.minor }}
+          UPDATED_LATEST: ${{ steps.build.outputs.updated_latest }}
+        run: |
+          set -euo pipefail
+          cd site
+          git add --all docs
+          if git diff --cached --quiet; then
+            echo "No documentation changes to publish"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git commit --quiet -m "docs: publish DocC for $VERSION ($SHORT_SHA)"
+          git push origin "HEAD:refs/heads/$DOCS_BRANCH"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          folders="\`docs/$MINOR/\`"
+          if [ "$UPDATED_LATEST" = "true" ]; then folders="$folders and \`docs/latest/\`"; fi
+          {
+            echo "### Published docs for $VERSION"
+            echo "- Folders: $folders"
+            echo "- Commit: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$(git rev-parse HEAD)"
+            echo "- Docs: $DOCS_URL/$MINOR/documentation/"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Notify Slack - waiting for Pages
+        id: slack_stage
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_pending.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Swift SDK `${{ env.VERSION }}` docs pushed, waiting for GitHub Pages
+          fields: |
+            Version: `${{ env.VERSION }}`
+            Commit: `${{ steps.worktrees.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: Docs|${{ env.DOCS_URL }}/latest/documentation/
+
+      # Pushes made with GITHUB_TOKEN never trigger a Pages build, so this requests one, then polls
+      # for up to 10 minutes for a build of the pushed commit.
+      - name: Wait for Pages build
+        id: pages
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUSHED_SHA: ${{ steps.push.outputs.sha }}
+        run: |
+          if ! gh api "repos/$GITHUB_REPOSITORY/pages" > /dev/null 2>&1; then
+            echo "::warning::GitHub Pages isn't enabled for $GITHUB_REPOSITORY; docs are on the $DOCS_BRANCH branch but not served"
+            echo "result=not_enabled" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" > /dev/null; then
+            echo "::warning::Couldn't request a Pages build; polling in case one starts anyway"
+          fi
+          result=timeout
+          for _ in $(seq 1 20); do
+            status=$(gh api "repos/$GITHUB_REPOSITORY/pages/builds?per_page=10" 2>/dev/null \
+              | jq -r --arg sha "$PUSHED_SHA" 'first(.[] | select(.commit == $sha) | .status) // ""' || true)
+            if [ "$status" = "built" ] || [ "$status" = "errored" ]; then
+              result=$status
+              break
+            fi
+            sleep 30
+          done
+          echo "Pages build result: $result"
+          echo "result=$result" >> "$GITHUB_OUTPUT"
+
+      - name: Classify cancellation
+        id: stop
+        if: cancelled()
+        env:
+          TIMEOUT_MINUTES: 45
+        run: |
+          elapsed=$(( $(date +%s) - ${JOB_START:-$(date +%s)} ))
+          if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
+            echo "timed_out=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          step=$(jq -r '
+            {
+              start: "Record job start",
+              "version-format": "Validate version format",
+              checkout: "Checkout publish scripts",
+              worktrees: "Check out the tag and the documentation branch",
+              xcode: "Select Xcode 26.5",
+              build: "Build DocC and stage docs/",
+              push: "Commit and push documentation"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
+
+      - name: Classify docs result
+        id: result
+        if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
+        env:
+          TIMED_OUT: ${{ steps.stop.outputs.timed_out }}
+          JOB_STATUS: ${{ job.status }}
+          PUSHED: ${{ steps.push.outputs.pushed }}
+          PAGES: ${{ steps.pages.outputs.result }}
+          FAILED_STEP: ${{ steps.failed.outputs.step }}
+          MINOR: ${{ steps.build.outputs.minor }}
+          UPDATED_LATEST: ${{ steps.build.outputs.updated_latest }}
+        run: |
+          folders="\`docs/${MINOR:-?}/\`"
+          if [ "$UPDATED_LATEST" = "true" ]; then folders="$folders and \`docs/latest/\`"; fi
+          body=""
+          if [ "$TIMED_OUT" = "true" ]; then
+            status=stopped
+            title="Swift SDK \`$VERSION\` docs timed out"
+          elif [ "$JOB_STATUS" = "failure" ]; then
+            status=failure
+            title="Swift SDK \`$VERSION\` docs failed"
+            body="Failed at $FAILED_STEP."
+          elif [ "$PUSHED" = "true" ] && [ "$PAGES" = "built" ]; then
+            status=success
+            title="Swift SDK \`$VERSION\` docs live on GitHub Pages"
+            body="Published $folders."
+          elif [ "$PUSHED" = "true" ] && [ "$PAGES" = "not_enabled" ]; then
+            status=warning
+            title="Swift SDK \`$VERSION\` docs pushed, GitHub Pages not enabled"
+            body="Committed $folders to \`$DOCS_BRANCH\`. Ask a repo admin to serve \`$DOCS_BRANCH\` at \`/docs\` from GitHub Pages."
+          elif [ "$PUSHED" = "true" ] && [ "$PAGES" = "errored" ]; then
+            status=failure
+            title="Swift SDK \`$VERSION\` docs Pages build failed"
+            body="Committed $folders to \`$DOCS_BRANCH\`, but the GitHub Pages build errored. Check the repo's Pages settings."
+          elif [ "$PUSHED" = "true" ]; then
+            status=warning
+            title="Swift SDK \`$VERSION\` docs pushed, Pages build not confirmed"
+            body="Committed $folders to \`$DOCS_BRANCH\`, but no Pages build of that commit finished within 10 minutes. Check the site, then the repo's Pages settings."
+          else
+            status=info
+            title="Swift SDK \`$VERSION\` docs unchanged, nothing to publish"
+          fi
+          {
+            echo "status=$status"
+            echo "title=$title"
+            echo "body=$body"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack
+        if: always() && steps.result.outputs.status != ''
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: ${{ steps.result.outputs.status }}
+          title: ${{ steps.result.outputs.title }}
+          body: ${{ steps.result.outputs.body }}
+          fields: |
+            Version: `${{ env.VERSION }}`
+            Commit: `${{ steps.worktrees.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Docs|${{ env.DOCS_URL }}/latest/documentation/
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ env.VERSION }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.worktrees.outputs.short_sha }}

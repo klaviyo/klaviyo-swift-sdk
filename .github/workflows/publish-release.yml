@@ -324,12 +324,25 @@ jobs:
             gh workflow run "$workflow" --ref "$VERSION" "${args[@]}" "$@"
           }
           failed=0
+          dispatched="spm-verify.yml, cocoapods-publish.yml"
           dispatch spm-verify.yml -f tag="$VERSION" || failed=1
           dispatch cocoapods-publish.yml -f version="$VERSION" || failed=1
+          # Docs track stable releases only. Tags cut before docs-publish.yml existed can't run it.
+          if [ "$PRERELEASE" != "true" ]; then
+            if gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/docs-publish.yml?ref=$VERSION" > /dev/null 2> "$RUNNER_TEMP/docs-check.err"; then
+              dispatch docs-publish.yml -f version="$VERSION" || failed=1
+              dispatched="$dispatched, docs-publish.yml"
+            elif grep -q "HTTP 404" "$RUNNER_TEMP/docs-check.err"; then
+              echo "::notice::docs-publish.yml isn't at $VERSION; skipping docs. Publish them from master with: gh workflow run docs-publish.yml -f version=$VERSION"
+            else
+              echo "::error::Couldn't check for docs-publish.yml at $VERSION: $(cat "$RUNNER_TEMP/docs-check.err")"
+              failed=1
+            fi
+          fi
           {
             echo "### Released $VERSION"
             echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
-            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, cocoapods-publish.yml"
+            echo "- Dispatched at \`$VERSION\`: $dispatched"
             echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
@@ -362,7 +375,7 @@ jobs:
           ts: ${{ env.SLACK_TS }}
           status: success
           title: Swift SDK `${{ inputs.version }}` published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
-          body: SPM verify and CocoaPods publish dispatched at the tag. They reply in this thread with their results.
+          body: Downstream workflows dispatched at the tag (SPM verify, CocoaPods publish, and docs publish for stable releases whose tag has it). They reply in this thread with their results.
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ env.SHORT_SHA }}`
