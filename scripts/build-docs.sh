@@ -67,7 +67,7 @@ while IFS= read -r product; do PRODUCTS+=("$product"); done < <(
 WORK_DIR="$REPO_ROOT/build/docs"
 DERIVED_DATA="$WORK_DIR/DerivedData"
 PRODUCTS_DIR="$DERIVED_DATA/Build/Products/Debug-iphonesimulator"
-INTERMEDIATES_DIR="$DERIVED_DATA/Build/Intermediates.noindex/klaviyo-swift-sdk.build/Debug-iphonesimulator"
+INTERMEDIATES_DIR="$DERIVED_DATA/Build/Intermediates.noindex"
 MERGED_ARCHIVE="$WORK_DIR/KlaviyoSwiftSDK.doccarchive"
 STAGING="$WORK_DIR/site.staging"
 LOG_FILE="$WORK_DIR/docbuild.log"
@@ -92,9 +92,13 @@ fi
 echo "==> Checking DocC diagnostics"
 warning_count=0
 for product in "${PRODUCTS[@]}"; do
-    diagnostics="$INTERMEDIATES_DIR/$product-t.build/$product-diagnostics.json"
-    if [[ ! -f "$diagnostics" ]]; then
-        echo "error: no DocC diagnostics file for $product" >&2
+    # The intermediates layout varies by Xcode version (project and target directory names), so
+    # find the file DocC was told to write by name rather than by a fixed path.
+    diagnostics="$(find "$INTERMEDIATES_DIR" -name "$product-diagnostics.json" -print -quit 2>/dev/null)"
+    if [[ -z "$diagnostics" ]]; then
+        echo "error: no DocC diagnostics file for $product under $INTERMEDIATES_DIR" >&2
+        grep -o -- '--diagnostics-file [^ ]*' "$LOG_FILE" | sed 's/^/    /' >&2 || \
+            echo "    (docc was not passed --diagnostics-file; see $LOG_FILE)" >&2
         exit 1
     fi
     count="$(python3 -I - "$diagnostics" "$product" "$REPO_ROOT/" <<'PY'
