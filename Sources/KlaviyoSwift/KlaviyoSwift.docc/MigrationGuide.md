@@ -257,7 +257,7 @@ klaviyo.create(event: event)
 ```
 
 > Note: This shows the v2.0.0 API. Current versions no longer take `identifiers` or `profile` on
-> `Event`: set the profile with ``KlaviyoSDK/set(profile:)`` and create the event with
+> ``Event``: set the profile with ``KlaviyoSDK/set(profile:)`` and create the event with
 > ``KlaviyoSDK/create(event:)``, as shown in <doc:ProfilesAndEvents#Track-events>.
 
 ### Setting your push token
