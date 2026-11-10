@@ -7,21 +7,27 @@
 import Foundation
 import OSLog
 
-/// Configuration for In-App Forms functionality.
+/// Options for in-app forms, passed to `registerForInAppForms(configuration:)`.
 ///
-/// This struct provides configuration options for managing In-App Forms behavior,
-/// including session management and timeout settings.
+/// ```swift
+/// // End the form session if the app stays in the background for 30 minutes.
+/// let config = InAppFormsConfig(sessionTimeoutDuration: 30 * 60)
+/// KlaviyoSDK().registerForInAppForms(configuration: config)
+/// ```
 public struct InAppFormsConfig {
     /// The duration in seconds after which a form session is considered expired.
     let sessionTimeoutDuration: TimeInterval
 
-    /// Creates a new In-App Forms configuration.
+    /// Creates an in-app forms configuration.
     ///
-    /// - Parameters:
-    ///   - sessionTimeoutDuration: Duration (in seconds) of user inactivity after which the form session is terminated.
-    ///     Defaults to 1 hour, must be non-negative.
-    ///     Use 0 to timeout as soon as the app is backgrounded.
-    ///     To disable session timeout altogether, use ``TimeInterval.infinity``.
+    /// A form session ends when the app stays in the background for longer than
+    /// `sessionTimeoutDuration`. When the app returns to the foreground after that, the SDK reloads
+    /// forms and starts a new session.
+    ///
+    /// - Parameter sessionTimeoutDuration: How long, in seconds, the app can stay in the background
+    ///   before the form session ends. Defaults to `3600` (one hour). Pass `0` to end the session
+    ///   every time the app goes to the background, or `TimeInterval.infinity` to never end it. A
+    ///   negative value is treated as `0`.
     public init(sessionTimeoutDuration: TimeInterval = 3600) {
         if sessionTimeoutDuration < 0 {
             if #available(iOS 14.0, *) {

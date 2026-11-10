@@ -8,6 +8,10 @@ import KlaviyoCore
 import OSLog
 
 extension ProfileData: CustomDebugStringConvertible {
+    // Hidden from the generated docs: this conformance is a logging aid, not API for integrators.
+    // Keep the attribute on the member. On the extension, SwiftFormat 0.51.2's
+    // `extensionAccessControl` rule mangles it into code that doesn't compile.
+    @_documentation(visibility: internal)
     public var debugDescription: String {
         """
         email: \t\t\t\(email ?? "<no email>")
