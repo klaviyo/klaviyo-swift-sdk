@@ -25,18 +25,78 @@ private enum KlaviyoBadgeConfig {
     }
 }
 
+/// Entry points for your app's Notification Service Extension.
+///
+/// Forward both `UNNotificationServiceExtension` callbacks to `KlaviyoExtensionSDK`:
+///
+/// ```swift
+/// import KlaviyoSwiftExtension
+/// import UserNotifications
+///
+/// class NotificationService: UNNotificationServiceExtension {
+///     var request: UNNotificationRequest!
+///     var contentHandler: ((UNNotificationContent) -> Void)?
+///     var bestAttemptContent: UNMutableNotificationContent?
+///
+///     override func didReceive(
+///         _ request: UNNotificationRequest,
+///         withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
+///     ) {
+///         self.request = request
+///         self.contentHandler = contentHandler
+///         bestAttemptContent = request.content.mutableCopy() as? UNMutableNotificationContent
+///
+///         if let bestAttemptContent {
+///             KlaviyoExtensionSDK.handleNotificationServiceDidReceivedRequest(
+///                 request: request,
+///                 bestAttemptContent: bestAttemptContent,
+///                 contentHandler: contentHandler
+///             )
+///         }
+///     }
+///
+///     override func serviceExtensionTimeWillExpire() {
+///         if let contentHandler, let bestAttemptContent {
+///             KlaviyoExtensionSDK.handleNotificationServiceExtensionTimeWillExpireRequest(
+///                 request: request,
+///                 bestAttemptContent: bestAttemptContent,
+///                 contentHandler: contentHandler
+///             )
+///         }
+///     }
+/// }
+/// ```
+///
+/// To update badge counts, the extension and your app must share an App Group, named by the
+/// `klaviyo_app_group` key in both targets' `Info.plist` files.
 public enum KlaviyoExtensionSDK {
-    /// Call this method when you receive a rich push notification in the notification service extension.
-    /// This method should be called from within `didReceive(_:withContentHandler:)` method of `UNNotificationServiceExtension`.
-    /// This method mainly does two things - downloads the media (images or videos) attached in the payload and then attaches it to the push notification.
+    /// Prepares a Klaviyo push notification for display: updates the badge, adds action buttons and
+    /// attaches rich media.
     ///
-    /// NOTE that there is no guarantee that the content handler will be called with in the time stipulated by iOS to download the rich media successfully.
-    /// In the case where the download does not complete, iOS will automatically present the notification as received from APNS without the attached media
+    /// Call this from `UNNotificationServiceExtension.didReceive(_:withContentHandler:)`. The SDK:
+    ///
+    /// - Updates the badge count if the payload asks it to, and saves the new count to the shared
+    ///   App Group so `KlaviyoSDK` stays in sync. This requires the `klaviyo_app_group`
+    ///   `Info.plist` key.
+    /// - Adds the action buttons defined in the payload, unless the notification already has a
+    ///   category.
+    /// - Downloads the image or video in the payload, attaches it to the notification and calls
+    ///   `contentHandler`. If there's no media, or the download fails, it calls `contentHandler`
+    ///   with the content as it is.
+    ///
+    /// iOS limits how long the extension can run. If the download doesn't finish in time, iOS calls
+    /// `serviceExtensionTimeWillExpire()`. Forward that call to
+    /// ``handleNotificationServiceExtensionTimeWillExpireRequest(request:bestAttemptContent:contentHandler:)``
+    /// so the notification is delivered without the media.
     ///
     /// - Parameters:
-    ///   - request: the request received in the delegate `didReceive(_:withContentHandler:)`
-    ///   - bestAttemptContent: this is also received in `didReceive(_:withContentHandler:)` and is the best attempt at mutating the APNS payload before attaching it to the push notification
-    ///   - contentHandler: this is also received in `didReceive(_:withContentHandler:)` and is the closure that needs to be called before the time iOS provides for us to mutate the content. This closure will be called with the `bestAttemptContent` once the media is downloaded and attached.
+    ///   - request: The request passed to `didReceive(_:withContentHandler:)`.
+    ///   - bestAttemptContent: A mutable copy of the request's content. The SDK modifies it and
+    ///     passes it to `contentHandler`.
+    ///   - contentHandler: The content handler passed to `didReceive(_:withContentHandler:)`. The SDK
+    ///     calls it once the notification is ready.
+    ///   - fallbackMediaType: The file extension to give the downloaded media when the payload
+    ///     doesn't specify one in `rich-media-type`. Defaults to `"jpg"`.
     public static func handleNotificationServiceDidReceivedRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
@@ -125,6 +185,17 @@ public enum KlaviyoExtensionSDK {
         }
     }
 
+    /// Delivers a Klaviyo push notification before the extension's time runs out.
+    ///
+    /// Call this from `UNNotificationServiceExtension.serviceExtensionTimeWillExpire()`. The SDK adds
+    /// the payload's action buttons, then calls `contentHandler` with `bestAttemptContent`, without
+    /// any media that hasn't finished downloading.
+    ///
+    /// - Parameters:
+    ///   - request: The request passed to `didReceive(_:withContentHandler:)`.
+    ///   - bestAttemptContent: The mutable content you passed to
+    ///     `handleNotificationServiceDidReceivedRequest(request:bestAttemptContent:contentHandler:)`.
+    ///   - contentHandler: The content handler passed to `didReceive(_:withContentHandler:)`.
     public static func handleNotificationServiceExtensionTimeWillExpireRequest(
         request: UNNotificationRequest,
         bestAttemptContent: UNMutableNotificationContent,
