@@ -92,6 +92,12 @@ public actor RequestQueue {
         await flush()
     }
 
+    /// Pauses the run loop when offline and sets the flush interval for the new connection type.
+    ///
+    /// Switching between Wi-Fi and cellular while the loop is running only changes the interval: the
+    /// current countdown finishes and the next one uses the new value. Restarting the loop instead
+    /// would reset the countdown on every change, and iOS can report several changes a minute (for
+    /// example Connectivity Assist on weak Wi-Fi), which would keep the queue from ever flushing.
     public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
         switch status {
         case .notReachable:
@@ -99,11 +105,16 @@ public actor RequestQueue {
             stop()
         case .reachableViaWiFi:
             flushInterval = FlushConstants.wifiFlushInterval
-            start()
+            startIfStopped()
         case .reachableViaWWAN:
             flushInterval = FlushConstants.cellularFlushInterval
-            start()
+            startIfStopped()
         }
+    }
+
+    private func startIfStopped() {
+        guard runLoop == nil else { return }
+        start()
     }
 
     // MARK: - Flush
