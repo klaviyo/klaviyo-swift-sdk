@@ -146,29 +146,6 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    // MARK: Reachability start failure
-
-    func testReachabilityStartFailureIsHandled() async {
-        environment = KlaviyoEnvironment.test()
-        let expectation = XCTestExpectation(description: "Start reachability is called")
-        environment.startReachability = {
-            expectation.fulfill()
-            throw KlaviyoAPIError.internalError("foo")
-        }
-
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
-            lifecycleSubject.eraseToAnyPublisher()
-        })
-        environment.appLifeCycle = customLifeCycleEvents
-        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
-
-        lifecycleSubject.send(.foregrounded)
-        await fulfillment(of: [expectation], timeout: 1.0)
-        cancellable.cancel()
-        XCTAssertEqual(1, expectation.expectedFulfillmentCount)
-    }
-
     // MARK: Reachability notifications
 
     func testReachabilityNotificationStatusHandled() {

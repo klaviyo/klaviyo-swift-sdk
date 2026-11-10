@@ -216,7 +216,7 @@ extension KlaviyoCommands {
         // `didBecomeActive` has usually already fired by now, so the `.foregrounded` handler won't
         // start reachability for this launch. Start it here so a launch while offline pauses the
         // queue instead of flushing at the default interval.
-        environment.startReachabilityLoggingFailure()
+        environment.startReachability()
         for await event in lifecycleEvents {
             switch event {
             case .foregrounded:

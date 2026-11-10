@@ -8,6 +8,7 @@
 import Combine
 import CoreLocation
 import Foundation
+import OSLog
 import UIKit
 
 public var environment = KlaviyoEnvironment.production
@@ -24,7 +25,7 @@ public struct KlaviyoEnvironment {
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
         sdkFeatures: @escaping () -> SdkFeatures? = { nil },
         getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
-        startReachability: @escaping () throws -> Void,
+        startReachability: @escaping () -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
         randomInt: @escaping () -> Int,
@@ -119,7 +120,7 @@ public struct KlaviyoEnvironment {
     public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
-    public var startReachability: () throws -> Void
+    public var startReachability: () -> Void
     public var stopReachability: () -> Void
     public var reachabilityStatus: () -> Reachability.NetworkStatus?
 
@@ -151,26 +152,12 @@ public struct KlaviyoEnvironment {
                 case .terminated, .backgrounded:
                     stopReachability()
                 case .foregrounded:
-                    startReachabilityLoggingFailure()
+                    startReachability()
                 case .reachabilityChanged:
                     break
                 }
             })
             .eraseToAnyPublisher()
-    }
-
-    /// Starts the reachability notifier, logging a developer warning if it can't start.
-    ///
-    /// ``lifecycleEventsWithReachability()`` calls this on every foreground. Call it directly
-    /// at launch as well: `didBecomeActive` usually fires before initialization subscribes to the
-    /// lifecycle events, so without that call nothing reports the network status until the app
-    /// next returns to the foreground.
-    public func startReachabilityLoggingFailure() {
-        do {
-            try startReachability()
-        } catch {
-            emitDeveloperWarning("failure to start reachability notifier")
-        }
     }
 
     // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
@@ -276,7 +263,13 @@ public struct KlaviyoEnvironment {
             }
         },
         startReachability: {
-            try reachabilityService?.startNotifier()
+            do {
+                try reachabilityService?.startNotifier()
+            } catch {
+                if #available(iOS 14.0, *) {
+                    Logger.networking.warning("Failed to start reachability notifier: \(error, privacy: .public)")
+                }
+            }
         },
         stopReachability: {
             reachabilityService?.stopNotifier()
