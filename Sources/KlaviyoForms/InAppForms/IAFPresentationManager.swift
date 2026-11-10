@@ -5,6 +5,7 @@
 //  Created by Andrew Balmer on 2/3/25.
 //
 
+import Combine
 import Foundation
 import KlaviyoCore
 import OSLog
@@ -18,7 +19,14 @@ class IAFPresentationManager {
 
     private var companyObserver: CompanyObserver?
     private var companyEventsTask: Task<Void, Never>?
-    private var isInitializingOrInitialized = false
+    private var isInitializingOrInitialized = false {
+        didSet {
+            guard isInitializingOrInitialized != oldValue else { return }
+            registrationStateSubject.send(isInitializingOrInitialized)
+        }
+    }
+
+    private let registrationStateSubject = CurrentValueSubject<Bool, Never>(false)
 
     private var lifecycleObserver: LifecycleObserver?
     private var lifecycleEventsTask: Task<Void, Never>?
@@ -105,6 +113,18 @@ class IAFPresentationManager {
             }
         }
         formLifecycleHandler = nil
+    }
+
+    // MARK: - Registration State
+
+    /// Yields the current registration state, then every change, including the SDK's own
+    /// teardown after a handshake failure or an `abort` from KlaviyoJS. Each call returns an
+    /// independent stream; cancelling its iteration ends the subscription.
+    func registrationStates() -> AsyncStream<Bool> {
+        AsyncStream { [registrationStateSubject] continuation in
+            let cancellable = registrationStateSubject.sink { continuation.yield($0) }
+            continuation.onTermination = { _ in cancellable.cancel() }
+        }
     }
 
     func invokeLifecycleHandler(for event: FormLifecycleEvent) {

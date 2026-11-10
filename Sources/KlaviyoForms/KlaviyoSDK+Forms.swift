@@ -196,6 +196,22 @@ extension KlaviyoSDKModule {
         return self
     }
 
+    /// Streams whether the app is registered for In-App Forms: the current state first, then
+    /// every change, including when the SDK unregisters itself after a failed KlaviyoJS handshake.
+    /// Each call returns an independent stream; cancel its iteration to stop observing.
+    ///
+    /// Registration changes asynchronously, so a change arrives after
+    /// ``registerForInAppForms(configuration:)`` or ``unregisterFromInAppForms()`` returns.
+    ///
+    /// This method is for internal use only and should not be used in production applications.
+    ///
+    /// - Returns: A stream that yields `true` while registered.
+    @MainActor
+    @_spi(KlaviyoPrivate)
+    public func formsRegistrationStates() -> AsyncStream<Bool> {
+        IAFPresentationManager.shared.registrationStates()
+    }
+
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
     ///
     /// This method is for internal use only and should not be used in production applications.
