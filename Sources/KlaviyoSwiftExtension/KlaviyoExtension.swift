@@ -78,8 +78,8 @@ public enum KlaviyoExtensionSDK {
     /// - Updates the badge count if the payload asks it to, and saves the new count to the shared
     ///   App Group so `KlaviyoSDK` stays in sync. This requires the `klaviyo_app_group`
     ///   `Info.plist` key.
-    /// - Adds the action buttons defined in the payload, unless the notification already has a
-    ///   category.
+    /// - Adds the action buttons defined in the payload, for Klaviyo notifications that don't
+    ///   already have a category.
     /// - Downloads the image or video in the payload, attaches it to the notification and calls
     ///   `contentHandler`. If there's no media, or the download fails, it calls `contentHandler`
     ///   with the content as it is.

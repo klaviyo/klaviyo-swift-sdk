@@ -27,6 +27,9 @@ extension KlaviyoSDKModule {
     /// `$geofence_exit` event for the current profile. Repeated transitions for the same geofence
     /// within a short cooldown are skipped.
     ///
+    /// Your app's `Info.plist` must include `location` in `UIBackgroundModes`. Without it, this
+    /// method crashes, because the SDK enables background location updates.
+    ///
     /// Geofencing needs "Always" location authorization with full accuracy. Your app must request
     /// that permission itself; the SDK doesn't prompt. Until it's granted, this method sets nothing
     /// up, and the SDK starts monitoring automatically once the user grants it. If the user later

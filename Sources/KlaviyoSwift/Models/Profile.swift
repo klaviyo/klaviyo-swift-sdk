@@ -121,7 +121,7 @@ public struct Profile: Equatable, Codable {
 
     /// The profile's email address.
     public let email: String?
-    /// The profile's phone number, in E.164 format.
+    /// The profile's phone number, in a format Klaviyo accepts, such as E.164.
     public let phoneNumber: String?
     /// An identifier for the profile from a system outside Klaviyo, such as your backend's user ID.
     public let externalId: String?
@@ -153,7 +153,8 @@ public struct Profile: Equatable, Codable {
 
     /// Creates a profile.
     ///
-    /// Every argument is optional. Pass only the identifiers and attributes you want to set.
+    /// Every argument is optional. When you pass the profile to ``KlaviyoSDK/set(profile:)``, an
+    /// identifier you leave out counts as removed, so include every identifier the profile has.
     ///
     /// - Parameters:
     ///   - email: Individual's email address

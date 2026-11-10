@@ -62,7 +62,7 @@ final class AutomaticPushTokenSequence: @unchecked Sendable {
 /// }
 /// ```
 ///
-/// Then identify the profile, track events, and register for push notifications:
+/// Then identify the profile and track events:
 ///
 /// ```swift
 /// KlaviyoSDK()
@@ -72,8 +72,10 @@ final class AutomaticPushTokenSequence: @unchecked Sendable {
 /// KlaviyoSDK().create(event: Event(name: .viewedProductMetric, properties: ["SKU": "123"]))
 /// ```
 ///
-/// Most methods return immediately and apply their change asynchronously on the main queue, in
-/// the order they were called.
+/// Most methods return immediately and apply their change asynchronously on the main queue.
+///
+/// Calls made before ``initialize(with:)`` that change the profile or send data are dropped.
+/// Debug builds log a runtime warning when this happens; release builds drop them silently.
 ///
 /// ## Topics
 ///
@@ -137,7 +139,7 @@ public struct KlaviyoSDK {
     /// Creates a handle to the shared Klaviyo SDK.
     ///
     /// Creating an instance doesn't initialize the SDK. Call ``initialize(with:)`` once at launch
-    /// before using the other methods.
+    /// before using the profile, event and subscription methods.
     public init() {
         _ = Self.registerEventDispatcher
     }
@@ -199,11 +201,13 @@ public struct KlaviyoSDK {
     /// Initialization restores the profile and push token persisted from previous launches, sends
     /// any push token that was set before initialization, and starts sending queued requests.
     /// Calls made before initialization that change the profile, such as ``set(email:)`` or
-    /// ``set(profile:)``, are dropped with a warning, so initialize first.
+    /// ``set(profile:)``, are dropped (debug builds log a runtime warning), so initialize first.
     ///
     /// Calling this again with the same key does nothing. Calling it with a different key switches
     /// to that Klaviyo account: the push token is unregistered from the previous account and
-    /// registered with the new one.
+    /// registered with the new one. The current profile, including its email, phone number and
+    /// external ID, is kept and sent to the new account with the token. Call ``resetProfile()``
+    /// before switching if the new account shouldn't receive them.
     ///
     /// - Parameter apiKey: Your public API key (site ID), from your Klaviyo account settings.
     /// - Returns: The `KlaviyoSDK` instance, for chaining.
@@ -232,8 +236,10 @@ public struct KlaviyoSDK {
     ///
     /// If the current profile is already identified and `profile` has a different email, phone
     /// number or external ID, the SDK first starts a new profile, as ``resetProfile()`` does, so two
-    /// people are never merged into one Klaviyo profile. If the identifiers are unchanged and
-    /// `profile` carries no other attributes, no request is sent.
+    /// people are never merged into one Klaviyo profile. An identifier you leave out counts as
+    /// different, so include every identifier the profile has, not only the ones that changed. To
+    /// update a single attribute, use ``set(profileAttribute:value:)`` instead. If the identifiers
+    /// are unchanged and `profile` carries no other attributes, no request is sent.
     ///
     /// - Note: Call ``initialize(with:)`` first. A profile set before initialization is dropped.
     /// - Parameter profile: The profile to identify and send to Klaviyo.
@@ -243,8 +249,6 @@ public struct KlaviyoSDK {
 
     /// Clears the current profile's identifiers and starts a new anonymous profile.
     ///
-    /// Call this when the user logs out, so later activity isn't attributed to them:
-    ///
     /// ```swift
     /// KlaviyoSDK().resetProfile()
     /// ```
@@ -252,6 +256,11 @@ public struct KlaviyoSDK {
     /// The email, phone number, external ID and any pending profile attributes are cleared. If the
     /// profile was identified, the SDK creates a new anonymous ID. If a push token is registered,
     /// it moves to the new anonymous profile.
+    ///
+    /// Because the push token moves to a new anonymous profile, calling this on logout creates
+    /// anonymous profiles in your account. To switch users, call ``set(profile:)`` with all of the
+    /// new user's identifiers on the next login instead; the SDK starts a fresh profile when the
+    /// identifiers differ.
     ///
     /// - Note: Call ``initialize(with:)`` first. A reset before initialization is ignored.
     public func resetProfile() {
@@ -377,8 +386,10 @@ public struct KlaviyoSDK {
     /// KlaviyoSDK().create(event: event)
     /// ```
     ///
-    /// The event is attributed to the profile that's current when it's sent and queued until the
-    /// SDK can send it. Events can also trigger in-app forms configured in your Klaviyo account.
+    /// The event is attributed to the profile that's current when you call this method, and is
+    /// queued until the SDK can send it. A queued event keeps that profile, even across launches,
+    /// so identifying a different profile afterward doesn't change it. Events can also trigger
+    /// in-app forms configured in your Klaviyo account.
     ///
     /// - Note: Call ``initialize(with:)`` first. Events created before initialization are dropped.
     /// - Parameter event: The event to track.
@@ -397,13 +408,15 @@ public struct KlaviyoSDK {
     ///
     /// The profile must have the identifiers the requested channels need: an email for EMAIL, and a
     /// phone number for SMS and WhatsApp. If an identifier is missing, or no channel is requested,
-    /// the SDK logs a warning and sends nothing.
+    /// the SDK sends nothing (debug builds log a runtime warning).
     ///
     /// Use ``Subscription/allAvailableMarketing(listId:customSource:)`` to grant MARKETING consent on
     /// the channels the profile has identifiers for (email and SMS), or the
     /// ``Subscription/init(listId:channels:customSource:)`` initializer with a ``Subscription/Channels``
     /// value to name specific channels and sub-types.
     ///
+    /// - Note: Call ``initialize(with:)`` first. A subscription created before initialization is
+    ///   dropped.
     /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
     ///   for, and an optional `customSource` label.
     public func create(subscription: Subscription) {
