@@ -1006,6 +1006,8 @@ The SDK does not time out your provider, so your code must:
 
 ### Previewing Draft Forms on a Device
 
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version [5.7.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.7.0) and higher.
+
 There are two ways to preview a draft form in your app. Push is the preferred one.
 
 Push: in the form editor, choose **Preview on device** > **Send push** and send it to a saved test device. Tap the notification and the draft form opens in your app. It needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)): automatic push handling, or your own call to `handle(notificationResponse:withCompletionHandler:)`, starts the preview when the notification is tapped.
