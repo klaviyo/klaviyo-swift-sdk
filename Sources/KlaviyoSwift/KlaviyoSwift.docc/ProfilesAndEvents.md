@@ -63,7 +63,7 @@ identifiers such as an email address or phone number. When you provide an identi
 the anonymous user into the identified user.
 
 > Note: If you enable the `klaviyo_automatic_push_token_forwarding` opt-in flag (see
-> <doc:MigrationGuide#Migrating-to-v5.4.0>), the SDK forwards the device push token to Klaviyo
+> <doc:MigrationGuide#Migrating-to-v540>), the SDK forwards the device push token to Klaviyo
 > automatically once APNs delivers it to your app. That only happens after your app calls
 > `registerForRemoteNotifications()`. Because this can happen before you call
 > ``KlaviyoSDK/set(profile:)``, ``KlaviyoSDK/set(email:)`` or ``KlaviyoSDK/set(phoneNumber:)``,
@@ -99,7 +99,10 @@ Things to keep in mind:
   later doesn't change requests that were already queued, and queued requests persist across app
   launches.
 - **Logout and switching users.** ``KlaviyoSDK/resetProfile()`` keeps the push token and registers
-  it to a new anonymous profile, so don't call it on logout. Instead:
+  it to a new anonymous profile, so don't call it on logout if you need to avoid anonymous profiles.
+  (Personalized in-app forms ask you to reset on logout; see
+  [In-App Forms](/documentation/klaviyoforms/inappforms#Personalized-forms-authentication).)
+  Instead:
   - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and
     `unregisterGeofencing()`.
   - On the next login, call ``KlaviyoSDK/set(profile:)`` with all of the new user's identifiers.
@@ -163,7 +166,7 @@ on the profile's email and phone number, through the
 You must provide either an email address or a phone number. WhatsApp BSUID support is coming soon.
 
 Set the profile's email and/or phone number **before** subscribing. A subscribe call that requests a
-channel whose identifier hasn't been set isn't sent: it's dropped at replay time and the SDK logs a
+channel whose identifier hasn't been set isn't sent: the SDK drops it when you call it and logs a
 developer warning.
 
 Profiles can be opted into multiple channels, for example email marketing, SMS marketing and SMS

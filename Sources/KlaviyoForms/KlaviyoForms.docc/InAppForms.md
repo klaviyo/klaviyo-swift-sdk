@@ -76,6 +76,7 @@ The timeout defaults to 3600 seconds (1 hour). To change it, pass an ``InAppForm
 30-minute session timeout:
 
 ```swift
+import KlaviyoSwift
 import KlaviyoForms
 
 // e.g. to configure a session timeout of 30 minutes
@@ -89,6 +90,7 @@ If you need to stop the SDK from displaying in-app forms, for example when the u
 ``KlaviyoCore/KlaviyoSDKModule/unregisterFromInAppForms()``:
 
 ```swift
+import KlaviyoSwift
 import KlaviyoForms
 
 KlaviyoSDK().unregisterFromInAppForms()
@@ -115,6 +117,8 @@ After initializing the SDK, register a provider that fetches a token from your b
 `registerAuthTokenProvider(_:)`:
 
 ```swift
+import KlaviyoSwift
+
 KlaviyoSDK().registerAuthTokenProvider {
     // Replace with your own call. Apply a timeout to the request.
     try await authService.fetchKlaviyoJWT()
@@ -123,7 +127,8 @@ KlaviyoSDK().registerAuthTokenProvider {
 
 Register the provider once and keep it registered across profile changes.
 
-On logout, clear the SDK profile:
+On logout, clear the SDK profile so the next user's forms aren't personalized with the previous
+user's identity:
 
 ```swift
 KlaviyoSDK().resetProfile()
@@ -132,6 +137,10 @@ KlaviyoSDK().resetProfile()
 A form that's already open keeps its token until it expires, whether you call `resetProfile()` or
 `unregisterAuthTokenProvider()`. `unregisterAuthTokenProvider()` turns personalization off; it
 isn't a logout.
+
+> Note: `resetProfile()` re-registers the device's push token to a new anonymous profile. If your app
+> must avoid anonymous profiles, see
+> [Avoid anonymous profiles](/documentation/klaviyoswift/profilesandevents#Avoid-anonymous-profiles).
 
 ### Provider requirements
 
@@ -159,6 +168,7 @@ to third-party analytics platforms such as Amplitude, Segment or Mixpanel. The h
 ``FormLifecycleEvent``:
 
 ```swift
+import KlaviyoSwift
 import KlaviyoForms
 
 KlaviyoSDK().registerFormLifecycleHandler { event in
@@ -197,5 +207,6 @@ KlaviyoSDK().unregisterFormLifecycleHandler()
 The handler is optional and doesn't affect how forms work. Forms continue to display and track
 analytics in Klaviyo whether or not a handler is registered.
 
-Links in forms are delivered to the deep link handler you register in `KlaviyoSwift`. See
-[Deep Linking](/documentation/klaviyoswift/deeplinking).
+In-app deep links from forms are delivered to the deep link handler you register in `KlaviyoSwift`
+(see [Deep Linking](/documentation/klaviyoswift/deeplinking)). External web and system URLs
+(`http(s)`, `mailto:`, `tel:`, `sms:`) open outside the app.

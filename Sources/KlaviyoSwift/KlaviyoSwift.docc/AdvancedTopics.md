@@ -45,8 +45,8 @@ interval. The interval depends on the network link the app is currently using:
 
 | Network | Interval |
 |:--|:--|
-| WWAN/Wifi | 10 seconds |
-| Cellular | 30 seconds |
+| Wi-Fi | 10 seconds |
+| Cellular (WWAN) | 30 seconds |
 
 The connection type comes from the SDK's reachability service. When no network is available, the
 SDK caches data until the network is available again. Data sent by the SDK should be available in
@@ -56,4 +56,5 @@ Klaviyo shortly after the SDK flushes it.
 
 The SDK retries API requests that fail under certain conditions. For example, if a network timeout
 occurs, the request is retried on the next flush interval. If the SDK receives a `429` rate-limiting
-error from the Klaviyo API, it uses exponential backoff with jitter to retry the next request.
+error or a transient `5xx` server error from the Klaviyo API, it retries with exponential backoff
+plus jitter, and honors the server's `Retry-After` header when it asks for a longer wait.

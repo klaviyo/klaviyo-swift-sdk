@@ -267,9 +267,3 @@ to push notifications. The `KlaviyoSwiftExtension` in your Notification Service 
 the buttons, and push opens from a button tap are tracked like any other open. See
 [Setting Up a Notification Service Extension](/documentation/klaviyoswiftextension/notificationserviceextension#Push-action-buttons)
 for details and a test payload.
-
-## See also
-
-- <doc:HandlingPushNotificationData>: read custom data and handle silent and background pushes.
-- <doc:DeepLinking>: route users from a notification to the right screen.
-- <doc:AdvancedTopics>: Sandbox push environments, logging and retries.

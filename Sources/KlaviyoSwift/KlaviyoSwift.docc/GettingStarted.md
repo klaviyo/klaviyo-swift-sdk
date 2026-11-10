@@ -57,27 +57,26 @@ Install the SDK with the dependency manager your app uses.
 
 `KlaviyoSwift` is available through [CocoaPods](https://cocoapods.org/pods/KlaviyoSwift).
 
-1. Add the following lines to your Podfile. Replace `YourAppTarget` and
-   `YourAppNotificationServiceExtenionTarget` with the names of your app and Notification Service
+1. Add the following lines to your Podfile, including only the pods you use. Replace `YourAppTarget` and
+   `YourAppNotificationServiceExtensionTarget` with the names of your app and Notification Service
    Extension targets.
 
    ```ruby
    target 'YourAppTarget' do
      pod 'KlaviyoSwift'
-   end
-
-   target 'YourAppTarget' do
      pod 'KlaviyoForms'
+     pod 'KlaviyoLocation'
    end
 
-   target 'YourAppNotificationServiceExtenionTarget' do
+   target 'YourAppNotificationServiceExtensionTarget' do
      pod 'KlaviyoSwiftExtension'
    end
    ```
 
 2. Run `pod install` to complete the integration.
 
-Keep the library up to date with `pod update KlaviyoSwift` and `pod update KlaviyoSwiftExtension`.
+Keep the libraries up to date with `pod update`, for example `pod update KlaviyoSwift KlaviyoForms
+KlaviyoLocation KlaviyoSwiftExtension`.
 
 ## Initialize the SDK
 
@@ -99,7 +98,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 }
 ```
 
-Call ``KlaviyoSDK/initialize(with:)`` before you call any other Klaviyo SDK method.
+Initialize the SDK with ``KlaviyoSDK/initialize(with:)`` before you call any other Klaviyo SDK method.
 
 ## Identify notifications from other providers
 

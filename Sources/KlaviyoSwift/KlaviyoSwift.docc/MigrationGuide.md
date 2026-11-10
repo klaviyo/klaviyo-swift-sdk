@@ -82,7 +82,7 @@ full support for universal links. See <doc:DeepLinking#Handle-universal-links>.
 
 ## Migrating to v5.0.0
 
-### In-app forms
+### In-app forms changes
 
 Because of the changes below, you may want to revisit when you call `registerForInAppForms()` when
 upgrading from 4.2.0–4.2.1, especially if you registered more than once per app session. See
@@ -112,7 +112,7 @@ in-app forms at appropriate times, such as when a user logs out. See
 
 - The PascalCase names in the `Event.EventName` enum have been removed, leaving only the camelCase
   names. Remove any references to the old PascalCase names. See
-  <doc:MigrationGuide#Migrating-to-v3.3.0> for details.
+  <doc:MigrationGuide#Migrating-to-v330> for details.
 - The `.OpenedPush` case has been removed (there's no camelCase replacement), because it's intended
   for internal use only. Remove any references to `.OpenedPush`.
 
@@ -153,7 +153,7 @@ enum needs minor changes. There are two scenarios:
 
 ## Migrating to v3.0.0
 
-Deprecated event type enum cases have been removed. See <doc:MigrationGuide#Migrating-to-v2.4.0> for
+Deprecated event type enum cases have been removed. See <doc:MigrationGuide#Migrating-to-v240> for
 the reasoning and code samples.
 
 ## Migrating to v2.4.0
@@ -280,6 +280,9 @@ Tracking push opens is also a bit different. You can remove the code from
 `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)`. Your app delegate now needs
 the following code:
 
+> Note: The samples below use today's `withCompletionHandler:` argument label. The v2.0.0 API
+> used `completionHandler:`; see <doc:PushNotifications#Track-open-events> for the current call.
+
 ```swift
 extension AppDelegate: UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
@@ -313,7 +316,7 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
 
 > Note: The `deepLinkHandler:` variant shown above was deprecated in v5.1.0. Register your handler
 > with ``KlaviyoSDK/registerDeepLinkHandler(_:)`` instead; see
-> <doc:MigrationGuide#Migrating-to-v5.1.0>.
+> <doc:MigrationGuide#Migrating-to-v510>.
 
 ### Updated example app
 

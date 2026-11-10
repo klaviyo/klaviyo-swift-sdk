@@ -184,8 +184,8 @@ Klaviyo supports adding
 [custom push action buttons](https://help.klaviyo.com/hc/en-us/article/46285872166683) to push
 notifications. Buttons show custom text and can deep link into or open your app when tapped. If a
 button is tapped, the push open event includes the button's information. No additional setup is
-needed beyond the extension code above. A push notification can include at most three valid
-buttons.
+needed beyond the extension code above. Klaviyo sends at most three action buttons per push; the
+SDK registers whichever valid buttons the payload contains.
 
 To test push action buttons, use Apple's
 [Push Notifications Console](https://developer.apple.com/notifications/push-notifications-console/)
