@@ -26,8 +26,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     let messageHandlers: Set<String>? = Set(MessageHandler.allCases.map(\.rawValue))
 
     let apiKey: String
-    let profileData: ProfileData?
+    private(set) var profileData: ProfileData?
     private(set) var authToken: String?
+    private var isNavigating = false
+    private var pendingAuthTokenEvaluation = false
+    private var pendingProfileEvaluation = false
     private let assetSource: String?
 
     private var profileUpdatesCancellable: AnyCancellable?
@@ -150,21 +153,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     func initializeLoadScripts() {
         guard let klaviyoJsWKScript else { return }
-        loadScripts?.removeAll()
-        loadScripts?.insert(klaviyoJsWKScript)
-        loadScripts?.insert(sdkNameWKScript)
-        loadScripts?.insert(sdkVersionWKScript)
-        loadScripts?.insert(handshakeWKScript)
-        loadScripts?.insert(deviceInfoWKScript)
+        var documentEndScripts = [
+            sdkNameWKScript.source,
+            sdkVersionWKScript.source,
+            handshakeWKScript.source
+        ]
+        if let dataEnvironmentWKScript {
+            documentEndScripts.append(dataEnvironmentWKScript.source)
+        }
         if let profileAttributesWKScript {
-            loadScripts?.insert(profileAttributesWKScript)
+            documentEndScripts.append(profileAttributesWKScript.source)
         }
         if let authTokenWKScript {
-            loadScripts?.insert(authTokenWKScript)
+            documentEndScripts.append(authTokenWKScript.source)
         }
-        if let dataEnvironmentWKScript {
-            loadScripts?.insert(dataEnvironmentWKScript)
-        }
+        documentEndScripts.append(klaviyoJsWKScript.source)
+        loadScripts?.removeAll()
+        loadScripts?.insert(WKUserScript(
+            source: documentEndScripts.joined(separator: "\n"),
+            injectionTime: .atDocumentEnd,
+            forMainFrameOnly: true
+        ))
+        loadScripts?.insert(deviceInfoWKScript)
     }
 
     /// Push a fresh `DeviceInfo` snapshot to the webview's `data-klaviyo-device` head
@@ -195,6 +205,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             throw ObjectStateError.objectDeallocated
         }
 
+        isNavigating = true
         delegate.preloadUrl()
 
         do {
@@ -246,6 +257,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     private func handleProfileDataChange(_ newProfileData: ProfileData) {
+        profileData = newProfileData
+        initializeLoadScripts()
+        delegate?.refreshLoadScripts()
+        if isNavigating {
+            pendingProfileEvaluation = true
+            return
+        }
+        pendingProfileEvaluation = false
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Attempting to update In-App Forms HTML with updated profile data")
         }
@@ -270,23 +289,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// Updates the live page and next-navigation script with an auth token.
     @MainActor
     func pushAuthToken(_ token: String) async {
+        guard authToken != token else { return }
         authToken = token
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.info("Auth token refreshed; updating In-App Forms HTML")
         }
-        let authTokenScript = createAuthTokenScript(from: token)
-        do {
-            _ = try await delegate?.evaluateJavaScript(authTokenScript)
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Successfully updated In-App Forms HTML with refreshed auth token")
-            }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error updating In-App Forms HTML with refreshed auth token; error: \(error)")
-            }
-        }
+        await applyAuthTokenToLiveDOM()
     }
 
     @MainActor
@@ -295,11 +305,23 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         authToken = nil
         initializeLoadScripts()
         delegate?.refreshLoadScripts()
+        await applyAuthTokenToLiveDOM()
+    }
+
+    @MainActor
+    private func applyAuthTokenToLiveDOM() async {
+        if isNavigating {
+            pendingAuthTokenEvaluation = true
+            return
+        }
+        pendingAuthTokenEvaluation = false
+        let script = authToken.map(createAuthTokenScript(from:))
+            ?? "document.head.removeAttribute('data-klaviyo-jwt');"
         do {
-            _ = try await delegate?.evaluateJavaScript("document.head.removeAttribute('data-klaviyo-jwt');")
+            _ = try await delegate?.evaluateJavaScript(script)
         } catch {
             if #available(iOS 14.0, *) {
-                Logger.webViewLogger.warning("Error removing In-App Forms auth token: \(error)")
+                Logger.webViewLogger.warning("Error updating In-App Forms auth token: \(error)")
             }
         }
     }
@@ -310,6 +332,24 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     func handleNavigationEvent(_ event: WKNavigationEvent) {
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
+        }
+        switch event {
+        case .didStartProvisionalNavigation, .didCommitNavigation:
+            isNavigating = true
+        case .didFinishNavigation, .didFailNavigation, .didFailProvisionalNavigation:
+            isNavigating = false
+            if pendingAuthTokenEvaluation {
+                pendingAuthTokenEvaluation = false
+                Task { @MainActor [weak self] in
+                    await self?.applyAuthTokenToLiveDOM()
+                }
+            }
+            if pendingProfileEvaluation, let profileData {
+                pendingProfileEvaluation = false
+                handleProfileDataChange(profileData)
+            }
+        case .didReceiveServerRedirectForProvisionalNavigation:
+            break
         }
     }
 

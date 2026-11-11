@@ -327,7 +327,8 @@ package actor AuthTokenManager {
         }
     }
 
-    package func updates() -> AsyncStream<AuthTokenUpdate> {
+    package func updates() async -> AsyncStream<AuthTokenUpdate> {
+        await reconcileCompany()
         let currentUpdate: AuthTokenUpdate
         if let cachedToken, isCachedTokenValid(cachedToken) {
             currentUpdate = .token(cachedToken.rawToken)
@@ -339,6 +340,13 @@ package actor AuthTokenManager {
             continuation.yield(currentUpdate)
             continuation.onTermination = { _ in cancellable.cancel() }
         }
+    }
+
+    /// Returns a valid cached token without starting or waiting for a provider fetch.
+    package func cachedTokenIfValid() async -> String? {
+        await reconcileCompany()
+        guard let cachedToken, isCachedTokenValid(cachedToken) else { return nil }
+        return cachedToken.rawToken
     }
 
     /// Clears all token-acquisition state tied to the current user, called from
@@ -445,6 +453,7 @@ package actor AuthTokenManager {
 
         do {
             let rawToken = try await provider()
+            await reconcileCompany()
             // Explicit cancellation checkpoint: if `registerProvider(_:)` cancelled
             // us mid-fetch, the host's provider closure may not honor cancellation
             // and could return its (now-stale) token regardless. Throwing here
@@ -455,6 +464,7 @@ package actor AuthTokenManager {
             switch JWTParser.parseAndValidate(rawToken, currentTime: currentDate()) {
             case let .success(validated):
                 cachedToken = validated
+                updateSubject.send(.token(validated.rawToken))
                 // A fresh token from any path obsoletes a pending connectivity
                 // wait: nothing left to retry, and the next refresh is scheduled
                 // below. Leaving it armed would fire a redundant retry on the next
@@ -639,7 +649,6 @@ package actor AuthTokenManager {
             // tokens never reach live ``refreshes()`` subscribers.
             guard cachedToken?.rawToken == token else { return }
             refreshSubject.send(token)
-            updateSubject.send(.token(token))
         } catch {
             if #available(iOS 14.0, *) {
                 let reason = String(describing: error)

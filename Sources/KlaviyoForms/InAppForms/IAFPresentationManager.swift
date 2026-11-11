@@ -126,31 +126,18 @@ class IAFPresentationManager {
         try await createFormWebViewAndListen(apiKey: apiKey)
     }
 
-    func createFormWebViewAndListen(apiKey: String) async throws {
+    func createFormWebViewAndListen(
+        apiKey: String,
+        cachedTokenLookup: () async -> String? = { await AuthTokenManager.shared.cachedTokenIfValid() }
+    ) async throws {
+        let initialProfileData = IdentityStore.shared.current
+        let cachedToken = await cachedTokenLookup()
         let profileData = IdentityStore.shared.current
-        let authToken = await fetchAuthTokenBestEffort()
+        let authToken = profileData == initialProfileData ? cachedToken : nil
         createFormWebView(apiKey: apiKey, profileData: profileData, authToken: authToken)
         setupFormLifecycleListener()
-    }
-
-    /// Reads the current auth token from ``AuthTokenManager`` for initial WebView
-    /// injection. Returns `nil` on any failure — the form proceeds without a token
-    /// and the backend serves non-personalized content.
-    private func fetchAuthTokenBestEffort() async -> String? {
-        // `currentToken()` defaults to `.interactive` mode, which applies the
-        // 500ms latency budget appropriate for form display. No external timeout
-        // is needed here.
-        do {
-            let token = try await AuthTokenManager.shared.currentToken()
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token injected at load")
-            }
-            return token
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.info("Auth token unavailable at load — proceeding without token")
-            }
-            return nil
+        Task {
+            _ = try? await AuthTokenManager.shared.currentToken(mode: .background)
         }
     }
 
