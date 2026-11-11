@@ -208,6 +208,24 @@ struct KlaviyoState: Equatable, Codable {
         }
     }
 
+    mutating func applyScalarIdentityReplacement(for action: KlaviyoAction) -> Bool {
+        let current = ProfileIdentity(state: self)
+        guard current.isIdentified,
+              let next = action.resultingIdentity(from: self),
+              current.transition(to: next) == .replacement else {
+            return false
+        }
+
+        let previousPushTokenData = pushTokenData
+        reset(preserveTokenData: false)
+        email = next.email
+        phoneNumber = next.phoneNumber
+        externalId = next.externalId
+        pushTokenData = previousPushTokenData
+        enqueueProfileOrTokenRequest()
+        return true
+    }
+
     mutating func enqueueProfileOrTokenRequest() {
         guard let apiKey = apiKey,
               let anonymousId = anonymousId else {
@@ -246,20 +264,10 @@ struct KlaviyoState: Equatable, Codable {
     }
 
     mutating func updateStateWithProfile(profile: Profile) {
-        if let profileEmail = profile.email,
-           profileEmail.isNotEmptyOrSame(as: self.email, identifier: "email") {
-            email = profileEmail.trimWhiteSpaceOrReturnNilIfEmpty()
-        }
-
-        if let profilePhoneNumber = profile.phoneNumber,
-           profilePhoneNumber.isNotEmptyOrSame(as: self.phoneNumber, identifier: "phone number") {
-            phoneNumber = profilePhoneNumber.trimWhiteSpaceOrReturnNilIfEmpty()
-        }
-
-        if let profileExternalId = profile.externalId,
-           profileExternalId.isNotEmptyOrSame(as: self.externalId, identifier: "external id") {
-            externalId = profileExternalId.trimWhiteSpaceOrReturnNilIfEmpty()
-        }
+        let identity = ProfileIdentity(profile: profile)
+        email = identity.email
+        phoneNumber = identity.phoneNumber
+        externalId = identity.externalId
     }
 
     mutating func updateRequestAndStateWithPendingProfile(profile: CreateProfilePayload) -> CreateProfilePayload {

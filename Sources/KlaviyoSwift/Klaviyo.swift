@@ -126,7 +126,8 @@ public struct KlaviyoSDK {
     /// Set a profile in your Klaviyo account.
     /// Future SDK calls will use this data when making api requests to Klaviyo.
     /// NOTE: this will move any set push tokens over to this profile.
-    /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
+    /// Compatible identifier additions and removals keep the current tracked profile.
+    /// Replacing its identity starts a new tracked profile; omitted identifiers are cleared.
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
         dispatchOnMainThread(action: .enqueueProfile(profile))

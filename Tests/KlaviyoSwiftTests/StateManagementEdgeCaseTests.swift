@@ -722,6 +722,48 @@ class StateManagementEdgeCaseTests: XCTestCase {
     // MARK: - enqueueProfile: conditional reset (push-token storm fix)
 
     @MainActor
+    func testCompatibleBulkProfileRemovesOmittedIdentifiersWithoutChangingAnonymousId() {
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "same@email.com",
+            anonymousId: "anonymous-A",
+            phoneNumber: "+15555555555",
+            queue: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+        let store = Store(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = store.send(.enqueueProfile(Profile(email: "same@email.com", externalId: "external-B")))
+
+        XCTAssertEqual(store.state.value.email, "same@email.com")
+        XCTAssertNil(store.state.value.phoneNumber)
+        XCTAssertEqual(store.state.value.externalId, "external-B")
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+    }
+
+    @MainActor
+    func testScalarReplacementChangesAnonymousIdButCompatibleAdditionDoesNot() {
+        let initialState = KlaviyoState(
+            apiKey: TEST_API_KEY,
+            email: "a@email.com",
+            anonymousId: "anonymous-A",
+            queue: [],
+            initalizationState: .initialized,
+            flushing: true
+        )
+        let store = Store(initialState: initialState, reducer: KlaviyoReducer())
+
+        _ = store.send(.setPhoneNumber("+15555555555"))
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+
+        _ = store.send(.setEmail("b@email.com"))
+        XCTAssertEqual(store.state.value.email, "b@email.com")
+        XCTAssertEqual(store.state.value.phoneNumber, "+15555555555")
+        XCTAssertNotEqual(store.state.value.anonymousId, "anonymous-A")
+    }
+
+    @MainActor
     func testSetProfileSameIdentifiersDoesNotReset() async throws {
         // When setProfile is called with the same identifiers that are already on state,
         // reset() should NOT fire — anonymousId stays the same, no spurious push-token request.

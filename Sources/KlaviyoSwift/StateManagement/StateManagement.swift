@@ -145,6 +145,76 @@ enum KlaviyoAction: Equatable {
     }
 }
 
+struct ProfileIdentity: Equatable {
+    enum Transition: Equatable {
+        case unchanged
+        case compatible
+        case replacement
+    }
+
+    let email: String?
+    let phoneNumber: String?
+    let externalId: String?
+
+    init(email: String?, phoneNumber: String?, externalId: String?) {
+        self.email = email
+        self.phoneNumber = phoneNumber
+        self.externalId = externalId
+    }
+
+    init(state: KlaviyoState) {
+        self.init(email: state.email, phoneNumber: state.phoneNumber, externalId: state.externalId)
+    }
+
+    init(profile: Profile) {
+        self.init(
+            email: profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            phoneNumber: profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            externalId: profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty()
+        )
+    }
+
+    var isIdentified: Bool {
+        email != nil || phoneNumber != nil || externalId != nil
+    }
+
+    func transition(to next: ProfileIdentity) -> Transition {
+        guard self != next else { return .unchanged }
+        guard isIdentified, next.isIdentified else { return .replacement }
+
+        let current = [email, phoneNumber, externalId]
+        let incoming = [next.email, next.phoneNumber, next.externalId]
+        let hasConflict = zip(current, incoming).contains { old, new in
+            old != nil && new != nil && old != new
+        }
+        let hasSharedIdentifier = zip(current, incoming).contains { old, new in
+            old != nil && old == new
+        }
+        return !hasConflict && hasSharedIdentifier ? .compatible : .replacement
+    }
+}
+
+extension KlaviyoAction {
+    func resultingIdentity(from state: KlaviyoState) -> ProfileIdentity? {
+        let current = ProfileIdentity(state: state)
+        switch self {
+        case let .enqueueProfile(profile):
+            return ProfileIdentity(profile: profile)
+        case let .setEmail(value):
+            guard let email = value.trimWhiteSpaceOrReturnNilIfEmpty() else { return nil }
+            return ProfileIdentity(email: email, phoneNumber: current.phoneNumber, externalId: current.externalId)
+        case let .setPhoneNumber(value):
+            guard let phoneNumber = value.trimWhiteSpaceOrReturnNilIfEmpty() else { return nil }
+            return ProfileIdentity(email: current.email, phoneNumber: phoneNumber, externalId: current.externalId)
+        case let .setExternalId(value):
+            guard let externalId = value.trimWhiteSpaceOrReturnNilIfEmpty() else { return nil }
+            return ProfileIdentity(email: current.email, phoneNumber: current.phoneNumber, externalId: externalId)
+        default:
+            return nil
+        }
+    }
+}
+
 struct RequestId {}
 struct FlushTimer {}
 
@@ -251,7 +321,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setEmail(email))
                 return .none
             }
-            state.updateEmail(email: email)
+            if !state.applyScalarIdentityReplacement(for: action) {
+                state.updateEmail(email: email)
+            }
             return .none
 
         case let .setPhoneNumber(phoneNumber):
@@ -259,7 +331,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setPhoneNumber(phoneNumber))
                 return .none
             }
-            state.updatePhoneNumber(phoneNumber: phoneNumber)
+            if !state.applyScalarIdentityReplacement(for: action) {
+                state.updatePhoneNumber(phoneNumber: phoneNumber)
+            }
             return .none
 
         case let .setExternalId(externalId):
@@ -267,7 +341,9 @@ struct KlaviyoReducer: ReducerProtocol {
                 state.pendingRequests.append(.setExternalId(externalId))
                 return .none
             }
-            state.updateExternalId(externalId: externalId)
+            if !state.applyScalarIdentityReplacement(for: action) {
+                state.updateExternalId(externalId: externalId)
+            }
             return .none
 
         case let .setAutomaticPushToken(pushToken, enablement):
@@ -572,22 +648,11 @@ struct KlaviyoReducer: ReducerProtocol {
             }
 
             let pushTokenData = state.pushTokenData
-            let currentIds = [state.email, state.phoneNumber, state.externalId]
-            let incomingIds = [profile.email, profile.phoneNumber, profile.externalId].map {
-                // Normalize with the same trimming used by updateStateWithProfile
-                // so whitespace-padded inputs match their stored counterparts.
-                $0?.trimWhiteSpaceOrReturnNilIfEmpty()
-            }
+            let currentIdentity = ProfileIdentity(state: state)
+            let transition = currentIdentity.transition(to: ProfileIdentity(profile: profile))
+            let identifiersChanged = transition != .unchanged
 
-            let identifiersChanged = currentIds != incomingIds
-
-            // Only reset if the incoming profile has different identifiers.
-            // Anonymous ID is the lowest-order identifier, so there's no reason
-            // to regenerate it when higher-order identifiers haven't changed.
-            // Resetting with the same identifiers causes unnecessary anonymous ID
-            // churn, which triggers spurious push-token API requests.
-            // resetProfile() remains available for explicitly clobbering all state.
-            if state.isIdentified, identifiersChanged {
+            if currentIdentity.isIdentified, transition == .replacement {
                 state.reset(preserveTokenData: false)
             }
             state.updateStateWithProfile(profile: profile)

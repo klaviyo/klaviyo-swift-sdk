@@ -74,6 +74,84 @@ final class CompanyChangeAuthTests: XCTestCase {
     }
 
     @MainActor
+    func testCompatibleBulkProfileKeepsTokenAndScalarReplacementFetchesFreshToken() async throws {
+        let tokenA = try makeToken(subject: "A")
+        let tokenB = try makeToken(subject: "B")
+        let source = CompanyTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await source.fetch() }
+        let initialToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(initialToken, tokenA)
+
+        let store = Store(initialState: KlaviyoState(
+            apiKey: "A",
+            email: "a@example.com",
+            anonymousId: "anonymous-A",
+            phoneNumber: "+15555555555",
+            queue: [],
+            initalizationState: .initialized,
+            flushing: true
+        ), reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.state = { store.state.value }
+        klaviyoSwiftEnvironment.send = { store.send($0) }
+
+        let compatiblePublished = expectation(description: "compatible profile published")
+        compatiblePublished.assertForOverFulfill = false
+        let replacementPublished = expectation(description: "replacement profile published")
+        subscription = store.state.dropFirst().sink { state in
+            if state.externalId == "external-B", state.phoneNumber == nil {
+                compatiblePublished.fulfill()
+            }
+            if state.email == "b@example.com" {
+                replacementPublished.fulfill()
+            }
+        }
+
+        await source.setToken(tokenB)
+        KlaviyoSDK().set(profile: Profile(email: "a@example.com", externalId: "external-B"))
+        await fulfillment(of: [compatiblePublished], timeout: 3)
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+        let compatibleToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        let compatibleFetchCount = await source.invocations
+        XCTAssertEqual(compatibleToken, tokenA)
+        XCTAssertEqual(compatibleFetchCount, 1)
+
+        KlaviyoSDK().set(email: "b@example.com")
+        await fulfillment(of: [replacementPublished], timeout: 3)
+        XCTAssertNotEqual(store.state.value.anonymousId, "anonymous-A")
+        let replacementToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        let replacementFetchCount = await source.invocations
+        XCTAssertEqual(replacementToken, tokenB)
+        XCTAssertEqual(replacementFetchCount, 2)
+    }
+
+    @MainActor
+    func testFirstIdentifyClearsCachedTokenAndKeepsAnonymousId() async throws {
+        let tokenA = try makeToken(subject: "A")
+        let tokenB = try makeToken(subject: "B")
+        let source = CompanyTokenSource(tokenA)
+        await AuthTokenManager.shared.registerProvider { await source.fetch() }
+        let initialToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(initialToken, tokenA)
+
+        let store = Store(initialState: companyState(), reducer: KlaviyoReducer())
+        klaviyoSwiftEnvironment.state = { store.state.value }
+        klaviyoSwiftEnvironment.send = { store.send($0) }
+        let identified = expectation(description: "first identity published")
+        subscription = store.state.dropFirst().sink { state in
+            if state.email == "b@example.com" { identified.fulfill() }
+        }
+
+        await source.setToken(tokenB)
+        KlaviyoSDK().set(email: "b@example.com")
+        await fulfillment(of: [identified], timeout: 3)
+        XCTAssertEqual(store.state.value.anonymousId, "anonymous-A")
+        let identifiedToken = try await AuthTokenManager.shared.currentToken(mode: .background)
+        let fetchCount = await source.invocations
+        XCTAssertEqual(identifiedToken, tokenB)
+        XCTAssertEqual(fetchCount, 2)
+    }
+
+    @MainActor
     func testLateOutgoingTokenCannotReturnAfterProfileReset() async throws {
         let tokenA = try makeToken(subject: "A")
         let tokenB = try makeToken(subject: "B")

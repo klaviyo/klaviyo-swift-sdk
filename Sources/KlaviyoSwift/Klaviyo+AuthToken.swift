@@ -12,7 +12,7 @@ import KlaviyoCore
 enum AuthTokenProviderSequencer {
     static var tail: Task<Void, Never>?
     private static var sequence: UInt64 = 0
-    private static var resetBarrierActive = false
+    private static var barrierActive = false
 
     private static func append(_ operation: @escaping @MainActor () async -> Void) {
         let previous = tail
@@ -22,7 +22,7 @@ enum AuthTokenProviderSequencer {
             await previous?.value
             await operation()
             if sequence == currentSequence {
-                resetBarrierActive = false
+                barrierActive = false
             }
         }
     }
@@ -35,14 +35,33 @@ enum AuthTokenProviderSequencer {
 
     nonisolated static func enqueueReset(_ operation: @escaping @MainActor () async -> Void) {
         DispatchQueue.main.async { @MainActor in
-            resetBarrierActive = true
+            barrierActive = true
             append(operation)
         }
     }
 
+    private static func requiresTokenClear(_ action: KlaviyoAction) -> Bool {
+        let state = klaviyoSwiftEnvironment.state()
+        guard case .initialized = state.initalizationState,
+              let next = action.resultingIdentity(from: state) else {
+            return false
+        }
+        return ProfileIdentity(state: state).transition(to: next) == .replacement
+    }
+
+    private static func sendAfterTokenClear(_ action: KlaviyoAction) async {
+        if requiresTokenClear(action) {
+            await AuthTokenManager.shared.clearTokenState()
+        }
+        _ = klaviyoSwiftEnvironment.send(action)
+    }
+
     static func dispatch(_ action: KlaviyoAction) {
-        if resetBarrierActive {
-            append { _ = klaviyoSwiftEnvironment.send(action) }
+        if barrierActive {
+            append { await sendAfterTokenClear(action) }
+        } else if requiresTokenClear(action) {
+            barrierActive = true
+            append { await sendAfterTokenClear(action) }
         } else {
             _ = klaviyoSwiftEnvironment.send(action)
         }
