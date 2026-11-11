@@ -167,7 +167,10 @@ public struct KlaviyoEnvironment {
     package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
 
     // Known wrapper SDK SwiftPM resource bundle names, in SwiftPM's `<package>_<target>` form.
-    package static let knownWrapperSwiftPMBundleNames = ["klaviyo_flutter_sdk_klaviyo_flutter_sdk"]
+    package static let knownWrapperSwiftPMBundleNames = [
+        "klaviyo_flutter_sdk_klaviyo_flutter_sdk",
+        "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk"
+    ]
 
     private static let wrapperSDKConfig: [String: AnyObject] = loadWrapperSDKConfig()
 

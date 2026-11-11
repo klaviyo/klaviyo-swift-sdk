@@ -119,6 +119,21 @@ class FileUtilsTests: XCTestCase {
         XCTAssertEqual(result["klaviyo_sdk_version"] as? String, "0.5.0")
     }
 
+    func testLoadWrapperSDKConfig_LoadsFromReactNativeSwiftPMResourceBundle() throws {
+        let mainBundle = try makeTempBundle(named: "App.app")
+        try makeTempBundle(
+            named: "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk.bundle",
+            in: mainBundle.bundleURL,
+            plistName: "klaviyo-sdk-configuration",
+            plistContents: ["klaviyo_sdk_name": "react_native", "klaviyo_sdk_version": "2.5.0"]
+        )
+
+        let result = KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle)
+
+        XCTAssertEqual(result["klaviyo_sdk_name"] as? String, "react_native")
+        XCTAssertEqual(result["klaviyo_sdk_version"] as? String, "2.5.0")
+    }
+
     func testLoadWrapperSDKConfig_IgnoresSwiftPMBundleWithoutPlist() throws {
         let mainBundle = try makeTempBundle(named: "Runner.app")
         try makeTempBundle(named: "klaviyo_flutter_sdk_klaviyo_flutter_sdk.bundle", in: mainBundle.bundleURL)
@@ -154,7 +169,7 @@ class FileUtilsTests: XCTestCase {
     func testKnownSwiftPMBundleNamesUsePackageTargetForm() {
         XCTAssertEqual(
             KlaviyoEnvironment.knownWrapperSwiftPMBundleNames,
-            ["klaviyo_flutter_sdk_klaviyo_flutter_sdk"]
+            ["klaviyo_flutter_sdk_klaviyo_flutter_sdk", "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk"]
         )
         for bundleName in KlaviyoEnvironment.knownWrapperSwiftPMBundleNames {
             XCTAssertFalse(
