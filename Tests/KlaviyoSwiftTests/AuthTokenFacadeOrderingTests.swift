@@ -65,6 +65,82 @@ final class AuthTokenFacadeOrderingTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testResetClearsCachedTokenBeforePublishingActionAndRetainsProvider() async throws {
+        let savedSwiftEnvironment = klaviyoSwiftEnvironment
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        defer { klaviyoSwiftEnvironment = savedSwiftEnvironment }
+
+        let tokenA = try makeToken(subject: "before-reset")
+        let tokenB = try makeToken(subject: "after-reset")
+        let nextToken = LockedBox(tokenA)
+        await AuthTokenManager.shared.registerProvider { nextToken.get() }
+        let cached = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(cached, tokenA)
+        nextToken.set(tokenB)
+
+        let observedAtSend = LockedBox<String?>(nil)
+        let actionSent = expectation(description: "reset action published")
+        klaviyoSwiftEnvironment.send = { action in
+            guard case .resetProfile = action else { return nil }
+            let finished = DispatchSemaphore(value: 0)
+            Task.detached {
+                let token = try? await AuthTokenManager.shared.currentToken(mode: .background)
+                observedAtSend.set(token)
+                finished.signal()
+            }
+            XCTAssertEqual(finished.wait(timeout: .now() + 2), .success)
+            actionSent.fulfill()
+            return nil
+        }
+
+        KlaviyoSDK().resetProfile()
+        await fulfillment(of: [actionSent], timeout: 3)
+        XCTAssertEqual(observedAtSend.get(), tokenB)
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
+    @MainActor
+    func testResetCancelsInFlightTokenBeforePublishingActionAndRetainsProvider() async throws {
+        let savedSwiftEnvironment = klaviyoSwiftEnvironment
+        klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
+        defer { klaviyoSwiftEnvironment = savedSwiftEnvironment }
+
+        let tokenA = try makeToken(subject: "before-reset")
+        let tokenB = try makeToken(subject: "after-reset")
+        let calls = LockedBox(0)
+        let cancelled = LockedBox(false)
+        let firstStarted = expectation(description: "first provider call started")
+        await AuthTokenManager.shared.registerProvider {
+            let call = calls.update { $0 += 1; return $0 }
+            guard call == 1 else { return tokenB }
+            return try await withTaskCancellationHandler {
+                firstStarted.fulfill()
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+                return tokenA
+            } onCancel: {
+                cancelled.set(true)
+            }
+        }
+        await fulfillment(of: [firstStarted], timeout: 3)
+
+        let cancelledAtSend = LockedBox(false)
+        let actionSent = expectation(description: "reset action published")
+        klaviyoSwiftEnvironment.send = { action in
+            guard case .resetProfile = action else { return nil }
+            cancelledAtSend.set(cancelled.get())
+            actionSent.fulfill()
+            return nil
+        }
+
+        KlaviyoSDK().resetProfile()
+        await fulfillment(of: [actionSent], timeout: 3)
+        XCTAssertTrue(cancelledAtSend.get())
+        let current = try await AuthTokenManager.shared.currentToken(mode: .background)
+        XCTAssertEqual(current, tokenB)
+        await AuthTokenManager.shared.unregisterProvider()
+    }
+
     private func waitForToken(_ expectedToken: String, iteration: Int) async throws {
         let deadline = Date().addingTimeInterval(10)
         while Date() < deadline {
@@ -110,5 +186,32 @@ final class AuthTokenFacadeOrderingTests: XCTestCase {
                     .replacingOccurrences(of: "=", with: "")
             }
             .joined(separator: ".")
+    }
+}
+
+private final class LockedBox<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func get() -> Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func set(_ newValue: Value) {
+        lock.lock()
+        defer { lock.unlock() }
+        value = newValue
+    }
+
+    func update<Result>(_ transform: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return transform(&value)
     }
 }

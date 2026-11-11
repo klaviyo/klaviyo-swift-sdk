@@ -30,6 +30,37 @@ private final class MockWKUserContentController: WKUserContentController {
     }
 }
 
+@MainActor
+private final class RecordingWKWebView: WKWebView {
+    var loadCount = 0
+    var stopCount = 0
+    var pretendLoading = false
+
+    override var isLoading: Bool {
+        pretendLoading
+    }
+
+    override func load(_ request: URLRequest) -> WKNavigation? {
+        loadCount += 1
+        return nil
+    }
+
+    override func stopLoading() {
+        stopCount += 1
+        pretendLoading = false
+    }
+}
+
+@MainActor
+private final class RecordingKlaviyoWebViewController: KlaviyoWebViewController {
+    var evaluatedScripts: [String] = []
+
+    override func evaluateJavaScript(_ script: String) async throws -> Any? {
+        evaluatedScripts.append(script)
+        return nil
+    }
+}
+
 private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
     var messageHandlers: Set<String>?
 
@@ -46,6 +77,69 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    @MainActor
+    private func makeAuthController(token: String) -> (IAFWebViewModel, RecordingKlaviyoWebViewController, RecordingWKWebView) {
+        let model = IAFWebViewModel(
+            url: URL(fileURLWithPath: "/form.html"),
+            apiKey: "company",
+            profileData: nil,
+            authToken: token
+        )
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        let webView = RecordingWKWebView(frame: .zero, configuration: configuration)
+        let controller = RecordingKlaviyoWebViewController(viewModel: model) { webView }
+        return (model, controller, webView)
+    }
+
+    @MainActor
+    private func containsJWT(_ token: String, in webView: WKWebView) -> Bool {
+        webView.configuration.userContentController.userScripts.contains { $0.source.contains(token) }
+    }
+
+    @MainActor
+    func testClearBeforeFirstLoadOmitsOutgoingJWTScript() async {
+        let token = "header.outgoing.signature"
+        let (model, controller, webView) = makeAuthController(token: token)
+
+        await model.clearAuthToken()
+        controller.preloadUrl()
+
+        XCTAssertEqual(webView.loadCount, 1)
+        XCTAssertEqual(webView.stopCount, 0)
+        XCTAssertFalse(containsJWT(token, in: webView))
+    }
+
+    @MainActor
+    func testClearDuringFirstLoadRestartsWithoutOutgoingJWTScript() async {
+        let token = "header.outgoing.signature"
+        let (model, controller, webView) = makeAuthController(token: token)
+        controller.preloadUrl()
+        XCTAssertTrue(containsJWT(token, in: webView))
+        webView.pretendLoading = true
+
+        await model.clearAuthToken()
+
+        XCTAssertEqual(webView.stopCount, 1)
+        XCTAssertEqual(webView.loadCount, 2)
+        XCTAssertFalse(containsJWT(token, in: webView))
+    }
+
+    @MainActor
+    func testClearAfterLoadReplacesOutgoingJWTScriptWithoutRestart() async {
+        let token = "header.outgoing.signature"
+        let (model, controller, webView) = makeAuthController(token: token)
+        controller.preloadUrl()
+        XCTAssertTrue(containsJWT(token, in: webView))
+
+        await model.clearAuthToken()
+
+        XCTAssertEqual(webView.stopCount, 0)
+        XCTAssertEqual(webView.loadCount, 1)
+        XCTAssertFalse(containsJWT(token, in: webView))
+        XCTAssertTrue(controller.evaluatedScripts.contains("document.head.removeAttribute('data-klaviyo-jwt');"))
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
