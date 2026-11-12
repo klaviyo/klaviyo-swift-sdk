@@ -15,7 +15,7 @@ jobs:
       - name: Validate source branch
         env:
           HEAD_REF: ${{ github.head_ref }}
-          # Logged only: for a PR inside a GitHub stack this is the stack's base, not the PR's own base
+          # Logged only. For a PR inside a GitHub stack this is the stack's base, not the PR's own base.
           EVENT_BASE_REF: ${{ github.base_ref }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -67,29 +67,16 @@ jobs:
             [[ "$title_lc" =~ $TITLE_REGEX ]]
           }
 
-          # github.base_ref is the stack's base for a stacked PR, so read the PR's own base and its stack from the API.
-          # `.stack` is null when the PR is not in a stack. It is not in GitHub's published REST docs yet; if it
-          # disappears the PR is treated as unstacked and judged on its own base.
-          PR_INFO=$(gh api "repos/$REPO/pulls/$PR_NUMBER" \
-            --jq '[.base.ref, ((.stack.position // "") | tostring), (.stack.base.ref // "")] | @tsv') \
+          # github.base_ref reports the stack's base for a PR inside a GitHub stack, not the PR's own base,
+          # so read the PR's base from the API
+          BASE_REF=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.base.ref') \
             || fail_closed "Could not fetch PR #$PR_NUMBER from the GitHub API."
-          IFS=$'\t' read -r BASE_REF STACK_POSITION STACK_BASE_REF <<<"$PR_INFO"
           [ -n "$BASE_REF" ] || fail_closed "The GitHub API returned no base branch for PR #$PR_NUMBER."
-          echo "Base branch: '$BASE_REF' (event base_ref: '$EVENT_BASE_REF'), stack position: '${STACK_POSITION:-not stacked}', stack base: '${STACK_BASE_REF:-n/a}'."
+          echo "Base branch: '$BASE_REF' (event base_ref: '$EVENT_BASE_REF')."
 
-          # A PR higher up a stack targets its parent PR's branch, but the whole stack lands on the stack's base,
-          # so judge it against that base and against the stack's bottom PR
-          IN_UPPER_STACK=false
-          TARGET_REF="$BASE_REF"
-          if [ -n "$STACK_POSITION" ] && [ "$STACK_POSITION" != "1" ]; then
-            [ -n "$STACK_BASE_REF" ] || fail_closed "The GitHub API returned no stack base for PR #$PR_NUMBER."
-            IN_UPPER_STACK=true
-            TARGET_REF="$STACK_BASE_REF"
-          fi
-
-          # If the PR (or its stack) doesn't target master, this check doesn't apply
-          if [[ "$TARGET_REF" != "master" ]]; then
-            pass "PR targets '$TARGET_REF' (not master) — check not required."
+          # If PR doesn't target master, this check doesn't apply
+          if [[ "$BASE_REF" != "master" ]]; then
+            pass "PR targets '$BASE_REF' (not master) — check not required."
           fi
 
           if allowed_branch "$HEAD_REF"; then
@@ -106,32 +93,6 @@ jobs:
 
           if [ -n "$HAS_OVERRIDE" ]; then
             pass "manual-merge label present — bypassing check. This PR will merge directly to master without a release branch."
-          fi
-
-          # A PR higher up a stack passes when the stack's bottom PR is allowed to target master.
-          # Only the bottom PR is checked, never the PRs in between.
-          if [ "$IN_UPPER_STACK" = true ]; then
-            # shellcheck disable=SC2016 # $owner/$name/$number are GraphQL variables, not shell expansions
-            BOTTOM=$(gh api graphql \
-              -F owner="${REPO%%/*}" -F name="${REPO#*/}" -F number="$PR_NUMBER" \
-              -f query='query($owner: String!, $name: String!, $number: Int!) {
-                repository(owner: $owner, name: $name) { pullRequest(number: $number) { stack {
-                  entries(first: 50) { nodes { position pullRequest { number headRefName title } } }
-                } } } }' \
-              --jq '(.data.repository.pullRequest.stack.entries.nodes // [])[] | select(.position == 1) | .pullRequest
-                | [(.number | tostring), .headRefName, .title] | @tsv') \
-              || fail_closed "Could not fetch the stack for PR #$PR_NUMBER from the GitHub API."
-            IFS=$'\t' read -r BOTTOM_NUMBER BOTTOM_HEAD BOTTOM_TITLE <<<"$BOTTOM"
-            [ -n "$BOTTOM_NUMBER" ] \
-              || fail_closed "Could not find the bottom PR of the stack containing PR #$PR_NUMBER; the stack may have changed during this run."
-
-            if allowed_branch "$BOTTOM_HEAD"; then
-              pass "Stack bottom #$BOTTOM_NUMBER is on branch '$BOTTOM_HEAD', which is allowed to target master."
-            fi
-            if allowed_title "$BOTTOM_TITLE"; then
-              pass "Stack bottom #$BOTTOM_NUMBER title '$BOTTOM_TITLE' has an allowed conventional-commit prefix."
-            fi
-            echo "Stack bottom #$BOTTOM_NUMBER ('$BOTTOM_HEAD') is not allowed to target master either."
           fi
 
           # Post a comment only if one hasn't been posted already. If the comments can't be listed,
@@ -154,7 +115,6 @@ jobs:
           - If this is CI/tooling work, rename your branch with a \`ci/\` prefix and this check will pass
           - If this is documentation-only work, rename your branch with a \`docs/\` prefix and this check will pass
           - Alternatively, give the PR a conventional-commit title prefixed with \`ci:\`, \`chore:\`, \`docs:\`, or \`rel:\` (scopes like \`ci(workflows):\` also work) and this check will pass
-          - If this PR is in a stack, the check also passes when the stack's bottom PR meets one of the rules above (for example, a \`rel/*\` branch)
 
           > **Override:** In exceptional circumstances, a maintainer may add the \`manual-merge\` label to bypass this check and merge directly to \`master\`. This should be used sparingly — it skips the release branch entirely and may result in changes not being included in a release or loss of commit attribution if not handled carefully.
 
@@ -163,5 +123,5 @@ jobs:
 
           gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "$LABEL"
 
-          echo "Branch '$HEAD_REF' cannot target master directly. Use a rel/*, ci/*, docs/*, or dependabot/* branch, a ci:/chore:/docs:/rel: PR title, a stack whose bottom PR meets those rules, or add the manual-merge label to override."
+          echo "Branch '$HEAD_REF' cannot target master directly. Use a rel/*, ci/*, docs/*, or dependabot/* branch, a ci:/chore:/docs:/rel: PR title, or add the manual-merge label to override."
           exit 1
