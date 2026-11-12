@@ -335,9 +335,9 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
 
     /// #755: a pre-init call mints a throwaway anonymousId; on a migration launch the legacy
     /// identity replaces it and the buffered payload is re-attributed. That anonymousId-only
-    /// swap is a COMPATIBLE transition — the generation must not bump for it (a cached token
-    /// stays current; no replacement clear fires).
-    func testPreInitAnonymousIdReattributionIsCompatible() async throws {
+    /// swap is classified `.anonymousIdRotated` — the generation must not bump for it (a cached
+    /// token stays current; no replacement clear fires).
+    func testPreInitAnonymousIdReattributionDoesNotBumpGeneration() async throws {
         featureFlags.enablePreInitDiskCapture = true
         let apiKey = "reattribution-key"
         let legacyAnon = "anon-legacy-reattribute"
