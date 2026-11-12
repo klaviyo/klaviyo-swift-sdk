@@ -43,6 +43,7 @@ enum PendingProfileFold {
     }
 
     /// Fills in location fields from a pending profile without overwriting values already present.
+    /// `timezone` is the exception: the pending value replaces the device default.
     static func mergedLocation(
         from pending: Profile,
         into location: ProfilePayload.Attributes.Location
@@ -71,6 +72,9 @@ enum PendingProfileFold {
         }
         if let longitude = pending.location?.longitude {
             location.longitude = location.longitude ?? longitude
+        }
+        if let timezone = pending.location?.timezone {
+            location.timezone = timezone
         }
         return location
     }
