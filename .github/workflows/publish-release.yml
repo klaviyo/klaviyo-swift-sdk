@@ -42,6 +42,7 @@ concurrency:
 permissions: {}
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   GH_REPO: ${{ github.repository }}
   VERSION: ${{ inputs.version }}
   PRERELEASE: ${{ contains(inputs.version, '-') }}
@@ -194,7 +195,7 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
-            Requested by: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Draft release|${{ steps.draft.outputs.url }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
@@ -240,6 +241,7 @@ jobs:
             Version: `${{ inputs.version }}`
             Commit: `${{ steps.commit.outputs.short_sha }}`
             Stage: Prepare release draft
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
 
       - name: Reply with failure details
@@ -304,19 +306,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           thread_ts="$SLACK_TS"
-          # True when the workflow file at $VERSION declares slack_thread_ts.
-          takes_thread_ts() {
+          # True when the workflow file at $VERSION declares the input named by $2.
+          takes_input() {
             gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
-              -H "Accept: application/vnd.github.raw" | grep -q '^[[:space:]]*slack_thread_ts:'
+              -H "Accept: application/vnd.github.raw" | grep -q "^[[:space:]]*$2:"
           }
           dispatch() {
             workflow="$1"
             shift
-            if [ -n "$thread_ts" ] && takes_thread_ts "$workflow"; then
-              gh workflow run "$workflow" --ref "$VERSION" -f slack_thread_ts="$thread_ts" "$@"
-            else
-              gh workflow run "$workflow" --ref "$VERSION" "$@"
+            args=()
+            if [ -n "$thread_ts" ] && takes_input "$workflow" slack_thread_ts; then
+              args+=(-f "slack_thread_ts=$thread_ts")
             fi
+            if takes_input "$workflow" triggered_by; then
+              args+=(-f "triggered_by=$TRIGGERED_BY")
+            fi
+            gh workflow run "$workflow" --ref "$VERSION" "${args[@]}" "$@"
           }
           failed=0
           dispatch spm-verify.yml -f tag="$VERSION" || failed=1
@@ -328,6 +333,15 @@ jobs:
             echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
+
+      - name: Dispatch next release branch
+        if: ${{ !cancelled() && steps.publish-release.outcome == 'success' && !inputs.dry_run && !contains(env.VERSION, '-') }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION" -f "triggered_by=$TRIGGERED_BY"
+          echo "Dispatched rel-branch.yml from $VERSION"
 
       - name: Checkout Slack action
         if: ${{ !cancelled() }}
@@ -352,6 +366,7 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
@@ -397,6 +412,7 @@ jobs:
             Version: `${{ inputs.version }}`
             Commit: `${{ env.SHORT_SHA }}`
             Stage: Publish
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
 
       - name: Reply with failure details
@@ -455,4 +471,5 @@ jobs:
           fields: |
             Version: `${{ inputs.version }}`
             Commit: `${{ needs.prepare.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
