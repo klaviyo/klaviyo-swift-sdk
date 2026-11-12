@@ -157,7 +157,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         }
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
@@ -179,8 +179,8 @@ class AppLifeCycleEventsTests: XCTestCase {
             XCTFail()
         } receiveValue: { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
@@ -196,7 +196,7 @@ class AppLifeCycleEventsTests: XCTestCase {
             reachabilityExpectation.fulfill()
         }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [reachabilityExpectation], timeout: 0.1)
         guard case let .reachabilityChanged(status) = receivedEvent else {

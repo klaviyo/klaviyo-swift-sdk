@@ -8,7 +8,6 @@
 import Combine
 import CoreLocation
 import Foundation
-import OSLog
 import UIKit
 
 public var environment = KlaviyoEnvironment.production
@@ -104,7 +103,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
+    private static let networkPathMonitor = NetworkPathMonitor()
 
     public var fileClient: FileClient
     public var dataFromUrl: (URL) throws -> Data
@@ -262,21 +261,9 @@ public struct KlaviyoEnvironment {
                 return CLLocationManager.authorizationStatus()
             }
         },
-        startReachability: {
-            do {
-                try reachabilityService?.startNotifier()
-            } catch {
-                if #available(iOS 14.0, *) {
-                    Logger.networking.warning("Failed to start reachability notifier: \(error, privacy: .public)")
-                }
-            }
-        },
-        stopReachability: {
-            reachabilityService?.stopNotifier()
-        },
-        reachabilityStatus: {
-            reachabilityService?.currentReachabilityStatus
-        },
+        startReachability: { networkPathMonitor.start() },
+        stopReachability: { networkPathMonitor.stop() },
+        reachabilityStatus: { networkPathMonitor.currentStatus },
         randomInt: { Int.random(in: 0...10) },
         raiseFatalError: { msg in
             #if DEBUG
