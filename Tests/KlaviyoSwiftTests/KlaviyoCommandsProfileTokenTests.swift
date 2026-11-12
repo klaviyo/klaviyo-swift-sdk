@@ -35,6 +35,25 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         )
     }
 
+    /// The anonymousId `IdentityStore.mintNewAnonymousId()` produces under the test `environment`,
+    /// whose `uuid` is pinned to this constant.
+    private var mintedAnonymousId: String {
+        environment.uuid().uuidString
+    }
+
+    /// Seeds post-init state with NO push token — the common setup for `enqueueProfile` tests that
+    /// exercise identity routing only (so the call yields at most a createProfile). Returns the
+    /// in-memory queue reader for tests that assert on queue contents.
+    @MainActor
+    @discardableResult
+    private func seedEnqueueProfileNoToken(_ identity: ProfileData) -> () -> [KlaviyoRequest] {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(identity)
+        IdentityStore.shared.updatePushToken(nil) // no token → only a createProfile
+        markSessionInitialized()
+        return seedTestQueueStore()
+    }
+
     // MARK: - setPushToken: dedup
 
     /// Identical call → dedup → no enqueue, no store write.
@@ -319,11 +338,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     @MainActor
     func testEnqueueProfileUnchangedIdentifiersWithAttrsEnqueuesCreateProfile() {
         let anonBefore = "anon-stable"
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(email: "same@x.com", anonymousId: anonBefore))
-        IdentityStore.shared.updatePushToken(nil) // no token → only a createProfile
-        markSessionInitialized()
-        let readQueue = seedTestQueueStore()
+        let readQueue = seedEnqueueProfileNoToken(ProfileData(email: "same@x.com", anonymousId: anonBefore))
 
         KlaviyoCommands.enqueueProfile(Profile(email: "same@x.com", firstName: "Alice"))
 
@@ -484,17 +499,13 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// fresh anonymousId and adopt both incoming identifiers.
     @MainActor
     func testEnqueueProfileAddedPhoneMintsNewAnonymousId() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(email: "a@x.com", anonymousId: "anon-old"))
-        IdentityStore.shared.updatePushToken(nil) // no token → only a createProfile
-        markSessionInitialized()
-        seedTestQueueStore()
+        seedEnqueueProfileNoToken(ProfileData(email: "a@x.com", anonymousId: "anon-old"))
 
         KlaviyoCommands.enqueueProfile(Profile(email: "a@x.com", phoneNumber: "+15555550100"))
 
         let identity = IdentityStore.shared.current
-        XCTAssertNotEqual(identity.anonymousId, "anon-old",
-                          "adding a phone number must mint a fresh anonymousId")
+        XCTAssertEqual(identity.anonymousId, mintedAnonymousId,
+                       "adding a phone number must mint a fresh anonymousId")
         XCTAssertEqual(identity.email, "a@x.com",
                        "the unchanged incoming email must be re-applied")
         XCTAssertEqual(identity.phoneNumber, "+15555550100",
@@ -505,11 +516,9 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// identifiers → wipe email/phone/externalId and mint a fresh anonymousId.
     @MainActor
     func testEnqueueProfileOmittedIdentifierWipesIdentity() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(email: "a@x.com", anonymousId: "anon-old"))
-        IdentityStore.shared.updatePushToken(nil)
-        markSessionInitialized()
-        seedTestQueueStore()
+        seedEnqueueProfileNoToken(ProfileData(
+            email: "a@x.com", phoneNumber: "+15555550001", externalId: "x1", anonymousId: "anon-old"
+        ))
 
         KlaviyoCommands.enqueueProfile(Profile(firstName: "Alice"))
 
@@ -517,19 +526,15 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
         XCTAssertNil(identity.email, "omitted identifiers must clear the stored email")
         XCTAssertNil(identity.phoneNumber, "omitted identifiers must clear the stored phone number")
         XCTAssertNil(identity.externalId, "omitted identifiers must clear the stored externalId")
-        XCTAssertNotEqual(identity.anonymousId, "anon-old",
-                          "wiping identifiers must mint a fresh anonymousId")
+        XCTAssertEqual(identity.anonymousId, mintedAnonymousId,
+                       "wiping identifiers must mint a fresh anonymousId")
     }
 
     /// Whitespace-only differences do not count as an identifier change: the trimmed email matches, so
     /// the anonymousId is kept and nothing is enqueued.
     @MainActor
     func testEnqueueProfileUntrimmedSameEmailIsUnchanged() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(email: "a@x.com", anonymousId: "anon-stable"))
-        IdentityStore.shared.updatePushToken(nil)
-        markSessionInitialized()
-        let readQueue = seedTestQueueStore()
+        let readQueue = seedEnqueueProfileNoToken(ProfileData(email: "a@x.com", anonymousId: "anon-stable"))
 
         KlaviyoCommands.enqueueProfile(Profile(email: "  a@x.com\n"))
 
@@ -543,11 +548,7 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// adopted WITHOUT wiping anything or minting a new anonymousId.
     @MainActor
     func testEnqueueProfileAnonymousStoredFirstIdentifierDoesNotWipe() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(anonymousId: "anon-stable"))
-        IdentityStore.shared.updatePushToken(nil)
-        markSessionInitialized()
-        seedTestQueueStore()
+        seedEnqueueProfileNoToken(ProfileData(anonymousId: "anon-stable"))
 
         KlaviyoCommands.enqueueProfile(Profile(email: "a@x.com"))
 
@@ -561,18 +562,19 @@ class KlaviyoCommandsProfileTokenTests: KlaviyoBaseTestCase {
     /// A changed externalId on the same email is an identifier change → mint a fresh anonymousId.
     @MainActor
     func testEnqueueProfileChangedExternalIdMintsNewAnonymousId() {
-        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
-        IdentityStore.shared.update(ProfileData(
+        seedEnqueueProfileNoToken(ProfileData(
             email: "a@x.com", externalId: "x1", anonymousId: "anon-old"
         ))
-        IdentityStore.shared.updatePushToken(nil)
-        markSessionInitialized()
-        seedTestQueueStore()
 
         KlaviyoCommands.enqueueProfile(Profile(email: "a@x.com", externalId: "x2"))
 
-        XCTAssertNotEqual(IdentityStore.shared.current.anonymousId, "anon-old",
-                          "a changed externalId must mint a fresh anonymousId")
+        let identity = IdentityStore.shared.current
+        XCTAssertEqual(identity.anonymousId, mintedAnonymousId,
+                       "a changed externalId must mint a fresh anonymousId")
+        XCTAssertEqual(identity.externalId, "x2",
+                       "the changed externalId must be applied")
+        XCTAssertEqual(identity.email, "a@x.com",
+                       "the unchanged incoming email must be re-applied")
     }
 
     // MARK: - enqueueSubscription
