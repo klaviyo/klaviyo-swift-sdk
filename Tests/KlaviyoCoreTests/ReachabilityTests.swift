@@ -10,26 +10,39 @@ import XCTest
 final class ReachabilityTests: XCTestCase {
     private func status(
         _ pathStatus: NWPath.Status,
-        isCellular: Bool = false
+        isExpensive: Bool = false,
+        isConstrained: Bool = false
     ) -> Reachability.NetworkStatus {
-        Reachability.NetworkStatus(pathStatus: pathStatus, isCellular: isCellular)
+        Reachability.NetworkStatus(
+            pathStatus: pathStatus,
+            isExpensive: isExpensive,
+            isConstrained: isConstrained
+        )
     }
 
-    func testSatisfiedNonCellularPathMapsToWiFi() {
+    func testSatisfiedUnmeteredPathMapsToWiFi() {
         XCTAssertEqual(status(.satisfied), .reachableViaWiFi)
     }
 
-    func testSatisfiedCellularPathMapsToWWAN() {
-        XCTAssertEqual(status(.satisfied, isCellular: true), .reachableViaWWAN)
+    func testSatisfiedExpensivePathMapsToWWAN() {
+        XCTAssertEqual(status(.satisfied, isExpensive: true), .reachableViaWWAN)
+    }
+
+    func testSatisfiedConstrainedPathMapsToWWAN() {
+        XCTAssertEqual(status(.satisfied, isConstrained: true), .reachableViaWWAN)
+    }
+
+    func testSatisfiedExpensiveAndConstrainedPathMapsToWWAN() {
+        XCTAssertEqual(status(.satisfied, isExpensive: true, isConstrained: true), .reachableViaWWAN)
     }
 
     func testRequiresConnectionPathCountsAsReachable() {
         XCTAssertEqual(status(.requiresConnection), .reachableViaWiFi)
-        XCTAssertEqual(status(.requiresConnection, isCellular: true), .reachableViaWWAN)
+        XCTAssertEqual(status(.requiresConnection, isExpensive: true), .reachableViaWWAN)
     }
 
     func testUnsatisfiedPathMapsToNotReachable() {
         XCTAssertEqual(status(.unsatisfied), .notReachable)
-        XCTAssertEqual(status(.unsatisfied, isCellular: true), .notReachable)
+        XCTAssertEqual(status(.unsatisfied, isExpensive: true, isConstrained: true), .notReachable)
     }
 }
