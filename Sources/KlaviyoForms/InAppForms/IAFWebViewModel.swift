@@ -268,11 +268,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     /// Writes `newProfileData` to the page. When ``IdentityTransition/classify(previous:next:)``
     /// returns a transition that ``IdentityTransition/discardsAuthToken``, onsite discards its
-    /// auth token, so the outgoing token
-    /// is dropped from the load scripts, the profile is written, the manager's token state is
-    /// cleared, and a token for the new profile is fetched; the fetch publishes it to
-    /// ``IAFPresentationManager``'s token delivery. The token step runs even when no profile
-    /// script can be built. Other transitions keep the current token.
+    /// auth token, so the
+    /// outgoing token is dropped from the load scripts, the profile is written, the manager's
+    /// token state is cleared, and a token for the new profile is fetched; the fetch publishes
+    /// it to ``IAFPresentationManager``'s token delivery. The token step runs even when no
+    /// profile script can be built. Other transitions keep the current token.
     @MainActor
     private func handleProfileDataChange(_ newProfileData: ProfileData) {
         if #available(iOS 14.0, *) {

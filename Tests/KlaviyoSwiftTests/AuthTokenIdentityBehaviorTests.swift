@@ -146,7 +146,7 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
 
     /// Pin carry-over: resetting an ANONYMOUS profile is `.unchanged`, not a replacement —
     /// the anonymousId is preserved (no fresh mint), and an identified profile that follows
-    /// is a compatible hop from anonymous (no extra token churn beyond the one fetch
+    /// is an anonymous-to-identified hop (no extra token churn beyond the one fetch
     /// identification triggers).
     func testResetProfileOfAnonymousProfileIsUnchanged() async throws {
         seedPostInitWithToken(anonymousId: "anon-only")
@@ -373,7 +373,7 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         let tokenStillCurrent = await manager.isCurrentToken(tokenBeforeInit)
         XCTAssertTrue(
             tokenStillCurrent,
-            "the token cached before init must survive the compatible re-attribution"
+            "the token cached before init must survive the re-attribution"
         )
         XCTAssertEqual(provider.invocationCount, 1,
                        "no replacement clear → no re-fetch across init")
@@ -383,7 +383,7 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
 
     /// Legacy migration writes the legacy identity via `IdentityStore.update` during the
     /// `initialize` sync head. Against a fresh anonymous profile that first identity is
-    /// classified `compatible` — no replacement clear fires for the migration itself.
+    /// classified as anonymous-to-identified, which discards the token by design.
     ///
     /// NOTE (carry-over): the brief framed this as "no replacement clear, generation not
     /// bumped". On this architecture classification is against the immediately-preceding
@@ -391,7 +391,7 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
     /// pinned suite's TCA world had no auto-mint (previous was `nil` → `.initial`).
     /// An anonymous→identified hop discards the auth token by design, so what the
     /// migration itself must not do is leave a STALE-GENERATION token served or
-    /// double-fetch — asserted below instead of an inexpressible "compatible" claim.
+    /// double-fetch — asserted below instead of an inexpressible "token kept" claim.
     func testLegacyMigrationFirstIdentityServesNoStaleTokenAndFetchesOnce() async throws {
         featureFlags.enablePreInitDiskCapture = true
         let apiKey = "migration-first-identity-key"

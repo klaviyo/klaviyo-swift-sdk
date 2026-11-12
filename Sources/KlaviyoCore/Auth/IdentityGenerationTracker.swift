@@ -19,8 +19,8 @@ package struct IdentitySnapshot: Equatable {
 /// Every profile the source emits is classified against the previous one with
 /// ``IdentityTransition/classify(previous:next:)``; a hop that
 /// ``IdentityTransition/discardsAuthToken`` increments the generation. The profile and
-/// generation are updated together, so a reader never sees a
-/// new profile with the old generation. Two profiles seen in the same generation describe
+/// generation are updated together, so a reader never sees a new profile with the old
+/// generation. Two profiles seen in the same generation describe
 /// the same person, however many token-preserving changes lie between them.
 ///
 /// Updates are delivered synchronously from the source's emission, and ``snapshot()`` also
