@@ -204,7 +204,15 @@ extension KlaviyoCommands {
         }
 
         @Sendable
-        func handleBackground() async {
+        func handleBackgrounded() async {
+            await requestQueue.enterBackground()
+            await MainActor.run { BadgeManager.syncBadgeCount() }
+            // Detached from the lifecycle loop so a quick return to the foreground isn't delayed.
+            Task { await requestQueue.backgroundDrain() }
+        }
+
+        @Sendable
+        func handleTerminated() async {
             await requestQueue.stop()
             await MainActor.run { BadgeManager.syncBadgeCount() }
         }
@@ -215,8 +223,10 @@ extension KlaviyoCommands {
             switch event {
             case .foregrounded:
                 await handleForeground()
-            case .backgrounded, .terminated:
-                await handleBackground()
+            case .backgrounded:
+                await handleBackgrounded()
+            case .terminated:
+                await handleTerminated()
             case let .reachabilityChanged(status):
                 await requestQueue.networkConnectivityChanged(status)
             }

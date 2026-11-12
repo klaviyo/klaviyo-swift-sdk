@@ -39,13 +39,19 @@ public struct BackgroundTaskRunner: Sendable {
     public var begin: @Sendable (_ name: String, _ onExpire: @escaping @Sendable () -> Void) async
         -> BackgroundTaskHandle?
 
+    /// Whether the app is in the foreground and interactive. Priority flushes only take their own
+    /// background task when it isn't (background or inactive).
+    public var isAppActive: @Sendable () async -> Bool
+
     public init(
-        begin: @escaping @Sendable (String, @escaping @Sendable () -> Void) async -> BackgroundTaskHandle?
+        begin: @escaping @Sendable (String, @escaping @Sendable () -> Void) async -> BackgroundTaskHandle?,
+        isAppActive: @escaping @Sendable () async -> Bool = { true }
     ) {
         self.begin = begin
+        self.isAppActive = isAppActive
     }
 
-    public static let production = BackgroundTaskRunner { name, onExpire in
+    public static let production = BackgroundTaskRunner(begin: { name, onExpire in
         await MainActor.run { () -> BackgroundTaskHandle? in
             let handle = BackgroundTaskHandle()
             let id = UIApplication.shared.beginBackgroundTask(withName: name) {
@@ -63,5 +69,7 @@ public struct BackgroundTaskRunner: Sendable {
             }
             return handle
         }
-    }
+    }, isAppActive: {
+        await MainActor.run { UIApplication.shared.applicationState == .active }
+    })
 }

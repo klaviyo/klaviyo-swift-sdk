@@ -248,6 +248,73 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(tasks.begins, 0)
     }
 
+    // MARK: - Priority flush
+
+    func testFlushNowWhileActiveBeginsNoTask() async {
+        enqueue("a")
+        let spy = SendSpy()
+        let queue = makeQueue(send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["a"])
+        XCTAssertEqual(tasks.begins, 0)
+    }
+
+    func testFlushNowWhileBackgroundedOrInactiveTakesOwnTask() async {
+        tasks.appActive = false
+        enqueue("a")
+        let spy = SendSpy()
+        let queue = makeQueue(send: spy.send)
+
+        await queue.flushNow()
+
+        XCTAssertEqual(spy.sentIds, ["a"])
+        XCTAssertEqual(tasks.begins, 1)
+        XCTAssertEqual(tasks.ends, 1)
+    }
+
+    func testPriorityFlushExpiringFirstDoesNotAbortMainDrain() async {
+        enqueue("a", "b")
+        let started = expectation(description: "drain send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let drain = await startParkedDrain(queue, started: started)
+        tasks.appActive = false
+        let priority = Task { await queue.flushNow() }
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
+
+        tasks.expire(index: 1) // the priority task's deadline arrives first
+        await priority.value // returns although the main drain's send is still parked
+        spy.release()
+        await drain.value
+
+        XCTAssertEqual(spy.sentIds, ["a", "b"], "the main drain must run to completion")
+        XCTAssertTrue(disk.stored.isEmpty)
+        XCTAssertEqual(tasks.ends, 2)
+    }
+
+    func testMainDrainExpiringDoesNotCancelPriorityOwnedFlush() async {
+        tasks.appActive = false
+        enqueue("a")
+        let started = expectation(description: "priority send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let priority = Task { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2)
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
+
+        tasks.expire(index: 1) // the drain's task expires; the priority flush owns the running send
+        await drain.value
+
+        XCTAssertEqual(disk.stored.map(\.id), ["a"], "still leased on disk, not lost")
+        spy.release()
+        await priority.value
+        XCTAssertTrue(disk.stored.isEmpty, "the priority flush completed its send")
+    }
+
     // MARK: - Watchdog
 
     func testHungForegroundFlushIsBoundedThenDrainContinues() async {

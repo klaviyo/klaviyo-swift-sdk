@@ -72,6 +72,38 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
+    /// `.backgrounded` stops the timed loop and starts a drain; it does not stop (restore) the queue.
+    func testBackgroundedEntersBackgroundAndDrains() async throws {
+        environment.getBadgeAutoClearingSetting = { true }
+        installLifecycle([.backgrounded])
+
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-bg")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        let enterCount = await spyQueue.getEnterBackgroundCount()
+        let drainCount = await spyQueue.getBackgroundDrainCount()
+        let stopCount = await spyQueue.getStopCount()
+        XCTAssertEqual(enterCount, 1)
+        XCTAssertEqual(drainCount, 1)
+        XCTAssertEqual(stopCount, 0)
+    }
+
+    /// `.terminated` only stops: no extra time is granted, so no drain.
+    func testTerminatedStopsWithoutDrain() async throws {
+        environment.getBadgeAutoClearingSetting = { true }
+        installLifecycle([.terminated])
+
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-term")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        let stopCount = await spyQueue.getStopCount()
+        let drainCount = await spyQueue.getBackgroundDrainCount()
+        XCTAssertEqual(stopCount, 1)
+        XCTAssertEqual(drainCount, 0)
+    }
+
     /// `.foregrounded` runs the same start + push-enablement + badge side effects as launch, so a
     /// launch followed by one foreground yields two `start` calls.
     func testForegroundedStartsQueueAgain() async throws {
@@ -85,8 +117,8 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         XCTAssertEqual(startCount, 2, "launch + one foreground → two start calls")
     }
 
-    /// `.backgrounded` / `.terminated` stop the actor and sync the badge.
-    func testBackgroundedAndTerminatedStopQueue() async throws {
+    /// `.backgrounded` enters background (no stop) and `.terminated` stops; both sync the badge.
+    func testBackgroundedAndTerminatedSyncBadge() async throws {
         let syncExpectation = expectation(description: "BadgeManager.syncBadgeCount on background/terminate")
         syncExpectation.expectedFulfillmentCount = 2
         BadgeManager.syncBadgeCountSpy = { syncExpectation.fulfill() }
@@ -97,7 +129,9 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
 
         let stopCount = await spyQueue.getStopCount()
-        XCTAssertEqual(stopCount, 2, "background + terminate → two stop calls")
+        XCTAssertEqual(stopCount, 1, "only terminate stops the actor")
+        let enterCount = await spyQueue.getEnterBackgroundCount()
+        XCTAssertEqual(enterCount, 1, "background enters background mode")
         let startCount = await spyQueue.getStartCount()
         XCTAssertEqual(startCount, 1, "only the launch kickoff starts the actor")
         await fulfillment(of: [syncExpectation], timeout: 1)
