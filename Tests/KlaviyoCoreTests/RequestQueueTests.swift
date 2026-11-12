@@ -759,33 +759,98 @@ final class RequestQueueTests: XCTestCase {
                        "stop() during the backoff wait leaves the durable request untouched")
     }
 
-    /// WiFi → WWAN coalesces: the old WiFi loop is cancelled and only the WWAN interval (30 s)
-    /// is observed going forward. No two loops race with different intervals.
-    func testRestartCoalescesOldLoop() async {
+    /// WiFi → WWAN while running keeps the current countdown: no second loop starts, and the next
+    /// sleep after the tick uses the cellular interval.
+    func testReachableSwitchKeepsCountdownAndUsesNewIntervalNextTick() async {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
         let queue = RequestQueue(clock: gated.clock, send: spy.send)
 
-        // Start on WiFi.
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "WiFi loop must park on its first sleep")
         XCTAssertEqual(gated.requested.first, FlushConstants.wifiFlushInterval)
 
-        // Switch to WWAN while the WiFi loop is parked. start() inside the handler cancels the
-        // old loop and starts a new one — only the cellular interval should appear after this.
+        // Switch while the WiFi sleep is parked. A restart would cancel it and request a new sleep;
+        // give a restarted loop time to do that before checking that none did.
         await queue.networkConnectivityChanged(.reachableViaWWAN)
+        XCTAssertFalse(gated.waitForRequested(atLeast: 2, timeout: 0.3),
+                       "a reachable switch must not restart the countdown")
 
-        // The WWAN loop should now be running and park on a 30-second sleep.
-        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "WWAN loop must request a sleep")
-        XCTAssertEqual(gated.requested[1], FlushConstants.cellularFlushInterval,
-                       "after WiFi→WWAN the new loop must sleep the cellular interval")
-
-        // Confirm we never see a WiFi-interval sleep from the replaced loop racing in.
         gated.releaseOneTick()
-        XCTAssertTrue(gated.waitForRequested(atLeast: 3), "loop re-parks after second tick")
-        XCTAssertEqual(gated.requested[2], FlushConstants.cellularFlushInterval,
-                       "only the cellular interval must be observed after coalescing")
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop re-parks after the tick")
+        XCTAssertEqual(gated.requested[1], FlushConstants.cellularFlushInterval,
+                       "the sleep after the tick must use the new cellular interval")
+
+        await queue.stop()
+    }
+
+    /// Repeated WiFi ↔ WWAN changes faster than the interval (e.g. Connectivity Assist on weak
+    /// Wi-Fi) don't hold off the flush: the pending tick still fires and sends the queued request.
+    func testRapidReachableSwitchesStillFlush() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy()
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "queued"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop must park on its first sleep")
+        for _ in 0..<5 {
+            await queue.networkConnectivityChanged(.reachableViaWWAN)
+            await queue.networkConnectivityChanged(.reachableViaWiFi)
+        }
+        await queue.flushNow() // quiesce, then clear what that direct flush sent
+        XCTAssertEqual(gated.requested.count, 1, "switches must not restart the countdown")
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "after-switches"), persist: .synchronous)
+
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop re-parks after the tick")
+        XCTAssertEqual(spy.sentIds.last, "after-switches", "the pending tick must flush the queue")
+
+        await queue.stop()
+    }
+
+    /// Coming back online restarts a loop that `.notReachable` stopped.
+    func testReachableAfterNotReachableRestartsLoop() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy()
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop must park on its first sleep")
+        await queue.networkConnectivityChanged(.notReachable)
+        gated.releaseOneTick() // let the cancelled loop exit
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "back online must start a new loop")
+        XCTAssertEqual(gated.requested[1], FlushConstants.cellularFlushInterval)
+
+        await queue.stop()
+    }
+
+    /// A `start()` while offline (e.g. the app foregrounds in Airplane Mode) doesn't run a loop, and
+    /// coming back online starts one at the reachable interval that flushes the queue.
+    func testStartWhileOfflineWaitsForNetworkThenFlushes() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy()
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "queued-offline"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+        await queue.networkConnectivityChanged(.notReachable)
+        await queue.start()
+        XCTAssertFalse(gated.waitForRequested(atLeast: 1, timeout: 0.3),
+                       "start() while offline must not run a loop")
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "back online must start a loop")
+        XCTAssertEqual(gated.requested, [FlushConstants.wifiFlushInterval])
+
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop re-parks after the tick")
+        XCTAssertEqual(spy.sentIds, ["queued-offline"], "the first tick must flush the queue")
 
         await queue.stop()
     }
