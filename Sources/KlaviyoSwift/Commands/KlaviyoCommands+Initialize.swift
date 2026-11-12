@@ -189,7 +189,7 @@ extension KlaviyoCommands {
     private static func runLifecycle() async {
         let requestQueue = klaviyoSwiftEnvironment.requestQueue
 
-        @Sendable
+        @MainActor
         func handleForeground() async {
             await requestQueue.start()
             let settings = await environment.getNotificationSettings()
