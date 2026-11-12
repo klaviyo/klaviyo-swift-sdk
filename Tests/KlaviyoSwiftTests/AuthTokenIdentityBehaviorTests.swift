@@ -122,9 +122,9 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         XCTAssertNil(reset.email)
         XCTAssertNotEqual(reset.anonymousId, "anon-old",
                           "reset of an identified profile must mint a fresh anonymousId")
-        XCTAssertEqual(
-            IdentityTransition.classify(previous: identified, next: reset), .replacement,
-            "identified → anonymous reset must classify as a replacement"
+        XCTAssertTrue(
+            IdentityTransition.classify(previous: identified, next: reset).discardsAuthToken,
+            "identified → anonymous reset must discard the auth token"
         )
         let outgoingStillCurrent = await manager.isCurrentToken(outgoingToken)
         XCTAssertFalse(
@@ -185,8 +185,8 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         let switched = IdentityStore.shared.current
         XCTAssertEqual(SDKConfigStore.shared.current.apiKey, "new-runtime-key")
         XCTAssertFalse(switched.isIdentified)
-        XCTAssertEqual(
-            IdentityTransition.classify(previous: identified, next: switched), .replacement,
+        XCTAssertTrue(
+            IdentityTransition.classify(previous: identified, next: switched).discardsAuthToken,
             "reset ON: the runtime switch replaces the identified profile with an anonymous one"
         )
         let outgoingStillCurrent = await manager.isCurrentToken(outgoingToken)
@@ -279,8 +279,8 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         XCTAssertFalse(switched.isIdentified)
         XCTAssertNotEqual(switched.anonymousId, "anon-prior",
                           "reset ON: a fresh anonymousId is minted for the new company")
-        XCTAssertEqual(
-            IdentityTransition.classify(previous: prior, next: switched), .replacement,
+        XCTAssertTrue(
+            IdentityTransition.classify(previous: prior, next: switched).discardsAuthToken,
             "reset ON: the cold-start switch replaces the persisted identified profile"
         )
         let outgoingStillCurrent = await manager.isCurrentToken(outgoingToken)
@@ -363,9 +363,9 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
         XCTAssertEqual(migrated.anonymousId, legacyAnon,
                        "migration must restore the legacy anonymousId")
         XCTAssertEqual(migrated.email, "same@x.com")
-        XCTAssertEqual(
-            IdentityTransition.classify(previous: preInit, next: migrated), .compatible,
-            "an anonymousId-only re-attribution must classify as compatible"
+        XCTAssertFalse(
+            IdentityTransition.classify(previous: preInit, next: migrated).discardsAuthToken,
+            "an anonymousId-only re-attribution must not discard the auth token"
         )
         // Negative claims (no clear, no re-fetch): let config-publisher reconciliation and
         // identity-change reactions settle before asserting.
@@ -388,8 +388,8 @@ final class AuthTokenIdentityBehaviorTests: KlaviyoBaseTestCase {
     /// NOTE (carry-over): the brief framed this as "no replacement clear, generation not
     /// bumped". On this architecture classification is against the immediately-preceding
     /// stored profile, which on a fresh store is the auto-minted ANONYMOUS profile; the
-    /// pinned suite's TCA world had no auto-mint (previous was `nil` → `.compatible`).
-    /// An anonymous→identified hop classifies `.replacement` by design, so what the
+    /// pinned suite's TCA world had no auto-mint (previous was `nil` → `.initial`).
+    /// An anonymous→identified hop discards the auth token by design, so what the
     /// migration itself must not do is leave a STALE-GENERATION token served or
     /// double-fetch — asserted below instead of an inexpressible "compatible" claim.
     func testLegacyMigrationFirstIdentityServesNoStaleTokenAndFetchesOnce() async throws {

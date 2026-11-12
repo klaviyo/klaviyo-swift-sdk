@@ -294,12 +294,13 @@ class IAFPresentationManager {
         )
     }
 
-    /// Whether ``IdentityTransition/classify(previous:next:)`` calls the change since the
-    /// last delivery a replacement, forcing a token write even if the token value is
+    /// Whether the change since the last delivery ``IdentityTransition/discardsAuthToken``
+    /// according to ``IdentityTransition/classify(previous:next:)``, forcing a token write even
+    /// if the token value is
     /// unchanged. A `nil` `current` replaces any non-`nil` `previous`.
     static func identityChanged(from previous: ProfileData?, to current: ProfileData?) -> Bool {
         guard let current else { return previous != nil }
-        return IdentityTransition.classify(previous: previous, next: current) == .replacement
+        return IdentityTransition.classify(previous: previous, next: current).discardsAuthToken
     }
 
     /// Pushes each token from the prepared stream into its page, skipping a token equal to

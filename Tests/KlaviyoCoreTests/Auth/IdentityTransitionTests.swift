@@ -57,73 +57,73 @@ struct IdentityTransitionTests {
         )
     ]
 
-    // MARK: - Compatible
+    // MARK: - Shared identifiers, no conflict, and no previous profile
 
-    static let compatibleCases: [Case] = [
+    static let sharedCases: [Case] = [
         Case(
             name: "no previous profile",
             previous: nil,
             next: ProfileData(email: "a@x.com", anonymousId: "anon-a"),
-            expected: .compatible
+            expected: .initial
         ),
         Case(
             name: "no previous profile, anonymous next",
             previous: nil,
             next: ProfileData(anonymousId: "anon-a"),
-            expected: .compatible
+            expected: .initial
         ),
         Case(
             name: "same email, new anonymous ID",
             previous: ProfileData(email: "e@x.com", anonymousId: "anon-a"),
             next: ProfileData(email: "e@x.com", anonymousId: "anon-b"),
-            expected: .compatible
+            expected: .anonymousIdRotated
         ),
         Case(
             name: "enriched with external ID",
             previous: ProfileData(email: "a@x.com"),
             next: ProfileData(email: "a@x.com", externalId: "external-a"),
-            expected: .compatible
+            expected: .additive
         ),
         Case(
             name: "reduced to email",
             previous: ProfileData(email: "a@x.com", externalId: "external-a"),
             next: ProfileData(email: "a@x.com"),
-            expected: .compatible
+            expected: .subtractive
         ),
         Case(
             name: "enriched with phone number",
             previous: ProfileData(email: "private@example.com"),
             next: ProfileData(email: "private@example.com", phoneNumber: "+15555550100"),
-            expected: .compatible
+            expected: .additive
         ),
         Case(
             name: "phone number enriched with email",
             previous: ProfileData(phoneNumber: "+15555550100"),
             next: ProfileData(email: "e@x.com", phoneNumber: "+15555550100"),
-            expected: .compatible
+            expected: .additive
         ),
         Case(
             name: "empty values beside a shared external ID, enriched",
             previous: ProfileData(email: "", externalId: "external-a"),
             next: ProfileData(email: "", phoneNumber: "+15551234567", externalId: "external-a"),
-            expected: .compatible
+            expected: .additive
         ),
         Case(
             name: "empty values beside a shared external ID, reduced",
             previous: ProfileData(email: "", phoneNumber: "+15551234567", externalId: "external-a"),
             next: ProfileData(email: "", externalId: "external-a"),
-            expected: .compatible
+            expected: .subtractive
         )
     ]
 
-    // MARK: - Replacement
+    // MARK: - Replacing, clearing and conflicting changes
 
     static let replacementCases: [Case] = [
         Case(
             name: "anonymous profile gains an email",
             previous: ProfileData(anonymousId: "anon-a"),
             next: ProfileData(email: "e@x.com", anonymousId: "anon-a"),
-            expected: .replacement
+            expected: .anonymousToIdentified
         ),
         Case(
             name: "different anonymous ID",
@@ -147,13 +147,13 @@ struct IdentityTransitionTests {
             name: "same email, different phone number",
             previous: ProfileData(email: "a@x.com", phoneNumber: "+15555550100"),
             next: ProfileData(email: "a@x.com", phoneNumber: "+15555550199"),
-            expected: .replacement
+            expected: .partialConflict
         ),
         Case(
             name: "same email, different external ID",
             previous: ProfileData(email: "a@x.com", externalId: "external-a"),
             next: ProfileData(email: "a@x.com", externalId: "external-b"),
-            expected: .replacement
+            expected: .partialConflict
         ),
         Case(
             name: "only the anonymous ID is shared",
@@ -171,7 +171,7 @@ struct IdentityTransitionTests {
             name: "empty email does not match a present email",
             previous: ProfileData(email: "a@x.com"),
             next: ProfileData(email: ""),
-            expected: .replacement
+            expected: .cleared
         ),
         Case(
             name: "email comparison is case-sensitive",
@@ -189,11 +189,11 @@ struct IdentityTransitionTests {
             name: "identified profile reset to anonymous",
             previous: ProfileData(email: "a@x.com", anonymousId: "anon-a"),
             next: ProfileData(anonymousId: "anon-b"),
-            expected: .replacement
+            expected: .cleared
         )
     ]
 
-    @Test(arguments: unchangedCases + compatibleCases + replacementCases)
+    @Test(arguments: unchangedCases + sharedCases + replacementCases)
     func classify(_ testCase: Case) {
         let transition = IdentityTransition.classify(previous: testCase.previous, next: testCase.next)
         #expect(transition == testCase.expected)

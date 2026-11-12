@@ -10,17 +10,18 @@ import Foundation
 package struct IdentitySnapshot: Equatable {
     /// The most recently observed profile.
     package let profile: ProfileData
-    /// Starts at 0 and increases by one on every ``IdentityTransition/replacement`` hop.
+    /// Starts at 0 and increases by one on every hop that ``IdentityTransition/discardsAuthToken``.
     package let generation: UInt64
 }
 
 /// Follows a ``VersionedIdentityReading`` and counts the profile replacements it goes through.
 ///
 /// Every profile the source emits is classified against the previous one with
-/// ``IdentityTransition/classify(previous:next:)``; a `replacement` hop increments the
-/// generation. The profile and generation are updated together, so a reader never sees a
+/// ``IdentityTransition/classify(previous:next:)``; a hop that
+/// ``IdentityTransition/discardsAuthToken`` increments the generation. The profile and
+/// generation are updated together, so a reader never sees a
 /// new profile with the old generation. Two profiles seen in the same generation describe
-/// the same person, however many compatible changes lie between them.
+/// the same person, however many token-preserving changes lie between them.
 ///
 /// Updates are delivered synchronously from the source's emission, and ``snapshot()`` also
 /// folds in the source's current profile, so a snapshot is up to date whether or not the
@@ -78,7 +79,7 @@ final class IdentityGenerationTracker: @unchecked Sendable {
             defer { lock.unlock() }
             return state
         }
-        let generation = transition == .replacement ? state.generation + 1 : state.generation
+        let generation = transition.discardsAuthToken ? state.generation + 1 : state.generation
         state = IdentitySnapshot(profile: versioned.profile, generation: generation)
         let updated = state
         let handler = onChange
