@@ -83,6 +83,9 @@ public final class QueueStore {
     // nil until hydrated; authoritative once loaded. Entries carry in-memory retry state; only their
     // `request` is persisted, so retry state resets on relaunch.
     private var queue: [QueuedRequest]?
+    // Entries handed to the flush loop by `drainAll`. Not in `queue`, but still persisted (ahead of it)
+    // until `complete` or `prepend` releases them, so a kill mid-flush loses nothing.
+    private var leased: [QueuedRequest] = []
     // Debounce-coalescing state (guarded by `persistLock`). `pendingDebounceToken` is the token of the
     // window's scheduled callback, or `0` when none is pending; `debounceSeq` mints unique tokens.
     // See `schedulePersist` for how a burst coalesces onto a single callback.
@@ -125,6 +128,8 @@ public final class QueueStore {
                         persist: PersistPolicy = .debounced) {
         guard !entries.isEmpty else { return }
         queueLock.withLock {
+            let restored = Set(entries.map(\.id))
+            leased.removeAll { restored.contains($0.id) }
             var next = hydrated()
             next.insert(contentsOf: entries, at: 0) // deliberately no eviction — see evictIfAtCapacity
             queue = next
@@ -133,17 +138,30 @@ public final class QueueStore {
     }
 
     /// Atomically snapshots and clears the pending queue, returning the drained requests.
+    /// The drained entries stay on disk as leased until `complete` or `prepend` releases them.
     /// Snapshot + clear happen under a single `queueLock` acquisition so a concurrent `enqueue`
     /// cannot interleave between read and clear. Parity with the flush loop's former
     /// `requestsInFlight.append(contentsOf: queue); queue.removeAll()`.
     public func drainAll(persist: PersistPolicy = .debounced) -> [QueuedRequest] {
         let drained = queueLock.withLock { () -> [QueuedRequest] in
             let drainedRequests = hydrated()
+            leased += drainedRequests
             queue = []
             return drainedRequests
         }
         schedulePersist(persist)
         return drained
+    }
+
+    /// Releases a leased entry that completed or was dropped, and persists synchronously so a
+    /// kill right after does not re-send it.
+    public func complete(id: String) {
+        let removed = queueLock.withLock { () -> Bool in
+            guard let index = leased.firstIndex(where: { $0.id == id }) else { return false }
+            leased.remove(at: index)
+            return true
+        }
+        if removed { schedulePersist(.synchronous) }
     }
 
     /// Clears every queued entry's pending backoff (e.g. on reconnect), keeping `attempts`.
@@ -243,7 +261,7 @@ public final class QueueStore {
     /// the snapshot and released before the disk write, so I/O never blocks queue ops.
     private func persistCurrent() {
         persistLock.withLock {
-            let snapshot = queueLock.withLock { (queue ?? []).map(\.request) }
+            let snapshot = queueLock.withLock { (leased + (queue ?? [])).map(\.request) }
             do {
                 try diskIO.save(snapshot)
             } catch {

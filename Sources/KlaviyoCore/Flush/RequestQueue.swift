@@ -233,12 +233,18 @@ public actor RequestQueue {
                     IdentityStore.shared.updatePushToken(PushTokenData(payload))
                 }
             }
-            requestsInFlight.removeFirst()
+            completeHead()
             return .continueSending
 
         case let .failure(error):
             return handleSendFailure(error, head: head)
         }
+    }
+
+    /// Removes the head from the lease and from disk (synchronous), so it is never re-sent after a kill.
+    private func completeHead() {
+        let done = requestsInFlight.removeFirst()
+        QueueStore.shared.complete(id: done.id)
     }
 
     /// Restores the still-leased batch, retry state included, to the front of the durable queue and
@@ -265,7 +271,7 @@ public actor RequestQueue {
             // Non-retryable: remove the head and keep sending the rest of the batch.
             // Parity: `deQueueCompletedResults` for a non-retryable failure.
             clearOptimisticPushToken(head.request, error: error)
-            requestsInFlight.removeFirst()
+            completeHead()
             return .continueSending
 
         case let .clearInvalidFieldsAndDequeue(fields):
@@ -279,7 +285,7 @@ public actor RequestQueue {
                     }
                 }
             }
-            requestsInFlight.removeFirst()
+            completeHead()
             return .continueSending
 
         case .abandonAttempt:
@@ -303,7 +309,7 @@ public actor RequestQueue {
             )
             if failed.hasExhaustedRetries {
                 clearOptimisticPushToken(head.request, error: error)
-                requestsInFlight.removeFirst()
+                completeHead()
             } else {
                 requestsInFlight[0] = failed
             }
