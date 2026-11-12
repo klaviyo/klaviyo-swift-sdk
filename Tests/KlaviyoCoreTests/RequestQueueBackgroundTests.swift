@@ -250,6 +250,28 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
     // MARK: - Watchdog
 
+    func testHungForegroundFlushIsBoundedThenDrainContinues() async {
+        enqueue("a", "b")
+        let started = expectation(description: "foreground send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let foreground = Task { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2)
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(manual.waitForRequested(atLeast: 1))
+
+        manual.fireAll() // the bounded wait on the hung foreground send elapses
+        await drain.value
+
+        XCTAssertEqual(manual.requested.first, FlushConstants.backgroundSendTimeout)
+        XCTAssertEqual(tasks.ends, 1)
+        spy.release()
+        await foreground.value
+        XCTAssertEqual(Set(QueueStore.shared.entries.map(\.id)).union(disk.stored.map(\.id)), Set(disk.stored.map(\.id)),
+                       "nothing may exist only in memory")
+    }
+
     func testStalledRequestIsPutBackAndTheRestStillSend() async {
         enqueue("a", "b", "c")
         let started = expectation(description: "first send parked")

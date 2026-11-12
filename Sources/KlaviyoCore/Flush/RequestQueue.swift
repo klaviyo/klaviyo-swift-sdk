@@ -183,7 +183,11 @@ public actor RequestQueue {
             Task { await self?.expireBackgroundDrain() }
         }
         if let running = activeFlush {
-            await waitWithoutBlocking(on: running)
+            // A foreground send has no budget of its own: bound the wait, then put it back and drain.
+            let finished = await waitWithoutBlocking(
+                on: running, timeout: FlushConstants.backgroundSendTimeout
+            )
+            if !finished, !Task.isCancelled { abandonActiveFlush() }
         }
         if !Task.isCancelled, hasDueWork {
             await flush(sendTimeout: FlushConstants.backgroundSendTimeout, propagateCancellation: true)
@@ -200,19 +204,29 @@ public actor RequestQueue {
         abandonActiveFlush()
     }
 
-    /// Waits for `task` but returns at once if the caller is cancelled (a send may ignore cancellation).
-    private func waitWithoutBlocking(on task: Task<Void, Never>) async {
-        let oneShot = OneShot<Void>()
+    /// Waits for `task`, returning `false` if `timeout` elapses first and `true` if it finished.
+    /// Also returns at once if the caller is cancelled (a send may ignore cancellation).
+    private func waitWithoutBlocking(on task: Task<Void, Never>, timeout: TimeInterval) async -> Bool {
+        let race = OneShot<Bool>()
+        let clock = clock
         let waiter = Task {
             await task.value
-            oneShot.finish(())
+            race.finish(true)
         }
-        await withTaskCancellationHandler {
-            await oneShot.wait()
+        let timer = Task {
+            do {
+                try await clock.sleep(timeout)
+                race.finish(false)
+            } catch {}
+        }
+        let finished = await withTaskCancellationHandler {
+            await race.wait()
         } onCancel: {
-            oneShot.finish(())
+            race.finish(false)
         }
         waiter.cancel()
+        timer.cancel()
+        return finished
     }
 
     private func interval(for status: Reachability.NetworkStatus) -> TimeInterval {
