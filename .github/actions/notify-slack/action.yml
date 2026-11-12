@@ -1,0 +1,120 @@
+name: Notify Slack
+description: Posts, updates or replies to a Slack message as the MAGE CI bot, using slackapi/slack-github-action. Never fails the calling job.
+
+inputs:
+  token:
+    description: Slack bot token. Pass secrets.SLACK_BOT_TOKEN. When empty, the action skips with a notice.
+    required: false
+    default: ''
+  channel:
+    description: Channel ID to post to. Defaults to #mobile-app-growth-alerts.
+    required: false
+    default: C08HFEC8W9W
+  status:
+    description: "One of pending, success, failure, stopped, warning, info. Selects the emoji."
+    required: false
+    default: info
+  title:
+    description: Headline, shown in bold after the status emoji.
+    required: true
+  body:
+    description: Optional mrkdwn text under the headline. May span several lines.
+    required: false
+    default: ''
+  fields:
+    description: "Optional newline-separated `Label: value` lines, rendered as two-column fields. Values are shown as plain text."
+    required: false
+    default: ''
+  links:
+    description: Optional newline-separated "Label|URL" lines, rendered on one context line. A link to the current run is always appended.
+    required: false
+    default: ''
+  ts:
+    description: When set, updates the message with this ts (chat.update) instead of posting a new one.
+    required: false
+    default: ''
+  thread_ts:
+    description: When set, posts as a reply in the thread of the message with this ts. Ignored when ts is set.
+    required: false
+    default: ''
+  mention:
+    description: Raw Slack mention text, e.g. <@U123> or <!subteam^S123>, placed at the start of the message.
+    required: false
+    default: ''
+  username:
+    description: Display name of the bot for new posts. When empty, falls back to the SLACK_USERNAME environment variable, then MAGE CI.
+    required: false
+    default: ''
+  icon_emoji:
+    description: Emoji used as the bot avatar for new posts. When empty, falls back to the SLACK_ICON_EMOJI environment variable, then :crystal_ball:.
+    required: false
+    default: ''
+
+outputs:
+  ts:
+    description: The ts of the posted or updated message. Falls back to the ts input when the call is skipped or fails.
+    value: ${{ steps.finish.outputs.ts }}
+  channel:
+    description: The channel ID from the Slack response. Falls back to the channel input when the call is skipped or fails.
+    value: ${{ steps.finish.outputs.channel }}
+
+runs:
+  using: composite
+  steps:
+    - id: build
+      shell: bash
+      env:
+        SLACK_TOKEN: ${{ inputs.token }}
+        CHANNEL: ${{ inputs.channel }}
+        STATUS: ${{ inputs.status }}
+        TITLE: ${{ inputs.title }}
+        BODY: ${{ inputs.body }}
+        FIELDS: ${{ inputs.fields }}
+        LINKS: ${{ inputs.links }}
+        TS: ${{ inputs.ts }}
+        THREAD_TS: ${{ inputs.thread_ts }}
+        MENTION: ${{ inputs.mention }}
+        USERNAME: ${{ inputs.username }}
+        ICON_EMOJI: ${{ inputs.icon_emoji }}
+        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: bash "$GITHUB_ACTION_PATH/notify-slack.sh"
+
+    - id: slack
+      if: steps.build.outputs.skip != 'true'
+      continue-on-error: true
+      uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+      with:
+        method: ${{ steps.build.outputs.method }}
+        token: ${{ inputs.token }}
+        payload-file-path: ${{ steps.build.outputs.payload_path }}
+        errors: false
+
+    - id: finish
+      if: always()
+      shell: bash
+      env:
+        SKIPPED: ${{ steps.build.outputs.skip }}
+        SLACK_OK: ${{ steps.slack.outputs.ok }}
+        SLACK_RESPONSE: ${{ steps.slack.outputs.response }}
+        SLACK_TS: ${{ steps.slack.outputs.ts }}
+        SLACK_CHANNEL_ID: ${{ steps.slack.outputs.channel_id }}
+        TS: ${{ inputs.ts }}
+        CHANNEL: ${{ inputs.channel }}
+        BUILD_TS: ${{ steps.build.outputs.ts }}
+        BUILD_CHANNEL: ${{ steps.build.outputs.channel }}
+      run: |
+        if [ "$SKIPPED" = "true" ]; then
+          ts=$BUILD_TS
+          channel=$BUILD_CHANNEL
+        else
+          ts=${SLACK_TS:-$TS}
+          channel=${SLACK_CHANNEL_ID:-$CHANNEL}
+          if [ "$SLACK_OK" != "true" ]; then
+            error=$(printf '%s' "$SLACK_RESPONSE" | jq -r '.error // empty' 2> /dev/null || true)
+            echo "::warning::Slack notification failed: ${error:-no response from Slack}"
+          fi
+        fi
+        {
+          echo "ts=$ts"
+          echo "channel=${channel:-$CHANNEL}"
+        } >> "$GITHUB_OUTPUT"

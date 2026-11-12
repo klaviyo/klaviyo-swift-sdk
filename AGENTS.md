@@ -100,7 +100,7 @@ Test file naming follows `*Tests.swift` per implementation class.
 
 The project enforces Swift code style using SwiftLint and SwiftFormat with customizations:
 
-- Maximum line length is 110 characters
+- Maximum line length is 120 characters
 - Certain SwiftLint rules are disabled — see `.swiftlint.yml`
 
 Other style guidelines:

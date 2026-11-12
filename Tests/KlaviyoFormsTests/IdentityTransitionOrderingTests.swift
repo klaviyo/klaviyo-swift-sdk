@@ -13,6 +13,11 @@ import XCTest
 
 @MainActor
 final class IdentityTransitionOrderingTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private struct Path {
         let name: String
         let start: ProfileData

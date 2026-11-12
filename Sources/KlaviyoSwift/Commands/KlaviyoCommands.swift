@@ -288,7 +288,8 @@ enum KlaviyoCommands {
         // cannot re-enter this call synchronously. `enrichAndPublishEvent` is a plain function
         // (no actor isolation), so `Task.detached` is the right async boundary.
         if event.priority == .high {
-            Task { await klaviyoSwiftEnvironment.requestQueue.flushNow() }
+            let requestQueue = klaviyoSwiftEnvironment.requestQueue
+            Task { await requestQueue.flushNow() }
         }
         Task.detached { enrichAndPublishEvent(publishedEvent) }
     }
