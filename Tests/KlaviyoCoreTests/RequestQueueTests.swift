@@ -830,6 +830,31 @@ final class RequestQueueTests: XCTestCase {
         await queue.stop()
     }
 
+    /// A `start()` while offline (e.g. the app foregrounds in Airplane Mode) doesn't run a loop, and
+    /// coming back online starts one at the reachable interval that flushes the queue.
+    func testStartWhileOfflineWaitsForNetworkThenFlushes() async {
+        QueueStore.register(makeQueueStore())
+        let gated = GatedSleepClock()
+        let spy = SendSpy()
+        QueueStore.shared.enqueue(makeCreateProfileRequest(id: "queued-offline"), persist: .synchronous)
+        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+
+        await queue.networkConnectivityChanged(.notReachable)
+        await queue.start()
+        XCTAssertFalse(gated.waitForRequested(atLeast: 1, timeout: 0.3),
+                       "start() while offline must not run a loop")
+
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        XCTAssertTrue(gated.waitForRequested(atLeast: 1), "back online must start a loop")
+        XCTAssertEqual(gated.requested, [FlushConstants.wifiFlushInterval])
+
+        gated.releaseOneTick()
+        XCTAssertTrue(gated.waitForRequested(atLeast: 2), "loop re-parks after the tick")
+        XCTAssertEqual(spy.sentIds, ["queued-offline"], "the first tick must flush the queue")
+
+        await queue.stop()
+    }
+
     // MARK: - Invalid-field clear
 
     /// A 422 with `/data/attributes/email` pointer must nil `IdentityStore.current.email` and
