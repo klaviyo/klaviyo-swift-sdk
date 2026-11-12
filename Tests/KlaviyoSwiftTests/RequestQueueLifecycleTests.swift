@@ -11,7 +11,6 @@
 //
 
 @testable import KlaviyoCore
-import AnyCodable
 import Combine
 @_spi(KlaviyoPrivate) @testable import KlaviyoSwift
 import XCTest
@@ -177,7 +176,7 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         markSessionInitialized()
         seedTestQueueStore()
 
-        KlaviyoCommands.setProfileProperty(.firstName, AnyEncodable("Blob"))
+        KlaviyoCommands.setProfileProperty(.firstName, KlaviyoAnyEncodable("Blob"))
 
         // `flushIntoQueue` only ENQUEUES (it never calls `klaviyoAPI.send`), so inspect the QueueStore
         // directly and assert the staged property was folded into the enqueued request's payload.

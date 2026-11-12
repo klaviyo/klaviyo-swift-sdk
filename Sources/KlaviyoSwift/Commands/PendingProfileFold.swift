@@ -5,7 +5,6 @@
 //  Created by Isobelle Lim on 9/11/26.
 //
 
-import AnyCodable
 import KlaviyoCore
 
 /// State-free helpers for folding a staged profile (from `setProfileProperty`) into an existing
@@ -36,7 +35,7 @@ enum PendingProfileFold {
         }
         if !pending.properties.isEmpty {
             let existing = attributes.properties.value as? [String: Any] ?? [:]
-            attributes.properties = AnyCodable(
+            attributes.properties = KlaviyoAnyCodable(
                 existing.merging(pending.properties, uniquingKeysWith: { _, newer in newer })
             )
         }

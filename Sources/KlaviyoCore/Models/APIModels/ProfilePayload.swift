@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
 
 /// Internal structure which has details not needed by the API.
@@ -22,7 +21,7 @@ public struct ProfilePayload: Equatable, Codable {
         public var title: String?
         public var image: String?
         public var location: Location?
-        public var properties: AnyCodable
+        package var properties: KlaviyoAnyCodable
         public var subscriptions: SubscriptionChannels?
         enum CodingKeys: String, CodingKey {
             case email
@@ -62,7 +61,7 @@ public struct ProfilePayload: Equatable, Codable {
             self.title = title
             self.image = image
             self.location = location
-            self.properties = AnyCodable(properties ?? [:])
+            self.properties = KlaviyoAnyCodable(properties ?? [:])
             self.subscriptions = subscriptions
             self.anonymousId = anonymousId
         }

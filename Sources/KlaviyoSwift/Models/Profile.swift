@@ -5,7 +5,6 @@
 //  Created by Ajay Subramanya on 8/6/24.
 //
 
-import AnyCodable
 import Foundation
 import KlaviyoCore
 
@@ -82,7 +81,7 @@ public struct Profile: Equatable, Codable {
         _properties.value as! [String: Any]
     }
 
-    let _properties: AnyCodable
+    let _properties: KlaviyoAnyCodable
 
     /// Returns `true` if the profile contains any data beyond the three identifier fields
     /// (email, phoneNumber, externalId). Used to decide whether to skip a redundant API
@@ -122,7 +121,7 @@ public struct Profile: Equatable, Codable {
         self.title = title
         self.image = image
         self.location = location
-        _properties = AnyCodable(properties ?? [:])
+        _properties = KlaviyoAnyCodable(properties ?? [:])
     }
 }
 
@@ -131,7 +130,7 @@ extension Profile {
         email: String? = nil,
         phoneNumber: String? = nil,
         externalId: String? = nil,
-        dict: [Profile.ProfileKey: AnyEncodable]
+        dict: [Profile.ProfileKey: KlaviyoAnyEncodable]
     ) -> Self {
         var firstName: String?
         var lastName: String?

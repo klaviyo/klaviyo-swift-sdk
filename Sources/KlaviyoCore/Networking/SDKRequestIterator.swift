@@ -5,7 +5,6 @@
 //  Created by Noah Durell on 2/13/23.
 //
 
-import AnyCodable
 import Foundation
 
 @_spi(KlaviyoPrivate)
