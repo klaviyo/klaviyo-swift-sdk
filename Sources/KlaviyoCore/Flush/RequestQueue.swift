@@ -54,8 +54,14 @@ public actor RequestQueue {
 
     /// (Re)starts the run loop. Any existing loop is cancelled first so `start()` is idempotent and
     /// never leaves two loops racing.
+    ///
+    /// While offline (`flushInterval` is `.infinity`) the loop stays stopped, so a foreground while
+    /// offline can't park a loop in an endless sleep. `networkConnectivityChanged` starts it when
+    /// the network comes back.
     public func start() {
         runLoop?.cancel()
+        runLoop = nil
+        guard flushInterval.isFinite else { return }
         runLoop = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
