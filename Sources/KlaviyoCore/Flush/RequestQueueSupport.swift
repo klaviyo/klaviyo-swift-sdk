@@ -12,6 +12,8 @@ import Foundation
 public enum FlushConstants {
     public static let wifiFlushInterval = 10.0
     public static let cellularFlushInterval = 30.0
+    /// Per-request budget during a background drain, so one stalled send can't use up the window.
+    public static let backgroundSendTimeout = 10.0
 }
 
 /// Seconds the run loop should sleep before the next flush: the head's remaining backoff when it has

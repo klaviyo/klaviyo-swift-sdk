@@ -17,6 +17,8 @@ public protocol RequestQueueProtocol: Sendable {
     func start() async
     func stop() async
     func flushNow() async
+    func enterBackground() async
+    func backgroundDrain() async
     func networkConnectivityChanged(_ status: Reachability.NetworkStatus) async
 }
 
