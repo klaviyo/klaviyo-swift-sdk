@@ -14,6 +14,11 @@ on:
         required: false
         default: ''
         type: string
+      triggered_by:
+        description: Login of the person who started this run. Set by publish-release.yml; leave empty to use the actor
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || inputs.triggered_by || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_USERNAME: Swift SDK
   SLACK_ICON_EMOJI: ':merlin-orb-swift:'
 
@@ -66,6 +72,7 @@ jobs:
             Version: `${{ env.TAG }}`
             Commit: `${{ env.SHORT_SHA }}`
             Trigger: ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ env.RELEASE_URL }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
@@ -117,6 +124,7 @@ jobs:
           fields: |
             Version: `${{ env.TAG }}`
             Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ env.RELEASE_URL }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
@@ -131,7 +139,7 @@ jobs:
         if: success()
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.X_REPO_PAT }}
         run: |
           if [[ "$TAG" == *-* ]]; then
             echo "Prerelease tag $TAG, skipping test app bump."
@@ -139,7 +147,8 @@ jobs:
           fi
           gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
             -f event_type=sdk-released \
-            -F client_payload[version]="$TAG"
+            -F client_payload[version]="$TAG" \
+            -f "client_payload[triggered_by]=$TRIGGERED_BY"
 
       - name: Classify cancellation
         id: stop
@@ -151,6 +160,25 @@ jobs:
           if [ "$elapsed" -ge $(( TIMEOUT_MINUTES * 60 - 60 )) ]; then
             echo "timed_out=true" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Notify Slack - cancelled
+        if: cancelled() && steps.stop.outputs.timed_out != 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: stopped
+          title: Swift SDK `${{ env.TAG }}` SPM verify cancelled
+          fields: |
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
       - name: Find failed step
         id: failed
@@ -183,7 +211,7 @@ jobs:
           fields: |
             Version: `${{ env.TAG }}`
             Commit: `${{ env.SHORT_SHA }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ env.RELEASE_URL }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
@@ -202,7 +230,7 @@ jobs:
         id: linear-sync
         if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-checkout.outcome == 'success'
         continue-on-error: true
-        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: sync
@@ -212,7 +240,7 @@ jobs:
       - name: Complete release in Linear
         if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-sync.outcome == 'success'
         continue-on-error: true
-        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: complete
