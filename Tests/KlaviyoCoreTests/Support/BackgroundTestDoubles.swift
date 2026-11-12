@@ -77,6 +77,7 @@ final class FakeBackgroundTasks: @unchecked Sendable {
     private var expiries: [@Sendable () -> Void] = []
     private var handles: [BackgroundTaskHandle] = []
     var deny = false
+    var appActive = true
 
     var begins: Int { lock.lock(); defer { lock.unlock() }; return _begins }
     var ends: Int { lock.lock(); defer { lock.unlock() }; return _ends }
@@ -96,14 +97,27 @@ final class FakeBackgroundTasks: @unchecked Sendable {
             handles.append(handle)
             lock.unlock()
             return handle
+        } isAppActive: { [self] in
+            lock.lock(); defer { lock.unlock() }
+            return appActive
         }
     }
 
-    /// Fires the latest task's expiry handler and ends it, like the system deadline.
-    func expire() {
+    func waitForBegins(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if begins >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return begins >= count
+    }
+
+    /// Fires a task's expiry handler (the latest by default) and ends it, like the system deadline.
+    func expire(index: Int? = nil) {
         lock.lock()
-        let expiry = expiries.last
-        let handle = handles.last
+        let position = index ?? (expiries.count - 1)
+        let expiry = expiries.indices.contains(position) ? expiries[position] : nil
+        let handle = handles.indices.contains(position) ? handles[position] : nil
         lock.unlock()
         expiry?()
         handle?.end()

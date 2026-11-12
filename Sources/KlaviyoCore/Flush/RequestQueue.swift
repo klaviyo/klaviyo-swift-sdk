@@ -45,6 +45,12 @@ public actor RequestQueue {
     private var flushRequested = false
     /// The running flush body, so `stop()` and background expiry can cancel it.
     private var activeFlush: Task<Void, Never>?
+    /// Which scope started `activeFlush` (0 = foreground loop). A scope's expiry only cancels a flush
+    /// it owns, so a priority task expiring can't abort the main drain, and vice versa.
+    private var activeFlushOwner = 0
+    private var nextOwner = 0
+    /// Priority scopes by owner, so a scope's own expiry cancels its wait and stops it starting a flush.
+    private var priorityScopes: [Int: Task<Void, Never>] = [:]
     /// Bumped whenever a flush is abandoned. A flush whose generation no longer matches discards
     /// whatever its late-returning send reports instead of touching a newer lease.
     private var flushGeneration = 0
@@ -141,7 +147,48 @@ public actor RequestQueue {
 
     /// Immediate flush outside the timed cadence (high-priority path).
     public func flushNow() async {
-        await flush(propagateCancellation: true)
+        guard await !backgroundTasks.isAppActive() else {
+            await flush(propagateCancellation: true)
+            return
+        }
+        await priorityFlushInBackground()
+    }
+
+    /// High-priority flush while the app is backgrounded or inactive: its own task, its own expiry.
+    private func priorityFlushInBackground() async {
+        guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
+        nextOwner += 1
+        let owner = nextOwner
+        let handle = await backgroundTasks.begin("com.klaviyo.priority-flush") { [weak self] in
+            Task { await self?.expireFlush(owner: owner) }
+        }
+        let scope = Task {
+            // A flush already running (e.g. the main drain) finishes first; the pass below then drains
+            // everything queued by then, including this request.
+            if let running = await self.activeFlush {
+                let finished = await self.waitWithoutBlocking(
+                    on: running, timeout: FlushConstants.backgroundSendTimeout
+                )
+                if !finished, !Task.isCancelled { await self.abandonActiveFlushIfNotOwnedBy(owner) }
+            }
+            if !Task.isCancelled {
+                await self.flush(owner: owner, propagateCancellation: true)
+            }
+        }
+        priorityScopes[owner] = scope
+        await scope.value
+        priorityScopes[owner] = nil
+        handle?.end()
+    }
+
+    private func abandonActiveFlushIfNotOwnedBy(_ owner: Int) {
+        if activeFlushOwner != owner { abandonActiveFlush() }
+    }
+
+    /// Scoped expiry: stop this scope's own waiting, and cancel the flush only if this scope started it.
+    private func expireFlush(owner: Int) {
+        priorityScopes[owner]?.cancel()
+        if activeFlushOwner == owner { abandonActiveFlush() }
     }
 
     // MARK: - Background
@@ -178,9 +225,11 @@ public actor RequestQueue {
     }
 
     private func runBackgroundDrain(id: Int) async {
+        nextOwner += 1
+        let owner = nextOwner
         let handle = await backgroundTasks.begin("com.klaviyo.queue-flush") { [weak self] in
             // System expiry thread: only schedule the restore. The runner ends the task right after.
-            Task { await self?.expireBackgroundDrain() }
+            Task { await self?.expireBackgroundDrain(owner: owner) }
         }
         if let running = activeFlush {
             // A foreground send has no budget of its own: bound the wait, then put it back and drain.
@@ -190,7 +239,11 @@ public actor RequestQueue {
             if !finished, !Task.isCancelled { abandonActiveFlush() }
         }
         if !Task.isCancelled, hasDueWork {
-            await flush(sendTimeout: FlushConstants.backgroundSendTimeout, propagateCancellation: true)
+            await flush(
+                owner: owner,
+                sendTimeout: FlushConstants.backgroundSendTimeout,
+                propagateCancellation: true
+            )
         }
         handle?.end()
         if backgroundDrainId == id { backgroundDrainTask = nil }
@@ -198,10 +251,10 @@ public actor RequestQueue {
 
     /// Background task expired: cancel the drain and put the lease back. The lease is already on disk,
     /// so this only tidies memory; it never waits on the network.
-    private func expireBackgroundDrain() {
+    private func expireBackgroundDrain(owner: Int) {
         backgroundDrainTask?.cancel()
         backgroundDrainTask = nil
-        abandonActiveFlush()
+        expireFlush(owner: owner)
     }
 
     /// Waits for `task`, returning `false` if `timeout` elapses first and `true` if it finished.
@@ -279,6 +332,7 @@ public actor RequestQueue {
     /// only `stop()` and background expiry do. `propagateCancellation` ties it to the caller instead.
     /// `sendTimeout` bounds each send (background drain); `nil` leaves the session's own timeout.
     private func flush(
+        owner: Int = 0,
         retryIfBusy: Bool = false,
         sendTimeout: TimeInterval? = nil,
         propagateCancellation: Bool = false
@@ -294,6 +348,7 @@ public actor RequestQueue {
         let generation = flushGeneration
         let task = Task { await self.runFlush(generation: generation, sendTimeout: sendTimeout) }
         activeFlush = task
+        activeFlushOwner = owner
         if propagateCancellation {
             await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
         } else {
