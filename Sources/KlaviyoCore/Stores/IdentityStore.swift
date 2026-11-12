@@ -105,7 +105,10 @@ public final class IdentityStore: IdentityReading, IdentityWriting, VersionedIde
             hydrated = true
 
             let persisted = loadPersisted(PersistedIdentity.self, fileName: StoreFile.identity)
-            var profile = persisted?.profile ?? ProfileData()
+            // Normalize BEFORE the anonymousId mint check: hydration is the point where persisted
+            // identity enters the store, and a persisted `""` identifier means "absent". `anonymousId`
+            // is never normalized, so the mint check below is unaffected.
+            var profile = persisted?.profile.emptyIdentifiersAsNil ?? ProfileData()
             pushTokenValue = persisted?.pushToken
 
             if profile.anonymousId == nil {

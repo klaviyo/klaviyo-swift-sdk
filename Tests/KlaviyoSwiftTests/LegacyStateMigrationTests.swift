@@ -155,6 +155,28 @@ final class LegacyStateMigrationTests: XCTestCase {
         XCTAssertFalse(legacyFileExists(apiKey: apiKey), "legacy file retired on success")
     }
 
+    /// A legacy blob carrying `""` for an identifier must migrate as if it were absent — both in the
+    /// store and in verification. Verification compares the persisted profile to `decoded.identity`,
+    /// so normalization must be applied to the decoded value itself, not only the store write; were it
+    /// applied to the write alone, `verifyMigration` would never match and the legacy file would
+    /// survive forever.
+    func testMigrationWithEmptyIdentifiersMigratesAndRetires() throws {
+        let apiKey = "empty-identifiers-key"
+        try seedLegacyFile(apiKey: apiKey, fixture: LegacyFlatFixture(
+            apiKey: apiKey, email: "", anonymousId: "anon-empty-ids",
+            phoneNumber: nil, externalId: "ext-1", pushTokenData: nil,
+            queue: [legacyRequest("a", apiKey: apiKey)]
+        ))
+
+        migrateLegacyStateIfNeeded(apiKey: apiKey)
+
+        XCTAssertNil(IdentityStore.shared.current.email, "persisted empty email is treated as absent")
+        XCTAssertEqual(IdentityStore.shared.current.externalId, "ext-1", "non-empty values survive")
+        XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-empty-ids")
+        XCTAssertFalse(legacyFileExists(apiKey: apiKey),
+                       "verification must not spin on the normalized value — file retired")
+    }
+
     func testHappyPathNestedIdentityShapeMigratesAllFields() throws {
         let apiKey = "nested-key"
         let pushToken = testPushToken()
