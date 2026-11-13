@@ -14,12 +14,25 @@ package struct StoredInboxMessage: Equatable {
     package var record: InboxRecord
     package var isRead: Bool
     package var isArchived: Bool
+    /// When `isRead` last changed on this device. Nil if it never has.
+    package var readUpdatedAt: Date?
+    /// When `isArchived` last changed on this device. Nil if it never has.
+    package var archivedUpdatedAt: Date?
 
-    package init(id: String, record: InboxRecord, isRead: Bool, isArchived: Bool) {
+    package init(
+        id: String,
+        record: InboxRecord,
+        isRead: Bool,
+        isArchived: Bool,
+        readUpdatedAt: Date? = nil,
+        archivedUpdatedAt: Date? = nil
+    ) {
         self.id = id
         self.record = record
         self.isRead = isRead
         self.isArchived = isArchived
+        self.readUpdatedAt = readUpdatedAt
+        self.archivedUpdatedAt = archivedUpdatedAt
     }
 }
 

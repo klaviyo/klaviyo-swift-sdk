@@ -63,40 +63,8 @@ struct InboxStoreRecoveryTests {
         return copy
     }
 
-    /// Writes rows straight through Core Data under `model`, the way another build would have.
     private func writeStore(model: NSManagedObjectModel, transmissionIDs: [String]) throws {
-        typealias Key = InboxStoreModel.Key
-        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
-        let store = try coordinator.addPersistentStore(
-            ofType: NSSQLiteStoreType,
-            configurationName: nil,
-            at: storeURL(),
-            options: nil
-        )
-        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
-        context.persistentStoreCoordinator = coordinator
-        var failure: Error?
-        context.performAndWait {
-            do {
-                for tm in transmissionIDs {
-                    let record = InboxStoreFixtures.record(tm: tm, sentAt: epoch)
-                    let entity = try #require(NSEntityDescription.entity(
-                        forEntityName: InboxStoreModel.entityName,
-                        in: context
-                    ))
-                    let object = NSManagedObject(entity: entity, insertInto: context)
-                    object.setValue(company, forKey: Key.companyID)
-                    object.setValue(tm, forKey: Key.transmissionID)
-                    object.setValue(epoch, forKey: Key.sortTime)
-                    try object.setValue(JSONEncoder().encode(record), forKey: Key.payload)
-                }
-                try context.save()
-            } catch {
-                failure = error
-            }
-        }
-        if let failure { throw failure }
-        try coordinator.remove(store)
+        try InboxStoreFixtures.writeStore(model: model, transmissionIDs: transmissionIDs, in: appGroup)
     }
 
     private func journalMode(at url: URL) -> String? {

@@ -11,13 +11,39 @@ import KlaviyoInboxTestSupport
 #if canImport(Testing)
 import Testing
 
+/// A value shared with the `@Sendable` clock closure, guarded by a lock.
+private final class LockedBox<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) { self.value = value }
+
+    func withValue<Result>(_ body: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&value)
+    }
+}
+
 @Suite
 struct InboxStoreStateTests {
     private let appGroup = InboxStoreFixtures.temporaryAppGroup()
     private let company = InboxStoreFixtures.company
 
-    private func makeStoreWithMessage(_ id: String = "tm-1") async -> InboxStore {
-        let store = InboxStoreFixtures.store(appGroup: appGroup)
+    private let firstChange = InboxStoreFixtures.baseDate.addingTimeInterval(100)
+    private let secondChange = InboxStoreFixtures.baseDate.addingTimeInterval(200)
+
+    /// A clock that returns each of `dates` in turn, then the last one again.
+    private func clock(_ dates: Date...) -> @Sendable () -> Date {
+        let remaining = LockedBox(dates)
+        return { remaining.withValue { $0.count > 1 ? $0.removeFirst() : $0[0] } }
+    }
+
+    private func makeStoreWithMessage(
+        _ id: String = "tm-1",
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) async -> InboxStore {
+        let store = InboxStoreFixtures.store(appGroup: appGroup, now: now)
         await InboxStoreFixtures.capture(store, id, sentAfterBase: 1)
         return store
     }
@@ -64,6 +90,72 @@ struct InboxStoreStateTests {
         #expect(message?.isArchived == true)
     }
 
+    // MARK: - Updated-at timestamps
+
+    @Test
+    func aNewMessageHasNoUpdatedAtTimestamps() async throws {
+        let store = await makeStoreWithMessage()
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.readUpdatedAt == nil)
+        #expect(message?.archivedUpdatedAt == nil)
+    }
+
+    @Test
+    func changingReadStampsOnlyReadUpdatedAt() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.readUpdatedAt == firstChange)
+        #expect(message?.archivedUpdatedAt == nil)
+    }
+
+    @Test
+    func changingArchivedStampsOnlyArchivedUpdatedAt() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        try await store.setArchived(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.archivedUpdatedAt == firstChange)
+        #expect(message?.readUpdatedAt == nil)
+    }
+
+    @Test
+    func aNoOpChangeLeavesTheTimestampAlone() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let repeated = try await store.setRead(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(repeated == .unchanged)
+        #expect(message?.readUpdatedAt == firstChange)
+    }
+
+    @Test
+    func aNoOpOnAFreshMessageStampsNothing() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        let unchanged = try await store.setRead(false, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(unchanged == .unchanged)
+        #expect(message?.readUpdatedAt == nil)
+    }
+
+    @Test
+    func eachChangeRestampsItsOwnField() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.readUpdatedAt == firstChange)
+        #expect(message?.archivedUpdatedAt == secondChange)
+    }
+
+    @Test
+    func changingReadBackStampsAgain() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        try await store.setRead(false, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.readUpdatedAt == secondChange)
+    }
+
     /// `apply` runs inside a caller's transaction, so it must leave its change for the caller to save or
     /// roll back with the rest of its work.
     @Test
@@ -71,13 +163,12 @@ struct InboxStoreStateTests {
         let store = await makeStoreWithMessage()
         let changed = try await store.perform { context in
             defer { context.reset() }
-            let changed = try InboxStore.apply(
-                true,
-                forKey: InboxStoreModel.Key.isRead,
-                id: "tm-1",
-                companyID: company,
-                in: context
+            let change = StateChange(
+                value: true,
+                key: InboxStoreModel.Key.isRead,
+                changedAt: InboxStoreFixtures.baseDate
             )
+            let changed = try InboxStore.apply(change, id: "tm-1", companyID: company, in: context)
             context.rollback()
             return changed
         }

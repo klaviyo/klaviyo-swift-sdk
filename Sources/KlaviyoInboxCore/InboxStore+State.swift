@@ -17,6 +17,13 @@ package enum InboxStateUpdate: Equatable {
     package var messageExists: Bool { self != .missing }
 }
 
+/// A state change to apply: the new value of `key` (`isRead` or `isArchived`), and when it was made.
+struct StateChange {
+    var value: Bool
+    var key: String
+    var changedAt: Date
+}
+
 extension InboxStore {
     /// Sets whether the message is read. Setting a message to the value it already has is a no-op that
     /// reports `unchanged`.
@@ -32,10 +39,16 @@ extension InboxStore {
         try await set(isArchived, forKey: InboxStoreModel.Key.isArchived, id: id, companyID: companyID)
     }
 
-    private func set(_ value: Bool, forKey key: String, id: String, companyID: String) async throws -> InboxStateUpdate {
+    private func set(
+        _ value: Bool,
+        forKey key: String,
+        id: String,
+        companyID: String
+    ) async throws -> InboxStateUpdate {
+        let change = StateChange(value: value, key: key, changedAt: now())
         let update = try await perform { context in
             defer { context.reset() }
-            let update = try Self.apply(value, forKey: key, id: id, companyID: companyID, in: context)
+            let update = try Self.apply(change, id: id, companyID: companyID, in: context)
             if update == .changed { try context.save() }
             return update
         }
@@ -47,9 +60,11 @@ extension InboxStore {
     /// same transaction can run it inside its own `perform`. Reports what it found, and leaves
     /// the change unsaved: Core Data saves every pending change in a context, so the caller saves once its
     /// other work has succeeded.
+    ///
+    /// A change also stamps the matching updated-at with `changedAt`, so Phase 1b can tell which side changed
+    /// last. A no-op stamps nothing.
     static func apply(
-        _ value: Bool,
-        forKey key: String,
+        _ change: StateChange,
         id: String,
         companyID: String,
         in context: NSManagedObjectContext
@@ -62,8 +77,9 @@ extension InboxStore {
         )
         request.fetchLimit = 1
         guard let object = try context.fetch(request).first else { return .missing }
-        guard object.value(forKey: key) as? Bool != value else { return .unchanged }
-        object.setValue(value, forKey: key)
+        guard object.value(forKey: change.key) as? Bool != change.value else { return .unchanged }
+        object.setValue(change.value, forKey: change.key)
+        object.setValue(change.changedAt, forKey: InboxStoreModel.Key.updatedAtKey(for: change.key))
         return .changed
     }
 }
