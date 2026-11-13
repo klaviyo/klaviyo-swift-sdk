@@ -245,7 +245,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             .sink { [weak self] newProfileData in
                 guard let self else { return }
 
-                if newProfileData != self.profileData {
+                if IdentityTransition.classify(previous: self.profileData, next: newProfileData) != .unchanged {
                     if #available(iOS 14.0, *) {
                         Logger.webViewLogger.info("Profile data updated; new profile data:\n\(newProfileData.debugDescription)")
                     }
@@ -267,11 +267,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     }
 
     /// Writes `newProfileData` to the page. When ``IdentityTransition/classify(previous:next:)``
-    /// calls the change a replacement, onsite discards its auth token, so the outgoing token
-    /// is dropped from the load scripts, the profile is written, the manager's token state is
-    /// cleared, and a token for the new profile is fetched; the fetch publishes it to
-    /// ``IAFPresentationManager``'s token delivery. The token step runs even when no profile
-    /// script can be built. Other transitions keep the current token.
+    /// returns a transition that ``IdentityTransition/discardsAuthToken``, onsite discards its
+    /// auth token, so the outgoing token is dropped from the load scripts, the profile is
+    /// written, the manager's token state is cleared, and a token for the new profile is
+    /// fetched; the fetch publishes it to ``IAFPresentationManager``'s token delivery. The
+    /// token step runs even when no profile script can be built. Other transitions keep the current token.
     @MainActor
     private func handleProfileDataChange(_ newProfileData: ProfileData) {
         if #available(iOS 14.0, *) {
@@ -279,13 +279,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
         let transition = IdentityTransition.classify(previous: profileData, next: newProfileData)
         profileData = newProfileData
-        if transition == .replacement {
+        if transition.discardsAuthToken {
             authToken = nil
         }
         replaceLoadScript(&identityUserScript, with: identityWKScript)
         let profileAttributesScript = createProfileAttributesScript(from: newProfileData)
 
-        guard transition == .replacement else {
+        guard transition.discardsAuthToken else {
             if let profileAttributesScript {
                 profileUpdateTask = Task { @MainActor [weak self] in
                     await self?.writeProfileAttributes(profileAttributesScript)
@@ -366,14 +366,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     /// `true` while the page's profile still describes the same person as `identity`.
     @MainActor
     private func isCompatibleWithPage(_ identity: ProfileData) -> Bool {
-        IdentityTransition.classify(previous: identity, next: profileData ?? identity) != .replacement
+        !IdentityTransition.classify(previous: identity, next: profileData ?? identity).discardsAuthToken
     }
 
     /// `true` while ``IdentityStore`` holds an identity that replaces the page's profile and
     /// the page has not processed the change yet.
     @MainActor
     private var isPageBehindIdentityStore: Bool {
-        IdentityTransition.classify(previous: profileData, next: IdentityStore.shared.current) == .replacement
+        IdentityTransition.classify(previous: profileData, next: IdentityStore.shared.current).discardsAuthToken
     }
 
     // MARK: - Handle token refreshes
