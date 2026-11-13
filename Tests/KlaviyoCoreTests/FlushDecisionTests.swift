@@ -9,6 +9,21 @@
 import XCTest
 
 final class FlushDecisionTests: XCTestCase {
+    // `classifyFailure`'s .networkError branch now computes a jittered backoff via
+    // `environment.randomInt`. Pin the global `environment` to the deterministic test double
+    // (`randomInt: { 0 }`) for this class so assertions aren't at the mercy of whichever value a
+    // previously-run test class left behind, and restore it afterward so later classes aren't
+    // affected by this one.
+    override func setUp() {
+        super.setUp()
+        environment = KlaviyoEnvironment.test()
+    }
+
+    override func tearDown() {
+        environment = KlaviyoEnvironment.test()
+        super.tearDown()
+    }
+
     // MARK: - httpError
 
     func testHttpErrorWithInvalidEmailField() throws {
@@ -27,7 +42,7 @@ final class FlushDecisionTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let error = KlaviyoAPIError.httpError(422, errorJSON)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .clearInvalidFieldsAndDequeue([.email]))
     }
 
@@ -45,7 +60,7 @@ final class FlushDecisionTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let error = KlaviyoAPIError.httpError(422, errorJSON)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .clearInvalidFieldsAndDequeue([.phone]))
     }
 
@@ -64,7 +79,7 @@ final class FlushDecisionTests: XCTestCase {
         }
         """.data(using: .utf8)!
         let error = KlaviyoAPIError.httpError(400, errorJSON)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
@@ -72,129 +87,133 @@ final class FlushDecisionTests: XCTestCase {
         // malformed JSON body → dequeue
         let badData = "not json".data(using: .utf8)!
         let error = KlaviyoAPIError.httpError(400, badData)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
-    // MARK: - networkError
+    // MARK: - networkError (transport errors back off like 429/5xx)
 
-    func testNetworkErrorFromRetryState() throws {
-        let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
-        let error = KlaviyoAPIError.networkError(underlyingError)
-        // .retry(count) → .retry(count + 1)
-        let decision = classifyFailure(error: error, retryState: .retry(2))
-        XCTAssertEqual(decision, .retry(.retry(3)))
+    /// A transport error backs off with the formula shared with 429/5xx: `min(2^attempt, 300) +
+    /// jitter`, keyed on the failing request's own attempt. Jitter is `0` in `KlaviyoEnvironment.test()`.
+    func testNetworkErrorBacksOffFromItsOwnAttempt() {
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 2), .retry(backoff: 4),
+                       "attempt 2 failed → 2^2 = 4s backoff")
     }
 
-    func testNetworkErrorFromRetryWithBackoffState() throws {
-        let underlyingError = NSError(domain: "NSURLErrorDomain", code: -1009, userInfo: nil)
-        let error = KlaviyoAPIError.networkError(underlyingError)
-        // .retryWithBackoff(requestCount, …) → .retry(requestCount + 1)
-        let decision = classifyFailure(
-            error: error,
-            retryState: .retryWithBackoff(requestCount: 3, totalRetryCount: 5, currentBackoff: 10)
-        )
-        XCTAssertEqual(decision, .retry(.retry(4)))
+    /// Permanent transport codes and non-`URLError` failures are dropped on first occurrence.
+    func testNonRetryableTransportErrorsDequeue() {
+        for underlying in [URLError(.badURL), URLError(.serverCertificateUntrusted)] as [Error] {
+            XCTAssertEqual(classifyFailure(error: .networkError(underlying), attemptNumber: 1), .dequeue)
+        }
+        let other = KlaviyoAPIError.networkError(NSError(domain: "test", code: 1))
+        XCTAssertEqual(classifyFailure(error: other, attemptNumber: 1), .dequeue)
     }
 
-    // MARK: - rateLimitError
-
-    func testRateLimitErrorFromRetryState() throws {
-        let backOff = 30
-        let error = KlaviyoAPIError.rateLimitError(backOff: backOff)
-        // .retry(count) → requestCount = count+1, totalCount = count+1
-        let decision = classifyFailure(error: error, retryState: .retry(2))
-        XCTAssertEqual(
-            decision,
-            .retryWithBackoff(
-                .retryWithBackoff(requestCount: 3, totalRetryCount: 3, currentBackoff: backOff)
-            )
-        )
+    /// Wraps `inner` in `levels` layers of `NSError` via `NSUnderlyingErrorKey`.
+    private func wrapped(_ inner: Error, levels: Int) -> Error {
+        (0..<levels).reduce(inner) { error, _ in
+            NSError(domain: "wrapper", code: 1, userInfo: [NSUnderlyingErrorKey: error])
+        }
     }
 
-    func testRateLimitErrorFromRetryWithBackoffState() throws {
-        let backOff = 60
-        let error = KlaviyoAPIError.rateLimitError(backOff: backOff)
-        // .retryWithBackoff(requestCount, totalCount, _) → requestCount+1, totalCount+1
-        let decision = classifyFailure(
-            error: error,
-            retryState: .retryWithBackoff(requestCount: 2, totalRetryCount: 4, currentBackoff: 30)
-        )
-        XCTAssertEqual(
-            decision,
-            .retryWithBackoff(
-                .retryWithBackoff(requestCount: 3, totalRetryCount: 5, currentBackoff: backOff)
-            )
-        )
+    func testRetryableURLErrorWrappedOneOrTwoLevelsDeepRetries() {
+        for levels in [1, 2] {
+            let error = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: levels))
+            XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .retry(backoff: 2))
+        }
     }
 
-    // MARK: - serverError
-
-    func testServerErrorFromRetryState() throws {
-        let backOff = 15
-        let error = KlaviyoAPIError.serverError(statusCode: 500, backOff: backOff)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
-        XCTAssertEqual(
-            decision,
-            .retryWithBackoff(
-                .retryWithBackoff(requestCount: 2, totalRetryCount: 2, currentBackoff: backOff)
-            )
-        )
+    func testWrappedDropCodeDropsAndWrappedCancelledAbandons() {
+        let drop = KlaviyoAPIError.networkError(wrapped(URLError(.badURL), levels: 2))
+        XCTAssertEqual(classifyFailure(error: drop, attemptNumber: 1), .dequeue)
+        let cancelled = KlaviyoAPIError.networkError(wrapped(URLError(.cancelled), levels: 1))
+        XCTAssertEqual(classifyFailure(error: cancelled, attemptNumber: 1), .abandonAttempt)
     }
 
-    func testServerErrorFromRetryWithBackoffState() throws {
-        let backOff = 20
-        let error = KlaviyoAPIError.serverError(statusCode: 503, backOff: backOff)
-        let decision = classifyFailure(
-            error: error,
-            retryState: .retryWithBackoff(requestCount: 1, totalRetryCount: 3, currentBackoff: 10)
-        )
-        XCTAssertEqual(
-            decision,
-            .retryWithBackoff(
-                .retryWithBackoff(requestCount: 2, totalRetryCount: 4, currentBackoff: backOff)
-            )
-        )
+    func testChainWithoutURLErrorOrBeyondDepthLimitDrops() {
+        let plain = KlaviyoAPIError.networkError(wrapped(NSError(domain: "test", code: 1), levels: 3))
+        XCTAssertEqual(classifyFailure(error: plain, attemptNumber: 1), .dequeue)
+
+        let limit = NSError.maxUnderlyingErrorDepth
+        let atLimit = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit))
+        XCTAssertEqual(classifyFailure(error: atLimit, attemptNumber: 1), .retry(backoff: 2))
+        let tooDeep = KlaviyoAPIError.networkError(wrapped(URLError(.timedOut), levels: limit + 1))
+        XCTAssertEqual(classifyFailure(error: tooDeep, attemptNumber: 1), .dequeue)
+    }
+
+    /// A cancellation is not an attempt: the engine restores the request untouched.
+    func testCancelledTransportErrorAbandonsAttempt() {
+        let error = KlaviyoAPIError.networkError(URLError(.cancelled))
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .abandonAttempt)
+    }
+
+    /// Successive transport failures escalate 2^1, 2^2, 2^3 ... up to the 300s cap, exactly like
+    /// the 429/5xx path — one formula, not two.
+    func testNetworkErrorEscalatesUpToCap() throws {
+        let error = KlaviyoAPIError.networkError(URLError(.notConnectedToInternet))
+        let backoffs = (1...10).map { attempt -> Int? in
+            guard case let .retry(backoff) = classifyFailure(error: error, attemptNumber: attempt) else {
+                return nil
+            }
+            return backoff
+        }
+        XCTAssertEqual(backoffs, [2, 4, 8, 16, 32, 64, 128, 256, 300, 300],
+                       "escalates as 2^attempt (no jitter in test env), capped at 300s")
+    }
+
+    // MARK: - rateLimitError / serverError
+
+    /// `KlaviyoAPI` already folded Retry-After + jitter into the error's backoff; it passes through
+    /// unchanged regardless of attempt number.
+    func testRateLimitErrorUsesProvidedBackoff() {
+        let error = KlaviyoAPIError.rateLimitError(backOff: 30)
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 3), .retry(backoff: 30))
+    }
+
+    func testServerErrorUsesProvidedBackoff() {
+        let error = KlaviyoAPIError.serverError(statusCode: 503, backOff: 15)
+        XCTAssertEqual(classifyFailure(error: error, attemptNumber: 1), .retry(backoff: 15))
     }
 
     // MARK: - non-retryable errors → dequeue
 
     func testInternalErrorDequeues() throws {
         let error = KlaviyoAPIError.internalError("something broke")
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
     func testInternalRequestErrorDequeues() throws {
         let underlyingError = NSError(domain: "test", code: 1, userInfo: nil)
         let error = KlaviyoAPIError.internalRequestError(underlyingError)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
     func testUnknownErrorDequeues() throws {
         let underlyingError = NSError(domain: "test", code: 2, userInfo: nil)
         let error = KlaviyoAPIError.unknownError(underlyingError)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
     func testDataEncodingErrorDequeues() throws {
         let request = KlaviyoRequest(endpoint: .createProfile("apiKey", CreateProfilePayload(data: .test)))
         let error = KlaviyoAPIError.dataEncodingError(request)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
     func testInvalidDataDequeues() throws {
         let error = KlaviyoAPIError.invalidData
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 
     func testMissingOrInvalidResponseDequeues() throws {
         let error = KlaviyoAPIError.missingOrInvalidResponse(nil)
-        let decision = classifyFailure(error: error, retryState: .retry(1))
+        let decision = classifyFailure(error: error, attemptNumber: 1)
         XCTAssertEqual(decision, .dequeue)
     }
 }

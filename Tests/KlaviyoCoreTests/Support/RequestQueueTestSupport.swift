@@ -13,6 +13,40 @@
 import Foundation
 import XCTest
 
+// MARK: - RequestQueueTestCase
+
+/// Base class for XCTest cases that drive `RequestQueue`. It owns the global-state setup (shared
+/// stores, `environment`, a settable `wallClock`) that these tests share, and XCTest runs serially.
+class RequestQueueTestCase: XCTestCase {
+    var fileIO: FileIODouble!
+    var wallClock: TestClock!
+
+    override func setUp() {
+        super.setUp()
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
+        QueueStore.resetShared()
+        fileIO = FileIODouble()
+        // Settable wall clock (shared `TestClock`) so `nextAttemptAt` gating is driven by time.
+        wallClock = TestClock(Date(timeIntervalSince1970: 1_234_567_890))
+        environment = fileIO.makeEnvironment()
+        let wallClock = wallClock!
+        environment.date = { wallClock.now() }
+        // An apiKey is required for `flush()` to run (pre-init flushing stays gated).
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "test-api-key"))
+    }
+
+    override func tearDown() {
+        SDKConfigStore.shared.reset()
+        IdentityStore.shared.reset()
+        QueueStore.resetShared()
+        fileIO = nil
+        wallClock = nil
+        environment = KlaviyoEnvironment.test()
+        super.tearDown()
+    }
+}
+
 // MARK: - SendSpy
 
 /// A unified configurable `send` spy that subsumes the four original inline spies:
@@ -64,6 +98,16 @@ final class SendSpy: @unchecked Sendable {
 
     /// The `attemptNumber` from the `RequestAttemptInfo` passed with each `send` call, in order.
     var sentAttempts: [Int] { lock.lock(); defer { lock.unlock() }; return _sentAttempts }
+
+    /// Blocks (bounded) until at least `count` sends have been made.
+    func waitForSends(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sentIds.count >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return sentIds.count >= count
+    }
 
     // MARK: - Send closure
 
@@ -196,4 +240,17 @@ func makeInvalidFieldErrorData(pointer: String) -> Data {
         }]
     }
     """.data(using: .utf8)!
+}
+
+let networkFailure: Result<Data, KlaviyoAPIError> = .failure(
+    .networkError(URLError(.notConnectedToInternet))
+)
+
+/// A high-priority event request; `QueueStore.enqueue` front-inserts it.
+func makePriorityEventRequest(id: String = UUID().uuidString) -> KlaviyoRequest {
+    KlaviyoRequest(
+        id: id,
+        endpoint: .createEvent("test-api-key", CreateEventPayload(data: .init(name: "$opened_push"))),
+        priority: .high
+    )
 }
