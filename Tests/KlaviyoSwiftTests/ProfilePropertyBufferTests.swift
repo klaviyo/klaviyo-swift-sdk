@@ -205,6 +205,49 @@ final class ProfilePropertyBufferTests: XCTestCase {
         XCTAssertEqual(location?.zip, "02101")
     }
 
+    func testTimezoneFoldedIntoLocationOverridingDeviceDefault() async {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
+        IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
+
+        ProfilePropertyBuffer.shared.stage(.timezone, AnyEncodable("America/New_York"))
+
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+
+        let requests = getRequests()
+        XCTAssertEqual(requests.count, 1)
+        guard case let .createProfile(_, payload) = requests[0].endpoint else {
+            return XCTFail("expected .createProfile endpoint")
+        }
+        XCTAssertEqual(payload.data.attributes.location?.timezone, "America/New_York")
+        let properties = payload.data.attributes.properties.value as? [String: Any] ?? [:]
+        XCTAssertNil(properties["timezone"], "timezone must not be sent as a custom property")
+    }
+
+    func testTimezoneFoldedIntoTokenRequestLocation() async {
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "pk-test"))
+        IdentityStore.shared.mutate { $0.anonymousId = "anon-1" }
+        IdentityStore.shared.updatePushToken(PushTokenData(
+            pushToken: "device-abc",
+            pushEnablement: .authorized,
+            pushBackground: .available,
+            deviceData: .init(context: environment.appContextInfo())
+        ))
+
+        ProfilePropertyBuffer.shared.stage(.timezone, AnyEncodable("Europe/London"))
+
+        await ProfilePropertyBuffer.shared.flushIntoQueue()
+
+        let requests = getRequests()
+        XCTAssertEqual(requests.count, 1)
+        guard case let .registerPushToken(_, payload) = requests[0].endpoint else {
+            return XCTFail("expected .registerPushToken endpoint, got \(requests[0].endpoint)")
+        }
+        let embeddedProfile = payload.data.attributes.profile.data.attributes
+        XCTAssertEqual(embeddedProfile.location?.timezone, "Europe/London")
+        let properties = embeddedProfile.properties.value as? [String: Any] ?? [:]
+        XCTAssertNil(properties["timezone"], "timezone must not be sent as a custom property")
+    }
+
     // MARK: - No-op without apiKey
 
     func testFlushWithoutApiKeyIsNoOp() async {

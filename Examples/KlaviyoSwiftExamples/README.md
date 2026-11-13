@@ -42,6 +42,14 @@ A pasted static JWT demonstrates initial personalization. To exercise refresh, o
 
 Use an SDK build containing `registerAuthTokenProvider` and `unregisterAuthTokenProvider`; the CocoaPods example requires those APIs in its installed pods as well.
 
+## Previewing draft in-app forms
+
+To see an unpublished in-app form on a device or simulator, open the form in the Klaviyo in-app form editor, click **Preview on device** and copy the preview token. In any of the example apps, turn on **Forms preview** below the auth token provider toggle (on the welcome screen, or in the footer drawer while logged in) to show the preview token field. Paste the token and tap **Set**. Forms restart in preview mode, and the draft form refreshes about every 4 seconds, so edits saved in the editor show up without restarting the app. Tokens expire after 30 minutes; mint a new one in the editor when that happens.
+
+Turn **Forms preview** off to end the preview; forms restart with published forms. `AppState` in [ContentView.swift](./Shared/ContentView.swift) keeps the token in memory only, passes it to `KlaviyoSDK().startFormsPreview(_:)` and calls `KlaviyoSDK().endFormsPreview()` to stop; the token is never persisted or logged.
+
+You can also skip the paste. Set the editor's deep link to the example app's `klaviyo://` scheme, for example `klaviyo://preview`, and scan the QR code (or open the copied preview link) on the device. The app's `onOpenURL` passes the link to `KlaviyoSDK().handleFormsPreviewLink(_:)`, which reads the `klaviyo-forms-preview` parameter and starts the preview.
+
 ## Authors
 
 Klaviyo Mobile Push Team

@@ -24,7 +24,7 @@ public struct KlaviyoEnvironment {
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
         sdkFeatures: @escaping () -> SdkFeatures? = { nil },
         getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
-        startReachability: @escaping () throws -> Void,
+        startReachability: @escaping () -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
         randomInt: @escaping () -> Int,
@@ -103,7 +103,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
+    private static let networkPathMonitor = NetworkPathMonitor()
 
     public var fileClient: FileClient
     public var dataFromUrl: (URL) throws -> Data
@@ -119,7 +119,7 @@ public struct KlaviyoEnvironment {
     public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
-    public var startReachability: () throws -> Void
+    public var startReachability: () -> Void
     public var stopReachability: () -> Void
     public var reachabilityStatus: () -> Reachability.NetworkStatus?
 
@@ -151,11 +151,7 @@ public struct KlaviyoEnvironment {
                 case .terminated, .backgrounded:
                     stopReachability()
                 case .foregrounded:
-                    do {
-                        try startReachability()
-                    } catch {
-                        emitDeveloperWarning("failure to start reachability notifier")
-                    }
+                    startReachability()
                 case .reachabilityChanged:
                     break
                 }
@@ -265,15 +261,9 @@ public struct KlaviyoEnvironment {
                 return CLLocationManager.authorizationStatus()
             }
         },
-        startReachability: {
-            try reachabilityService?.startNotifier()
-        },
-        stopReachability: {
-            reachabilityService?.stopNotifier()
-        },
-        reachabilityStatus: {
-            reachabilityService?.currentReachabilityStatus
-        },
+        startReachability: { networkPathMonitor.start() },
+        stopReachability: { networkPathMonitor.stop() },
+        reachabilityStatus: { networkPathMonitor.currentStatus },
         randomInt: { Int.random(in: 0...10) },
         raiseFatalError: { msg in
             #if DEBUG

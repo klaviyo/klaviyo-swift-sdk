@@ -81,7 +81,7 @@ struct MenuView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Zipcode: \(appState.userZipcode), Email: \(appState.userEmail)")
-                    .accessibilityHint("Opens auth token provider settings to edit the JWT.")
+                    .accessibilityHint("Opens settings to edit the JWT and the forms preview token.")
                     .accessibilityIdentifier("menu_auth_settings_button")
 
                     Spacer()
@@ -120,7 +120,7 @@ struct MenuView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 20) {
                             HStack {
-                                Text("Auth token provider")
+                                Text("Auth token and forms preview")
                                     .font(.headline)
                                     .accessibilityAddTraits(.isHeader)
 
@@ -133,14 +133,16 @@ struct MenuView: View {
                                         .frame(minWidth: 44, minHeight: 44)
                                         .contentShape(Rectangle())
                                 }
-                                .accessibilityLabel("Close auth token provider settings")
+                                .accessibilityLabel("Close auth token and forms preview settings")
                                 .accessibilityIdentifier("auth_settings_close_button")
                             }
 
                             AuthTokenProviderSettings()
+
+                            FormsPreviewSettings()
                         }
                     }
-                    .frame(maxHeight: 220)
+                    .frame(maxHeight: 320)
                     .padding()
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
                     .padding(.horizontal)

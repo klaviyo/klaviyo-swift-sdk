@@ -3,7 +3,7 @@ import XCTest
 
 final class KlaviyoEndpointTests: XCTestCase {
     /// The revision every endpoint is expected to send. Single place to update at the next bump.
-    private let expectedRevision = "2026-07-15"
+    private let expectedRevision = "2026-10-15"
 
     override func setUpWithError() throws {
         environment = KlaviyoEnvironment.test()
