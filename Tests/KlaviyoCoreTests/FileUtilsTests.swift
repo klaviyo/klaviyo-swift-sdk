@@ -102,6 +102,83 @@ class FileUtilsTests: XCTestCase {
         }
     }
 
+    // MARK: - SwiftPM resource bundle lookup
+
+    func testLoadWrapperSDKConfig_LoadsFromSwiftPMResourceBundle() throws {
+        let mainBundle = try makeTempBundle(named: "Runner.app")
+        try makeTempBundle(
+            named: "klaviyo_flutter_sdk_klaviyo_flutter_sdk.bundle",
+            in: mainBundle.bundleURL,
+            plistName: "klaviyo-sdk-configuration",
+            plistContents: ["klaviyo_sdk_name": "flutter", "klaviyo_sdk_version": "0.5.0"]
+        )
+
+        let result = KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle)
+
+        XCTAssertEqual(result["klaviyo_sdk_name"] as? String, "flutter")
+        XCTAssertEqual(result["klaviyo_sdk_version"] as? String, "0.5.0")
+    }
+
+    func testLoadWrapperSDKConfig_LoadsFromReactNativeSwiftPMResourceBundle() throws {
+        let mainBundle = try makeTempBundle(named: "App.app")
+        try makeTempBundle(
+            named: "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk.bundle",
+            in: mainBundle.bundleURL,
+            plistName: "klaviyo-sdk-configuration",
+            plistContents: ["klaviyo_sdk_name": "react_native", "klaviyo_sdk_version": "2.5.0"]
+        )
+
+        let result = KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle)
+
+        XCTAssertEqual(result["klaviyo_sdk_name"] as? String, "react_native")
+        XCTAssertEqual(result["klaviyo_sdk_version"] as? String, "2.5.0")
+    }
+
+    func testLoadWrapperSDKConfig_IgnoresSwiftPMBundleWithoutPlist() throws {
+        let mainBundle = try makeTempBundle(named: "Runner.app")
+        try makeTempBundle(named: "klaviyo_flutter_sdk_klaviyo_flutter_sdk.bundle", in: mainBundle.bundleURL)
+
+        XCTAssertTrue(KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle).isEmpty)
+    }
+
+    func testLoadWrapperSDKConfig_ReturnsEmptyWhenNoWrapperConfigPresent() throws {
+        let mainBundle = try makeTempBundle(named: "Runner.app")
+
+        XCTAssertTrue(KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle).isEmpty)
+    }
+
+    func testLoadWrapperSDKConfig_PrefersMainBundleRootOverSwiftPMBundle() throws {
+        let mainBundle = try makeTempBundle(
+            named: "Runner.app",
+            plistName: "klaviyo-sdk-configuration",
+            plistContents: ["klaviyo_sdk_name": "react_native", "klaviyo_sdk_version": "2.0.0"]
+        )
+        try makeTempBundle(
+            named: "klaviyo_flutter_sdk_klaviyo_flutter_sdk.bundle",
+            in: mainBundle.bundleURL,
+            plistName: "klaviyo-sdk-configuration",
+            plistContents: ["klaviyo_sdk_name": "flutter", "klaviyo_sdk_version": "0.5.0"]
+        )
+
+        let result = KlaviyoEnvironment.loadWrapperSDKConfig(mainBundle: mainBundle)
+
+        XCTAssertEqual(result["klaviyo_sdk_name"] as? String, "react_native")
+        XCTAssertEqual(result["klaviyo_sdk_version"] as? String, "2.0.0")
+    }
+
+    func testKnownSwiftPMBundleNamesUsePackageTargetForm() {
+        XCTAssertEqual(
+            KlaviyoEnvironment.knownWrapperSwiftPMBundleNames,
+            ["klaviyo_flutter_sdk_klaviyo_flutter_sdk", "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk"]
+        )
+        for bundleName in KlaviyoEnvironment.knownWrapperSwiftPMBundleNames {
+            XCTAssertFalse(
+                bundleName.contains("-"),
+                "SwiftPM bundle name '\(bundleName)' must not contain hyphens"
+            )
+        }
+    }
+
     // MARK: - Performance regression guard
 
     /// Guards against re-introducing a Bundle.allBundles scan, which caused a 3+ second hang.
@@ -115,18 +192,20 @@ class FileUtilsTests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// Creates a minimal on-disk bundle directory in a temp folder, optionally containing a plist.
+    /// Creates a minimal on-disk bundle directory, optionally containing a plist.
+    /// The bundle is created inside `parentURL` when given, otherwise in a fresh temp folder.
     @discardableResult
     private func makeTempBundle(
         named name: String,
+        in parentURL: URL? = nil,
         plistName: String? = nil,
         plistContents: [String: String] = [:]
     ) throws -> Bundle {
-        let tempDir = FileManager.default.temporaryDirectory
+        let parentDir = parentURL ?? FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
 
-        let bundleURL = tempDir.appendingPathComponent(name)
+        let bundleURL = parentDir.appendingPathComponent(name)
         try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: true)
 
         if let plistName {
