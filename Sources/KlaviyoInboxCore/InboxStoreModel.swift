@@ -18,10 +18,28 @@ package enum InboxStoreModel {
         package static let sortTime = "sortTime"
         package static let isRead = "isRead"
         package static let isArchived = "isArchived"
+        /// When `isRead` last changed. Nil until it first does.
+        package static let readUpdatedAt = "readUpdatedAt"
+        /// When `isArchived` last changed. Nil until it first does.
+        package static let archivedUpdatedAt = "archivedUpdatedAt"
+
+        /// The updated-at attribute that goes with a state attribute.
+        static func updatedAtKey(for stateKey: String) -> String {
+            stateKey == isRead ? readUpdatedAt : archivedUpdatedAt
+        }
         package static let payload = "payload"
     }
 
     package static let current: NSManagedObjectModel = makeCurrent()
+
+    /// Every earlier model a shipped build could have written, so the opener can migrate a store written by
+    /// one instead of rebuilding it. Empty while no model has shipped.
+    ///
+    /// To change the schema after release: keep the model being replaced here, as a function that builds it
+    /// exactly as it was, then change `makeCurrent()`. The opener migrates with an inferred mapping, so the
+    /// change must be one Core Data can infer (added optional attributes, renames, and the like); anything
+    /// else needs a custom mapping model in the opener.
+    package static let previousVersions: [NSManagedObjectModel] = []
 
     private static func makeCurrent() -> NSManagedObjectModel {
         let entity = NSEntityDescription()
@@ -34,6 +52,8 @@ package enum InboxStoreModel {
             attribute(Key.sortTime, .dateAttributeType),
             attribute(Key.isRead, .booleanAttributeType, defaultValue: false),
             attribute(Key.isArchived, .booleanAttributeType, defaultValue: false),
+            attribute(Key.readUpdatedAt, .dateAttributeType, optional: true),
+            attribute(Key.archivedUpdatedAt, .dateAttributeType, optional: true),
             attribute(Key.payload, .binaryDataAttributeType)
         ]
         entity.properties = attributes
