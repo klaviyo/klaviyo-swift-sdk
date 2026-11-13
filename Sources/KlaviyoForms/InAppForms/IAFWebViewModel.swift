@@ -78,7 +78,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             var script = document.createElement('script');
             script.id = 'klaviyoJS';
             script.type = 'text/javascript';
-            script.src = '\(apiURL)';
+            script.src = \(String(describing: apiURL).javaScriptStringLiteral);
             document.head.appendChild(script)
         """
 
@@ -88,28 +88,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private var sdkNameWKScript: WKUserScript {
         let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        let sdkNameScript = String.setHeadAttributeScript("data-sdk-name", sdkName)
         return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var sdkVersionWKScript: WKUserScript {
         let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        let sdkVersionScript = String.setHeadAttributeScript("data-sdk-version", sdkVersion)
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var dataEnvironmentWKScript: WKUserScript? {
         guard let formsEnv = environment.formsDataEnvironment()?.rawValue else { return nil }
-        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
-        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        let dataEnvironmentScript = String.setHeadAttributeScript("data-forms-data-environment", formsEnv)
+        return WKUserScript(source: dataEnvironmentScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var handshakeWKScript: WKUserScript {
         let handshakeStringified = IAFNativeBridgeEvent.handshake
-        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        let handshakeScript = String.setHeadAttributeScript("data-native-bridge-handshake", handshakeStringified)
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
@@ -269,13 +269,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        let literal = profileDataString.javaScriptStringLiteral
-        return "document.head.setAttribute('data-klaviyo-profile', \(literal));"
+        return .setHeadAttributeScript("data-klaviyo-profile", profileDataString)
     }
 
     @MainActor
     private func createAuthTokenScript(from token: String) -> String {
-        "document.head.setAttribute('data-klaviyo-jwt', \(token.javaScriptStringLiteral));"
+        .setHeadAttributeScript("data-klaviyo-jwt", token)
     }
 
     /// Writes `newProfileData` to the page. When ``IdentityTransition/classify(previous:next:)``

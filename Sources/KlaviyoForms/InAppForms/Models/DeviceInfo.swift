@@ -153,13 +153,7 @@ struct DeviceInfo: Codable, Equatable {
     /// JS statement that sets the `data-klaviyo-device` attribute on the document head
     /// using this payload. Centralizes the attribute name so injection-time and
     /// runtime-push call sites stay in lockstep.
-    ///
-    /// JSON is a subset of JavaScript — embedding the raw JSON as a JS object expression
-    /// and letting the engine `JSON.stringify` it sidesteps any JS string-literal escaping
-    /// concerns (no need to escape single quotes, backslashes, etc. that might appear
-    /// inside the payload).
     func asAttributeAssignmentScript() -> String {
-        let json = toJsonString()
-        return "document.head.setAttribute('data-klaviyo-device', JSON.stringify(\(json)));"
+        .setHeadAttributeScript("data-klaviyo-device", toJsonString())
     }
 }
