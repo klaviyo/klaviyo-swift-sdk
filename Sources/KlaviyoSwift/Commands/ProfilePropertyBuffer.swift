@@ -33,6 +33,7 @@ final class ProfilePropertyBuffer: @unchecked Sendable {
 
     /// Snapshot-and-clears the staged dict, folds the properties into the appropriate request, and
     /// enqueues it. No-op when the buffer is empty or when `apiKey` is not yet configured.
+    @MainActor
     func flushIntoQueue() async {
         // Snapshot-and-clear under the lock so a concurrent `stage` call cannot race.
         let (snapshot, capturedGeneration) = lock.withLock {

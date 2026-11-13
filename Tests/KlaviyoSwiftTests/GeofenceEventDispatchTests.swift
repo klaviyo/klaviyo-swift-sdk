@@ -37,12 +37,13 @@ final class GeofenceEventDispatchTests: XCTestCase {
     }
 
     /// Seeds the canonical stores + `LifecycleState` to an initialized state under `apiKey`, with a
-    /// couple of queued requests, for the flush/enqueue cases. Returns the live-queue getter.
+    /// couple of queued requests, for the flush/enqueue cases. Returns the live-queue getter and the
+    /// queued requests.
     @discardableResult
     private func seedInitialized(
         apiKey: String,
         withQueuedItems: Bool = false
-    ) -> () -> [KlaviyoRequest] {
+    ) -> (readQueue: () -> [KlaviyoRequest], seeded: [KlaviyoRequest]) {
         let anonymousId = environment.uuid().uuidString
         let identity = ProfileData(anonymousId: anonymousId)
         let tokenData = PushTokenData(
@@ -73,7 +74,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
                 )
             ]
         }
-        return seedTestQueueStore(initial: initial)
+        return (seedTestQueueStore(initial: initial), initial)
     }
 
     // MARK: - Geofence Event Tests
@@ -98,7 +99,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
     func testCreateGeofenceEvent_flushesQueueWhenQueueHasItems() async throws {
         // Given: SDK is initialized with items in the queue
         let apiKey = "MATCHING_KEY"
-        let readQueue = seedInitialized(apiKey: apiKey, withQueuedItems: true)
+        let (readQueue, seeded) = seedInitialized(apiKey: apiKey, withQueuedItems: true)
 
         // Capture what the actor sends through the transport.
         let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
@@ -114,13 +115,13 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Then: the forced flush sends the geofence event and leaves the durable queue empty.
         try await waitForConditionOrFail(
             "the forced flush must send the geofence event and both queued requests"
-        ) { Self.flushSentEverything(sentRequests.value) }
+        ) { Self.flushSent(sentRequests.value, seeded: seeded) }
         XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
     }
 
     func testCreateGeofenceEvent_ignoresEventWhenAPIKeyDoesNotMatch() async throws {
         // Given: SDK is initialized with a different API key
-        let readQueue = seedInitialized(apiKey: "EXISTING_KEY")
+        let readQueue = seedInitialized(apiKey: "EXISTING_KEY").readQueue
 
         // Arm an inverted expectation BEFORE the dispatch so it can never be fulfilled vacuously.
         let unexpectedEnqueue = expectation(description: "queue must not grow")
@@ -183,7 +184,7 @@ final class GeofenceEventDispatchTests: XCTestCase {
     func testCreateGeofenceEvent_enqueuesEventWhenAPIKeyMatches() async throws {
         // Given: SDK is initialized with matching API key and items in the queue
         let apiKey = "MATCHING_KEY"
-        let readQueue = seedInitialized(apiKey: apiKey, withQueuedItems: true)
+        let (readQueue, seeded) = seedInitialized(apiKey: apiKey, withQueuedItems: true)
 
         // Capture what the actor sends through the transport.
         let sentRequests = ThreadSafeBox<[KlaviyoRequest]>([])
@@ -199,21 +200,21 @@ final class GeofenceEventDispatchTests: XCTestCase {
         // Then: the forced flush sends the geofence event and leaves the durable queue empty.
         try await waitForConditionOrFail(
             "the forced flush must send the geofence event and both queued requests"
-        ) { Self.flushSentEverything(sentRequests.value) }
+        ) { Self.flushSent(sentRequests.value, seeded: seeded) }
         XCTAssertTrue(readQueue().isEmpty, "Queue should be empty after a geofence event forces a flush")
         XCTAssertEqual(
             SDKConfigStore.shared.current.apiKey, "MATCHING_KEY", "API key should remain unchanged"
         )
     }
 
-    /// Whether `sent` holds the geofence event carrying `$geofence_id` plus the two requests
-    /// `seedInitialized(apiKey:withQueuedItems:)` queues.
-    private nonisolated static func flushSentEverything(_ sent: [KlaviyoRequest]) -> Bool {
+    /// Whether `sent` holds the geofence event carrying `$geofence_id` and every request in
+    /// `seeded`, the requests `seedInitialized(apiKey:withQueuedItems:)` queued.
+    private nonisolated static func flushSent(_ sent: [KlaviyoRequest], seeded: [KlaviyoRequest]) -> Bool {
         let sentGeofenceEvent = sent.contains { request in
             guard case let .createEvent(_, payload) = request.endpoint else { return false }
             let props = payload.data.attributes.properties.value as? [String: Any]
             return props?["$geofence_id"] as? String == "test-location-id"
         }
-        return sentGeofenceEvent && sent.count >= 3
+        return sentGeofenceEvent && seeded.allSatisfy(sent.contains)
     }
 }
