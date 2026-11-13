@@ -7,8 +7,8 @@
 ///
 /// The result only describes the change; it never decides what to do about it. Each consumer
 /// maps the cases to its own action with an exhaustive `switch` that has no `default`, so adding a
-/// case fails to compile until every consumer has decided. ``discardsAuthToken`` is that mapping
-/// for the auth-token chain.
+/// case fails to compile until every consumer has decided. The auth-token chain's mapping lives in
+/// `Auth/IdentityTransition+AuthToken.swift`.
 ///
 /// "ids" below means email, phone number and external ID. An id is *shared* when it is present on
 /// both sides and equal, and *conflicting* when it is present on both sides and different.
@@ -34,19 +34,6 @@ package enum IdentityTransition: Equatable {
     /// Everything else: both sides have ids but share none, or neither has ids and the anonymous
     /// ID differs.
     case replacement
-
-    /// Whether onsite discards its auth token on this transition.
-    ///
-    /// This is the auth-token chain's mapping only (Auth and Forms). Another consumer, such as a
-    /// future inbox, must write its own exhaustive `switch` rather than reuse this one.
-    package var discardsAuthToken: Bool {
-        switch self {
-        case .anonymousToIdentified, .cleared, .partialConflict, .replacement:
-            true
-        case .initial, .unchanged, .anonymousIdRotated, .additive, .subtractive, .reshaped:
-            false
-        }
-    }
 
     /// Classifies the change from `previous` to `next`.
     ///
