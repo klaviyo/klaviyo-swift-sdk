@@ -86,7 +86,11 @@ package struct InboxCapture {
                 Logger.mobileInboxCapture.warning(
                     "Mobile Inbox store write exceeded \(timeout)s; continuing without waiting."
                 )
-            default:
+            case .captured:
+                Logger.mobileInboxCapture.debug("Push captured to Mobile Inbox.")
+            case .duplicate:
+                Logger.mobileInboxCapture.debug("Push already in Mobile Inbox (duplicate transmission); not stored again.")
+            case .skipped:
                 break
             }
         }
