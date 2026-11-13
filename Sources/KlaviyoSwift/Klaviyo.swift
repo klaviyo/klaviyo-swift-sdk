@@ -297,7 +297,7 @@ public struct KlaviyoSDK {
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -317,13 +317,16 @@ public struct KlaviyoSDK {
             return true
         }
 
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
+
         // Detect if this is an action button tap
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             // Regular notification body tap
             create(event: Event(name: ._openedPush, properties: properties, priority: .high))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: nil)
         }
 
         Task { @MainActor in
@@ -349,7 +352,7 @@ public struct KlaviyoSDK {
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -369,16 +372,41 @@ public struct KlaviyoSDK {
             return true
         }
 
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
+
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             create(event: Event(name: ._openedPush, properties: properties, priority: .high))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
             completionHandler()
         }
         return true
+    }
+
+    /// The notification's forms preview token and its properties with the token removed, or `nil`
+    /// when the properties can't be read. Has no side effects; see ``startFormsPreview(token:)``.
+    private func formsPreview(
+        from notificationResponse: UNNotificationResponse
+    ) -> (token: String?, properties: [String: Any])? {
+        guard let properties = notificationResponse.klaviyoProperties else { return nil }
+        return notificationResponse.klaviyoFormsPreview(in: properties)
+    }
+
+    /// Starts a forms preview session with `token` through the shared ``FormsPreviewTokenStore``,
+    /// restarting registered forms; without KlaviyoForms the token is held and has no effect.
+    /// A `nil` token does nothing, and a malformed one logs a warning that omits it. Called only
+    /// for a real open, after the dismiss and auto-track checks.
+    private func startFormsPreview(token: String?) {
+        guard let token else { return }
+        if let validated = FormsPreviewTokenStore.validate(token), validated == token {
+            Task { @MainActor in FormsPreviewTokenStore.shared.startPreview(validated) }
+        } else if #available(iOS 14.0, *) {
+            Logger.notifications.warning("Ignoring opened push with a malformed forms preview token")
+        }
     }
 
     /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
@@ -407,10 +435,11 @@ public struct KlaviyoSDK {
     /// route through `DeepLinkManager.openExternalURL` and intentionally bypass the closure.
     private func resolveOpenAction(
         for notificationResponse: UNNotificationResponse,
+        properties: [String: Any],
         deepLinkHandler: ((URL) -> Void)?
     ) {
-        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL {
-            if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL(in: properties) {
+            if notificationResponse.klaviyoWebUrl(in: properties) != nil, #available(iOS 14.0, *) {
                 Logger.notifications.warning(
                     "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
                 )
@@ -422,7 +451,7 @@ public struct KlaviyoSDK {
             } else {
                 Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
             }
-        } else if let webUrl = notificationResponse.klaviyoWebUrl {
+        } else if let webUrl = notificationResponse.klaviyoWebUrl(in: properties) {
             Task { @MainActor in await DeepLinkManager.openExternalURL(webUrl) }
         }
     }
@@ -455,7 +484,7 @@ public struct KlaviyoSDK {
             actionProperties["Button Action"] = actionType.displayName()
         }
 
-        if let url = notificationResponse.actionButtonURL {
+        if let url = notificationResponse.actionButtonURL(in: properties) {
             switch notificationResponse.actionButtonType {
             case .deepLink:
                 actionProperties["Button Link"] = url.absoluteString

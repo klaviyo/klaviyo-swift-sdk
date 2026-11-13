@@ -62,6 +62,8 @@ struct LoginView: View {
                                 .accessibilityIdentifier("login_email_text_field")
 
                             AuthTokenProviderSettings()
+
+                            FormsPreviewSettings()
                         }
                     }
 
@@ -156,6 +158,44 @@ struct AuthTokenProviderSettings: View {
                     .frame(height: 44)
                     .accessibilityLabel("JWT")
                     .accessibilityIdentifier("auth_token_jwt_secure_field")
+            }
+        }
+    }
+}
+
+struct FormsPreviewSettings: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Forms preview", isOn: $appState.isFormsPreviewEnabled)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: appState.isFormsPreviewEnabled) {
+                    appState.setFormsPreview(enabled: $0)
+                }
+                .accessibilityIdentifier("forms_preview_toggle")
+
+            if appState.isFormsPreviewEnabled {
+                HStack {
+                    TextField("Paste a forms preview token", text: $appState.formsPreviewToken)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.asciiCapable)
+                        .submitLabel(.done)
+                        .onSubmit { appState.applyFormsPreviewToken() }
+                        .font(.body)
+                        .lineLimit(1)
+                        .frame(height: 44)
+                        .accessibilityIdentifier("forms_preview_token_text_field")
+
+                    Button("Set") {
+                        appState.applyFormsPreviewToken()
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityHint("Loads draft forms with the pasted preview token.")
+                    .accessibilityIdentifier("forms_preview_set_button")
+                }
             }
         }
     }
