@@ -36,13 +36,19 @@ extension InboxStore {
     /// One page of the company's messages, newest first by `sortTime`, then `transmissionID`.
     /// Pages by keyset, so a message captured or removed between pages never shifts a page boundary.
     ///
+    /// `isRead` and `isArchived` narrow the page to messages in that state; nil matches either. Both are
+    /// applied by the fetch, so a page is always `limit` matching messages when that many exist, and the
+    /// cursor it returns continues the same filtered walk.
+    ///
     /// A stored row that cannot be decoded, such as one written by an older `InboxRecord`, is skipped and
     /// logged, so it cannot keep the rest of the inbox from loading. The page can then hold fewer than
     /// `limit` messages while `next` is still set.
     package func page(
         companyID: String,
         limit: Int,
-        after: InboxStoreCursor?
+        after: InboxStoreCursor?,
+        isRead: Bool? = nil,
+        isArchived: Bool? = nil
     ) async throws -> InboxStorePage {
         guard limit > 0 else { return InboxStorePage(messages: [], next: nil) }
         return try await perform { context in
@@ -58,6 +64,12 @@ extension InboxStore {
                     Key.transmissionID, after.transmissionID
                 ))
             }
+            if let isRead {
+                predicates.append(NSPredicate(format: "%K == %@", Key.isRead, NSNumber(value: isRead)))
+            }
+            if let isArchived {
+                predicates.append(NSPredicate(format: "%K == %@", Key.isArchived, NSNumber(value: isArchived)))
+            }
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
             request.sortDescriptors = [
                 NSSortDescriptor(key: Key.sortTime, ascending: false),
@@ -71,6 +83,21 @@ extension InboxStore {
             let next = fetched.count > limit ? try objects.last.map(Self.cursor(after:)) : nil
             let messages = objects.compactMap { Self.decodedOrSkipped($0) }
             return InboxStorePage(messages: messages, next: next)
+        }
+    }
+
+    /// How many of the company's messages are unread and not archived, the count an inbox badge shows.
+    /// Counted by the store, so no message is loaded to answer.
+    package func unreadCount(companyID: String) async throws -> Int {
+        try await perform { context in
+            defer { context.reset() }
+            let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "%K == %@", InboxStoreModel.Key.companyID, companyID),
+                NSPredicate(format: "%K == %@", InboxStoreModel.Key.isRead, NSNumber(value: false)),
+                NSPredicate(format: "%K == %@", InboxStoreModel.Key.isArchived, NSNumber(value: false))
+            ])
+            return try context.count(for: request)
         }
     }
 
