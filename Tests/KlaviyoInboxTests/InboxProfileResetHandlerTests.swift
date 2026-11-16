@@ -35,8 +35,10 @@ struct InboxProfileResetHandlerTests {
             if try await store.message(id: "tm-1") == nil { break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        #expect(try await store.message(id: "tm-1") == nil)
-        #expect(try await store.message(id: "other-1") == nil)
+        let first = try await store.message(id: "tm-1")
+        let other = try await store.message(id: "other-1")
+        #expect(first == nil)
+        #expect(other == nil)
     }
 }
 

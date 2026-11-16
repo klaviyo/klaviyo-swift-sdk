@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import OSLog
 import KlaviyoCore
 import KlaviyoInboxCore
+import OSLog
 
 /// Clears the inbox when the app resets the profile, so one profile's messages are never shown to the
 /// next. `KlaviyoSwift` finds this class by its Objective-C name, which must match
