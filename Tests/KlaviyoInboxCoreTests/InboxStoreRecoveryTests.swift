@@ -274,14 +274,16 @@ struct InboxStoreRecoveryTests {
         #expect(files == [InboxStore.storeFileName])
     }
 
+    /// A store from a newer build (an extra attribute) is migrated down by Core Data's inferred mapping, so
+    /// its messages are kept. Only the attribute this build does not know is dropped.
     @Test
-    func aStoreFromADifferentModelIsRebuilt() async throws {
+    func aStoreFromANewerModelKeepsItsMessages() async throws {
         try writeStore(model: newerModel(), transmissionIDs: ["tm-1"])
         let store = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
         #expect(result == .captured)
         let old = try await store.message(id: "tm-1")
-        #expect(old == nil)
+        #expect(old != nil)
         let files = try sqliteFiles()
         #expect(files == [InboxStore.storeFileName])
     }

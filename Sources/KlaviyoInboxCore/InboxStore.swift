@@ -28,7 +28,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     let maxMessages: Int
     let changeSignal: InboxChangeSignaling
     let now: @Sendable () -> Date
-    let previousModels: [NSManagedObjectModel]
 
     /// One coordinator and one private-queue context for the life of the store. Creating them does no
     /// I/O; the persistent store is added on the context's queue the first time it is needed.
@@ -55,14 +54,12 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
         appGroup: InboxAppGroup,
         maxMessages: Int = InboxStore.defaultMaxMessages,
         changeSignal: InboxChangeSignaling,
-        now: @escaping @Sendable () -> Date = { Date() },
-        previousModels: [NSManagedObjectModel] = InboxStoreModel.previousVersions
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.appGroup = appGroup
         self.maxMessages = maxMessages
         self.changeSignal = changeSignal
         self.now = now
-        self.previousModels = previousModels
         stack = Stack(model: InboxStoreModel.current)
     }
 
@@ -206,7 +203,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             }
             throw InboxStoreError.unavailable
         }
-        let opener = InboxStoreOpener(previousModels: previousModels)
+        let opener = InboxStoreOpener()
         try opener.open(stack.coordinator, at: directory.appendingPathComponent(Self.storeFileName))
         stack.isLoaded = true
     }

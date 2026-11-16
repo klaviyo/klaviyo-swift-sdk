@@ -15,13 +15,10 @@ import SQLite3
 /// lost. Any other failure leaves the files alone and fails the open, so the next capture tries again:
 /// losing one capture is better than deleting messages that may be fine.
 ///
-/// A store written by one of `previousModels` is migrated to the current model first, with an inferred
-/// mapping, so a schema change that Core Data can infer keeps the user's messages. A store whose model is
-/// in neither place, such as one written by a newer build, is still rebuilt.
+/// A store written by an earlier model is migrated by Core Data while it opens, with an inferred mapping
+/// (see `addStore`), so a schema change that Core Data can infer keeps the user's messages. A change it
+/// cannot infer fails the open and leaves the files alone.
 struct InboxStoreOpener {
-    /// Models earlier builds shipped, newest first. See `InboxStoreModel.previousVersions`.
-    var previousModels: [NSManagedObjectModel] = []
-
     /// The store file and the files SQLite keeps beside it in WAL mode.
     private static let sidecarSuffixes = ["", "-wal", "-shm"]
     private static let protection = FileProtectionType.completeUntilFirstUserAuthentication
@@ -60,17 +57,6 @@ struct InboxStoreOpener {
     private func openLocked(_ coordinator: NSPersistentStoreCoordinator, at url: URL, holdsLock: Bool) throws {
         let started = ProcessInfo.processInfo.systemUptime
         protectDirectory(of: url)
-        // Only under the lock, like a rebuild: it replaces the shared store file. It is also outside the
-        // `do` below on purpose. A failed migration leaves a healthy store from an earlier model, which
-        // the open would report as incompatible and the catch would then delete. Failing the open keeps
-        // the messages for the next attempt.
-        if holdsLock {
-            do {
-                try migrateIfNeeded(to: coordinator.managedObjectModel, at: url)
-            } catch {
-                throw InboxStoreError.underlying(error)
-            }
-        }
         do {
             try openRetryingTransientFailures(coordinator, at: url)
         } catch {
@@ -125,6 +111,9 @@ struct InboxStoreOpener {
 
     private func addStore(to coordinator: NSPersistentStoreCoordinator, at url: URL) throws {
         let options: [AnyHashable: Any] = [
+            // Core Data reads the store's own model out of the file, so a code-built model needs no bundle.
+            NSMigratePersistentStoresAutomaticallyOption: true,
+            NSInferMappingModelAutomaticallyOption: true,
             // The extension must be able to write while the device is locked.
             NSPersistentStoreFileProtectionKey: Self.protection,
             NSSQLitePragmasOption: [
@@ -148,59 +137,6 @@ struct InboxStoreOpener {
             [.protectionKey: Self.protection],
             ofItemAtPath: url.deletingLastPathComponent().path
         )
-    }
-
-    // MARK: - Migration
-
-    /// Brings a store written by a known earlier model up to `destination`. Does nothing for a store that
-    /// is missing, already current, or from a model it does not know. The migrated copy is built beside the
-    /// store and swapped in only once complete, so a failure leaves the original untouched and is thrown.
-    private func migrateIfNeeded(to destination: NSManagedObjectModel, at url: URL) throws {
-        guard FileManager.default.fileExists(atPath: url.path),
-              let metadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(
-                  ofType: NSSQLiteStoreType, at: url, options: nil
-              ),
-              !destination.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata),
-              let source = previousModels.first(where: {
-                  $0.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata)
-              })
-        else { return }
-        do {
-            let mapping = try NSMappingModel.inferredMappingModel(forSourceModel: source, destinationModel: destination)
-            let migrated = url.deletingLastPathComponent().appendingPathComponent("klaviyo-inbox-migrating.sqlite")
-            defer { Self.removeStoreFiles(at: migrated) }
-            Self.removeStoreFiles(at: migrated)
-            try NSMigrationManager(sourceModel: source, destinationModel: destination).migrateStore(
-                from: url,
-                sourceType: NSSQLiteStoreType,
-                options: nil,
-                with: mapping,
-                toDestinationURL: migrated,
-                destinationType: NSSQLiteStoreType,
-                destinationOptions: nil
-            )
-            try NSPersistentStoreCoordinator(managedObjectModel: destination).replacePersistentStore(
-                at: url,
-                destinationOptions: nil,
-                withPersistentStoreFrom: migrated,
-                sourceOptions: nil,
-                ofType: NSSQLiteStoreType
-            )
-            if #available(iOS 14.0, *) { Logger.mobileInboxStore.info("Store migrated to the current model.") }
-        } catch {
-            if #available(iOS 14.0, *) {
-                Logger.mobileInboxStore.error(
-                    "Store migration failed (error \(InboxStoreError.diagnosticCode(for: error)))."
-                )
-            }
-            throw error
-        }
-    }
-
-    private static func removeStoreFiles(at url: URL) {
-        for suffix in sidecarSuffixes {
-            try? FileManager.default.removeItem(atPath: url.path + suffix)
-        }
     }
 
     // MARK: - Rebuild

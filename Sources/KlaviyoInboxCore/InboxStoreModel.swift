@@ -33,14 +33,9 @@ package enum InboxStoreModel {
 
     package static let current: NSManagedObjectModel = makeCurrent()
 
-    /// Every earlier model a shipped build could have written, so the opener can migrate a store written by
-    /// one instead of rebuilding it. Empty while no model has shipped.
-    ///
-    /// To change the schema after release: keep the model being replaced here, as a function that builds it
-    /// exactly as it was, then change `makeCurrent()`. The opener migrates with an inferred mapping, so the
-    /// change must be one Core Data can infer (added optional attributes, renames, and the like); anything
-    /// else needs a custom mapping model in the opener.
-    package static let previousVersions: [NSManagedObjectModel] = []
+    // To change the schema after release: edit `makeCurrent()`. The opener lets Core Data migrate an older
+    // store with an inferred mapping, so the change must be one Core Data can infer (added optional
+    // attributes, renames, and the like). Anything else needs a custom mapping model in the opener.
 
     private static func makeCurrent() -> NSManagedObjectModel {
         let entity = NSEntityDescription()
