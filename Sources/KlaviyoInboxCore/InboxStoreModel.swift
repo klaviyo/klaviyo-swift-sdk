@@ -28,11 +28,6 @@ package enum InboxStoreModel {
         /// stored from the server will carry one.
         package static let expiresAt = "expiresAt"
 
-        /// The updated-at attribute that goes with a state attribute.
-        static func updatedAtKey(for stateKey: String) -> String {
-            stateKey == isRead ? readUpdatedAt : archivedUpdatedAt
-        }
-
         package static let payload = "payload"
     }
 

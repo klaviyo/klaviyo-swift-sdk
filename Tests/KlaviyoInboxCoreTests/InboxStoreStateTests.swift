@@ -223,25 +223,48 @@ struct InboxStoreStateTests {
         #expect(afterChange?.expiresAt == expiry)
     }
 
-    /// `apply` runs inside a caller's transaction, so it must leave its change for the caller to save or
+    /// `setState` runs inside a caller's transaction, so it must leave its change for the caller to save or
     /// roll back with the rest of its work.
     @Test
-    func applyLeavesTheChangeUncommittedForTheCaller() async throws {
+    func setStateLeavesTheChangeUncommittedForTheCaller() async throws {
         let store = await makeStoreWithMessage()
         let changed = try await store.perform { context in
             defer { context.reset() }
-            let change = StateChange(
-                value: true,
-                key: InboxStoreModel.Key.isRead,
-                changedAt: InboxStoreFixtures.baseDate
-            )
-            let changed = try InboxStore.apply(change, id: "tm-1", companyID: company, in: context)
+            let fetched = try InboxStore.message(id: "tm-1", companyID: company, in: context)
+            let object = try #require(fetched)
+            let changed = object.setState(true, for: .read, at: InboxStoreFixtures.baseDate)
             context.rollback()
             return changed
         }
-        #expect(changed == .changed)
+        #expect(changed)
         let message = try await store.message(id: "tm-1")
         #expect(message?.isRead == false)
+    }
+
+    @Test
+    func setStateStampsTheFieldAndTheCatchAllWithOneTimeAndOnlyOnAChange() async throws {
+        let store = await makeStoreWithMessage()
+        let date = InboxStoreFixtures.baseDate
+        let results = try await store.perform { context in
+            defer { context.reset() }
+            let fetched = try InboxStore.message(id: "tm-1", companyID: company, in: context)
+            let object = try #require(fetched)
+            let noOp = object.setState(false, for: .archived, at: date)
+            let first = object.setState(true, for: .archived, at: date)
+            let repeated = object.setState(true, for: .archived, at: date.addingTimeInterval(60))
+            let stamps = [
+                object.value(forKey: InboxStoreModel.Key.archivedUpdatedAt) as? Date,
+                object.value(forKey: InboxStoreModel.Key.updatedAt) as? Date,
+                object.value(forKey: InboxStoreModel.Key.readUpdatedAt) as? Date
+            ]
+            return (noOp, first, repeated, stamps)
+        }
+        #expect(!results.0)
+        #expect(results.1)
+        #expect(!results.2)
+        #expect(results.3[0] == date)
+        #expect(results.3[1] == date)
+        #expect(results.3[2] == nil)
     }
 
     @Test

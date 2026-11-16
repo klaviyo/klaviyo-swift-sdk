@@ -17,11 +17,39 @@ package enum InboxStateUpdate: Equatable {
     package var messageExists: Bool { self != .missing }
 }
 
-/// A state change to apply: the new value of `key` (`isRead` or `isArchived`), and when it was made.
-struct StateChange {
-    var value: Bool
-    var key: String
-    var changedAt: Date
+/// A message state a user can change. Each field carries its own updated-at, so the pairing lives here.
+enum InboxStateField {
+    case read
+    case archived
+
+    /// The Bool attribute that holds the state.
+    var key: String {
+        switch self {
+        case .read: InboxStoreModel.Key.isRead
+        case .archived: InboxStoreModel.Key.isArchived
+        }
+    }
+
+    /// The date attribute that records when the state last changed.
+    var updatedAtKey: String {
+        switch self {
+        case .read: InboxStoreModel.Key.readUpdatedAt
+        case .archived: InboxStoreModel.Key.archivedUpdatedAt
+        }
+    }
+}
+
+extension NSManagedObject {
+    /// Sets `field` to `value` and stamps its updated-at and the catch-all `updatedAt` with `date`, the same
+    /// time for both so Phase 1b can tell which side changed last. Returns whether anything changed: a value
+    /// the message already has is a no-op that stamps nothing. The change is left unsaved for the caller.
+    func setState(_ value: Bool, for field: InboxStateField, at date: Date) -> Bool {
+        guard self.value(forKey: field.key) as? Bool != value else { return false }
+        setValue(value, forKey: field.key)
+        setValue(date, forKey: field.updatedAtKey)
+        setValue(date, forKey: InboxStoreModel.Key.updatedAt)
+        return true
+    }
 }
 
 extension InboxStore {
@@ -29,46 +57,36 @@ extension InboxStore {
     /// reports `unchanged`.
     @discardableResult
     package func setRead(_ isRead: Bool, id: String, companyID: String) async throws -> InboxStateUpdate {
-        try await set(isRead, forKey: InboxStoreModel.Key.isRead, id: id, companyID: companyID)
+        try await set(isRead, for: .read, id: id, companyID: companyID)
     }
 
     /// Sets whether the message is archived, independently of whether it is read. Setting a message to the
     /// value it already has is a no-op that reports `unchanged`.
     @discardableResult
     package func setArchived(_ isArchived: Bool, id: String, companyID: String) async throws -> InboxStateUpdate {
-        try await set(isArchived, forKey: InboxStoreModel.Key.isArchived, id: id, companyID: companyID)
+        try await set(isArchived, for: .archived, id: id, companyID: companyID)
     }
 
     private func set(
         _ value: Bool,
-        forKey key: String,
+        for field: InboxStateField,
         id: String,
         companyID: String
     ) async throws -> InboxStateUpdate {
-        let change = StateChange(value: value, key: key, changedAt: now())
-        let update = try await perform { context in
+        let changedAt = now()
+        let update = try await perform { context -> InboxStateUpdate in
             defer { context.reset() }
-            let update = try Self.apply(change, id: id, companyID: companyID, in: context)
-            if update == .changed { try context.save() }
-            return update
+            guard let object = try Self.message(id: id, companyID: companyID, in: context) else { return .missing }
+            guard object.setState(value, for: field, at: changedAt) else { return .unchanged }
+            try context.save()
+            return .changed
         }
         if update == .changed { changeSignal.post() }
         return update
     }
 
-    /// The change a setter makes, on a context the caller owns, so a caller that needs more in the
-    /// same transaction can run it inside its own `perform`. Reports what it found, and leaves
-    /// the change unsaved: Core Data saves every pending change in a context, so the caller saves once its
-    /// other work has succeeded.
-    ///
-    /// A change also stamps the matching updated-at, and the catch-all `updatedAt`, with `changedAt`, so
-    /// Phase 1b can tell which side changed last. A no-op stamps nothing.
-    static func apply(
-        _ change: StateChange,
-        id: String,
-        companyID: String,
-        in context: NSManagedObjectContext
-    ) throws -> InboxStateUpdate {
+    /// The managed object for a company's message, or nil if there is none.
+    static func message(id: String, companyID: String, in context: NSManagedObjectContext) throws -> NSManagedObject? {
         typealias Key = InboxStoreModel.Key
         let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
         request.predicate = NSPredicate(
@@ -76,11 +94,6 @@ extension InboxStore {
             Key.transmissionID, id, Key.companyID, companyID
         )
         request.fetchLimit = 1
-        guard let object = try context.fetch(request).first else { return .missing }
-        guard object.value(forKey: change.key) as? Bool != change.value else { return .unchanged }
-        object.setValue(change.value, forKey: change.key)
-        object.setValue(change.changedAt, forKey: InboxStoreModel.Key.updatedAtKey(for: change.key))
-        object.setValue(change.changedAt, forKey: InboxStoreModel.Key.updatedAt)
-        return .changed
+        return try context.fetch(request).first
     }
 }
