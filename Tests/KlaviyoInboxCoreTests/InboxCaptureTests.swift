@@ -96,12 +96,14 @@ struct InboxCaptureTests {
 
     @Test
     func slowSinkTimesOutWithoutWaitingForTheWrite() async {
-        let sink = SlowSink(delay: 5)
+        let sink = SlowSink(delay: 60)
         let capture = InboxCapture(isAuthorized: { true }, sink: sink, now: { [now] in now }, timeout: 0.05)
         let start = Date()
         let result = await capture.capture(userInfo: klaviyoPush)
         #expect(result == .timedOut)
-        #expect(Date().timeIntervalSince(start) < 2)
+        // Far under the sink's 60 s, and far over the 0.05 s timeout: a stalled CI runner has to stall for
+        // many seconds to fail this, but a capture that waited for the sink would take a minute.
+        #expect(Date().timeIntervalSince(start) < 30)
     }
 
     @Test
