@@ -162,7 +162,7 @@ struct InboxStoreStateTests {
         let store = await makeStoreWithMessage()
         let message = try await store.message(id: "tm-1")
         #expect(message?.updatedAt == nil)
-        #expect(message?.expiredAt == nil)
+        #expect(message?.expiresAt == nil)
     }
 
     @Test
@@ -197,30 +197,30 @@ struct InboxStoreStateTests {
     }
 
     @Test
-    func aStateChangeNeverTouchesExpiredAt() async throws {
+    func aStateChangeNeverTouchesExpiresAt() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
         try await store.setRead(true, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(message?.expiredAt == nil)
+        #expect(message?.expiresAt == nil)
     }
 
-    /// Nothing sets `expiredAt` yet; Phase 1b stores it with a server message. This writes it the way that
+    /// Nothing sets `expiresAt` yet; Phase 1b stores it with a server message. This writes it the way that
     /// work will, to show the column holds a value and survives a later state change.
     @Test
-    func aStoredExpiredAtReadsBackAndSurvivesAStateChange() async throws {
+    func aStoredExpiresAtReadsBackAndSurvivesAStateChange() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
         let expiry = InboxStoreFixtures.baseDate.addingTimeInterval(86_400)
         try await store.perform { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
             let object = try #require(context.fetch(request).first)
-            object.setValue(expiry, forKey: InboxStoreModel.Key.expiredAt)
+            object.setValue(expiry, forKey: InboxStoreModel.Key.expiresAt)
             try context.save()
         }
         let stored = try await store.message(id: "tm-1")
         try await store.setRead(true, id: "tm-1", companyID: company)
         let afterChange = try await store.message(id: "tm-1")
-        #expect(stored?.expiredAt == expiry)
-        #expect(afterChange?.expiredAt == expiry)
+        #expect(stored?.expiresAt == expiry)
+        #expect(afterChange?.expiresAt == expiry)
     }
 
     /// `apply` runs inside a caller's transaction, so it must leave its change for the caller to save or

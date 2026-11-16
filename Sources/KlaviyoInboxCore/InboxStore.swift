@@ -174,7 +174,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             readUpdatedAt: object.value(forKey: Key.readUpdatedAt) as? Date,
             archivedUpdatedAt: object.value(forKey: Key.archivedUpdatedAt) as? Date,
             updatedAt: object.value(forKey: Key.updatedAt) as? Date,
-            expiredAt: object.value(forKey: Key.expiredAt) as? Date
+            expiresAt: object.value(forKey: Key.expiresAt) as? Date
         )
     }
 

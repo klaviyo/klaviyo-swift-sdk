@@ -25,7 +25,7 @@ struct InboxStoreMigrationTests {
             InboxStoreModel.Key.readUpdatedAt,
             InboxStoreModel.Key.archivedUpdatedAt,
             InboxStoreModel.Key.updatedAt,
-            InboxStoreModel.Key.expiredAt
+            InboxStoreModel.Key.expiresAt
         ]
         entity.properties = entity.properties.filter { !dropped.contains($0.name) }
         return copy
@@ -65,7 +65,7 @@ struct InboxStoreMigrationTests {
             #expect(message?.readUpdatedAt == nil)
             #expect(message?.archivedUpdatedAt == nil)
             #expect(message?.updatedAt == nil)
-            #expect(message?.expiredAt == nil)
+            #expect(message?.expiresAt == nil)
             #expect(message?.isRead == false)
         }
         let changed = try await store.setRead(true, id: "tm-1", companyID: company)

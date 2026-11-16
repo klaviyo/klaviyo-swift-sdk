@@ -26,7 +26,7 @@ package enum InboxStoreModel {
         package static let updatedAt = "updatedAt"
         /// When the message expires. Nil means it does not. A captured push has none, so only a message
         /// stored from the server will carry one.
-        package static let expiredAt = "expiredAt"
+        package static let expiresAt = "expiresAt"
 
         /// The updated-at attribute that goes with a state attribute.
         static func updatedAtKey(for stateKey: String) -> String {
@@ -61,7 +61,7 @@ package enum InboxStoreModel {
             attribute(Key.readUpdatedAt, .dateAttributeType, optional: true),
             attribute(Key.archivedUpdatedAt, .dateAttributeType, optional: true),
             attribute(Key.updatedAt, .dateAttributeType, optional: true),
-            attribute(Key.expiredAt, .dateAttributeType, optional: true),
+            attribute(Key.expiresAt, .dateAttributeType, optional: true),
             attribute(Key.payload, .binaryDataAttributeType)
         ]
         entity.properties = attributes
