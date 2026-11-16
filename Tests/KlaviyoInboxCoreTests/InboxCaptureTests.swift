@@ -101,8 +101,6 @@ struct InboxCaptureTests {
         let start = Date()
         let result = await capture.capture(userInfo: klaviyoPush)
         #expect(result == .timedOut)
-        // Far under the sink's 60 s, and far over the 0.05 s timeout: a stalled CI runner has to stall for
-        // many seconds to fail this, but a capture that waited for the sink would take a minute.
         #expect(Date().timeIntervalSince(start) < 30)
     }
 

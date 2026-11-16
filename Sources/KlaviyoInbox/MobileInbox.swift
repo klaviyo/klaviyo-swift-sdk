@@ -85,8 +85,7 @@ extension MobileInbox {
 }
 
 extension MobileInbox {
-    /// Removes a message from this device. The removal is local only: it does not delete the message
-    /// anywhere else, and a later sync may bring it back.
+    /// Removes a message from this device.
     ///
     /// - Returns: Whether this device had a message with `id` for the current company. `false` when it
     ///   had none, or when the SDK is not initialized yet.
@@ -96,8 +95,7 @@ extension MobileInbox {
         try await clear(ids: [id]) == 1
     }
 
-    /// Removes messages from this device. The removal is local only: it does not delete them anywhere
-    /// else, and a later sync may bring them back.
+    /// Removes messages from this device.
     ///
     /// The inbox is also cleared in full, for every company, whenever the app calls `resetProfile()`, so
     /// one profile's messages are never shown to the next.
