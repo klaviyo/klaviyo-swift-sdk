@@ -1,0 +1,15 @@
+name: Mark stale pull requests
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 17 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/stale@ecm/mage-1726/shared-ci

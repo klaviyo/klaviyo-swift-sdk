@@ -1,0 +1,29 @@
+name: Promotion Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  promotion-check:
+    name: Promotion check
+    if: github.event.action != 'edited' || github.event.changes.base != null
+    runs-on: ubuntu-latest
+    concurrency:
+      group: promotion-check-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/promotion-check@ecm/mage-1726/shared-ci
+        with:
+          bump-files: |
+            Sources/KlaviyoCore/Utils/Version.swift
+            *.podspec
+            Tests/KlaviyoCoreTests/NetworkSessionTests.swift
+            Tests/**/__Snapshots__/**
+            Examples/KlaviyoSwiftExamples/CocoapodsExample/Podfile
+            Examples/KlaviyoSwiftExamples/CocoapodsExample/CocoapodsExample.xcodeproj/project.pbxproj
+            Examples/KlaviyoSwiftExamples/SPMExample/SPMExample.xcodeproj/project.pbxproj

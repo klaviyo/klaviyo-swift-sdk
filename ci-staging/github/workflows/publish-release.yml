@@ -1,0 +1,267 @@
+# Publishes an SDK release behind a `release` environment approval.
+#
+# prepare: shared release-preflight.yml (klaviyo-react-native-sdk): branch, tag, version and CI
+#          checks, then finds or creates the draft GitHub release and posts the pending Slack message.
+# publish: after approval, publishes the draft (creating the tag) and dispatches the downstream
+#          workflows at the tag. Releases published with GITHUB_TOKEN don't fire `release: published`
+#          or tag-push triggers, so downstream workflows are started with workflow_dispatch.
+# stopped: posts to Slack when the approval is rejected or the run is cancelled (skipped on dry_run).
+#
+# Usage: gh workflow run publish-release.yml -f version=X.Y.Z[-suffix] [-f ref=<branch-or-sha>]
+#        [-f dry_run=true] [-f skip_ci_check=true]
+# A version with a suffix (e.g. 5.6.0-beta.1) is published as a prerelease and never marked latest.
+# dry_run runs every check and waits for approval, but creates no draft, release or tag.
+
+name: Publish Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release (X.Y.Z or X.Y.Z-suffix for a prerelease)
+        required: true
+        type: string
+      ref:
+        description: Branch (master or rel/*) or commit to release (defaults to the default branch)
+        required: false
+        type: string
+      dry_run:
+        description: 'Dry run: run every check and the approval; create no draft, release or tag'
+        required: false
+        default: false
+        type: boolean
+      skip_ci_check:
+        description: Skip the iOS SDK CI check (branch, tag and version checks still run)
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
+  GH_REPO: ${{ github.repository }}
+  VERSION: ${{ inputs.version }}
+  PRERELEASE: ${{ contains(inputs.version, '-') }}
+  SLACK_USERNAME: Swift SDK
+  SLACK_ICON_EMOJI: ':merlin-orb-swift:'
+
+jobs:
+  prepare:
+    name: Prepare release draft
+    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/release-preflight.yml@ecm/mage-1726/shared-ci
+    permissions:
+      contents: write
+      actions: read
+      pull-requests: read
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      ref: ${{ inputs.ref }}
+      dry-run: ${{ inputs.dry_run == true }}
+      skip-ci-check: ${{ inputs.skip_ci_check == true }}
+      required-workflows: iOS SDK CI
+      ci-event: ''
+      ignore-workflows: |
+        Publish Release
+        Release Branch
+        Mark stale pull requests
+      sdk-checks: ./scripts/check-version.sh "$VERSION"
+      sdk-name: Swift SDK
+      slack-username: Swift SDK
+      slack-icon-emoji: ':merlin-orb-swift:'
+      approval-instructions: Review the draft release notes, then approve the `publish` job on this run.
+
+  publish:
+    name: Publish release
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      started: ${{ steps.started.outputs.started }}
+    env:
+      SLACK_TS: ${{ needs.prepare.outputs.slack_ts }}
+      SHORT_SHA: ${{ needs.prepare.outputs.short_sha }}
+    steps:
+      - name: Mark job started
+        id: started
+        run: echo "started=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dry run - stop before publishing
+        id: dry-run
+        if: inputs.dry_run
+        run: |
+          echo "Dry run: all checks passed and approval granted; no release, tag or dispatch created"
+          echo "### Dry run for $VERSION passed; nothing published" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish draft and create tag
+        id: publish-release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease --latest=false
+          else
+            latest=true
+            current=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+            if [ -n "$current" ] && [ "$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -n1)" != "$VERSION" ]; then
+              echo "$VERSION is older than the current latest release $current; not marking it latest"
+              latest=false
+            fi
+            gh release edit "$VERSION" --draft=false --target "$SHA" --prerelease=false --latest="$latest"
+          fi
+
+      - name: Dispatch downstream workflows at tag
+        id: dispatch
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          thread_ts="$SLACK_TS"
+          # True when the workflow file at $VERSION declares the input named by $2.
+          takes_input() {
+            gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/$1?ref=$VERSION" \
+              -H "Accept: application/vnd.github.raw" | grep -q "^[[:space:]]*$2:"
+          }
+          dispatch() {
+            workflow="$1"
+            shift
+            args=()
+            if [ -n "$thread_ts" ] && takes_input "$workflow" slack_thread_ts; then
+              args+=(-f "slack_thread_ts=$thread_ts")
+            fi
+            if takes_input "$workflow" triggered_by; then
+              args+=(-f "triggered_by=$TRIGGERED_BY")
+            fi
+            gh workflow run "$workflow" --ref "$VERSION" "${args[@]}" "$@"
+          }
+          failed=0
+          dispatch spm-verify.yml -f tag="$VERSION" || failed=1
+          dispatch cocoapods-publish.yml -f version="$VERSION" || failed=1
+          {
+            echo "### Released $VERSION"
+            echo "- Release: $GITHUB_SERVER_URL/$GH_REPO/releases/tag/$VERSION"
+            echo "- Dispatched at \`$VERSION\`: spm-verify.yml, cocoapods-publish.yml"
+            echo "- Runs: $GITHUB_SERVER_URL/$GH_REPO/actions"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
+
+      - name: Dispatch next release branch
+        if: ${{ !cancelled() && steps.publish-release.outcome == 'success' && !inputs.dry_run && !contains(env.VERSION, '-') }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION" -f "triggered_by=$TRIGGERED_BY"
+          echo "Dispatched rel-branch.yml from $VERSION"
+
+      - name: Notify Slack - success
+        if: ${{ success() && !inputs.dry_run }}
+        continue-on-error: true
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ env.SLACK_TS }}
+          status: success
+          title: Swift SDK `${{ inputs.version }}` published${{ env.PRERELEASE == 'true' && ' (prerelease)' || '' }}
+          body: SPM verify and CocoaPods publish dispatched at the tag. They reply in this thread with their results.
+          fields: |
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Release|${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ inputs.version }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          step=$(jq -r '
+            {
+              "dry-run": "Dry run - stop before publishing",
+              "publish-release": "Publish draft and create tag",
+              dispatch: "Dispatch downstream workflows at tag"
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
+            | if $key == null then "unknown step" else ($names[$key] // $key) end
+          ' <<<"$STEPS_JSON")
+          echo "step=$step" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack - failure
+        id: slack_failure
+        if: failure()
+        continue-on-error: true
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ env.SLACK_TS }}
+          status: failure
+          title: Swift SDK `${{ inputs.version }}` release failed
+          fields: |
+            Version: `${{ inputs.version }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Stage: Publish
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}
+
+      - name: Reply with failure details
+        if: failure() && steps.slack_failure.outputs.ts != ''
+        continue-on-error: true
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ steps.slack_failure.outputs.ts }}
+          status: failure
+          title: Failed at ${{ steps.failed.outputs.step }}
+
+  # Rejected approvals and cancelled runs skip every failure() Slack step.
+  stopped:
+    name: Notify Slack if stopped
+    needs: [prepare, publish]
+    if: always() && !inputs.dry_run && (contains(needs.*.result, 'cancelled') || needs.publish.result == 'failure')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Classify stop
+        id: reason
+        env:
+          CANCELLED: ${{ contains(needs.*.result, 'cancelled') }}
+          PUBLISH_STARTED: ${{ needs.publish.outputs.started }}
+        run: |
+          if [ "$CANCELLED" = "true" ]; then
+            echo "reason=cancelled" >> "$GITHUB_OUTPUT"
+          elif [ "$PUBLISH_STARTED" != "true" ]; then
+            # A rejected approval fails the publish job before any step runs.
+            echo "reason=release approval rejected" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Notify Slack - stopped
+        if: steps.reason.outputs.reason != ''
+        continue-on-error: true
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ needs.prepare.outputs.slack_ts }}
+          status: stopped
+          title: Swift SDK `${{ inputs.version }}` release stopped, ${{ steps.reason.outputs.reason }}
+          body: Nothing more will publish from this run.
+          fields: |
+            Version: `${{ inputs.version }}`
+            Commit: `${{ needs.prepare.outputs.short_sha }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ needs.prepare.outputs.sha }}

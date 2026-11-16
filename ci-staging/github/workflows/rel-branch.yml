@@ -1,0 +1,69 @@
+name: Release Branch
+
+# Creates a rel/X.Y.Z branch from base (default master) containing the version bump commit.
+# Does nothing if that branch already exists. Opens a draft PR from it into master if it has none.
+#
+# Run by hand or from the CLI (gh workflow run rel-branch.yml -f bump=minor).
+#
+# The weekday schedule (13:00 UTC, Mon-Fri) runs with the defaults: bump=minor, steps=1, base=master.
+# That keeps a branch for the next minor release open: e.g. with 5.6.0 released it creates rel/5.7.0,
+# and no-ops until 5.7.0 is tagged, then creates rel/5.8.0 the next weekday morning.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the latest stable version to increment
+        type: choice
+        options: [patch, minor, major]
+        default: minor
+      steps:
+        description: How many increments past the latest stable release
+        type: number
+        default: 1
+      version:
+        description: Explicit X.Y.Z, overrides bump and steps
+        type: string
+        required: false
+      base:
+        description: Branch, tag or sha to cut from
+        type: string
+        required: false
+        default: master
+      triggered_by:
+        description: Person to credit in Slack when another workflow starts this one
+        type: string
+        required: false
+  schedule:
+    - cron: '0 13 * * 1-5'
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: rel-branch
+  cancel-in-progress: false
+
+jobs:
+  rel_branch:
+    name: Create release branch
+    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/rel-branch-core.yml@ecm/mage-1726/shared-ci
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    secrets: inherit
+    with:
+      bump: ${{ inputs.bump || 'minor' }}
+      steps: ${{ github.event_name != 'workflow_dispatch' && 1 || inputs.steps }}
+      version: ${{ inputs.version }}
+      base: ${{ inputs.base || 'master' }}
+      triggered_by: ${{ inputs.triggered_by }}
+      sdk-name: Swift SDK
+      slack-username: Swift SDK
+      slack-icon-emoji: ':merlin-orb-swift:'
+      bump-command: ./bump-version.sh "$VERSION"
+      dispatch-input: ios
+      dispatch-targets: klaviyo-react-native-sdk klaviyo-flutter-sdk
+      dispatch-label: '`React Native`, `Flutter`'

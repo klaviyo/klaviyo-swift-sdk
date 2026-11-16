@@ -1,0 +1,16 @@
+name: PR Target Branch Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+
+jobs:
+  check-pr-target:
+    name: Check PR targets a release branch
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Validate source branch
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/pr-target-check@ecm/mage-1726/shared-ci
