@@ -131,6 +131,8 @@ public struct KlaviyoSDK {
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
+    /// If you use `KlaviyoInbox`, this also removes every message stored on this device by the Mobile Inbox,
+    /// so the next profile never sees the previous one's messages.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
         dispatchOnMainThread { KlaviyoCommands.resetProfile() }

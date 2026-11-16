@@ -57,7 +57,8 @@ enum KlaviyoCommands {
 
     /// Resets the profile to an anonymous state. If the profile was identified, mints a fresh
     /// `anonymousId`. Clears all PII and staged profile properties. Re-registers the push token
-    /// (if one exists) under the new anonymous identity.
+    /// (if one exists) under the new anonymous identity. Also clears the on-device Mobile Inbox, for every
+    /// company, when `KlaviyoInbox` is linked.
     static func resetProfile() {
         // Parity gate: a pre-init reset is a no-op unless durable capture is on.
         if LifecycleState.shared.current == .uninitialized, !featureFlags.enablePreInitDiskCapture {
