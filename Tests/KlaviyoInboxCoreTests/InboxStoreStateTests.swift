@@ -209,10 +209,10 @@ struct InboxStoreStateTests {
     @Test
     func aStoredExpiredAtReadsBackAndSurvivesAStateChange() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
-        let expiry = InboxStoreFixtures.baseDate.addingTimeInterval(86400)
+        let expiry = InboxStoreFixtures.baseDate.addingTimeInterval(86_400)
         try await store.perform { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
-            let object = try #require(try context.fetch(request).first)
+            let object = try #require(context.fetch(request).first)
             object.setValue(expiry, forKey: InboxStoreModel.Key.expiredAt)
             try context.save()
         }

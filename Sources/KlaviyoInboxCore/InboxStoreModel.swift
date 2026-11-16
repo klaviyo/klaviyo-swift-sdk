@@ -32,6 +32,7 @@ package enum InboxStoreModel {
         static func updatedAtKey(for stateKey: String) -> String {
             stateKey == isRead ? readUpdatedAt : archivedUpdatedAt
         }
+
         package static let payload = "payload"
     }
 
