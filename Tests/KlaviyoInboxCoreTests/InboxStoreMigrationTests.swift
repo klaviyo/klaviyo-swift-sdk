@@ -96,6 +96,59 @@ struct InboxStoreMigrationTests {
     }
 
     @Test
+    func anOpenerThatCannotTakeTheLockLeavesAnEarlierStoreUnmigrated() async throws {
+        let earlier = try earlierModel()
+        try InboxStoreFixtures.writeStore(model: earlier, transmissionIDs: ["tm-1"], in: appGroup)
+        let directory = try #require(appGroup.inboxDirectory())
+        let lockPath = directory.appendingPathComponent("klaviyo-inbox.lock").path
+        let holder = Darwin.open(lockPath, O_CREAT | O_RDWR, 0o600)
+        #expect(flock(holder, LOCK_EX | LOCK_NB) == 0)
+        let blocked = store(knowing: earlier)
+        let result = await blocked.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
+        flock(holder, LOCK_UN)
+        Darwin.close(holder)
+        #expect(result == .failed)
+        // Nothing was migrated or deleted while another process held the lock.
+        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+            ofType: NSSQLiteStoreType,
+            at: directory.appendingPathComponent(InboxStore.storeFileName),
+            options: nil
+        )
+        #expect(earlier.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata))
+        let retry = store(knowing: earlier)
+        let kept = try await retry.message(id: "tm-1")
+        #expect(kept != nil)
+    }
+
+    /// The earlier model with `updatedAt` as a string, which Core Data cannot infer a mapping to a date from.
+    private func unmappableEarlierModel() throws -> NSManagedObjectModel {
+        let copy = try earlierModel()
+        let entity = try #require(copy.entitiesByName[InboxStoreModel.entityName])
+        let attribute = NSAttributeDescription()
+        attribute.name = InboxStoreModel.Key.updatedAt
+        attribute.attributeType = .stringAttributeType
+        attribute.isOptional = true
+        entity.properties += [attribute]
+        return copy
+    }
+
+    @Test
+    func aFailedMigrationKeepsTheEarlierStoreForTheNextOpen() async throws {
+        let earlier = try unmappableEarlierModel()
+        try InboxStoreFixtures.writeStore(model: earlier, transmissionIDs: ["tm-1"], in: appGroup)
+        let result = await store(knowing: earlier).capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
+        #expect(result == .failed)
+        // A failed migration says nothing about the file, so it must not read as corruption and be rebuilt.
+        let directory = try #require(appGroup.inboxDirectory())
+        let metadata = try NSPersistentStoreCoordinator.metadataForPersistentStore(
+            ofType: NSSQLiteStoreType,
+            at: directory.appendingPathComponent(InboxStore.storeFileName),
+            options: nil
+        )
+        #expect(earlier.isConfiguration(withName: nil, compatibleWithStoreMetadata: metadata))
+    }
+
+    @Test
     func aStoreAlreadyOnTheCurrentModelIsNotMigrated() async throws {
         try InboxStoreFixtures.writeStore(model: InboxStoreModel.current, transmissionIDs: ["tm-1"], in: appGroup)
         let store = try store(knowing: earlierModel())

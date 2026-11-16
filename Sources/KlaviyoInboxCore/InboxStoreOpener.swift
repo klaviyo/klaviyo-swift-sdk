@@ -60,10 +60,18 @@ struct InboxStoreOpener {
     private func openLocked(_ coordinator: NSPersistentStoreCoordinator, at url: URL, holdsLock: Bool) throws {
         let started = ProcessInfo.processInfo.systemUptime
         protectDirectory(of: url)
+        // Only under the lock, like a rebuild: it replaces the shared store file. It is also outside the
+        // `do` below on purpose. A failed migration leaves a healthy store from an earlier model, which
+        // the open would report as incompatible and the catch would then delete. Failing the open keeps
+        // the messages for the next attempt.
+        if holdsLock {
+            do {
+                try migrateIfNeeded(to: coordinator.managedObjectModel, at: url)
+            } catch {
+                throw InboxStoreError.underlying(error)
+            }
+        }
         do {
-            // Best effort: a migration that fails leaves the store as it was, and the open below then
-            // decides whether it is corrupt, exactly as it would for any other incompatible model.
-            migrateIfNeeded(to: coordinator.managedObjectModel, at: url)
             try openRetryingTransientFailures(coordinator, at: url)
         } catch {
             guard InboxStoreError.indicatesCorruption(error) else {
@@ -146,8 +154,8 @@ struct InboxStoreOpener {
 
     /// Brings a store written by a known earlier model up to `destination`. Does nothing for a store that
     /// is missing, already current, or from a model it does not know. The migrated copy is built beside the
-    /// store and swapped in only once complete, so a failure leaves the original untouched.
-    private func migrateIfNeeded(to destination: NSManagedObjectModel, at url: URL) {
+    /// store and swapped in only once complete, so a failure leaves the original untouched and is thrown.
+    private func migrateIfNeeded(to destination: NSManagedObjectModel, at url: URL) throws {
         guard FileManager.default.fileExists(atPath: url.path),
               let metadata = try? NSPersistentStoreCoordinator.metadataForPersistentStore(
                   ofType: NSSQLiteStoreType, at: url, options: nil
@@ -185,6 +193,7 @@ struct InboxStoreOpener {
                     "Store migration failed (error \(InboxStoreError.diagnosticCode(for: error)))."
                 )
             }
+            throw error
         }
     }
 
