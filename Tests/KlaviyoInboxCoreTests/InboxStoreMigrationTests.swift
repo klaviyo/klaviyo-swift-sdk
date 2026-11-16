@@ -21,7 +21,12 @@ struct InboxStoreMigrationTests {
     private func earlierModel() throws -> NSManagedObjectModel {
         let copy = try #require(InboxStoreModel.current.copy() as? NSManagedObjectModel)
         let entity = try #require(copy.entitiesByName[InboxStoreModel.entityName])
-        let dropped: Set<String> = [InboxStoreModel.Key.readUpdatedAt, InboxStoreModel.Key.archivedUpdatedAt]
+        let dropped: Set<String> = [
+            InboxStoreModel.Key.readUpdatedAt,
+            InboxStoreModel.Key.archivedUpdatedAt,
+            InboxStoreModel.Key.updatedAt,
+            InboxStoreModel.Key.expiredAt
+        ]
         entity.properties = entity.properties.filter { !dropped.contains($0.name) }
         return copy
     }
@@ -59,6 +64,8 @@ struct InboxStoreMigrationTests {
             #expect(message != nil, "\(id) survived")
             #expect(message?.readUpdatedAt == nil)
             #expect(message?.archivedUpdatedAt == nil)
+            #expect(message?.updatedAt == nil)
+            #expect(message?.expiredAt == nil)
             #expect(message?.isRead == false)
         }
         let changed = try await store.setRead(true, id: "tm-1", companyID: company)

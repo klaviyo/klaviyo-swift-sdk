@@ -61,8 +61,8 @@ extension InboxStore {
     /// the change unsaved: Core Data saves every pending change in a context, so the caller saves once its
     /// other work has succeeded.
     ///
-    /// A change also stamps the matching updated-at with `changedAt`, so Phase 1b can tell which side changed
-    /// last. A no-op stamps nothing.
+    /// A change also stamps the matching updated-at, and the catch-all `updatedAt`, with `changedAt`, so
+    /// Phase 1b can tell which side changed last. A no-op stamps nothing.
     static func apply(
         _ change: StateChange,
         id: String,
@@ -80,6 +80,7 @@ extension InboxStore {
         guard object.value(forKey: change.key) as? Bool != change.value else { return .unchanged }
         object.setValue(change.value, forKey: change.key)
         object.setValue(change.changedAt, forKey: InboxStoreModel.Key.updatedAtKey(for: change.key))
+        object.setValue(change.changedAt, forKey: InboxStoreModel.Key.updatedAt)
         return .changed
     }
 }

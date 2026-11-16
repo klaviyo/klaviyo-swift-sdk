@@ -6,6 +6,7 @@
 //
 
 @testable import KlaviyoInboxCore
+import CoreData
 import Foundation
 import KlaviyoInboxTestSupport
 #if canImport(Testing)
@@ -154,6 +155,72 @@ struct InboxStoreStateTests {
         try await store.setRead(false, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
         #expect(message?.readUpdatedAt == secondChange)
+    }
+
+    @Test
+    func aNewMessageHasNoCatchAllUpdatedAtAndNoExpiry() async throws {
+        let store = await makeStoreWithMessage()
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.updatedAt == nil)
+        #expect(message?.expiredAt == nil)
+    }
+
+    @Test
+    func anyStateChangeStampsTheCatchAllUpdatedAtWithTheSameTimeAsItsField() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let afterRead = try await store.message(id: "tm-1")
+        try await store.setArchived(true, id: "tm-1", companyID: company)
+        let afterArchive = try await store.message(id: "tm-1")
+        #expect(afterRead?.updatedAt == firstChange)
+        #expect(afterRead?.updatedAt == afterRead?.readUpdatedAt)
+        #expect(afterArchive?.updatedAt == secondChange)
+        #expect(afterArchive?.updatedAt == afterArchive?.archivedUpdatedAt)
+        #expect(afterArchive?.readUpdatedAt == firstChange)
+    }
+
+    @Test
+    func aNoOpChangeLeavesTheCatchAllUpdatedAtAlone() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.updatedAt == firstChange)
+    }
+
+    @Test
+    func aNoOpOnAFreshMessageLeavesTheCatchAllUpdatedAtNil() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        try await store.setArchived(false, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.updatedAt == nil)
+    }
+
+    @Test
+    func aStateChangeNeverTouchesExpiredAt() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.expiredAt == nil)
+    }
+
+    /// Nothing sets `expiredAt` yet; Phase 1b stores it with a server message. This writes it the way that
+    /// work will, to show the column holds a value and survives a later state change.
+    @Test
+    func aStoredExpiredAtReadsBackAndSurvivesAStateChange() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange))
+        let expiry = InboxStoreFixtures.baseDate.addingTimeInterval(86400)
+        try await store.perform { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: InboxStoreModel.entityName)
+            let object = try #require(try context.fetch(request).first)
+            object.setValue(expiry, forKey: InboxStoreModel.Key.expiredAt)
+            try context.save()
+        }
+        let stored = try await store.message(id: "tm-1")
+        try await store.setRead(true, id: "tm-1", companyID: company)
+        let afterChange = try await store.message(id: "tm-1")
+        #expect(stored?.expiredAt == expiry)
+        #expect(afterChange?.expiredAt == expiry)
     }
 
     /// `apply` runs inside a caller's transaction, so it must leave its change for the caller to save or
