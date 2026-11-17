@@ -1,6 +1,7 @@
 # Publishes an SDK release behind a `release` environment approval.
 #
-# prepare: branch, tag, version and CI checks, then finds or creates a draft GitHub release.
+# prepare: shared release-preflight.yml (klaviyo-react-native-sdk): branch, tag, version and CI
+#          checks, then finds or creates the draft GitHub release and posts the pending Slack message.
 # publish: after approval, publishes the draft (creating the tag) and dispatches the downstream
 #          workflows at the tag. Releases published with GITHUB_TOKEN don't fire `release: published`
 #          or tag-push triggers, so downstream workflows are started with workflow_dispatch.
@@ -46,213 +47,34 @@ env:
   GH_REPO: ${{ github.repository }}
   VERSION: ${{ inputs.version }}
   PRERELEASE: ${{ contains(inputs.version, '-') }}
-  DRY_RUN: ${{ inputs.dry_run }}
-  SKIP_CI_CHECK: ${{ inputs.skip_ci_check }}
   SLACK_USERNAME: Swift SDK
   SLACK_ICON_EMOJI: ':merlin-orb-swift:'
 
 jobs:
   prepare:
     name: Prepare release draft
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/release-preflight.yml@ecm/mage-1726/shared-ci
     permissions:
       contents: write
       actions: read
       pull-requests: read
-    outputs:
-      sha: ${{ steps.commit.outputs.sha }}
-      short_sha: ${{ steps.commit.outputs.short_sha }}
-      draft_url: ${{ steps.draft.outputs.url }}
-      slack_ts: ${{ steps.slack_pending.outputs.ts }}
-    steps:
-      - name: Validate version format
-        id: version-format
-        run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::version must be X.Y.Z or X.Y.Z-suffix, got '$VERSION'"
-            exit 1
-          fi
-
-      - name: Checkout repository
-        id: checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref || github.event.repository.default_branch }}
-          fetch-depth: 0
-
-      - name: Resolve commit
-        id: commit
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Require a commit on master or rel/*
-        id: branch-check
-        run: |
-          set -euo pipefail
-          git fetch --no-tags --quiet origin '+refs/heads/master:refs/remotes/origin/master' '+refs/heads/rel/*:refs/remotes/origin/rel/*'
-          if [ -z "$(git branch -r --contains HEAD --list 'origin/master' 'origin/rel/*')" ]; then
-            echo "::error::$(git rev-parse HEAD) is not on master or a rel/* branch"
-            exit 1
-          fi
-
-      - name: Check tag does not exist
-        id: tag-check
-        run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" > /dev/null; then
-            echo "::error::tag $VERSION already exists"
-            exit 1
-          fi
-
-      - name: Check version in code
-        id: version-check
-        run: ./scripts/check-version.sh "$VERSION"
-
-      - name: Check iOS SDK CI passed on commit
-        id: ci-check
-        if: ${{ !inputs.skip_ci_check }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./scripts/check-ci-green.sh "${{ steps.commit.outputs.sha }}"
-
-      - name: Warn that the CI check was skipped
-        id: skip-ci
-        if: inputs.skip_ci_check
-        run: echo "::warning::iOS SDK CI check skipped by request; CI on this commit was not verified"
-
-      - name: Find or create draft release
-        id: draft
-        if: ${{ !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ steps.commit.outputs.sha }}
-        run: |
-          create=true
-          if existing=$(gh release view "$VERSION" --json isDraft,targetCommitish --jq '"\(.isDraft) \(.targetCommitish)"' 2>/dev/null); then
-            read -r is_draft target <<< "$existing"
-            if [ "$is_draft" != "true" ]; then
-              echo "::error::release $VERSION is already published"
-              exit 1
-            fi
-            if [ "$target" = "$SHA" ]; then
-              echo "Reusing existing draft for $VERSION; notes left as-is"
-              create=false
-            else
-              echo "::warning::existing draft for $VERSION targets $target, not $SHA; recreating it with fresh notes"
-              gh release delete "$VERSION" --yes
-            fi
-          fi
-          if [ "$create" = "true" ]; then
-            gh release create "$VERSION" --draft --generate-notes --title "$VERSION" --target "$SHA" \
-              --prerelease="$PRERELEASE"
-          fi
-          url=$(gh release view "$VERSION" --json url --jq .url)
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-
-      - name: Write summary
-        id: summary
-        env:
-          SHA: ${{ steps.commit.outputs.sha }}
-          DRAFT_URL: ${{ steps.draft.outputs.url }}
-        run: |
-          suffix=""
-          if [ "$DRY_RUN" = "true" ]; then suffix=" (dry run)"; fi
-          {
-            echo "### Release $VERSION awaiting approval$suffix"
-            echo "- Commit: \`$SHA\`"
-            if [ -n "$DRAFT_URL" ]; then
-              echo "- Draft: $DRAFT_URL"
-              echo "Review and edit the draft notes, then approve the \`publish\` job."
-            else
-              echo "Dry run: no draft created. Approving \`publish\` creates nothing."
-            fi
-            if [ "$SKIP_CI_CHECK" = "true" ]; then
-              echo "- ⚠️ **iOS SDK CI check skipped:** CI on this commit was not verified"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Checkout Slack action
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: .github/actions
-          persist-credentials: false
-          path: _slack
-
-      - name: Notify Slack - awaiting approval
-        id: slack_pending
-        if: ${{ !inputs.dry_run }}
-        continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
-        with:
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
-          status: pending
-          title: Swift SDK `${{ inputs.version }}` ${{ env.PRERELEASE == 'true' && 'prerelease' || 'release' }} awaiting approval${{ inputs.skip_ci_check && ' (iOS SDK CI check skipped)' || '' }}
-          body: Review the draft release notes, then approve the `publish` job on this run.
-          fields: |
-            Version: `${{ inputs.version }}`
-            Commit: `${{ steps.commit.outputs.short_sha }}`
-            Triggered by: `${{ env.TRIGGERED_BY }}`
-          links: |
-            Draft release|${{ steps.draft.outputs.url }}
-            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
-
-      - name: Find failed step
-        id: failed
-        if: failure()
-        env:
-          STEPS_JSON: ${{ toJSON(steps) }}
-        run: |
-          step=$(jq -r '
-            {
-              "version-format": "Validate version format",
-              checkout: "Checkout repository",
-              commit: "Resolve commit",
-              "branch-check": "Require a commit on master or rel/*",
-              "tag-check": "Check tag does not exist",
-              "version-check": "Check version in code",
-              "ci-check": "Check iOS SDK CI passed on commit",
-              "skip-ci": "Warn that the CI check was skipped",
-              draft: "Find or create draft release",
-              summary: "Write summary",
-              "dry-run": "Dry run - stop before publishing",
-              "publish-release": "Publish draft and create tag",
-              dispatch: "Dispatch downstream workflows at tag"
-            } as $names
-            | ([to_entries[] | select(.value.conclusion == "failure")][0].key) as $key
-            | if $key == null then "unknown step" else ($names[$key] // $key) end
-          ' <<<"$STEPS_JSON")
-          echo "step=$step" >> "$GITHUB_OUTPUT"
-
-      - name: Notify Slack - failure
-        id: slack_failure
-        if: failure()
-        continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
-        with:
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
-          ts: ${{ steps.slack_pending.outputs.ts }}
-          status: failure
-          title: Swift SDK `${{ inputs.version }}` release failed
-          fields: |
-            Version: `${{ inputs.version }}`
-            Commit: `${{ steps.commit.outputs.short_sha }}`
-            Stage: Prepare release draft
-            Triggered by: `${{ env.TRIGGERED_BY }}`
-          links: Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ steps.commit.outputs.sha }}
-
-      - name: Reply with failure details
-        if: failure() && steps.slack_failure.outputs.ts != ''
-        continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
-        with:
-          token: ${{ secrets.SLACK_BOT_TOKEN }}
-          thread_ts: ${{ steps.slack_failure.outputs.ts }}
-          status: failure
-          title: Failed at ${{ steps.failed.outputs.step }}
+    secrets: inherit
+    with:
+      version: ${{ inputs.version }}
+      ref: ${{ inputs.ref }}
+      dry-run: ${{ inputs.dry_run == true }}
+      skip-ci-check: ${{ inputs.skip_ci_check == true }}
+      required-workflows: iOS SDK CI
+      ci-event: ''
+      ignore-workflows: |
+        Publish Release
+        Release Branch
+        Mark stale pull requests
+      sdk-checks: ./scripts/check-version.sh "$VERSION"
+      sdk-name: Swift SDK
+      slack-username: Swift SDK
+      slack-icon-emoji: ':merlin-orb-swift:'
+      approval-instructions: Review the draft release notes, then approve the `publish` job on this run.
 
   publish:
     name: Publish release
@@ -343,20 +165,10 @@ jobs:
           gh workflow run rel-branch.yml --repo "$GITHUB_REPOSITORY" --ref master -f "base=$VERSION" -f "triggered_by=$TRIGGERED_BY"
           echo "Dispatched rel-branch.yml from $VERSION"
 
-      - name: Checkout Slack action
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: .github/actions
-          persist-credentials: false
-          path: _slack
-
       - name: Notify Slack - success
         if: ${{ success() && !inputs.dry_run }}
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
@@ -379,16 +191,6 @@ jobs:
         run: |
           step=$(jq -r '
             {
-              "version-format": "Validate version format",
-              checkout: "Checkout repository",
-              commit: "Resolve commit",
-              "branch-check": "Require a commit on master or rel/*",
-              "tag-check": "Check tag does not exist",
-              "version-check": "Check version in code",
-              "ci-check": "Check iOS SDK CI passed on commit",
-              "skip-ci": "Warn that the CI check was skipped",
-              draft: "Find or create draft release",
-              summary: "Write summary",
               "dry-run": "Dry run - stop before publishing",
               "publish-release": "Publish draft and create tag",
               dispatch: "Dispatch downstream workflows at tag"
@@ -402,7 +204,7 @@ jobs:
         id: slack_failure
         if: failure()
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
@@ -418,7 +220,7 @@ jobs:
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ steps.slack_failure.outputs.ts }}
@@ -448,20 +250,10 @@ jobs:
             echo "reason=release approval rejected" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout Slack action
-        if: steps.reason.outputs.reason != ''
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: .github/actions
-          persist-credentials: false
-          path: _slack
-
       - name: Notify Slack - stopped
         if: steps.reason.outputs.reason != ''
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ needs.prepare.outputs.slack_ts }}
