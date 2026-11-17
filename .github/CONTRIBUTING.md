@@ -61,6 +61,20 @@ If you want to recommend a code fix for an existing issue, you are welcome to op
 3. We also encourage you to test your changes against your own app or the sample app in this repository.
 4. Commit the changes once you are happy with them, please include a detailed commit message.
 
+### Previewing docs locally
+
+The API reference is built with DocC. To build it and browse it locally (requires Xcode):
+
+```bash
+make docs-preview
+```
+
+This builds the combined site for all SDK products and serves it at <http://localhost:8000>.
+The first build takes a minute or two. Press `Ctrl-C` to stop the server. If port 8000 is taken,
+pass another one, e.g. `make docs-preview DOCS_PORT=8080`.
+
+DocC catalogs live in `Sources/<Product>/<Product>.docc`. Rebuild after editing a catalog or a doc comment.
+
 ### Pull Request
 
 When you're finished with the changes, create a pull request, also known as a PR.

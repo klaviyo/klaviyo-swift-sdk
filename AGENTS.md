@@ -48,6 +48,35 @@ swiftlint --fix --strict
 swiftformat .
 ```
 
+### Documentation Commands
+
+```bash
+# Build the combined DocC site for KlaviyoSwift, KlaviyoForms, KlaviyoLocation, KlaviyoSwiftExtension
+make docs DOCS_BASE_PATH=klaviyo-swift-sdk/5.6   # output: build/docs/site
+
+# Build, then serve at http://localhost:8000/<DOCS_BASE_PATH>/documentation/
+make docs-serve DOCS_BASE_PATH=klaviyo-swift-sdk/5.6
+
+# Local demo: build for the root path and serve at http://localhost:8000
+make docs-preview
+
+# Fail on any DocC warning
+make docs DOCC_STRICT=1
+```
+
+- Each documented product has a catalog at `Sources/<Product>/<Product>.docc`. Add articles there.
+- `scripts/build-docs.sh` uses `xcodebuild docbuild` + `docc merge`, not `swift-docc-plugin`,
+  because the package depends on UIKit and can't build for the host.
+- The script documents every library product in `Package.swift`. `KlaviyoCore` isn't a product, so
+  its own `public` declarations (cross-module plumbing) get no pages. A product's public extensions
+  on `KlaviyoCore` types, such as `registerForInAppForms` on `KlaviyoSDKModule`, do appear under that
+  product's "Extended Modules".
+- Don't use `@_documentation(visibility:)` to hide a symbol yet. The pinned SwiftFormat (0.51.2)
+  reads the access keyword inside it as an ACL and rewrites both the attribute and the members.
+- A catalog can link to its own module and to modules that module imports, such as
+  ``` ``KlaviyoCore/KlaviyoSDKModule/registerGeofencing()`` ```. It can't link to sibling products
+  (e.g. `KlaviyoSDK` from `KlaviyoForms`). Use code voice for those.
+
 ### Code Review
 
 CodeRabbit is active on this repo and auto-reviews PRs. It reads this file as a code guidelines

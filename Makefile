@@ -52,3 +52,28 @@ endef
 define newest_ios_runtime
 $(shell xcrun simctl list runtimes available | grep -oE '$(1)\.[0-9]+' | sort -V | tail -1)
 endef
+
+# ---- Documentation (DocC) ----
+# Base path the site is hosted under, e.g. DOCS_BASE_PATH=klaviyo-swift-sdk/5.6. Empty serves from "/".
+DOCS_BASE_PATH ?=
+DOCS_PORT ?= 8000
+DOCS_SERVE_ROOT = build/docs/serve
+
+.PHONY: docs docs-serve docs-preview
+
+docs:
+	scripts/build-docs.sh --hosting-base-path "$(DOCS_BASE_PATH)" $(if $(filter 1,$(DOCC_STRICT)),--strict)
+
+# Serves the built site at http://localhost:$(DOCS_PORT)/<DOCS_BASE_PATH>/ so links resolve as they will
+# on GitHub Pages. Mirrors the base path by symlinking the site into a scratch serve root.
+docs-serve: docs
+	@base="$(DOCS_BASE_PATH)"; base="$${base#/}"; base="$${base%/}"; \
+	if [ -z "$$base" ]; then root="build/docs/site"; else \
+		root="$(DOCS_SERVE_ROOT)"; rm -rf "$$root"; mkdir -p "$$root/$$(dirname "$$base")"; \
+		ln -s "$(CURDIR)/build/docs/site" "$$root/$$base"; fi; \
+	echo "Serving http://localhost:$(DOCS_PORT)/$${base:+$$base/}documentation/"; \
+	cd "$$root" && python3 -m http.server $(DOCS_PORT)
+
+# Local demo: builds the site for the root path and serves it at http://localhost:$(DOCS_PORT)/.
+docs-preview:
+	$(MAKE) docs-serve DOCS_BASE_PATH=
