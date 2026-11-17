@@ -20,7 +20,7 @@ struct IAFNativeBridgeEventTests {
             var version: Int
         }
         let expectedHandshake = """
-        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
+        [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1},{"type":"formsPreviewEnded","version":1}]
         """
         let expectedData = try #require(expectedHandshake.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
@@ -50,6 +50,35 @@ struct IAFNativeBridgeEventTests {
         let data = Data(#"{"type":"refreshJwt","data":{}}"#.utf8)
         let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
         #expect(event == .refreshJwt)
+    }
+
+    @Test
+    func formsPreviewEndedWithReason() throws {
+        let data = Data(#"{"type":"formsPreviewEnded","data":{"reason":"expired"}}"#.utf8)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event == .formsPreviewEnded(reason: "expired", token: nil))
+    }
+
+    @Test
+    func formsPreviewEndedWithoutReason() throws {
+        let data = Data(#"{"type":"formsPreviewEnded"}"#.utf8)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event == .formsPreviewEnded(reason: "Unknown", token: nil))
+    }
+
+    @Test
+    func formsPreviewEndedWithToken() throws {
+        let data = Data(#"{"type":"formsPreviewEnded","data":{"reason":"expired","token":"some-token"}}"#.utf8)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event == .formsPreviewEnded(reason: "expired", token: "some-token"))
+    }
+
+    @Test
+    func loggedTypeNameNeverIncludesPreviewToken() throws {
+        let data = Data(#"{"type":"formsPreviewEnded","data":{"reason":"expired","token":"\#(validPreviewToken)"}}"#.utf8)
+        let event = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: data)
+        #expect(event.typeName == "formsPreviewEnded")
+        #expect(!event.typeName.contains(validPreviewToken))
     }
 
     @Test(arguments: ["BadJWT", "badJWT"])
@@ -620,7 +649,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeExternalUrlWithButtonLabel() async throws {
+    func decodeExternalUrlWithButtonLabel() throws {
         // External web URLs now ride the openDeepLink message with openExternally: true.
         let json = """
         {
@@ -652,7 +681,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeExternalUrlMissingButtonLabel() async throws {
+    func decodeExternalUrlMissingButtonLabel() throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -682,7 +711,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeExternalUrlWithoutFormContext() async throws {
+    func decodeExternalUrlWithoutFormContext() throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -709,7 +738,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeExternalUrlEmptyUrlNormalized() async throws {
+    func decodeExternalUrlEmptyUrlNormalized() throws {
         let json = """
         {
           "type": "openDeepLink",
@@ -734,7 +763,7 @@ struct IAFNativeBridgeEventTests {
     }
 
     @Test
-    func testDecodeOpenDeepLinkDefaultsOpenExternallyFalse() async throws {
+    func decodeOpenDeepLinkDefaultsOpenExternallyFalse() throws {
         // A deep link CTA omits `openExternally`; it must default to false so the SDK
         // routes it through the in-app deep link handler, not the system opener.
         let json = """

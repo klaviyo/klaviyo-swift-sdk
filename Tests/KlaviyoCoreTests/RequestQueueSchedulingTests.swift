@@ -122,12 +122,9 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
-    func testWifiToCellularSwitchAlsoResets() async {
-        let spy = SendSpy(results: [
-            networkFailure,
-            .failure(.rateLimitError(backOff: 120)),
-            .success(Data())
-        ])
+    /// A Wi-Fi/cellular switch while online is not a reconnect: the backoff and countdown stay.
+    func testWifiToCellularSwitchKeepsBackoff() async {
+        let spy = SendSpy(results: [networkFailure, .failure(.rateLimitError(backOff: 120))])
         enqueueOne()
         let queue = makeQueue(spy)
         await queue.networkConnectivityChanged(.reachableViaWiFi)
@@ -137,9 +134,10 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         XCTAssertEqual(headDelay, 120)
 
         await queue.networkConnectivityChanged(.reachableViaWWAN)
-        XCTAssertTrue(gated.waitForRequested(atLeast: 2))
 
-        XCTAssertEqual(spy.sentAttempts, [1, 2, 3])
+        XCTAssertEqual(spy.sentAttempts, [1, 2])
+        XCTAssertEqual(headDelay, 120)
+        XCTAssertEqual(gated.requested.count, 1, "a switch must not restart the countdown")
         await queue.stop()
     }
 
@@ -198,12 +196,8 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.stop()
     }
 
-    func testRepeatedReachableStatusKeepsBackoffButSwitchResetsIt() async {
-        let spy = SendSpy(results: [
-            .failure(.rateLimitError(backOff: 120)),
-            .failure(.rateLimitError(backOff: 120)),
-            .success(Data())
-        ])
+    func testRepeatedReachableStatusOrSwitchKeepsBackoff() async {
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 120))])
         enqueueOne()
         let queue = makeQueue(spy)
         await queue.networkConnectivityChanged(.reachableViaWiFi)
@@ -212,11 +206,10 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         XCTAssertEqual(headDelay, 120)
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+
         XCTAssertEqual(spy.sentIds, ["r"])
         XCTAssertEqual(headDelay, 120)
-
-        await queue.networkConnectivityChanged(.reachableViaWWAN)
-        XCTAssertTrue(spy.waitForSends(atLeast: 2))
         await queue.stop()
     }
 
@@ -276,8 +269,8 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
         await queue.networkConnectivityChanged(.notReachable)
 
         await queue.start()
-        XCTAssertTrue(gated.waitForRequested(atLeast: 1))
-        XCTAssertEqual(gated.requested.first, .infinity)
+        XCTAssertFalse(gated.waitForRequested(atLeast: 1, timeout: 0.3), "no loop runs while offline")
+        XCTAssertEqual(spy.sentAttempts, [1])
         await queue.stop()
     }
 
