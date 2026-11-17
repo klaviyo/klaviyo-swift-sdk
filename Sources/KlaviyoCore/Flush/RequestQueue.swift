@@ -75,6 +75,10 @@ public actor RequestQueue {
 
     /// (Re)starts the run loop. Any existing loop is cancelled first so `start()` is idempotent and
     /// never leaves two loops racing.
+    ///
+    /// While offline (`flushInterval` is `.infinity`) the loop stays stopped, so a foreground while
+    /// offline can't park a loop in an endless sleep. `networkConnectivityChanged` starts it when
+    /// the network comes back.
     public func start() {
         inBackground = false
         startLoop(flushImmediately: false)
@@ -83,6 +87,8 @@ public actor RequestQueue {
     /// `flushImmediately` skips the first sleep (used on reconnect).
     private func startLoop(flushImmediately: Bool) {
         runLoop?.cancel()
+        runLoop = nil
+        guard flushInterval.isFinite else { return }
         runLoop = Task { [weak self] in
             var skipSleep = flushImmediately
             while !Task.isCancelled {
@@ -290,9 +296,17 @@ public actor RequestQueue {
         }
     }
 
+    /// Pauses the run loop when offline and sets the flush interval for the new connection type.
+    ///
+    /// Coming online (from offline or the first status) clears pending backoff and flushes at once.
+    /// Switching between Wi-Fi and cellular while online only changes the interval: the current
+    /// countdown finishes and the next one uses the new value. Restarting on every switch would reset
+    /// the countdown, and iOS can report several a minute (for example Connectivity Assist on weak
+    /// Wi-Fi), which would keep the queue from ever flushing.
     public func networkConnectivityChanged(_ status: Reachability.NetworkStatus) {
         // Reachability flags can change while the status stays the same; only real transitions act.
         guard status != lastNetworkStatus else { return }
+        let wasOnline = lastNetworkStatus.map { $0 != .notReachable } ?? false
         lastNetworkStatus = status
         if inBackground {
             // No loop while backgrounded: record the state, then let the foreground `start()` resume.
@@ -304,12 +318,15 @@ public actor RequestQueue {
         case .notReachable:
             flushInterval = .infinity
             stop()
+            return
         case .reachableViaWiFi:
             flushInterval = FlushConstants.wifiFlushInterval
-            clearBackoffs()
-            startLoop(flushImmediately: true)
         case .reachableViaWWAN:
             flushInterval = FlushConstants.cellularFlushInterval
+        }
+        if wasOnline {
+            startIfStopped()
+        } else {
             clearBackoffs()
             startLoop(flushImmediately: true)
         }
@@ -321,6 +338,11 @@ public actor RequestQueue {
         for index in requestsInFlight.indices {
             requestsInFlight[index].clearBackoff()
         }
+    }
+
+    private func startIfStopped() {
+        guard runLoop == nil else { return }
+        start()
     }
 
     // MARK: - Flush

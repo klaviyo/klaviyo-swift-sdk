@@ -198,6 +198,85 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         XCTAssertNil(manager.viewController, "The active webview's own handshake failure still tears it down")
     }
 
+    // MARK: Registration state stream
+
+    /// Reads the first `count` values from `states`. The stream subscribes when it is created and
+    /// buffers, so values sent before reading are not lost.
+    private func first(_ count: Int, of states: AsyncStream<Bool>) async -> [Bool] {
+        var iterator = states.makeAsyncIterator()
+        var values: [Bool] = []
+        while values.count < count, let value = await iterator.next() {
+            values.append(value)
+        }
+        return values
+    }
+
+    func testRegistrationStatesStartWithCurrentState() async {
+        let states = await first(1, of: manager.registrationStates())
+        XCTAssertEqual(states, [false])
+    }
+
+    func testRegistrationStatesReportRegisterAndUnregister() async {
+        let states = manager.registrationStates()
+
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        manager.destroyWebviewAndListeners()
+        manager.destroyWebviewAndListeners()
+        manager.initializeIAF(configuration: InAppFormsConfig())
+
+        let values = await first(4, of: states)
+        XCTAssertEqual(values, [false, true, false, true], "Calls that don't change state are not reported")
+    }
+
+    func testRegistrationStatesReportSelfTeardownOnHandshakeFailure() async throws {
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        try await manager.createFormWebViewAndListen(apiKey: "key")
+        let active = try XCTUnwrap(activeViewModel)
+        let states = manager.registrationStates()
+
+        manager.handleHandshakeFailure(for: active)
+
+        let values = await first(2, of: states)
+        XCTAssertEqual(values, [true, false])
+    }
+
+    func testRegistrationStatesReportSelfTeardownOnAbort() async throws {
+        manager.initializeIAF(configuration: InAppFormsConfig())
+        try await manager.createFormWebViewAndListen(apiKey: "key")
+        let active = try XCTUnwrap(activeViewModel)
+        let states = manager.registrationStates()
+
+        manager.dispatchFormEvent(.abort, from: active)
+
+        let values = await first(2, of: states)
+        XCTAssertEqual(values, [true, false])
+    }
+
+    func testRegistrationStatesSupportMultipleSubscribers() async {
+        let firstStates = manager.registrationStates()
+        let secondStates = manager.registrationStates()
+
+        manager.initializeIAF(configuration: InAppFormsConfig())
+
+        let firstValues = await first(2, of: firstStates)
+        let secondValues = await first(2, of: secondStates)
+        XCTAssertEqual(firstValues, [false, true])
+        XCTAssertEqual(secondValues, [false, true])
+    }
+
+    func testCancellingRegistrationStatesIterationEndsTheStream() async {
+        let states = manager.registrationStates()
+        let iteration = Task {
+            for await _ in states {}
+        }
+
+        iteration.cancel()
+
+        // Finishes only because cancellation terminates the stream.
+        await iteration.value
+    }
+
     func testForegroundRebuildDuringAPIKeyChangeKeepsLifecycleObservationAlive() async throws {
         let lifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
         environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
