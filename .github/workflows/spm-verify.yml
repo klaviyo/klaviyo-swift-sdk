@@ -61,7 +61,7 @@ jobs:
         id: slack_pending
         continue-on-error: true
         timeout-minutes: 2
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
@@ -113,7 +113,7 @@ jobs:
         if: steps.ci_check.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 2
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_pending.outputs.ts }}
@@ -165,7 +165,7 @@ jobs:
         if: cancelled() && steps.stop.outputs.timed_out != 'true'
         continue-on-error: true
         timeout-minutes: 2
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
@@ -200,7 +200,7 @@ jobs:
         if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
         continue-on-error: true
         timeout-minutes: 2
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
@@ -219,7 +219,7 @@ jobs:
       - name: Sync release to Linear
         if: success()
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/linear-release-sync@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/linear-release-sync@master
         with:
           version: ${{ env.TAG }}
           token: ${{ secrets.LINEAR_ACCESS_KEY }}

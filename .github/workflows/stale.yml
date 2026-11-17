@@ -12,4 +12,4 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/stale@ecm/mage-1726/shared-ci
+      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/stale@master

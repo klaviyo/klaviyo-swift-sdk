@@ -13,4 +13,4 @@ jobs:
       issues: write
     steps:
       - name: Validate source branch
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/pr-target-check@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/pr-target-check@master

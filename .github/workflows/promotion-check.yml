@@ -17,7 +17,7 @@ jobs:
       group: promotion-check-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     steps:
-      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/promotion-check@ecm/mage-1726/shared-ci
+      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/promotion-check@master
         with:
           bump-files: |
             Sources/KlaviyoCore/Utils/Version.swift

@@ -48,7 +48,7 @@ concurrency:
 jobs:
   rel_branch:
     name: Create release branch
-    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/rel-branch-core.yml@ecm/mage-1726/shared-ci
+    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/rel-branch-core.yml@master
     permissions:
       contents: write
       pull-requests: write

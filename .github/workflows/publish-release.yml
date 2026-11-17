@@ -53,7 +53,7 @@ env:
 jobs:
   prepare:
     name: Prepare release draft
-    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/release-preflight.yml@ecm/mage-1726/shared-ci
+    uses: klaviyo/klaviyo-react-native-sdk/.github/workflows/release-preflight.yml@master
     permissions:
       contents: write
       actions: read
@@ -168,7 +168,7 @@ jobs:
       - name: Notify Slack - success
         if: ${{ success() && !inputs.dry_run }}
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
@@ -204,7 +204,7 @@ jobs:
         id: slack_failure
         if: failure()
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ env.SLACK_TS }}
@@ -220,7 +220,7 @@ jobs:
       - name: Reply with failure details
         if: failure() && steps.slack_failure.outputs.ts != ''
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ steps.slack_failure.outputs.ts }}
@@ -253,7 +253,7 @@ jobs:
       - name: Notify Slack - stopped
         if: steps.reason.outputs.reason != ''
         continue-on-error: true
-        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@ecm/mage-1726/shared-ci
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ needs.prepare.outputs.slack_ts }}
