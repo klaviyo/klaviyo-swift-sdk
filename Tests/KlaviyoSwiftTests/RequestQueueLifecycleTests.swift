@@ -72,6 +72,44 @@ final class RequestQueueLifecycleTests: KlaviyoBaseTestCase {
         await fulfillment(of: [setBadgeExpectation], timeout: 1)
     }
 
+    /// Launch starts reachability itself: `didBecomeActive` usually fires before the lifecycle loop
+    /// subscribes, so the `.foregrounded` handler can't be relied on to start it.
+    func testCompleteInitializationLaunchStartsReachability() async throws {
+        var startReachabilityCount = 0
+        environment.startReachability = { startReachabilityCount += 1 }
+        environment.getBadgeAutoClearingSetting = { true }
+        installLifecycle([])
+
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-launch-reach")
+        await KlaviyoCommands.completeInitialization(apiKey: "fake-key")
+
+        XCTAssertEqual(startReachabilityCount, 1, "launch kickoff starts reachability once")
+    }
+
+    /// A status reported as soon as reachability starts (e.g. offline at launch) reaches the queue,
+    /// because the lifecycle loop subscribes before the launch kickoff starts reachability.
+    func testReachabilityStatusReportedAtLaunchReachesQueue() async throws {
+        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
+        environment.appLifeCycle.lifeCycleEvents = { lifecycleSubject.eraseToAnyPublisher() }
+        environment.startReachability = {
+            lifecycleSubject.send(.reachabilityChanged(status: .notReachable))
+        }
+        environment.getBadgeAutoClearingSetting = { true }
+
+        seedInitializing(apiKey: "fake-key", anonymousId: "anon-launch-offline")
+        let lifecycle = Task { await KlaviyoCommands.completeInitialization(apiKey: "fake-key") }
+        // Bounded so a launch that never starts reachability fails here instead of hanging.
+        try await waitForConditionOrFail("launch status never reached the queue") { [spyQueue] in
+            await spyQueue?.getConnectivityStatuses().isEmpty == false
+        }
+        // End the lifecycle stream so `completeInitialization` returns either way.
+        lifecycleSubject.send(completion: .finished)
+        await lifecycle.value
+
+        let statuses = await spyQueue.getConnectivityStatuses()
+        XCTAssertEqual(statuses, [.notReachable])
+    }
+
     /// `.foregrounded` runs the same start + push-enablement + badge side effects as launch, so a
     /// launch followed by one foreground yields two `start` calls.
     func testForegroundedStartsQueueAgain() async throws {

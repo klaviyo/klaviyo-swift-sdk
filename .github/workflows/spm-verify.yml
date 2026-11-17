@@ -14,6 +14,11 @@ on:
         required: false
         default: ''
         type: string
+      triggered_by:
+        description: Login of the person who started this run. Set by publish-release.yml; leave empty to use the actor
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -25,6 +30,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  TRIGGERED_BY: ${{ github.event_name == 'schedule' && 'schedule' || inputs.triggered_by || (endsWith(github.triggering_actor || github.actor, '[bot]') && format('{0} (automation)', github.workflow) || github.triggering_actor || github.actor) }}
   SLACK_USERNAME: Swift SDK
   SLACK_ICON_EMOJI: ':merlin-orb-swift:'
 
@@ -51,6 +57,26 @@ jobs:
             scripts/check-version.sh
           sparse-checkout-cone-mode: false
 
+      - name: Notify Slack - verifying
+        id: slack_pending
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Swift SDK `${{ env.TAG }}` SPM verify running
+          body: Checking the version, CI and SPM resolve and build at `${{ env.TAG }}`.
+          fields: |
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Trigger: ${{ github.event_name == 'release' && 'Automatic (GitHub Release)' || 'Manual (Workflow Dispatch)' }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
       - name: Check out version files at ${{ env.TAG }}
         uses: actions/checkout@v4
         with:
@@ -69,19 +95,42 @@ jobs:
           version: ${{ env.TAG }}
           path: tag-src
           token: ${{ secrets.SLACK_BOT_TOKEN }}
-          thread_ts: ${{ inputs.slack_thread_ts }}
+          thread_ts: ${{ inputs.slack_thread_ts || steps.slack_pending.outputs.ts }}
           consequence: SPM consumers resolve this tag directly, so they already see it, and the SDK reports the Version.swift version at runtime. Skipped SPM verification, the Linear release sync and the iOS test app bump. Fix the release and tag so the tag name matches Version.swift.
 
       - name: Select Xcode 16.4
         run: sudo xcode-select -s /Applications/Xcode_16.4.app
 
       - name: Check iOS SDK CI passed on ${{ env.TAG }}
+        id: ci_check
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: ./scripts/check-ci-green.sh "$TAG"
 
+      - name: Notify Slack - gates passed
+        id: slack_stage
+        if: steps.ci_check.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_pending.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: pending
+          title: Swift SDK `${{ env.TAG }}` SPM verify running, gates passed
+          body: Version and CI checks passed. Resolving and building `${{ env.TAG }}` through SPM.
+          fields: |
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
       - name: Resolve and build ${{ env.TAG }}
+        id: build
         if: (success() || failure()) && steps.version_check.outcome != 'failure'
         run: ./scripts/spm-verify.sh "$TAG" "$RUNNER_TEMP/spm-verify"
 
@@ -90,7 +139,7 @@ jobs:
         if: success()
         continue-on-error: true
         env:
-          GH_TOKEN: ${{ secrets.TEST_APP_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ secrets.X_REPO_PAT }}
         run: |
           if [[ "$TAG" == *-* ]]; then
             echo "Prerelease tag $TAG, skipping test app bump."
@@ -98,7 +147,8 @@ jobs:
           fi
           gh api repos/klaviyo/klaviyo-ios-test-app/dispatches \
             -f event_type=sdk-released \
-            -F client_payload[version]="$TAG"
+            -F client_payload[version]="$TAG" \
+            -f "client_payload[triggered_by]=$TRIGGERED_BY"
 
       - name: Classify cancellation
         id: stop
@@ -111,20 +161,57 @@ jobs:
             echo "timed_out=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Notify Slack
-        if: (success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')) && steps.version_check.outcome != 'failure'
+      - name: Notify Slack - cancelled
+        if: cancelled() && steps.stop.outputs.timed_out != 'true'
         continue-on-error: true
+        timeout-minutes: 2
         uses: ./.github/actions/notify-slack
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
+          thread_ts: ${{ inputs.slack_thread_ts }}
+          status: stopped
+          title: Swift SDK `${{ env.TAG }}` SPM verify cancelled
+          fields: |
+            Version: `${{ env.TAG }}`
+            Commit: `${{ env.SHORT_SHA }}`
+            Triggered by: `${{ env.TRIGGERED_BY }}`
+          links: |
+            Release|${{ env.RELEASE_URL }}
+            Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+      - name: Find failed step
+        id: failed
+        if: failure()
+        env:
+          STEPS_JSON: ${{ toJSON(steps) }}
+        run: |
+          jq -r '
+            {
+              version_check: ["Version check", true],
+              ci_check: ["iOS SDK CI check", true],
+              build: ["SPM resolve and build", false]
+            } as $names
+            | ([to_entries[] | select(.value.conclusion == "failure" and ($names[.key] != null))][0].key) as $key
+            | if $key == null then "name=unknown step\ngate=false" else "name=\($names[$key][0])\ngate=\($names[$key][1])" end
+          ' <<<"$STEPS_JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack
+        if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
+        continue-on-error: true
+        timeout-minutes: 2
+        uses: ./.github/actions/notify-slack
+        with:
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ steps.test_app_dispatch.outcome == 'failure' && 'warning' || (job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure')) }}
-          title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || 'failed') }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
+          title: Swift SDK `${{ env.TAG }}` SPM verify ${{ job.status == 'success' && 'passed' || (job.status == 'cancelled' && 'timed out' || (steps.failed.outputs.gate == 'true' && format('blocked, {0} failed', steps.failed.outputs.name) || 'failed')) }}${{ steps.test_app_dispatch.outcome == 'failure' && ', test app bump failed' || '' }}
           body: CI check, SPM resolve and build at `${{ env.TAG }}`.${{ steps.test_app_dispatch.outcome == 'failure' && ' The iOS test app SDK bump dispatch failed. Bump `klaviyo-ios-test-app` by hand or re-run this job.' || '' }}
           fields: |
             Version: `${{ env.TAG }}`
             Commit: `${{ env.SHORT_SHA }}`
-            Author: ${{ github.actor }}
+            Triggered by: `${{ env.TRIGGERED_BY }}`
           links: |
             Release|${{ env.RELEASE_URL }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
@@ -143,7 +230,7 @@ jobs:
         id: linear-sync
         if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-checkout.outcome == 'success'
         continue-on-error: true
-        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: sync
@@ -153,7 +240,7 @@ jobs:
       - name: Complete release in Linear
         if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-sync.outcome == 'success'
         continue-on-error: true
-        uses: linear/linear-release-action@30f9ae77461ec29f07fffe0c52edd1909bfbb6f5 # v0.18.1
+        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: complete
