@@ -17,10 +17,13 @@ final class ManualSleepClock: @unchecked Sendable {
 
     var clock: SleepClock {
         SleepClock { [self] seconds in
-            let id = register(seconds)
+            let id = nextWaiterId()
             try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    // Record the request and install the waiter together, so a test that sees the
+                    // request can always fire it.
                     lock.lock()
+                    _requested.append(seconds)
                     if Task.isCancelled {
                         lock.unlock()
                         continuation.resume(throwing: CancellationError())
@@ -35,10 +38,9 @@ final class ManualSleepClock: @unchecked Sendable {
         }
     }
 
-    private func register(_ seconds: TimeInterval) -> Int {
+    private func nextWaiterId() -> Int {
         lock.lock(); defer { lock.unlock() }
         nextId += 1
-        _requested.append(seconds)
         return nextId
     }
 
@@ -99,11 +101,12 @@ final class FakeBackgroundTasks: @unchecked Sendable {
         }
     }
 
-    /// Fires the latest task's expiry handler and ends it, like the system deadline.
-    func expire() {
+    /// Fires a task's expiry handler (the latest by default) and ends it, like the system deadline.
+    func expire(index: Int? = nil) {
         lock.lock()
-        let expiry = expiries.last
-        let handle = handles.last
+        let position = index ?? (expiries.count - 1)
+        let expiry = expiries.indices.contains(position) ? expiries[position] : nil
+        let handle = handles.indices.contains(position) ? handles[position] : nil
         lock.unlock()
         expiry?()
         handle?.end()
