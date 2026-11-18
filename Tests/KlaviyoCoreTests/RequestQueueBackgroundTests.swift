@@ -331,6 +331,27 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(QueueStore.shared.head?.isAwaitingRetry(at: environment.date()), true)
     }
 
+    func testStaleWaitBudgetDoesNotAbandonALaterFlush() async {
+        tasks.appActive = false
+        enqueue("a")
+        let started = expectation(description: "first send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let first = Task { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2)
+        let second = Task { await queue.flushNow() } // waits on the parked flush under its own budget
+        XCTAssertTrue(manual.waitForRequested(atLeast: 2))
+        enqueue("b") // queued before the first flush ends, so the second scope's flush is sure to send it
+
+        spy.release()
+        await first.value
+        manual.fireAll() // the second scope's budget for the finished flush elapses late
+        await second.value
+
+        XCTAssertEqual(spy.sentIds, ["a", "b"])
+        XCTAssertTrue(disk.stored.isEmpty, "the later flush must complete, not be abandoned")
+    }
+
     // MARK: - Watchdog
 
     func testHungForegroundFlushIsBoundedThenDrainContinues() async {
