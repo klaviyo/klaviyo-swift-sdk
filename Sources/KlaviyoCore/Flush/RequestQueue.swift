@@ -145,9 +145,13 @@ public actor RequestQueue {
         abandonActiveFlush()
     }
 
+    /// Identity of the current flush, for tests.
+    var currentFlushGeneration: Int { flushGeneration }
+    var hasActiveFlush: Bool { activeFlush != nil }
+
     /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
     /// returns late is discarded. Does not wait on the network.
-    private func abandonActiveFlush(ifGeneration generation: Int? = nil) {
+    func abandonActiveFlush(ifGeneration generation: Int? = nil) {
         if let generation, generation != flushGeneration { return }
         activeFlush?.cancel()
         activeFlush = nil

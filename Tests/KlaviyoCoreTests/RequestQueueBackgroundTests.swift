@@ -352,6 +352,38 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertTrue(disk.stored.isEmpty, "the later flush must complete, not be abandoned")
     }
 
+    func testAbandonWithStaleGenerationLeavesALaterFlushRunning() async {
+        enqueue("a")
+        let parked = ParkedSends()
+        let queue = makeQueue { request, _ in
+            await parked.park(request.id)
+            return .success(Data())
+        }
+        let first = Task { await queue.flushNow() }
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
+        let stale = await queue.currentFlushGeneration
+        parked.releaseAll()
+        await first.value
+        enqueue("b")
+        let second = Task { await queue.flushNow() }
+        XCTAssertTrue(parked.waitForSends(atLeast: 2))
+        let hasActive = await queue.hasActiveFlush
+        XCTAssertTrue(hasActive)
+
+        await queue.abandonActiveFlush(ifGeneration: stale)
+
+        let stillActive = await queue.hasActiveFlush
+        XCTAssertTrue(stillActive, "a stale generation must not abandon the later flush")
+        XCTAssertEqual(parked.sent, ["a", "b"], "the later request is sent exactly once")
+        let current = await queue.currentFlushGeneration
+        await queue.abandonActiveFlush(ifGeneration: current)
+        let afterMatch = await queue.hasActiveFlush
+        XCTAssertFalse(afterMatch, "the matching generation does abandon")
+        XCTAssertEqual(disk.stored.map(\.id), ["b"], "the abandoned lease is back on disk")
+        parked.releaseAll()
+        await second.value
+    }
+
     // MARK: - Watchdog
 
     func testHungForegroundFlushIsBoundedThenDrainContinues() async {
@@ -482,5 +514,39 @@ private final class SentLog: @unchecked Sendable {
             Thread.sleep(forTimeInterval: 0.01)
         }
         return values.count >= count
+    }
+}
+
+private final class ParkedSends: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _sent: [String] = []
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+    var sent: [String] { lock.lock(); defer { lock.unlock() }; return _sent }
+
+    func park(_ id: String) async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            _sent.append(id)
+            continuations.append(continuation)
+            lock.unlock()
+        }
+    }
+
+    /// Resumes the sends parked so far; later sends park again.
+    func releaseAll() {
+        lock.lock()
+        let all = continuations
+        continuations = []
+        lock.unlock()
+        all.forEach { $0.resume() }
+    }
+
+    func waitForSends(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if sent.count >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return sent.count >= count
     }
 }
