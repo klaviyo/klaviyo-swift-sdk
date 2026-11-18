@@ -10,6 +10,12 @@ import XCTest
 final class RequestQueueSchedulingTests: RequestQueueTestCase {
     private var gated: GatedSleepClock!
 
+    func testFlushIntervalMapsNetworkStatus() {
+        XCTAssertEqual(TimeInterval(flushIntervalFor: .notReachable), .infinity)
+        XCTAssertEqual(TimeInterval(flushIntervalFor: .reachableViaWiFi), FlushConstants.wifiFlushInterval)
+        XCTAssertEqual(TimeInterval(flushIntervalFor: .reachableViaWWAN), FlushConstants.cellularFlushInterval)
+    }
+
     override func setUp() {
         super.setUp()
         gated = GatedSleepClock()

@@ -16,6 +16,17 @@ public enum FlushConstants {
     public static let backgroundSendTimeout = 10.0
 }
 
+extension TimeInterval {
+    /// The flush interval for a connection type; `.infinity` when offline.
+    init(flushIntervalFor status: Reachability.NetworkStatus) {
+        switch status {
+        case .notReachable: self = .infinity
+        case .reachableViaWiFi: self = FlushConstants.wifiFlushInterval
+        case .reachableViaWWAN: self = FlushConstants.cellularFlushInterval
+        }
+    }
+}
+
 /// Seconds the run loop should sleep before the next flush: the head's remaining backoff when it has
 /// one (zero once due, so an expired retry fires at once), otherwise one flush interval.
 func nextFlushDelay(head: QueuedRequest?, now: Date, flushInterval: TimeInterval) -> TimeInterval {
