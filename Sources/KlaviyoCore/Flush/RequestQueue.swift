@@ -33,6 +33,9 @@ public actor RequestQueue {
     /// Requests leased out of `QueueStore` for the current flush. Restored to the store on `stop()`
     /// so a shutdown mid-flush never drops them.
     private var requestsInFlight: [QueuedRequest] = []
+    /// Heads that stalled past their send budget this flush. They stay leased (so durable) and go
+    /// back ahead of the rest, in their original order, when the flush ends.
+    private var stalledHeads: [QueuedRequest] = []
     /// Current cadence between flushes. Defaults to the wifi interval; adjusted by
     /// `networkConnectivityChanged` (wifi/cellular interval, or `.infinity` when offline).
     private var flushInterval: TimeInterval = FlushConstants.wifiFlushInterval
@@ -51,8 +54,9 @@ public actor RequestQueue {
     private var nextOwner = 0
     /// Priority scopes by owner, so a scope's own expiry cancels its wait and stops it starting a flush.
     private var priorityScopes: [Int: Task<Void, Never>] = [:]
-    /// Bumped whenever a flush is abandoned. A flush whose generation no longer matches discards
-    /// whatever its late-returning send reports instead of touching a newer lease.
+    /// Identifies the current flush: bumped when one starts and when one is abandoned. A flush whose
+    /// generation no longer matches discards whatever its late-returning send reports instead of
+    /// touching a newer lease.
     private var flushGeneration = 0
     /// Between `enterBackground()` and `start()`; reachability changes must not restart the loop.
     private var inBackground = false
@@ -143,7 +147,8 @@ public actor RequestQueue {
 
     /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
     /// returns late is discarded. Does not wait on the network.
-    private func abandonActiveFlush() {
+    private func abandonActiveFlush(ifGeneration generation: Int? = nil) {
+        if let generation, generation != flushGeneration { return }
         activeFlush?.cancel()
         activeFlush = nil
         flushGeneration += 1
@@ -171,14 +176,19 @@ public actor RequestQueue {
         let scope = Task {
             // A flush already running (e.g. the main drain) finishes first; the pass below then drains
             // everything queued by then, including this request.
-            if let running = await self.activeFlush {
+            if let (running, observed) = await self.activeFlushAndGeneration() {
                 let finished = await self.waitWithoutBlocking(
                     on: running, timeout: FlushConstants.backgroundSendTimeout
                 )
-                if !finished, !Task.isCancelled { await self.abandonActiveFlushIfNotOwnedBy(owner) }
+                // Only abandon the flush we waited on, and never this scope's own.
+                if !finished, !Task.isCancelled { await self.abandonActiveFlush(ifGeneration: observed) }
             }
             if !Task.isCancelled {
-                await self.flush(owner: owner, propagateCancellation: true)
+                await self.flush(
+                    owner: owner,
+                    sendTimeout: FlushConstants.backgroundSendTimeout,
+                    propagateCancellation: true
+                )
             }
         }
         priorityScopes[owner] = scope
@@ -187,8 +197,8 @@ public actor RequestQueue {
         handle?.end()
     }
 
-    private func abandonActiveFlushIfNotOwnedBy(_ owner: Int) {
-        if activeFlushOwner != owner { abandonActiveFlush() }
+    private func activeFlushAndGeneration() -> (Task<Void, Never>, Int)? {
+        activeFlush.map { ($0, flushGeneration) }
     }
 
     /// Scoped expiry: stop this scope's own waiting, and cancel the flush only if this scope started it.
@@ -235,14 +245,15 @@ public actor RequestQueue {
         let owner = nextOwner
         let handle = await backgroundTasks.begin("com.klaviyo.queue-flush") { [weak self] in
             // System expiry thread: only schedule the restore. The runner ends the task right after.
-            Task { await self?.expireBackgroundDrain(owner: owner) }
+            Task { await self?.expireBackgroundDrain(id: id, owner: owner) }
         }
         if let running = activeFlush {
             // A foreground send has no budget of its own: bound the wait, then put it back and drain.
+            let observed = flushGeneration
             let finished = await waitWithoutBlocking(
                 on: running, timeout: FlushConstants.backgroundSendTimeout
             )
-            if !finished, !Task.isCancelled { abandonActiveFlush() }
+            if !finished, !Task.isCancelled { abandonActiveFlush(ifGeneration: observed) }
         }
         if !Task.isCancelled, hasDueWork {
             await flush(
@@ -257,7 +268,9 @@ public actor RequestQueue {
 
     /// Background task expired: cancel the drain and put the lease back. The lease is already on disk,
     /// so this only tidies memory; it never waits on the network.
-    private func expireBackgroundDrain(owner: Int) {
+    private func expireBackgroundDrain(id: Int, owner: Int) {
+        // A late notice from an earlier drain must not cancel the current one.
+        guard backgroundDrainId == id, backgroundDrainTask != nil else { return }
         backgroundDrainTask?.cancel()
         backgroundDrainTask = nil
         expireFlush(owner: owner)
@@ -303,7 +316,11 @@ public actor RequestQueue {
         flushInterval = TimeInterval(flushIntervalFor: status)
         if inBackground {
             // No loop while backgrounded: record the state, then let the foreground `start()` resume.
-            if status == .notReachable { stop() } else { clearBackoffs() }
+            if status == .notReachable {
+                stop()
+            } else if !wasOnline {
+                clearBackoffs()
+            }
             return
         }
         guard status != .notReachable else {
@@ -353,6 +370,7 @@ public actor RequestQueue {
         }
         isFlushing = true
         flushRequested = false
+        flushGeneration += 1
         let generation = flushGeneration
         let task = Task { await self.runFlush(generation: generation, sendTimeout: sendTimeout) }
         activeFlush = task
@@ -407,6 +425,7 @@ public actor RequestQueue {
                 return
             }
         }
+        restoreLease() // anything that stalled this flush
     }
 
     /// Sends the head request and applies the result, reporting whether the flush loop should
@@ -490,11 +509,10 @@ public actor RequestQueue {
         return result
     }
 
-    /// The head stalled past its budget: return it to the durable queue untouched (no attempt, no
-    /// backoff) and keep draining the rest of the lease.
+    /// The head stalled past its budget: set it aside untouched (no attempt, no backoff) and keep
+    /// draining the rest of the lease. `restoreLease()` returns it to the queue.
     private func putBackStalledHead() -> FailureOutcome {
-        let stalled = requestsInFlight.removeFirst()
-        QueueStore.shared.prepend([stalled], persist: .synchronous)
+        stalledHeads.append(requestsInFlight.removeFirst())
         return .continueSending
     }
 
@@ -519,8 +537,10 @@ public actor RequestQueue {
     /// clears the in-memory lease. `.synchronous`: the lease is in-memory only and cleared here, so
     /// it must hit disk before we return or a shutdown within a debounce window would drop it.
     private func restoreLease() {
-        guard !requestsInFlight.isEmpty else { return }
-        QueueStore.shared.prepend(requestsInFlight, persist: .synchronous)
+        let entries = stalledHeads + requestsInFlight
+        guard !entries.isEmpty else { return }
+        QueueStore.shared.prepend(entries, persist: .synchronous)
+        stalledHeads = []
         requestsInFlight = []
     }
 

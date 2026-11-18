@@ -17,10 +17,13 @@ final class ManualSleepClock: @unchecked Sendable {
 
     var clock: SleepClock {
         SleepClock { [self] seconds in
-            let id = register(seconds)
+            let id = nextWaiterId()
             try await withTaskCancellationHandler {
                 try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    // Record the request and install the waiter together, so a test that sees the
+                    // request can always fire it.
                     lock.lock()
+                    _requested.append(seconds)
                     if Task.isCancelled {
                         lock.unlock()
                         continuation.resume(throwing: CancellationError())
@@ -35,10 +38,9 @@ final class ManualSleepClock: @unchecked Sendable {
         }
     }
 
-    private func register(_ seconds: TimeInterval) -> Int {
+    private func nextWaiterId() -> Int {
         lock.lock(); defer { lock.unlock() }
         nextId += 1
-        _requested.append(seconds)
         return nextId
     }
 

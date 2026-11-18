@@ -315,6 +315,22 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertTrue(disk.stored.isEmpty, "the priority flush completed its send")
     }
 
+    func testWifiToCellularSwitchWhileBackgroundedKeepsRetryDeadline() async {
+        enqueue("a", "b")
+        let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 60))])
+        let queue = makeQueue(send: spy.send)
+        await queue.enterBackground()
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        await queue.flushNow() // "a" now waits out its own backoff
+        let deadline = QueueStore.shared.head?.nextAttemptAt
+        XCTAssertNotNil(deadline)
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
+
+        XCTAssertEqual(QueueStore.shared.head?.nextAttemptAt, deadline, "a network switch must keep the backoff")
+        XCTAssertEqual(QueueStore.shared.head?.isAwaitingRetry(at: environment.date()), true)
+    }
+
     // MARK: - Watchdog
 
     func testHungForegroundFlushIsBoundedThenDrainContinues() async {
@@ -360,6 +376,58 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(tasks.ends, 1)
         spy.release()
     }
+
+    func testStalledHeadsComeBackInOriginalOrder() async {
+        enqueue("a", "b", "c")
+        let log = SentLog()
+        let queue = makeQueue { request, _ in
+            let id = request.id
+            log.append(id)
+            if log.stalling.contains(id) {
+                try? await Task.sleep(nanoseconds: 5_000_000_000) // ignores the budget until cancelled
+            }
+            return .success(Data())
+        }
+        log.stalling = ["a", "b"]
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(manual.waitForRequested(atLeast: 1))
+        manual.fireAll() // "a" stalls
+        XCTAssertTrue(manual.waitForRequested(atLeast: 2))
+        manual.fireAll() // "b" stalls
+        await drain.value
+        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a", "b"], "c was sent; a and b keep their order")
+        XCTAssertEqual(disk.stored.map(\.id), ["a", "b"])
+
+        log.stalling = []
+        await queue.backgroundDrain()
+
+        XCTAssertEqual(log.values, ["a", "b", "c", "a", "b"], "the next drain sends a before b")
+    }
+
+    func testStaleExpiryFromAnEarlierDrainDoesNotCancelTheCurrentOne() async {
+        enqueue("a")
+        let log = SentLog()
+        let queue = makeQueue { request, _ in
+            log.append(request.id)
+            while request.id == "c", !log.released { try? await Task.sleep(nanoseconds: 10_000_000) }
+            return .success(Data())
+        }
+        await queue.enterBackground()
+        await queue.backgroundDrain() // drain one finishes; its expiry handler is still registered
+        enqueue("c", "d")
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(log.waitForSends(atLeast: 2))
+
+        tasks.expire(index: 0) // a late expiry notice for drain one
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        log.released = true
+        await drain.value
+
+        XCTAssertEqual(log.values, ["a", "c", "d"], "drain two must run to completion")
+        XCTAssertTrue(QueueStore.shared.entries.isEmpty)
+        XCTAssertTrue(disk.stored.isEmpty)
+    }
 }
 
 private final class Snapshots: @unchecked Sendable {
@@ -367,4 +435,31 @@ private final class Snapshots: @unchecked Sendable {
     private var _values: [[String]] = []
     var values: [[String]] { lock.lock(); defer { lock.unlock() }; return _values }
     func append(_ value: [String]) { lock.lock(); _values.append(value); lock.unlock() }
+}
+
+private final class SentLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _values: [String] = []
+    private var _stalling: Set<String> = []
+    private var _released = false
+    var values: [String] { lock.lock(); defer { lock.unlock() }; return _values }
+    var stalling: Set<String> {
+        get { lock.lock(); defer { lock.unlock() }; return _stalling }
+        set { lock.lock(); _stalling = newValue; lock.unlock() }
+    }
+
+    var released: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _released }
+        set { lock.lock(); _released = newValue; lock.unlock() }
+    }
+
+    func append(_ id: String) { lock.lock(); _values.append(id); lock.unlock() }
+    func waitForSends(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if values.count >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return values.count >= count
+    }
 }
