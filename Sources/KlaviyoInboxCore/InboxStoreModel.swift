@@ -18,11 +18,7 @@ package enum InboxStoreModel {
         package static let sortTime = "sortTime"
         package static let isRead = "isRead"
         package static let isArchived = "isArchived"
-        /// When `isRead` last changed. Nil until it first does.
-        package static let readUpdatedAt = "readUpdatedAt"
-        /// When `isArchived` last changed. Nil until it first does.
-        package static let archivedUpdatedAt = "archivedUpdatedAt"
-        /// When the message last changed in any way. Nil until it first does; a capture does not set it.
+        /// When the message last changed (read or archive). Nil until it first does; a capture does not set it.
         package static let updatedAt = "updatedAt"
         /// When the message expires. Nil means it does not. A captured push has none, so only a message
         /// stored from the server will carry one.
@@ -48,8 +44,6 @@ package enum InboxStoreModel {
             attribute(Key.sortTime, .dateAttributeType),
             attribute(Key.isRead, .booleanAttributeType, defaultValue: false),
             attribute(Key.isArchived, .booleanAttributeType, defaultValue: false),
-            attribute(Key.readUpdatedAt, .dateAttributeType, optional: true),
-            attribute(Key.archivedUpdatedAt, .dateAttributeType, optional: true),
             attribute(Key.updatedAt, .dateAttributeType, optional: true),
             attribute(Key.expiresAt, .dateAttributeType, optional: true),
             attribute(Key.payload, .binaryDataAttributeType)

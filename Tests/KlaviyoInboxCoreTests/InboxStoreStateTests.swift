@@ -91,61 +91,41 @@ struct InboxStoreStateTests {
         #expect(message?.isArchived == true)
     }
 
-    // MARK: - Updated-at timestamps
+    // MARK: - Updated-at timestamp
 
     @Test
-    func aNewMessageHasNoUpdatedAtTimestamps() async throws {
+    func aNewMessageHasNoUpdatedAtAndNoExpiry() async throws {
         let store = await makeStoreWithMessage()
         let message = try await store.message(id: "tm-1")
-        #expect(message?.readUpdatedAt == nil)
-        #expect(message?.archivedUpdatedAt == nil)
+        #expect(message?.updatedAt == nil)
+        #expect(message?.expiresAt == nil)
     }
 
     @Test
-    func changingReadStampsOnlyReadUpdatedAt() async throws {
+    func changingReadStampsUpdatedAt() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
         try await store.setRead(true, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(message?.readUpdatedAt == firstChange)
-        #expect(message?.archivedUpdatedAt == nil)
+        #expect(message?.updatedAt == firstChange)
     }
 
     @Test
-    func changingArchivedStampsOnlyArchivedUpdatedAt() async throws {
+    func changingArchivedStampsUpdatedAt() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
         try await store.setArchived(true, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(message?.archivedUpdatedAt == firstChange)
-        #expect(message?.readUpdatedAt == nil)
+        #expect(message?.updatedAt == firstChange)
     }
 
     @Test
-    func aNoOpChangeLeavesTheTimestampAlone() async throws {
+    func eachChangeRestampsUpdatedAt() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
         try await store.setRead(true, id: "tm-1", companyID: company)
-        let repeated = try await store.setRead(true, id: "tm-1", companyID: company)
-        let message = try await store.message(id: "tm-1")
-        #expect(repeated == .unchanged)
-        #expect(message?.readUpdatedAt == firstChange)
-    }
-
-    @Test
-    func aNoOpOnAFreshMessageStampsNothing() async throws {
-        let store = await makeStoreWithMessage(now: clock(firstChange))
-        let unchanged = try await store.setRead(false, id: "tm-1", companyID: company)
-        let message = try await store.message(id: "tm-1")
-        #expect(unchanged == .unchanged)
-        #expect(message?.readUpdatedAt == nil)
-    }
-
-    @Test
-    func eachChangeRestampsItsOwnField() async throws {
-        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
-        try await store.setRead(true, id: "tm-1", companyID: company)
+        let afterRead = try await store.message(id: "tm-1")
         try await store.setArchived(true, id: "tm-1", companyID: company)
-        let message = try await store.message(id: "tm-1")
-        #expect(message?.readUpdatedAt == firstChange)
-        #expect(message?.archivedUpdatedAt == secondChange)
+        let afterArchive = try await store.message(id: "tm-1")
+        #expect(afterRead?.updatedAt == firstChange)
+        #expect(afterArchive?.updatedAt == secondChange)
     }
 
     @Test
@@ -154,45 +134,25 @@ struct InboxStoreStateTests {
         try await store.setRead(true, id: "tm-1", companyID: company)
         try await store.setRead(false, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
-        #expect(message?.readUpdatedAt == secondChange)
+        #expect(message?.updatedAt == secondChange)
     }
 
     @Test
-    func aNewMessageHasNoCatchAllUpdatedAtAndNoExpiry() async throws {
-        let store = await makeStoreWithMessage()
-        let message = try await store.message(id: "tm-1")
-        #expect(message?.updatedAt == nil)
-        #expect(message?.expiresAt == nil)
-    }
-
-    @Test
-    func anyStateChangeStampsTheCatchAllUpdatedAtWithTheSameTimeAsItsField() async throws {
+    func aNoOpChangeLeavesUpdatedAtAlone() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
         try await store.setRead(true, id: "tm-1", companyID: company)
-        let afterRead = try await store.message(id: "tm-1")
-        try await store.setArchived(true, id: "tm-1", companyID: company)
-        let afterArchive = try await store.message(id: "tm-1")
-        #expect(afterRead?.updatedAt == firstChange)
-        #expect(afterRead?.updatedAt == afterRead?.readUpdatedAt)
-        #expect(afterArchive?.updatedAt == secondChange)
-        #expect(afterArchive?.updatedAt == afterArchive?.archivedUpdatedAt)
-        #expect(afterArchive?.readUpdatedAt == firstChange)
-    }
-
-    @Test
-    func aNoOpChangeLeavesTheCatchAllUpdatedAtAlone() async throws {
-        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
-        try await store.setRead(true, id: "tm-1", companyID: company)
-        try await store.setRead(true, id: "tm-1", companyID: company)
+        let repeated = try await store.setRead(true, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
+        #expect(repeated == .unchanged)
         #expect(message?.updatedAt == firstChange)
     }
 
     @Test
-    func aNoOpOnAFreshMessageLeavesTheCatchAllUpdatedAtNil() async throws {
+    func aNoOpOnAFreshMessageLeavesUpdatedAtNil() async throws {
         let store = await makeStoreWithMessage(now: clock(firstChange))
-        try await store.setArchived(false, id: "tm-1", companyID: company)
+        let unchanged = try await store.setArchived(false, id: "tm-1", companyID: company)
         let message = try await store.message(id: "tm-1")
+        #expect(unchanged == .unchanged)
         #expect(message?.updatedAt == nil)
     }
 
@@ -242,7 +202,7 @@ struct InboxStoreStateTests {
     }
 
     @Test
-    func setStateStampsTheFieldAndTheCatchAllWithOneTimeAndOnlyOnAChange() async throws {
+    func setStateStampsUpdatedAtOnlyOnAChange() async throws {
         let store = await makeStoreWithMessage()
         let date = InboxStoreFixtures.baseDate
         let results = try await store.perform { context in
@@ -250,21 +210,17 @@ struct InboxStoreStateTests {
             let fetched = try InboxStore.message(id: "tm-1", companyID: company, in: context)
             let object = try #require(fetched)
             let noOp = object.setState(false, for: .archived, at: date)
+            let afterNoOp = object.value(forKey: InboxStoreModel.Key.updatedAt) as? Date
             let first = object.setState(true, for: .archived, at: date)
             let repeated = object.setState(true, for: .archived, at: date.addingTimeInterval(60))
-            let stamps = [
-                object.value(forKey: InboxStoreModel.Key.archivedUpdatedAt) as? Date,
-                object.value(forKey: InboxStoreModel.Key.updatedAt) as? Date,
-                object.value(forKey: InboxStoreModel.Key.readUpdatedAt) as? Date
-            ]
-            return (noOp, first, repeated, stamps)
+            let stamp = object.value(forKey: InboxStoreModel.Key.updatedAt) as? Date
+            return (noOp, afterNoOp, first, repeated, stamp)
         }
         #expect(!results.0)
-        #expect(results.1)
-        #expect(!results.2)
-        #expect(results.3[0] == date)
-        #expect(results.3[1] == date)
-        #expect(results.3[2] == nil)
+        #expect(results.1 == nil)
+        #expect(results.2)
+        #expect(!results.3)
+        #expect(results.4 == date)
     }
 
     @Test

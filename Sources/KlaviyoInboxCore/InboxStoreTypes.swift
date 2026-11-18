@@ -14,11 +14,7 @@ package struct StoredInboxMessage: Equatable {
     package var record: InboxRecord
     package var isRead: Bool
     package var isArchived: Bool
-    /// When `isRead` last changed on this device. Nil if it never has.
-    package var readUpdatedAt: Date?
-    /// When `isArchived` last changed on this device. Nil if it never has.
-    package var archivedUpdatedAt: Date?
-    /// When the message last changed in any way on this device. Nil if it never has; a capture does not set it.
+    /// When the message last changed (read or archive) on this device. Nil if it never has; a capture does not set it.
     package var updatedAt: Date?
     /// When the message expires. Nil means it does not, which is always the case for a captured push.
     package var expiresAt: Date?
@@ -28,8 +24,6 @@ package struct StoredInboxMessage: Equatable {
         record: InboxRecord,
         isRead: Bool,
         isArchived: Bool,
-        readUpdatedAt: Date? = nil,
-        archivedUpdatedAt: Date? = nil,
         updatedAt: Date? = nil,
         expiresAt: Date? = nil
     ) {
@@ -37,8 +31,6 @@ package struct StoredInboxMessage: Equatable {
         self.record = record
         self.isRead = isRead
         self.isArchived = isArchived
-        self.readUpdatedAt = readUpdatedAt
-        self.archivedUpdatedAt = archivedUpdatedAt
         self.updatedAt = updatedAt
         self.expiresAt = expiresAt
     }

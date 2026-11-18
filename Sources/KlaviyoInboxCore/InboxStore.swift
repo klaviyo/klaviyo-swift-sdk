@@ -168,8 +168,6 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             record: JSONDecoder().decode(InboxRecord.self, from: payload),
             isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
             isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false,
-            readUpdatedAt: object.value(forKey: Key.readUpdatedAt) as? Date,
-            archivedUpdatedAt: object.value(forKey: Key.archivedUpdatedAt) as? Date,
             updatedAt: object.value(forKey: Key.updatedAt) as? Date,
             expiresAt: object.value(forKey: Key.expiresAt) as? Date
         )
