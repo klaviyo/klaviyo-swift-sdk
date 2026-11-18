@@ -288,14 +288,6 @@ public actor RequestQueue {
         return finished
     }
 
-    private func interval(for status: Reachability.NetworkStatus) -> TimeInterval {
-        switch status {
-        case .notReachable: return .infinity
-        case .reachableViaWiFi: return FlushConstants.wifiFlushInterval
-        case .reachableViaWWAN: return FlushConstants.cellularFlushInterval
-        }
-    }
-
     /// Pauses the run loop when offline and sets the flush interval for the new connection type.
     ///
     /// Coming online (from offline or the first status) clears pending backoff and flushes at once.
@@ -308,21 +300,15 @@ public actor RequestQueue {
         guard status != lastNetworkStatus else { return }
         let wasOnline = lastNetworkStatus.map { $0 != .notReachable } ?? false
         lastNetworkStatus = status
+        flushInterval = TimeInterval(flushIntervalFor: status)
         if inBackground {
             // No loop while backgrounded: record the state, then let the foreground `start()` resume.
-            flushInterval = interval(for: status)
             if status == .notReachable { stop() } else { clearBackoffs() }
             return
         }
-        switch status {
-        case .notReachable:
-            flushInterval = .infinity
+        guard status != .notReachable else {
             stop()
             return
-        case .reachableViaWiFi:
-            flushInterval = FlushConstants.wifiFlushInterval
-        case .reachableViaWWAN:
-            flushInterval = FlushConstants.cellularFlushInterval
         }
         if wasOnline {
             startIfStopped()
