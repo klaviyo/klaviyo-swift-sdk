@@ -408,7 +408,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
                        "nothing may exist only in memory")
     }
 
-    func testStalledRequestIsPutBackAndTheRestStillSend() async {
+    func testStalledRequestStopsTheDrainAndKeepsOrder() async {
         enqueue("a", "b", "c")
         let started = expectation(description: "first send parked")
         let spy = SendSpy(parkFirstCall: true, started: started)
@@ -420,42 +420,74 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         await drain.value
 
         XCTAssertEqual(manual.requested.first, FlushConstants.backgroundSendTimeout)
-        XCTAssertEqual(spy.sentIds, ["a", "b", "c"], "later requests still go out in the same drain")
+        XCTAssertEqual(spy.sentIds, ["a"], "nothing behind a stalled request may be sent")
         let entries = QueueStore.shared.entries
-        XCTAssertEqual(entries.map(\.id), ["a"], "only the stalled request remains, untouched")
-        XCTAssertEqual(entries.first?.attempts, 0)
-        XCTAssertNil(entries.first?.nextAttemptAt)
-        XCTAssertEqual(disk.stored.map(\.id), ["a"])
+        XCTAssertEqual(entries.map(\.id), ["a", "b", "c"], "order is unchanged")
+        XCTAssertEqual(entries.first?.attempts, 0, "a stall records no attempt")
+        XCTAssertNil(entries.first?.nextAttemptAt, "a stall adds no backoff of its own")
+        XCTAssertEqual(disk.stored.map(\.id), ["a", "b", "c"])
         XCTAssertEqual(tasks.ends, 1)
         spy.release()
     }
 
-    func testStalledHeadsComeBackInOriginalOrder() async {
-        enqueue("a", "b", "c")
-        let log = SentLog()
-        let queue = makeQueue { request, _ in
-            let id = request.id
-            log.append(id)
-            if log.stalling.contains(id) {
-                try? await Task.sleep(nanoseconds: 5_000_000_000) // ignores the budget until cancelled
-            }
-            return .success(Data())
-        }
-        log.stalling = ["a", "b"]
-        await queue.enterBackground()
-        let drain = Task { await queue.backgroundDrain() }
+    func testLaterRequestCannotOvertakeAStalledOne() async {
+        enqueue("a", "b")
+        let started = expectation(description: "first send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let drain = await startParkedDrain(queue, started: started)
         XCTAssertTrue(manual.waitForRequested(atLeast: 1))
-        manual.fireAll() // "a" stalls
-        XCTAssertTrue(manual.waitForRequested(atLeast: 2))
-        manual.fireAll() // "b" stalls
+        manual.fireAll()
         await drain.value
-        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a", "b"], "c was sent; a and b keep their order")
-        XCTAssertEqual(disk.stored.map(\.id), ["a", "b"])
 
-        log.stalling = []
+        XCTAssertEqual(spy.sentIds, ["a"], "b must not be sent while a is stalled")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a", "b"])
+
+        await queue.backgroundDrain() // the retry starts again from the stalled head
+
+        XCTAssertEqual(spy.sentIds, ["a", "a", "b"], "b only ever goes out after a")
+        spy.release()
+    }
+
+    func testBackgroundDrainFoldsStagedWorkIntoAnEmptyQueue() async {
+        let spy = SendSpy()
+        let staged = makeCreateProfileRequest(id: "staged")
+        let folded = FoldOnce()
+        let queue = RequestQueue(
+            clock: manual.clock,
+            send: spy.send,
+            willDrain: { if folded.take() { QueueStore.shared.enqueue(staged, persist: .synchronous) } },
+            backgroundTasks: tasks.runner
+        )
+        await queue.enterBackground()
+
         await queue.backgroundDrain()
 
-        XCTAssertEqual(log.values, ["a", "b", "c", "a", "b"], "the next drain sends a before b")
+        XCTAssertEqual(spy.sentIds, ["staged"], "staged work must go out even when the queue was empty")
+        XCTAssertTrue(disk.stored.isEmpty)
+        XCTAssertEqual(tasks.begins, 1)
+    }
+
+    func testPriorityWaitTimingOutDoesNotAbandonABudgetedDrain() async {
+        enqueue("a")
+        let started = expectation(description: "drain send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started)
+        let queue = makeQueue(send: spy.send)
+        let drain = await startParkedDrain(queue, started: started) // its own send budget is request 0
+        tasks.appActive = false
+        let priority = Task { await queue.flushNow() }
+        XCTAssertTrue(manual.waitForRequested(atLeast: 2)) // the priority wait is request 1
+
+        manual.fire(requestIndex: 1)
+        await priority.value
+
+        let active = await queue.hasActiveFlush
+        XCTAssertTrue(active, "a flush with its own budget must be left to it")
+        XCTAssertEqual(disk.stored.map(\.id), ["a"])
+        spy.release()
+        await drain.value
+        XCTAssertEqual(spy.sentIds, ["a"])
+        XCTAssertTrue(disk.stored.isEmpty)
     }
 
     func testStaleExpiryFromAnEarlierDrainDoesNotCancelTheCurrentOne() async {
@@ -493,14 +525,8 @@ private final class Snapshots: @unchecked Sendable {
 private final class SentLog: @unchecked Sendable {
     private let lock = NSLock()
     private var _values: [String] = []
-    private var _stalling: Set<String> = []
     private var _released = false
     var values: [String] { lock.lock(); defer { lock.unlock() }; return _values }
-    var stalling: Set<String> {
-        get { lock.lock(); defer { lock.unlock() }; return _stalling }
-        set { lock.lock(); _stalling = newValue; lock.unlock() }
-    }
-
     var released: Bool {
         get { lock.lock(); defer { lock.unlock() }; return _released }
         set { lock.lock(); _released = newValue; lock.unlock() }
@@ -549,4 +575,10 @@ private final class ParkedSends: @unchecked Sendable {
         }
         return sent.count >= count
     }
+}
+
+private final class FoldOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var done = false
+    func take() -> Bool { lock.lock(); defer { lock.unlock() }; defer { done = true }; return !done }
 }
