@@ -10,6 +10,7 @@ import Foundation
 final class ManualSleepClock: @unchecked Sendable {
     private let lock = NSLock()
     private var waiters: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var requestIndexById: [Int: Int] = [:]
     private var nextId = 0
     private var _requested: [TimeInterval] = []
 
@@ -23,6 +24,7 @@ final class ManualSleepClock: @unchecked Sendable {
                     // Record the request and install the waiter together, so a test that sees the
                     // request can always fire it.
                     lock.lock()
+                    requestIndexById[id] = _requested.count
                     _requested.append(seconds)
                     if Task.isCancelled {
                         lock.unlock()
@@ -49,6 +51,15 @@ final class ManualSleepClock: @unchecked Sendable {
         let waiter = waiters.removeValue(forKey: id)
         lock.unlock()
         waiter?.resume(throwing: CancellationError())
+    }
+
+    /// Completes only the parked sleep that was the `index`th request (0-based).
+    func fire(requestIndex index: Int) {
+        lock.lock()
+        let id = requestIndexById.first { $0.value == index }?.key
+        let waiter = id.flatMap { waiters.removeValue(forKey: $0) }
+        lock.unlock()
+        waiter?.resume()
     }
 
     /// Completes every parked sleep normally (the budget "elapses").

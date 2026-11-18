@@ -345,7 +345,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
         spy.release()
         await first.value
-        manual.fireAll() // the second scope's budget for the finished flush elapses late
+        manual.fire(requestIndex: 1) // only the second scope's wait budget on the finished flush elapses
         await second.value
 
         XCTAssertEqual(spy.sentIds, ["a", "b"])
