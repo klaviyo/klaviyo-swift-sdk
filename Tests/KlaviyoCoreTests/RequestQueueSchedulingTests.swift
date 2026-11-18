@@ -28,7 +28,7 @@ final class RequestQueueSchedulingTests: RequestQueueTestCase {
     }
 
     private func makeQueue(_ spy: SendSpy) -> RequestQueue {
-        RequestQueue(clock: gated.clock, send: spy.send)
+        RequestQueue.forTests(clock: gated.clock, send: spy.send)
     }
 
     private func enqueueOne() {

@@ -123,3 +123,22 @@ final class FakeBackgroundTasks: @unchecked Sendable {
         handle?.end()
     }
 }
+
+extension BackgroundTaskRunner {
+    /// A foreground app: `isAppActive` answers without hopping actors, and `begin` is a no-op.
+    static let foregroundStub = BackgroundTaskRunner(
+        begin: { _, _ in BackgroundTaskHandle() },
+        isAppActive: { true }
+    )
+}
+
+extension RequestQueue {
+    /// A queue wired to `foregroundStub`, so tests never touch `UIApplication` or the main actor.
+    static func forTests(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)? = nil
+    ) -> RequestQueue {
+        RequestQueue(clock: clock, send: send, willDrain: willDrain, backgroundTasks: .foregroundStub)
+    }
+}
