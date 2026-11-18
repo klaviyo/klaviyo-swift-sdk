@@ -175,15 +175,8 @@ public actor RequestQueue {
             Task { await self?.expireFlush(owner: owner) }
         }
         let scope = Task {
-            // A flush already running (e.g. the main drain) finishes first; the pass below then drains
-            // everything queued by then, including this request.
-            if let (running, observed) = await self.activeFlushAndGeneration() {
-                let finished = await self.waitWithoutBlocking(
-                    on: running, timeout: FlushConstants.backgroundSendTimeout
-                )
-                // Only a foreground flush has no budget of its own; never abandon a budgeted send.
-                if !finished, !Task.isCancelled { await self.abandonUnbudgetedFlush(ifGeneration: observed) }
-            }
+            // A flush already running finishes first; the pass below then drains everything queued by then.
+            await self.waitForActiveFlush()
             if !Task.isCancelled {
                 await self.flush(
                     owner: owner,
@@ -193,18 +186,30 @@ public actor RequestQueue {
             }
         }
         priorityScopes[owner] = scope
-        await scope.value
+        await withTaskCancellationHandler { await scope.value } onCancel: { scope.cancel() }
         priorityScopes[owner] = nil
         handle?.end()
+    }
+
+    /// Waits until no flush is active. A budgeted flush (owner != 0) bounds its own sends, so wait for it
+    /// or for the caller's cancellation. An unbudgeted foreground flush gets one budget, then is put back.
+    private func waitForActiveFlush() async {
+        while !Task.isCancelled, let running = activeFlush {
+            let observed = flushGeneration
+            if activeFlushOwner != 0 {
+                _ = await waitWithoutBlocking(on: running, timeout: nil)
+            } else {
+                let finished = await waitWithoutBlocking(
+                    on: running, timeout: FlushConstants.backgroundSendTimeout
+                )
+                if !finished, !Task.isCancelled { abandonUnbudgetedFlush(ifGeneration: observed) }
+            }
+        }
     }
 
     private func abandonUnbudgetedFlush(ifGeneration generation: Int) {
         guard activeFlushOwner == 0 else { return }
         abandonActiveFlush(ifGeneration: generation)
-    }
-
-    private func activeFlushAndGeneration() -> (Task<Void, Never>, Int)? {
-        activeFlush.map { ($0, flushGeneration) }
     }
 
     /// Scoped expiry: stop this scope's own waiting, and cancel the flush only if this scope started it.
@@ -232,9 +237,7 @@ public actor RequestQueue {
             await running.value
             return
         }
-        // Fold staged profile properties into the queue first, so they go out even if it was empty.
-        await willDrain?()
-        guard activeFlush != nil || hasDueWork else { return }
+        // Register before any await so a concurrent caller joins this drain instead of starting another.
         backgroundDrainId += 1
         let id = backgroundDrainId
         let task = Task { await self.runBackgroundDrain(id: id) }
@@ -249,20 +252,17 @@ public actor RequestQueue {
     }
 
     private func runBackgroundDrain(id: Int) async {
+        defer { if backgroundDrainId == id { backgroundDrainTask = nil } }
+        // Fold staged profile properties into the queue first, so they go out even if it was empty.
+        await willDrain?()
+        guard activeFlush != nil || hasDueWork else { return }
         nextOwner += 1
         let owner = nextOwner
         let handle = await backgroundTasks.begin("com.klaviyo.queue-flush") { [weak self] in
             // System expiry thread: only schedule the restore. The runner ends the task right after.
             Task { await self?.expireBackgroundDrain(id: id, owner: owner) }
         }
-        if let running = activeFlush {
-            // A foreground send has no budget of its own: bound the wait, then put it back and drain.
-            let observed = flushGeneration
-            let finished = await waitWithoutBlocking(
-                on: running, timeout: FlushConstants.backgroundSendTimeout
-            )
-            if !finished, !Task.isCancelled { abandonActiveFlush(ifGeneration: observed) }
-        }
+        await waitForActiveFlush()
         if !Task.isCancelled, hasDueWork {
             await flush(
                 owner: owner,
@@ -271,7 +271,6 @@ public actor RequestQueue {
             )
         }
         handle?.end()
-        if backgroundDrainId == id { backgroundDrainTask = nil }
     }
 
     /// Background task expired: cancel the drain and put the lease back. The lease is already on disk,
@@ -284,9 +283,9 @@ public actor RequestQueue {
         expireFlush(owner: owner)
     }
 
-    /// Waits for `task`, returning `false` if `timeout` elapses first and `true` if it finished.
-    /// Also returns at once if the caller is cancelled (a send may ignore cancellation).
-    private func waitWithoutBlocking(on task: Task<Void, Never>, timeout: TimeInterval) async -> Bool {
+    /// Waits for `task`, returning `false` if `timeout` (when given) elapses first and `true` if it
+    /// finished. Also returns at once if the caller is cancelled (a send may ignore cancellation).
+    private func waitWithoutBlocking(on task: Task<Void, Never>, timeout: TimeInterval?) async -> Bool {
         let race = OneShot<Bool>()
         let clock = clock
         let waiter = Task {
@@ -294,6 +293,7 @@ public actor RequestQueue {
             race.finish(true)
         }
         let timer = Task {
+            guard let timeout else { return }
             do {
                 try await clock.sleep(timeout)
                 race.finish(false)

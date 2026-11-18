@@ -332,20 +332,20 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
     }
 
     func testStaleWaitBudgetDoesNotAbandonALaterFlush() async {
-        tasks.appActive = false
         enqueue("a")
         let started = expectation(description: "first send parked")
         let spy = SendSpy(parkFirstCall: true, started: started)
         let queue = makeQueue(send: spy.send)
-        let first = Task { await queue.flushNow() }
+        let first = Task { await queue.flushNow() } // a foreground flush: no budget of its own
         await fulfillment(of: [started], timeout: 2)
+        tasks.appActive = false
         let second = Task { await queue.flushNow() } // waits on the parked flush under its own budget
-        XCTAssertTrue(manual.waitForRequested(atLeast: 2))
+        XCTAssertTrue(manual.waitForRequested(atLeast: 1))
         enqueue("b") // queued before the first flush ends, so the second scope's flush is sure to send it
 
         spy.release()
         await first.value
-        manual.fire(requestIndex: 1) // only the second scope's wait budget on the finished flush elapses
+        manual.fire(requestIndex: 0) // only the second scope's wait budget on the finished flush elapses
         await second.value
 
         XCTAssertEqual(spy.sentIds, ["a", "b"])
@@ -468,24 +468,23 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(tasks.begins, 1)
     }
 
-    func testPriorityWaitTimingOutDoesNotAbandonABudgetedDrain() async {
+    func testPriorityWaitLeavesABudgetedDrainAlone() async {
         enqueue("a")
         let started = expectation(description: "drain send parked")
         let spy = SendSpy(parkFirstCall: true, started: started)
         let queue = makeQueue(send: spy.send)
-        let drain = await startParkedDrain(queue, started: started) // its own send budget is request 0
+        let drain = await startParkedDrain(queue, started: started)
         tasks.appActive = false
         let priority = Task { await queue.flushNow() }
-        XCTAssertTrue(manual.waitForRequested(atLeast: 2)) // the priority wait is request 1
-
-        manual.fire(requestIndex: 1)
-        await priority.value
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
+        try? await Task.sleep(nanoseconds: 100_000_000)
 
         let active = await queue.hasActiveFlush
         XCTAssertTrue(active, "a flush with its own budget must be left to it")
         XCTAssertEqual(disk.stored.map(\.id), ["a"])
         spy.release()
         await drain.value
+        await priority.value
         XCTAssertEqual(spy.sentIds, ["a"])
         XCTAssertTrue(disk.stored.isEmpty)
     }
@@ -512,6 +511,116 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(log.values, ["a", "c", "d"], "drain two must run to completion")
         XCTAssertTrue(QueueStore.shared.entries.isEmpty)
         XCTAssertTrue(disk.stored.isEmpty)
+    }
+
+    // MARK: - Waiting on an active flush
+
+    func testPriorityRequestQueuedDuringABudgetedDrainIsSentBeforeTheTaskEnds() async {
+        enqueue("a")
+        let parked = ParkedSends()
+        let queue = makeQueue { request, _ in
+            await parked.park(request.id)
+            return .success(Data())
+        }
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
+        tasks.appActive = false
+        let priority = Task { await queue.flushNow() }
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        enqueue("b") // arrives after the drain leased its batch
+        manual.fire(requestIndex: 1) // the old bounded wait; nothing to fire once the wait is unbounded
+
+        parked.releaseAll()
+        XCTAssertTrue(parked.waitForSends(atLeast: 2), "b must go out in the priority pass")
+        parked.releaseAll()
+        await drain.value
+        await priority.value
+
+        XCTAssertEqual(parked.sent, ["a", "b"])
+        XCTAssertTrue(disk.stored.isEmpty)
+        XCTAssertEqual(tasks.ends, 2)
+    }
+
+    func testBackgroundDrainDoesNotAbandonABudgetedPriorityFlush() async {
+        enqueue("a")
+        let parked = ParkedSends()
+        let queue = makeQueue { request, _ in
+            await parked.park(request.id)
+            return .success(Data())
+        }
+        tasks.appActive = false
+        let priority = Task { await queue.flushNow() }
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        manual.fire(requestIndex: 1) // the old bounded wait; nothing to fire once the wait is unbounded
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        let active = await queue.hasActiveFlush
+        XCTAssertTrue(active, "a flush with its own budget must be left to it")
+        XCTAssertEqual(parked.sent, ["a"], "a must not be restored and sent again")
+        parked.releaseAll()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        parked.releaseAll()
+        await priority.value
+        await drain.value
+        XCTAssertEqual(parked.sent, ["a"])
+        XCTAssertTrue(disk.stored.isEmpty)
+    }
+
+    func testCancellingFlushNowCancelsThePriorityScopeAndRestoresTheLease() async {
+        enqueue("a")
+        let parked = ParkedSends()
+        let queue = makeQueue { request, _ in
+            await parked.park(request.id)
+            return .success(Data())
+        }
+        tasks.appActive = false
+        let finished = expectation(description: "flushNow returned")
+        let priority = Task {
+            await queue.flushNow()
+            finished.fulfill()
+        }
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
+
+        priority.cancel()
+        await fulfillment(of: [finished], timeout: 2)
+
+        let active = await queue.hasActiveFlush
+        XCTAssertFalse(active)
+        XCTAssertEqual(disk.stored.map(\.id), ["a"], "the lease must be back in the queue")
+        XCTAssertEqual(tasks.ends, 1)
+        parked.releaseAll()
+    }
+
+    func testConcurrentBackgroundDrainsBeginOneTask() async {
+        enqueue("a")
+        let gate = ParkedSends()
+        let spy = SendSpy()
+        let queue = RequestQueue(
+            clock: manual.clock,
+            send: spy.send,
+            willDrain: { await gate.park("w") },
+            backgroundTasks: tasks.runner
+        )
+        await queue.enterBackground()
+        let first = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(gate.waitForSends(atLeast: 1))
+        let second = Task { await queue.backgroundDrain() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        gate.releaseAll()
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        gate.releaseAll()
+        await first.value
+        await second.value
+
+        XCTAssertEqual(tasks.begins, 1, "the second caller must join the first drain")
+        XCTAssertEqual(spy.sentIds, ["a"])
     }
 }
 
