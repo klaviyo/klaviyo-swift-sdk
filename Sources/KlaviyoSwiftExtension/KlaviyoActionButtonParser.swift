@@ -6,16 +6,9 @@
 //
 
 import Foundation
+import KlaviyoFoundation
 import OSLog
 import UserNotifications
-
-/// Represents a parsed action button definition from a push notification payload.
-struct ActionButtonDefinition {
-    let id: String
-    let action: ActionType
-    let label: String
-    let url: String?
-}
 
 /// Parses action button definitions from push notification payloads and creates UNNotificationAction instances.
 ///
@@ -40,103 +33,37 @@ enum KlaviyoActionButtonParser {
     /// Parses action button definitions from a push notification payload.
     ///
     /// - Parameter userInfo: The notification's userInfo dictionary
-    /// - Returns: Array of parsed button definitions, or nil if none found
-    static func parseActionButtons(from userInfo: [AnyHashable: Any]) -> [ActionButtonDefinition]? {
-        // Extract body dictionary
-        guard let body = userInfo["body"] as? [String: Any],
-              let actionButtonsArray = body["action_buttons"] as? [[String: Any]],
-              !actionButtonsArray.isEmpty else {
+    /// - Returns: Array of parsed buttons, or nil if none are valid
+    static func parseActionButtons(from userInfo: [AnyHashable: Any]) -> [ActionButton]? {
+        let buttons = ActionButtonParser.parse(userInfo: userInfo) { reason in
             if #available(iOS 14.0, *) {
-                Logger.actionButtons.info("No action buttons found in notification payload")
+                Logger.actionButtons.warning("Skipping action button. \(reason)")
             }
-            return nil
         }
-
-        // Parse each button definition
-        var definitions: [ActionButtonDefinition] = []
-
-        for buttonData in actionButtonsArray {
-            guard let id = buttonData["id"] as? String,
-                  let label = buttonData["label"] as? String,
-                  let actionString = buttonData["action"] as? String,
-                  let action = ActionType(rawValue: actionString) else {
-                if #available(iOS 14.0, *) {
-                    Logger.actionButtons.warning("Button data is missing or malformed. Missing an id, label, and/or action. Skipping button: \(buttonData.description)")
-                }
-                continue // Skip invalid button definitions
-            }
-
-            let url = buttonData["url"] as? String
-
-            // Validate action-url combinations
-            guard isValidActionURLCombination(action: action, url: url) else {
-                if #available(iOS 14.0, *) {
-                    Logger.actionButtons.warning("Button url is incompatible with its action. Skipping button: \(buttonData.description)")
-                }
-                continue
-            }
-
-            definitions.append(ActionButtonDefinition(
-                id: id,
-                action: action,
-                label: label,
-                url: url
-            ))
+        if buttons.isEmpty, #available(iOS 14.0, *) {
+            Logger.actionButtons.info("No valid action buttons found in notification payload")
         }
-
-        return definitions.isEmpty ? nil : definitions
+        return buttons.isEmpty ? nil : buttons
     }
 
     /// Creates an array of UNNotificationAction instances from button definitions.
     ///
-    /// - Parameter definitions: Array of parsed button definitions
+    /// - Parameter buttons: Array of parsed buttons
     /// - Returns: Array of UNNotificationAction instances
-    static func createActions(from definitions: [ActionButtonDefinition]) -> [UNNotificationAction] {
-        var actions: [UNNotificationAction] = []
-
-        for definition in definitions {
-            let action = createAction(from: definition)
-            actions.append(action)
-        }
-
-        return actions
+    static func createActions(from buttons: [ActionButton]) -> [UNNotificationAction] {
+        buttons.map(createAction(from:))
     }
 
     // MARK: - Private Methods
 
-    /// Validates that an action type has the correct URL configuration.
-    ///
-    /// - `.openApp` actions should not have a URL
-    /// - `.deepLink` actions must have a parseable URL
-    /// - `.openUrl` actions must have a parseable URL whose scheme is in ``openUrlAllowedSchemes`` —
-    ///   unlisted schemes (e.g. `javascript:`, `file:`, `intent:`) are rejected silently
-    ///
-    /// - Parameters:
-    ///   - action: The action type to validate
-    ///   - url: The optional URL string
-    /// - Returns: `true` if the combination is valid, `false` otherwise
-    private static func isValidActionURLCombination(action: ActionType, url: String?) -> Bool {
-        switch action {
-        case .openApp:
-            return url == nil
-        case .deepLink:
-            guard let urlString = url else { return false }
-            return URL(string: urlString) != nil
-        case .openUrl:
-            guard let urlString = url, let parsedUrl = URL(string: urlString) else { return false }
-            guard let scheme = parsedUrl.scheme?.lowercased() else { return false }
-            return openUrlAllowedSchemes.contains(scheme)
-        }
-    }
-
     /// Creates a single UNNotificationAction from a button definition.
     ///
-    /// - Parameter definition: The button definition to convert
+    /// - Parameter button: The button to convert
     /// - Returns: A configured UNNotificationAction
-    private static func createAction(from definition: ActionButtonDefinition) -> UNNotificationAction {
+    private static func createAction(from button: ActionButton) -> UNNotificationAction {
         UNNotificationAction(
-            identifier: definition.id,
-            title: definition.label,
+            identifier: button.id,
+            title: button.label,
             options: .foreground // Opens app when tapped
         )
     }
