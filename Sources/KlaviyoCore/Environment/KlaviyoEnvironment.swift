@@ -24,7 +24,7 @@ public struct KlaviyoEnvironment {
         getBadgeAutoClearingSetting: @escaping () async -> Bool,
         sdkFeatures: @escaping () -> SdkFeatures? = { nil },
         getLocationAuthorizationStatus: @escaping () -> CLAuthorizationStatus,
-        startReachability: @escaping () throws -> Void,
+        startReachability: @escaping () -> Void,
         stopReachability: @escaping () -> Void,
         reachabilityStatus: @escaping () -> Reachability.NetworkStatus?,
         randomInt: @escaping () -> Int,
@@ -103,7 +103,7 @@ public struct KlaviyoEnvironment {
         return decoder
     }()
 
-    private static let reachabilityService = Reachability(hostname: productionHost.host ?? "")
+    private static let networkPathMonitor = NetworkPathMonitor()
 
     public var fileClient: FileClient
     public var dataFromUrl: (URL) throws -> Data
@@ -119,7 +119,7 @@ public struct KlaviyoEnvironment {
     public var sdkFeatures: () -> SdkFeatures?
     public var getLocationAuthorizationStatus: () -> CLAuthorizationStatus
 
-    public var startReachability: () throws -> Void
+    public var startReachability: () -> Void
     public var stopReachability: () -> Void
     public var reachabilityStatus: () -> Reachability.NetworkStatus?
 
@@ -151,11 +151,7 @@ public struct KlaviyoEnvironment {
                 case .terminated, .backgrounded:
                     stopReachability()
                 case .foregrounded:
-                    do {
-                        try startReachability()
-                    } catch {
-                        emitDeveloperWarning("failure to start reachability notifier")
-                    }
+                    startReachability()
                 case .reachabilityChanged:
                     break
                 }
@@ -166,17 +162,27 @@ public struct KlaviyoEnvironment {
     // Known wrapper SDK CocoaPods pod names. Add new entries here when a new wrapper is released.
     package static let knownWrapperBundleNames = ["klaviyo-react-native-sdk", "klaviyo_flutter_sdk"]
 
-    private static let wrapperSDKConfig: [String: AnyObject] = {
+    // Known wrapper SDK SwiftPM resource bundle names, in SwiftPM's `<package>_<target>` form.
+    package static let knownWrapperSwiftPMBundleNames = [
+        "klaviyo_flutter_sdk_klaviyo_flutter_sdk",
+        "KlaviyoReactNativeSdk_KlaviyoReactNativeSdk"
+    ]
+
+    private static let wrapperSDKConfig: [String: AnyObject] = loadWrapperSDKConfig()
+
+    package static func loadWrapperSDKConfig(mainBundle: Bundle = .main) -> [String: AnyObject] {
         // Path 1: static library (no use_frameworks!) — resources copied flat into Bundle.main.
         // Also covers use_frameworks! :linkage => :static with s.resources.
-        if let config = loadPlist(named: "klaviyo-sdk-configuration") {
+        if let config = loadPlist(named: "klaviyo-sdk-configuration", in: mainBundle) {
             return config
         }
 
         // Path 2: use_frameworks! :linkage => :static with s.resource_bundles — CocoaPods copies the
         // named .bundle into Bundle.main alongside the app's own resources.
-        for bundleName in knownWrapperBundleNames {
-            if let bundleURL = Bundle.main.url(forResource: bundleName, withExtension: "bundle"),
+        // Also covers SwiftPM, which copies the wrapper target's resources into a
+        // `<package>_<target>.bundle` in Bundle.main.
+        for bundleName in knownWrapperBundleNames + knownWrapperSwiftPMBundleNames {
+            if let bundleURL = mainBundle.url(forResource: bundleName, withExtension: "bundle"),
                let bundle = Bundle(url: bundleURL),
                let config = loadPlist(named: "klaviyo-sdk-configuration", in: bundle) {
                 return config
@@ -186,7 +192,7 @@ public struct KlaviyoEnvironment {
         // Paths 3 & 4: use_frameworks! (dynamic) — the wrapper pod is a .framework in Frameworks/.
         // With s.resources the plist sits directly in the framework bundle (path 3).
         // With s.resource_bundles it sits inside a named .bundle within the framework (path 4).
-        if let frameworksURL = Bundle.main.privateFrameworksURL {
+        if let frameworksURL = mainBundle.privateFrameworksURL {
             for bundleName in knownWrapperBundleNames {
                 // CocoaPods converts hyphens to underscores in framework/module directory names.
                 let frameworkDirName = bundleName.replacingOccurrences(of: "-", with: "_")
@@ -208,7 +214,7 @@ public struct KlaviyoEnvironment {
         }
 
         return [:]
-    }()
+    }
 
     private static func getSDKName() -> String {
         if let sdkName = wrapperSDKConfig["klaviyo_sdk_name"] as? String {
@@ -265,15 +271,9 @@ public struct KlaviyoEnvironment {
                 return CLLocationManager.authorizationStatus()
             }
         },
-        startReachability: {
-            try reachabilityService?.startNotifier()
-        },
-        stopReachability: {
-            reachabilityService?.stopNotifier()
-        },
-        reachabilityStatus: {
-            reachabilityService?.currentReachabilityStatus
-        },
+        startReachability: { networkPathMonitor.start() },
+        stopReachability: { networkPathMonitor.stop() },
+        reachabilityStatus: { networkPathMonitor.currentStatus },
         randomInt: { Int.random(in: 0...10) },
         raiseFatalError: { msg in
             #if DEBUG
