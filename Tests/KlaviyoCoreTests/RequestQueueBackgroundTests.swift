@@ -664,12 +664,18 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         enqueue("a")
         let spy = SendSpy()
         let ended = Flag()
+        let box = QueueBox()
         let runner = BackgroundTaskRunner(begin: { _, onExpire in
             onExpire()
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            // Return only once the queue has recorded the expiry (bounded, no fixed sleep).
+            for _ in 0..<2000 {
+                if let queue = box.queue, await queue.pendingStartExpiries > 0 { break }
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
             return BackgroundTaskHandle { ended.set() }
         }, isAppActive: { false })
         let queue = RequestQueue(clock: manual.clock, send: spy.send, backgroundTasks: runner)
+        box.queue = queue
 
         await queue.flushNow()
 
@@ -756,5 +762,14 @@ private final class Flag: @unchecked Sendable {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline, !isSet { Thread.sleep(forTimeInterval: 0.01) }
         return isSet
+    }
+}
+
+private final class QueueBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _queue: RequestQueue?
+    var queue: RequestQueue? {
+        get { lock.lock(); defer { lock.unlock() }; return _queue }
+        set { lock.lock(); _queue = newValue; lock.unlock() }
     }
 }

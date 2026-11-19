@@ -147,6 +147,7 @@ public actor RequestQueue {
     /// Identity of the current flush, for tests.
     var currentFlushGeneration: Int { flushGeneration }
     var hasActiveFlush: Bool { activeFlush != nil }
+    var pendingStartExpiries: Int { expiredPriorityOwners.count }
 
     /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
     /// returns late is discarded. Does not wait on the network.
