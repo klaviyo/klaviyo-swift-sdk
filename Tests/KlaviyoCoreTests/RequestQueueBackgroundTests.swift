@@ -130,11 +130,11 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         let flush = Task { await queue.flushNow() }
         await fulfillment(of: [started], timeout: 2)
 
-        await queue.stop()
-        flush.cancel()
+        flush.cancel() // only the caller is cancelled: no stop(), so the generation stays current
         await flush.value
 
         XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a"], "a cancelled send must never drop the request")
+        XCTAssertEqual(QueueStore.shared.entries.first?.attempts, 0, "a cancelled send is not an attempt")
         XCTAssertEqual(disk.stored.map(\.id), ["a"])
     }
 
@@ -332,7 +332,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(QueueStore.shared.head?.isAwaitingRetry(at: environment.date()), true)
     }
 
-    func testStaleWaitBudgetDoesNotAbandonALaterFlush() async {
+    func testFlushStartedAfterAnEarlierWaitStaysActive() async {
         enqueue("a")
         let parked = ParkedSends()
         let queue = makeQueue { request, _ in
@@ -349,11 +349,8 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         await first.value
         XCTAssertTrue(parked.waitForSends(atLeast: 2))
 
-        manual.fire(requestIndex: 0) // the first flush's wait budget, now stale
-        try? await Task.sleep(nanoseconds: 100_000_000)
-
         let active = await queue.hasActiveFlush
-        XCTAssertTrue(active, "a stale wait budget must not abandon the later flush")
+        XCTAssertTrue(active, "the flush started after the wait must not be abandoned by it")
         parked.releaseAll()
         await second.value
         XCTAssertEqual(parked.sent, ["a", "b"])
@@ -410,10 +407,14 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
         XCTAssertEqual(manual.requested.first, FlushConstants.backgroundSendTimeout)
         XCTAssertEqual(tasks.ends, 1)
+        XCTAssertEqual(spy.sentIds, ["a", "a", "b"], "the hung send is put back and sent again, then b")
+        XCTAssertTrue(QueueStore.shared.entries.isEmpty)
+        XCTAssertTrue(disk.stored.isEmpty)
         spy.release()
         await foreground.value
-        XCTAssertEqual(Set(QueueStore.shared.entries.map(\.id)).union(disk.stored.map(\.id)), Set(disk.stored.map(\.id)),
-                       "nothing may exist only in memory")
+        XCTAssertEqual(spy.sentIds, ["a", "a", "b"], "the late success must change nothing")
+        XCTAssertTrue(QueueStore.shared.entries.isEmpty)
+        XCTAssertTrue(disk.stored.isEmpty)
     }
 
     func testStalledRequestStopsTheDrainAndKeepsOrder() async {
@@ -536,10 +537,8 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         tasks.appActive = false
         let priority = Task { await queue.flushNow() }
         XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        for _ in 0..<50 { _ = await queue.hasActiveFlush } // let the priority scope reach its wait
         enqueue("b") // arrives after the drain leased its batch
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertEqual(manual.requested.count, 1, "only the drain's send budget: the priority wait is unbounded")
         XCTAssertEqual(parked.sent, ["a"], "b waits for the priority pass while a is parked")
 
         parked.releaseAll()
@@ -549,6 +548,8 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         await priority.value
 
         XCTAssertEqual(parked.sent, ["a", "b"])
+        XCTAssertEqual(manual.requested, [FlushConstants.backgroundSendTimeout, FlushConstants.backgroundSendTimeout],
+                       "one budget per send (a, b) and no timed wait on a budgeted flush")
         XCTAssertTrue(disk.stored.isEmpty)
         XCTAssertEqual(tasks.ends, 2)
     }
