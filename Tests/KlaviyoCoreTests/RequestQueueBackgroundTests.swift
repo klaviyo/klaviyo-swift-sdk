@@ -106,14 +106,15 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(disk.stored.map(\.id), ["a", "b"])
     }
 
-    func testExpiryWithNothingInFlightBeginsNoTask() async {
+    func testEmptyDrainEndsItsTaskAtOnce() async {
         let queue = makeQueue(send: SendSpy().send)
         await queue.enterBackground()
 
         await queue.backgroundDrain()
 
-        XCTAssertEqual(tasks.begins, 0)
-        tasks.expire() // no task: must be a harmless no-op
+        XCTAssertEqual(tasks.begins, 1)
+        XCTAssertEqual(tasks.ends, 1, "an empty queue costs only a begin and end pair")
+        tasks.expire() // already ended: must be a harmless no-op
     }
 
     func testCancelledSendReportingCancellationErrorIsKept() async {
@@ -183,7 +184,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         }
 
         XCTAssertEqual(spy.sentIds, ["a", "b"], "one drain per backgrounding, nothing re-sent")
-        XCTAssertEqual(tasks.begins, 1, "empty cycles must not begin a task")
+        XCTAssertEqual(tasks.begins, 10, "each backgrounding begins one task, even when empty")
         XCTAssertEqual(tasks.begins, tasks.ends)
         await queue.stop()
     }
@@ -230,7 +231,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(spy.sentIds, ["a"], "the backoff head blocks the drain")
         XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a", "b"])
         XCTAssertEqual(QueueStore.shared.entries.first?.attempts, 1, "no extra attempt or decrement")
-        XCTAssertEqual(tasks.begins, 0)
+        XCTAssertEqual(tasks.begins, tasks.ends, "the task must be ended when nothing is sent")
     }
 
     func testReachabilityWhileBackgroundedDoesNotRestartLoop() async {
@@ -333,23 +334,30 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
     func testStaleWaitBudgetDoesNotAbandonALaterFlush() async {
         enqueue("a")
-        let started = expectation(description: "first send parked")
-        let spy = SendSpy(parkFirstCall: true, started: started)
-        let queue = makeQueue(send: spy.send)
+        let parked = ParkedSends()
+        let queue = makeQueue { request, _ in
+            await parked.park(request.id)
+            return .success(Data())
+        }
         let first = Task { await queue.flushNow() } // a foreground flush: no budget of its own
-        await fulfillment(of: [started], timeout: 2)
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
         tasks.appActive = false
         let second = Task { await queue.flushNow() } // waits on the parked flush under its own budget
         XCTAssertTrue(manual.waitForRequested(atLeast: 1))
-        enqueue("b") // queued before the first flush ends, so the second scope's flush is sure to send it
-
-        spy.release()
+        enqueue("b")
+        parked.releaseAll() // the first flush ends; the second scope starts its own flush and parks on b
         await first.value
-        manual.fire(requestIndex: 0) // only the second scope's wait budget on the finished flush elapses
-        await second.value
+        XCTAssertTrue(parked.waitForSends(atLeast: 2))
 
-        XCTAssertEqual(spy.sentIds, ["a", "b"])
-        XCTAssertTrue(disk.stored.isEmpty, "the later flush must complete, not be abandoned")
+        manual.fire(requestIndex: 0) // the first flush's wait budget, now stale
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        let active = await queue.hasActiveFlush
+        XCTAssertTrue(active, "a stale wait budget must not abandon the later flush")
+        parked.releaseAll()
+        await second.value
+        XCTAssertEqual(parked.sent, ["a", "b"])
+        XCTAssertTrue(disk.stored.isEmpty)
     }
 
     func testAbandonWithStaleGenerationLeavesALaterFlushRunning() async {
@@ -530,7 +538,9 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
         try? await Task.sleep(nanoseconds: 100_000_000)
         enqueue("b") // arrives after the drain leased its batch
-        manual.fire(requestIndex: 1) // the old bounded wait; nothing to fire once the wait is unbounded
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertEqual(manual.requested.count, 1, "only the drain's send budget: the priority wait is unbounded")
+        XCTAssertEqual(parked.sent, ["a"], "b waits for the priority pass while a is parked")
 
         parked.releaseAll()
         XCTAssertTrue(parked.waitForSends(atLeast: 2), "b must go out in the priority pass")
@@ -593,6 +603,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         let active = await queue.hasActiveFlush
         XCTAssertFalse(active)
         XCTAssertEqual(disk.stored.map(\.id), ["a"], "the lease must be back in the queue")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a"], "a must be pending again, not leased")
         XCTAssertEqual(tasks.ends, 1)
         parked.releaseAll()
     }
@@ -600,27 +611,70 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
     func testConcurrentBackgroundDrainsBeginOneTask() async {
         enqueue("a")
         let gate = ParkedSends()
+        let once = FoldOnce()
         let spy = SendSpy()
         let queue = RequestQueue(
             clock: manual.clock,
             send: spy.send,
-            willDrain: { await gate.park("w") },
+            willDrain: { if once.take() { await gate.park("w") } },
             backgroundTasks: tasks.runner
         )
         await queue.enterBackground()
         let first = Task { await queue.backgroundDrain() }
         XCTAssertTrue(gate.waitForSends(atLeast: 1))
-        let second = Task { await queue.backgroundDrain() }
+        let entered = Flag()
+        let returned = Flag()
+        let second = Task {
+            entered.set()
+            await queue.backgroundDrain()
+            returned.set()
+        }
+        XCTAssertTrue(entered.wait())
         try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertFalse(returned.isSet, "the second caller must wait on the first drain")
 
-        gate.releaseAll()
-        try? await Task.sleep(nanoseconds: 50_000_000)
         gate.releaseAll()
         await first.value
         await second.value
 
+        XCTAssertTrue(returned.isSet)
         XCTAssertEqual(tasks.begins, 1, "the second caller must join the first drain")
         XCTAssertEqual(spy.sentIds, ["a"])
+    }
+
+    func testBackgroundTaskBeginsBeforeStagedWorkIsFolded() async {
+        enqueue("a")
+        let seen = SentLog()
+        let tasks = tasks!
+        let queue = RequestQueue(
+            clock: manual.clock,
+            send: SendSpy().send,
+            willDrain: { seen.append("begins=\(tasks.begins)") },
+            backgroundTasks: tasks.runner
+        )
+        await queue.enterBackground()
+
+        await queue.backgroundDrain()
+
+        XCTAssertEqual(seen.values, ["begins=1"], "the task must begin first, and willDrain runs once")
+    }
+
+    func testPriorityExpiryBeforeBeginReturnsSendsNothing() async {
+        enqueue("a")
+        let spy = SendSpy()
+        let ended = Flag()
+        let runner = BackgroundTaskRunner(begin: { _, onExpire in
+            onExpire()
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            return BackgroundTaskHandle { ended.set() }
+        }, isAppActive: { false })
+        let queue = RequestQueue(clock: manual.clock, send: spy.send, backgroundTasks: runner)
+
+        await queue.flushNow()
+
+        XCTAssertTrue(spy.sentIds.isEmpty, "an expired task must not send")
+        XCTAssertTrue(ended.isSet)
+        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["a"])
     }
 }
 
@@ -690,4 +744,16 @@ private final class FoldOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var done = false
     func take() -> Bool { lock.lock(); defer { lock.unlock() }; defer { done = true }; return !done }
+}
+
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.lock(); defer { lock.unlock() }; return value }
+    func set() { lock.lock(); value = true; lock.unlock() }
+    func wait(timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline, !isSet { Thread.sleep(forTimeInterval: 0.01) }
+        return isSet
+    }
 }

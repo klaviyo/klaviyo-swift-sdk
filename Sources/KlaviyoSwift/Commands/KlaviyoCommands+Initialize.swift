@@ -206,9 +206,10 @@ extension KlaviyoCommands {
         @Sendable
         func handleBackgrounded() async {
             await requestQueue.enterBackground()
-            await MainActor.run { BadgeManager.syncBadgeCount() }
             // Detached from the lifecycle loop so a quick return to the foreground isn't delayed.
+            // Started before the badge sync so the background task begins as early as possible.
             Task { await requestQueue.backgroundDrain() }
+            await MainActor.run { BadgeManager.syncBadgeCount() }
         }
 
         @Sendable
