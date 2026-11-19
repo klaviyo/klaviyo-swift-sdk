@@ -134,14 +134,12 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertNotNil(handshakeScript, "Handshake script should be injected")
 
-        // Extract the handshake string from the script source
-        let scriptSource = handshakeScript?.source ?? ""
-        let components = scriptSource.components(separatedBy: "'")
-        guard components.count >= 2 else {
-            XCTFail("Could not find handshake data in script")
-            return
-        }
-        let handshakeString = components[components.count - 2]
+        // The value is a JSON string literal: decode it back to the handshake string
+        let prefix = #"document.head.setAttribute("data-native-bridge-handshake", "#
+        let scriptSource = try XCTUnwrap(handshakeScript?.source)
+        XCTAssertTrue(scriptSource.hasPrefix(prefix) && scriptSource.hasSuffix(");"))
+        let literal = scriptSource.dropFirst(prefix.count).dropLast(2)
+        let handshakeString = try JSONDecoder().decode(String.self, from: Data(literal.utf8))
 
         // Verify handshake data
         struct TestableHandshakeData: Codable, Equatable {
