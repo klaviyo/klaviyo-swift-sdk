@@ -7,6 +7,7 @@
 
 import Foundation
 import KlaviyoCore
+import OSLog
 
 /// Controls whether in-app form WebView console messages are relayed to the native logger.
 ///
@@ -66,10 +67,76 @@ extension KlaviyoSDKModule {
         return self
     }
 
+    /// Starts a draft in-app forms preview session with a preview token from the Klaviyo form
+    /// editor.
+    ///
+    /// Starting a preview is like unregistering and registering again: if forms are registered,
+    /// the current session is torn down, dismissing any form on screen, and a new session starts
+    /// that loads draft forms for `token`. If ``registerForInAppForms(configuration:)`` hasn't
+    /// been called yet, the token is held and the preview starts when forms register; no forms are
+    /// shown before then.
+    ///
+    /// A preview token is a short-lived credential for on-device testing of draft forms. The token
+    /// is held in memory only and is never persisted or logged. A malformed token is ignored with a
+    /// warning and changes nothing. When the preview expires, the token is cleared and published
+    /// forms return in the next session, such as after the next app launch.
+    /// ``unregisterFromInAppForms()`` also clears it.
+    ///
+    /// - Parameter token: The preview token.
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func startFormsPreview(_ token: String) -> Self {
+        FormsPreviewTokenStore.shared.startPreview(token)
+        return self
+    }
+
+    /// Ends the draft in-app forms preview session started by ``startFormsPreview(_:)``. If forms
+    /// are registered, the current session is torn down, dismissing any form on screen, and a new
+    /// session starts that loads published forms.
+    ///
+    /// - Returns: The current SDK instance, for chaining.
+    @MainActor
+    @discardableResult
+    public func endFormsPreview() -> Self {
+        FormsPreviewTokenStore.shared.endPreview()
+        return self
+    }
+
+    /// Starts a forms preview from a deep link, such as the link or QR code from the Klaviyo form
+    /// editor's **Preview on device** button.
+    ///
+    /// If `url` has a `klaviyo-forms-preview` query parameter holding a well-formed preview token,
+    /// a preview starts as if the token were passed to ``startFormsPreview(_:)`` and this returns
+    /// `true`.
+    /// Otherwise this returns `false` and changes nothing, so call it first from your deep link
+    /// handling and fall through when it returns `false`. Any scheme, host and path are accepted.
+    /// A malformed token logs a warning without the token and returns `false`.
+    ///
+    /// May be called before or after ``registerForInAppForms(configuration:)``; before, the
+    /// preview starts when forms register.
+    ///
+    /// - Parameter url: The deep link that opened the app.
+    /// - Returns: `true` if the link started a forms preview.
+    @MainActor
+    @discardableResult
+    public func handleFormsPreviewLink(_ url: URL) -> Bool {
+        guard let parameter = FormsPreview.previewTokenParameter(in: url) else { return false }
+        guard FormsPreviewTokenStore.validate(parameter) == parameter else {
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning("Ignoring forms preview link with a malformed token")
+            }
+            return false
+        }
+        return FormsPreviewTokenStore.shared.startPreview(parameter)
+    }
+
     /// Unregisters app from receiving In-App Forms and cleans up resources associated with In-App Forms (e.g. web view resources, subscriptions, state)
     @MainActor
     @discardableResult
     public func unregisterFromInAppForms() -> Self {
+        // Registering again loads published forms
+        FormsPreviewTokenStore.shared.clear()
         Task {
             await MainActor.run {
                 IAFPresentationManager.shared.destroyWebviewAndListeners()
@@ -127,6 +194,22 @@ extension KlaviyoSDKModule {
     public func unregisterFormLifecycleHandler() -> Self {
         IAFPresentationManager.shared.unregisterFormLifecycleHandler()
         return self
+    }
+
+    /// Streams whether the app is registered for In-App Forms: the current state first, then
+    /// every change, including when the SDK unregisters itself after a failed KlaviyoJS handshake.
+    /// Each call returns an independent stream; cancel its iteration to stop observing.
+    ///
+    /// Registration changes asynchronously, so a change arrives after
+    /// ``registerForInAppForms(configuration:)`` or ``unregisterFromInAppForms()`` returns.
+    ///
+    /// This method is for internal use only and should not be used in production applications.
+    ///
+    /// - Returns: A stream that yields `true` while registered.
+    @MainActor
+    @_spi(KlaviyoPrivate)
+    public func formsRegistrationStates() -> AsyncStream<Bool> {
+        IAFPresentationManager.shared.registrationStates()
     }
 
     /// Registers app to receive and display In-App Forms from Klaviyo with a custom asset source.
