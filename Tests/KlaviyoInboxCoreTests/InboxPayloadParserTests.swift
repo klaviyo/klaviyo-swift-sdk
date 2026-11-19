@@ -382,7 +382,7 @@ struct InboxPayloadParserTests {
         ]
         let record = try #require(InboxPayloadParser.parse(userInfo: userInfo, receivedAt: received))
         let object = try JSONSerialization.jsonObject(with: record.attribution.rawProperties)
-        #expect(object as? [String: Any] != nil)
+        #expect(object is [String: Any])
         #expect(record.attribution.transmissionID == "t")
     }
 }
