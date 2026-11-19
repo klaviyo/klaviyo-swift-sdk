@@ -17,7 +17,7 @@ package enum InboxStateUpdate: Equatable {
     package var messageExists: Bool { self != .missing }
 }
 
-/// A message state a user can change. Each field carries its own updated-at, so the pairing lives here.
+/// A message state a user can change.
 enum InboxStateField {
     case read
     case archived
@@ -29,24 +29,14 @@ enum InboxStateField {
         case .archived: InboxStoreModel.Key.isArchived
         }
     }
-
-    /// The date attribute that records when the state last changed.
-    var updatedAtKey: String {
-        switch self {
-        case .read: InboxStoreModel.Key.readUpdatedAt
-        case .archived: InboxStoreModel.Key.archivedUpdatedAt
-        }
-    }
 }
 
 extension NSManagedObject {
-    /// Sets `field` to `value` and stamps its updated-at and the catch-all `updatedAt` with `date`, the same
-    /// time for both so Phase 1b can tell which side changed last. Returns whether anything changed: a value
+    /// Sets `field` to `value` and stamps `updatedAt` with `date`. Returns whether anything changed: a value
     /// the message already has is a no-op that stamps nothing. The change is left unsaved for the caller.
     func setState(_ value: Bool, for field: InboxStateField, at date: Date) -> Bool {
         guard self.value(forKey: field.key) as? Bool != value else { return false }
         setValue(value, forKey: field.key)
-        setValue(date, forKey: field.updatedAtKey)
         setValue(date, forKey: InboxStoreModel.Key.updatedAt)
         return true
     }
