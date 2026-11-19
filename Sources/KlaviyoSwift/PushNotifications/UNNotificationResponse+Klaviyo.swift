@@ -94,12 +94,15 @@ extension UNNotificationResponse {
         }
 
         if var body = properties["body"] as? [String: Any],
-           let buttons = body["action_buttons"] as? [[String: Any]] {
+           let buttons = body["action_buttons"] as? [Any] {
             var changed = false
-            let strippedButtons = buttons.map { button -> [String: Any] in
-                guard let urlString = button["url"] as? String,
+            // Each entry is sanitized on its own: a non-dictionary entry is kept as is and must not
+            // stop the dictionary entries around it from being stripped.
+            let strippedButtons = buttons.map { element -> Any in
+                guard let button = element as? [String: Any],
+                      let urlString = button["url"] as? String,
                       let parameter = FormsPreview.previewTokenParameter(inURLString: urlString) else {
-                    return button
+                    return element
                 }
                 if isActionButtonTap, button["id"] as? String == actionIdentifier {
                     token = token ?? parameter
