@@ -17,7 +17,7 @@ import OSLog
 // `@unchecked Sendable`: the only mutable state lives in `Stack`, and is touched only on the context's
 // serial queue. The stored closures are never mutated after init.
 package final class InboxStore: InboxCapturing, @unchecked Sendable {
-    /// Messages kept per company; the oldest by `sortTime` are removed beyond this.
+    /// Messages kept per company; the oldest by `sentAt` are removed beyond this.
     package static let defaultMaxMessages = 100
     package static let storeFileName = "klaviyo-inbox.sqlite"
 
@@ -68,13 +68,16 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     package func capture(_ record: InboxRecord, companyID: String) async -> InboxCaptureResult {
         do {
             let payload = try JSONEncoder().encode(record)
-            let sortTime = record.sentAt ?? record.receivedAt
+            // `record.receivedAt` is stamped from the injectable clock when the push is captured, so it is
+            // the moment the device first saw the message; a replay is a duplicate and never reaches here.
+            let receivedAt = record.receivedAt
+            let sentAt = record.sentAt ?? receivedAt
             let result = try await perform { context in
                 defer { context.reset() }
                 let result = try Self.insert(
                     record,
                     payload: payload,
-                    sortTime: sortTime,
+                    sentAt: sentAt,
                     companyID: companyID,
                     into: context
                 )
@@ -107,7 +110,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     private static func insert(
         _ record: InboxRecord,
         payload: Data,
-        sortTime: Date,
+        sentAt: Date,
         companyID: String,
         into context: NSManagedObjectContext
     ) throws -> InboxCaptureResult {
@@ -124,7 +127,8 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
         let message = NSManagedObject(entity: entity, insertInto: context)
         message.setValue(companyID, forKey: Key.companyID)
         message.setValue(transmissionID, forKey: Key.transmissionID)
-        message.setValue(sortTime, forKey: Key.sortTime)
+        message.setValue(sentAt, forKey: Key.sentAt)
+        message.setValue(record.receivedAt, forKey: Key.receivedAt)
         message.setValue(payload, forKey: Key.payload)
         do {
             try context.save()
@@ -163,11 +167,17 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
               let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
             throw InboxStoreError.unavailable
         }
+        guard let sentAt = object.value(forKey: Key.sentAt) as? Date,
+              let receivedAt = object.value(forKey: Key.receivedAt) as? Date else {
+            throw InboxStoreError.unavailable
+        }
         return try StoredInboxMessage(
             id: transmissionID,
             record: JSONDecoder().decode(InboxRecord.self, from: payload),
             isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
             isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false,
+            sentAt: sentAt,
+            receivedAt: receivedAt,
             updatedAt: object.value(forKey: Key.updatedAt) as? Date,
             expiresAt: object.value(forKey: Key.expiresAt) as? Date
         )

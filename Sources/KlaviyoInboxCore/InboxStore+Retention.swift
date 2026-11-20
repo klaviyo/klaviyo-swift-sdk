@@ -9,7 +9,7 @@ import CoreData
 import Foundation
 
 extension InboxStore {
-    /// Removes the company's messages beyond the newest `limit`, ordered by `sortTime` then `transmissionID`
+    /// Removes the company's messages beyond the newest `limit`, ordered by `sentAt` then `transmissionID`
     /// (the same order Android uses). Archived messages count toward the limit. Runs inside the capture
     /// transaction path. The expired rows are found by object ID, then removed
     /// SQL-side with a batch delete so no record is loaded into the extension's memory.
@@ -19,7 +19,7 @@ extension InboxStore {
         request.resultType = .managedObjectIDResultType
         request.predicate = NSPredicate(format: "%K == %@", Key.companyID, companyID)
         request.sortDescriptors = [
-            NSSortDescriptor(key: Key.sortTime, ascending: false),
+            NSSortDescriptor(key: Key.sentAt, ascending: false),
             NSSortDescriptor(key: Key.transmissionID, ascending: false)
         ]
         request.fetchOffset = max(limit, 0)

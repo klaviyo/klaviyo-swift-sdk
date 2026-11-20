@@ -28,7 +28,14 @@ struct InboxMessageMappingTests {
             sentAt: sentAfterBase.map { base.addingTimeInterval($0) },
             receivedAt: base.addingTimeInterval(5)
         )
-        return StoredInboxMessage(id: tm, record: record, isRead: isRead, isArchived: isArchived)
+        return StoredInboxMessage(
+            id: tm,
+            record: record,
+            isRead: isRead,
+            isArchived: isArchived,
+            sentAt: base,
+            receivedAt: base
+        )
     }
 
     /// The raw values are what hosts compare against, so they are pinned here, and every push action type
@@ -83,7 +90,14 @@ struct InboxMessageMappingTests {
     func anOpenAppDestinationHasNoURL() {
         var record = InboxStoreFixtures.record(tm: "tm-1")
         record.defaultDestination = .openApp
-        let message = InboxMessage(StoredInboxMessage(id: "tm-1", record: record, isRead: false, isArchived: false))
+        let message = InboxMessage(StoredInboxMessage(
+            id: "tm-1",
+            record: record,
+            isRead: false,
+            isArchived: false,
+            sentAt: base,
+            receivedAt: base
+        ))
         #expect(message.defaultDestination.type == .openApp)
         #expect(message.defaultDestination.url == nil)
     }
@@ -101,7 +115,14 @@ struct InboxMessageMappingTests {
     func aPushWithNoBadgeHasNoBadge() {
         var record = InboxStoreFixtures.record(tm: "tm-1")
         record.badge = nil
-        let message = InboxMessage(StoredInboxMessage(id: "tm-1", record: record, isRead: false, isArchived: false))
+        let message = InboxMessage(StoredInboxMessage(
+            id: "tm-1",
+            record: record,
+            isRead: false,
+            isArchived: false,
+            sentAt: base,
+            receivedAt: base
+        ))
         #expect(message.badge == nil)
     }
 
