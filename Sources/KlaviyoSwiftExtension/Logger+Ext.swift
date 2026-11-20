@@ -26,4 +26,6 @@ extension Logger {
     static let richMedia = Logger(category: "Rich Media")
     /// Logger for notification category management
     static let notifications = Logger(category: "Notifications")
+    /// Logger for carousel pushes
+    static let carousel = Logger(category: "Carousel")
 }
