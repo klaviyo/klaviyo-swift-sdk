@@ -143,8 +143,10 @@ struct InboxResetObserverTests {
         await waitFor { calls.marker == nil }
         continuation.finish()
         await task.value
-        #expecttry await (store.message(id: "tm-1") == nil)
-        #expecttry await (store.message(id: "other-1") == nil)
+        let first = try await store.message(id: "tm-1")
+        let other = try await store.message(id: "other-1")
+        #expect(first == nil)
+        #expect(other == nil)
     }
 }
 
