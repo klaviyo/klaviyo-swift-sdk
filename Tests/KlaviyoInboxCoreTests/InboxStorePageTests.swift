@@ -194,6 +194,114 @@ struct InboxStorePageTests {
         #expect(ids(page) == ["received"])
         #expect(ids(next) == ["sent"])
     }
+
+    // MARK: - Read and archive filters
+
+    /// Captures one message in each combination of read and archived, newest first:
+    /// `unread`, `read`, `archived-unread`, `archived-read`.
+    private func captureEveryState(_ store: InboxStore) async throws {
+        await capture(store, "unread", secondsAfterBase: 4)
+        await capture(store, "read", secondsAfterBase: 3)
+        await capture(store, "archived-unread", secondsAfterBase: 2)
+        await capture(store, "archived-read", secondsAfterBase: 1)
+        try await store.setRead(true, id: "read", companyID: company)
+        try await store.setArchived(true, id: "archived-unread", companyID: company)
+        try await store.setRead(true, id: "archived-read", companyID: company)
+        try await store.setArchived(true, id: "archived-read", companyID: company)
+    }
+
+    @Test
+    func aNilReadAndArchiveStateMatchesEveryMessage() async throws {
+        let store = makeStore()
+        try await captureEveryState(store)
+        let page = try await store.page(companyID: company, limit: 10, after: nil)
+        #expect(ids(page) == ["unread", "read", "archived-unread", "archived-read"])
+    }
+
+    @Test
+    func aPageIsFilteredByReadState() async throws {
+        let store = makeStore()
+        try await captureEveryState(store)
+        let unread = try await store.page(companyID: company, limit: 10, after: nil, isRead: false)
+        let read = try await store.page(companyID: company, limit: 10, after: nil, isRead: true)
+        #expect(ids(unread) == ["unread", "archived-unread"])
+        #expect(ids(read) == ["read", "archived-read"])
+    }
+
+    @Test
+    func aPageIsFilteredByArchivedState() async throws {
+        let store = makeStore()
+        try await captureEveryState(store)
+        let active = try await store.page(companyID: company, limit: 10, after: nil, isArchived: false)
+        let archived = try await store.page(companyID: company, limit: 10, after: nil, isArchived: true)
+        #expect(ids(active) == ["unread", "read"])
+        #expect(ids(archived) == ["archived-unread", "archived-read"])
+    }
+
+    @Test
+    func aPageCombinesTheReadAndArchivedFilters() async throws {
+        let store = makeStore()
+        try await captureEveryState(store)
+        let unreadActive = try await store.page(
+            companyID: company, limit: 10, after: nil, isRead: false, isArchived: false
+        )
+        let readArchived = try await store.page(
+            companyID: company, limit: 10, after: nil, isRead: true, isArchived: true
+        )
+        #expect(ids(unreadActive) == ["unread"])
+        #expect(ids(readArchived) == ["archived-read"])
+    }
+
+    /// An archived unread message is still unread, so the read filter alone must return it.
+    @Test
+    func theReadFilterIsIndependentOfTheArchiveFilter() async throws {
+        let store = makeStore()
+        try await captureEveryState(store)
+        let unread = try await store.page(companyID: company, limit: 10, after: nil, isRead: false)
+        #expect(ids(unread) == ["unread", "archived-unread"])
+    }
+
+    @Test
+    func aFilteredPageWalksOnlyMatchingMessagesAcrossPages() async throws {
+        let store = makeStore()
+        for index in 1...6 {
+            await capture(store, "tm-\(index)", secondsAfterBase: TimeInterval(index))
+        }
+        // Every even message is archived, leaving the odd ones active.
+        for index in stride(from: 2, through: 6, by: 2) {
+            try await store.setArchived(true, id: "tm-\(index)", companyID: company)
+        }
+
+        let first = try await store.page(companyID: company, limit: 2, after: nil, isArchived: false)
+        let second = try await store.page(companyID: company, limit: 2, after: first.next, isArchived: false)
+        #expect(ids(first) == ["tm-5", "tm-3"])
+        #expect(first.next != nil)
+        #expect(ids(second) == ["tm-1"])
+        #expect(second.next == nil)
+    }
+
+    @Test
+    func aFilteredPageStaysStableWhenAMessageLeavesTheFilterBetweenPages() async throws {
+        let store = makeStore()
+        for index in 1...4 {
+            await capture(store, "tm-\(index)", secondsAfterBase: TimeInterval(index))
+        }
+        let first = try await store.page(companyID: company, limit: 2, after: nil, isRead: false)
+        // The message the first page ended on becomes read, so it no longer matches the filter.
+        try await store.setRead(true, id: "tm-3", companyID: company)
+        let second = try await store.page(companyID: company, limit: 2, after: first.next, isRead: false)
+        #expect(ids(first) == ["tm-4", "tm-3"])
+        #expect(ids(second) == ["tm-2", "tm-1"])
+    }
+
+    @Test
+    func anUnfilteredPageReturnsArchivedMessages() async throws {
+        let store = makeStore()
+        await capture(store, "tm-1", secondsAfterBase: 1)
+        try await store.setArchived(true, id: "tm-1", companyID: company)
+        let page = try await store.page(companyID: company, limit: 10, after: nil)
+        #expect(ids(page) == ["tm-1"])
+    }
 }
 
 #endif

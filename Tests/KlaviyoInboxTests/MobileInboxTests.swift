@@ -71,6 +71,65 @@ struct MobileInboxTests {
     }
 
     @Test
+    func aQueryDefaultsToEveryMessageThatIsNotArchived() {
+        let query = InboxQuery()
+        #expect(query.cursor == nil)
+        #expect(query.readFilter == .all)
+        #expect(query.archiveFilter == .active)
+    }
+
+    @Test
+    func queriesWithDifferentFiltersAreNotEqual() {
+        #expect(InboxQuery() != InboxQuery(readFilter: .unread))
+        #expect(InboxQuery() != InboxQuery(archiveFilter: .all))
+        #expect(InboxQuery(readFilter: .read) == InboxQuery(readFilter: .read))
+    }
+
+    @Test
+    func aCursorUsedWithADifferentReadFilterFailsWithInvalidCursor() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 2)
+        let page = try await inbox.fetchPage(InboxQuery(pageSize: 1, readFilter: .unread))
+        let invalid = await expectInvalidCursor {
+            try await inbox.fetchPage(InboxQuery(cursor: page.nextCursor, readFilter: .read))
+        }
+        #expect(invalid)
+    }
+
+    @Test
+    func aCursorUsedWithADifferentArchiveFilterFailsWithInvalidCursor() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 2)
+        let page = try await inbox.fetchPage(InboxQuery(pageSize: 1))
+        let invalid = await expectInvalidCursor {
+            try await inbox.fetchPage(InboxQuery(cursor: page.nextCursor, archiveFilter: .all))
+        }
+        #expect(invalid)
+    }
+
+    /// A host can persist a cursor token and rebuild it, so a public round trip must keep working.
+    @Test
+    func aPublicCursorTokenRoundTripsThroughTheNextPage() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 3)
+        let first = try await inbox.fetchPage(InboxQuery(pageSize: 2))
+        let token = try #require(first.nextCursor?.token)
+        let second = try await inbox.fetchPage(InboxQuery(pageSize: 2, cursor: InboxCursor(token: token)))
+        #expect(second.messages.map(\.id) == ["tm-1"])
+    }
+
+    private func expectInvalidCursor(_ body: () async throws -> InboxPage) async -> Bool {
+        do {
+            _ = try await body()
+            return false
+        } catch let error as InboxError {
+            return error == .invalidCursor
+        } catch {
+            return false
+        }
+    }
+
+    @Test
     func aMalformedCursorFailsWithInvalidCursor() async {
         let (inbox, _) = makeInbox(company: company)
         var thrown: InboxError?
@@ -130,7 +189,8 @@ struct MobileInboxTests {
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
         try await inbox.setMessageState(.read, for: "tm-1")
         try await inbox.setMessageState(.archived, for: "tm-1")
-        let message = try await inbox.fetchPage().messages.first
+        // Archived messages are left out of the default page, so ask for them.
+        let message = try await inbox.fetchPage(InboxQuery(archiveFilter: .all)).messages.first
         #expect(message?.isRead == true)
         #expect(message?.isArchived == true)
     }
