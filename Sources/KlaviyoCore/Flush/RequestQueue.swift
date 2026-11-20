@@ -163,6 +163,13 @@ public actor RequestQueue {
         await flush(propagateCancellation: true)
     }
 
+    /// Debug log for queue events. Counts and states only: never request bodies or identifiers.
+    private func log(_ message: String) {
+        if #available(iOS 14.0, *) {
+            Logger.networking.debug("\(message, privacy: .public)")
+        }
+    }
+
     // MARK: - Background
 
     /// Stops the timed loop but leaves any flush in progress running, so a background drain can wait
@@ -201,6 +208,7 @@ public actor RequestQueue {
             // System expiry thread: only schedule the restore. The runner ends the task right after.
             Task { await self?.expireBackgroundDrain(id: id) }
         }
+        log("Background drain began (task granted: \(handle != nil))")
         if let running = activeFlush {
             // A foreground send has no budget of its own: bound the wait, then put it back and drain.
             let observed = flushGeneration
@@ -213,6 +221,7 @@ public actor RequestQueue {
             await flush(sendTimeout: FlushConstants.backgroundSendTimeout, propagateCancellation: true)
         }
         handle?.end()
+        log("Background drain ended")
         if backgroundDrainId == id { backgroundDrainTask = nil }
     }
 
@@ -221,6 +230,7 @@ public actor RequestQueue {
     private func expireBackgroundDrain(id: Int) {
         // A late notice from an earlier drain must not cancel the current one.
         guard backgroundDrainId == id, backgroundDrainTask != nil else { return }
+        log("Background task expired; abandoning the drain")
         backgroundDrainTask?.cancel()
         backgroundDrainTask = nil
         abandonActiveFlush()
@@ -321,6 +331,7 @@ public actor RequestQueue {
         flushRequested = false
         flushGeneration += 1
         let generation = flushGeneration
+        log("Flush started (budgeted: \(sendTimeout != nil), queued: \(QueueStore.shared.entries.count))")
         let task = Task { await self.runFlush(generation: generation, sendTimeout: sendTimeout) }
         activeFlush = task
         if propagateCancellation {
@@ -333,7 +344,11 @@ public actor RequestQueue {
     private func runFlush(generation: Int, sendTimeout: TimeInterval?) async {
         await drainAndSend(generation: generation, sendTimeout: sendTimeout)
         // Abandoned (stop or expiry): the new owner of the flag is not this stale flush.
-        guard generation == flushGeneration else { return }
+        guard generation == flushGeneration else {
+            log("Flush abandoned")
+            return
+        }
+        log("Flush ended (remaining: \(QueueStore.shared.entries.count))")
         isFlushing = false
         activeFlush = nil
         // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task.
@@ -461,6 +476,7 @@ public actor RequestQueue {
     /// draining the rest of the lease. `restoreLease()` returns it to the queue.
     private func putBackStalledHead() -> FailureOutcome {
         stalledHeads.append(requestsInFlight.removeFirst())
+        log("Send stalled past its budget; set aside (\(stalledHeads.count) set aside)")
         return .continueSending
     }
 
@@ -488,6 +504,7 @@ public actor RequestQueue {
         let entries = stalledHeads + requestsInFlight
         guard !entries.isEmpty else { return }
         QueueStore.shared.prepend(entries, persist: .synchronous)
+        log("Restored \(entries.count) leased request(s) to the queue (\(stalledHeads.count) were set aside)")
         stalledHeads = []
         requestsInFlight = []
     }
@@ -537,9 +554,11 @@ public actor RequestQueue {
                 now: environment.date()
             )
             if failed.hasExhaustedRetries {
+                log("Request dropped after exhausting its retries")
                 clearOptimisticPushToken(head.request, error: error)
                 completeHead()
             } else {
+                log("Backoff applied (attempts: \(failed.attempts), retry after: \(Int(backoff))s)")
                 requestsInFlight[0] = failed
             }
             // STOP: restore the remaining lease; retries resume on a later flush.
