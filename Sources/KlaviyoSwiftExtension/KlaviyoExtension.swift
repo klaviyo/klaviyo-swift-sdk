@@ -45,6 +45,15 @@ public enum KlaviyoExtensionSDK {
     ) {
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
+        // carousel pushes download their card images and finish on their own
+        if handleCarousel(
+            request: request,
+            bestAttemptContent: bestAttemptContent,
+            contentHandler: contentHandler,
+            fallbackMediaType: fallbackMediaType
+        ) {
+            return
+        }
         // handle dynamic action buttons
         handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         // handle rich media setup
@@ -130,6 +139,11 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
+        // A carousel still downloading delivers whatever cards have attached
+        if let carouselHandler = CarouselHandlerStore.shared.handler(for: request.identifier) {
+            carouselHandler.finishNow()
+            return
+        }
         // Still try to register action buttons before timeout
         handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         contentHandler(bestAttemptContent)
@@ -205,6 +219,56 @@ public enum KlaviyoExtensionSDK {
         completion(attachment)
     }
 
+    /// Starts carousel handling when the push carries valid carousel cards and the app embeds a
+    /// content extension that can render them.
+    ///
+    /// Without that extension the carousel category would show no buttons, so the push takes the
+    /// standard path instead. Carousel pushes carry no `rich-media`, so that path shows the title,
+    /// body and buttons.
+    ///
+    /// - Returns: `true` if carousel handling started and will call `contentHandler` itself
+    private static func handleCarousel(
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent,
+        contentHandler: @escaping (UNNotificationContent) -> Void,
+        fallbackMediaType: String
+    ) -> Bool {
+        // Respect developer-set categories, as action buttons do
+        guard bestAttemptContent.isKlaviyoNotification,
+              request.content.categoryIdentifier.isEmpty,
+              KlaviyoCarouselParser.hasCarouselCards(bestAttemptContent.userInfo) else {
+            return false
+        }
+        guard KlaviyoCarouselHandler.contentExtensionInstalled() else {
+            if #available(iOS 14.0, *) {
+                Logger.carousel.warning("No notification content extension handles '\(KlaviyoCategoryManager.carouselCategoryIdentifier)'. Falling back to a standard notification.")
+            }
+            return false
+        }
+        guard let cards = KlaviyoCarouselParser.parseCards(from: bestAttemptContent.userInfo) else {
+            return false
+        }
+
+        let requestIdentifier = request.identifier
+        let handler = KlaviyoCarouselHandler(
+            cards: cards,
+            content: bestAttemptContent,
+            fallbackMediaType: fallbackMediaType
+        ) { outcome in
+            CarouselHandlerStore.shared.remove(requestIdentifier)
+            switch outcome {
+            case let .carousel(content):
+                contentHandler(content)
+            case let .fallback(content):
+                handleActionButtons(request: request, bestAttemptContent: content)
+                contentHandler(content)
+            }
+        }
+        CarouselHandlerStore.shared.insert(handler, for: requestIdentifier)
+        handler.start()
+        return true
+    }
+
     /// Handles dynamic action button registration from push notification payload
     /// - Parameters:
     ///   - request: the notification request
@@ -237,5 +301,32 @@ public enum KlaviyoExtensionSDK {
 
         // Set category on notification content
         bestAttemptContent.categoryIdentifier = categoryIdentifier
+    }
+}
+
+/// Keeps in-flight carousel handlers alive and reachable from `serviceExtensionTimeWillExpire`,
+/// since the public API is static and the caller holds no handler reference.
+private final class CarouselHandlerStore {
+    static let shared = CarouselHandlerStore()
+
+    private let lock = NSLock()
+    private var handlers: [String: KlaviyoCarouselHandler] = [:]
+
+    func insert(_ handler: KlaviyoCarouselHandler, for requestIdentifier: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        handlers[requestIdentifier] = handler
+    }
+
+    func handler(for requestIdentifier: String) -> KlaviyoCarouselHandler? {
+        lock.lock()
+        defer { lock.unlock() }
+        return handlers[requestIdentifier]
+    }
+
+    func remove(_ requestIdentifier: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        handlers[requestIdentifier] = nil
     }
 }
