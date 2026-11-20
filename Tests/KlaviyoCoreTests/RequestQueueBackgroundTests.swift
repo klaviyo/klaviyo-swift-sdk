@@ -560,7 +560,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
         parked.releaseAll()
         XCTAssertTrue(parked.waitForSends(atLeast: 2), "b must go out in the priority pass")
-        parked.releaseAll()
+        parked.openGate() // a failing run must not hang on a send that parks late
         await drain.value
         await priority.value
 
@@ -574,19 +574,24 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
     func testBackgroundDrainDoesNotAbandonABudgetedPriorityFlush() async {
         enqueue("a")
         let parked = ParkedSends()
-        let queue = makeQueue { request, _ in
-            await parked.park(request.id)
-            return .success(Data())
-        }
+        let folded = Flag()
+        let queue = RequestQueue(
+            clock: manual.clock,
+            send: { request, _ in
+                await parked.park(request.id)
+                return .success(Data())
+            },
+            willDrain: { folded.set() },
+            backgroundTasks: tasks.runner
+        )
         tasks.appActive = false
         let priority = Task { await queue.flushNow() }
         XCTAssertTrue(parked.waitForSends(atLeast: 1))
         await queue.enterBackground()
         let drain = Task { await queue.backgroundDrain() }
-        XCTAssertTrue(tasks.waitForBegins(atLeast: 2))
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        manual.fire(requestIndex: 1) // the old bounded wait; nothing to fire once the wait is unbounded
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(folded.wait()) // the drain's first fold ran, so its wait decision is next
+        for _ in 0..<50 { _ = await queue.hasActiveFlush } // let the drain reach that decision
+        XCTAssertEqual(manual.requested.count, 1, "only the priority send's budget: no timed wait on a budgeted flush")
 
         let active = await queue.hasActiveFlush
         XCTAssertTrue(active, "a flush with its own budget must be left to it")
@@ -680,8 +685,8 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertTrue(parked.waitForSends(atLeast: 1))
         await queue.enterBackground()
         let drain = Task { await queue.backgroundDrain() }
-        XCTAssertTrue(tasks.waitForBegins(atLeast: 1))
-        waiting.set() // from here on, the next fold stages a property
+        XCTAssertTrue(manual.waitForRequested(atLeast: 1)) // the drain is now waiting on the foreground send
+        waiting.set() // only the post-wait fold can stage the property
         manual.fireAll() // the drain's wait on the foreground send elapses, so it is put back
 
         parked.openGate()
