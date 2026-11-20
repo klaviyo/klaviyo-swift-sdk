@@ -26,12 +26,16 @@ public actor RequestQueue {
     /// Optional hook invoked before each drain; wired at bootstrap to
     /// `ProfilePropertyBuffer.flushIntoQueue` so staged profile properties fold in before the drain.
     private let willDrain: (@Sendable () async -> Void)?
+    private let backgroundTasks: BackgroundTaskRunner
 
     // MARK: - Owned state
 
     /// Requests leased out of `QueueStore` for the current flush. Restored to the store on `stop()`
     /// so a shutdown mid-flush never drops them.
     private var requestsInFlight: [QueuedRequest] = []
+    /// Heads that stalled past their send budget this flush. They stay leased (so durable) and go
+    /// back ahead of the rest, in their original order, when the flush ends.
+    private var stalledHeads: [QueuedRequest] = []
     /// Current cadence between flushes. Defaults to the wifi interval; adjusted by
     /// `networkConnectivityChanged` (wifi/cellular interval, or `.infinity` when offline).
     private var flushInterval: TimeInterval = FlushConstants.wifiFlushInterval
@@ -42,15 +46,35 @@ public actor RequestQueue {
     private var lastNetworkStatus: Reachability.NetworkStatus?
     /// Set by a reconnect flush that found another flush running; that flush re-runs before returning.
     private var flushRequested = false
+    /// The running flush body, so `stop()` and background expiry can cancel it.
+    private var activeFlush: Task<Void, Never>?
+    /// Identifies the current flush: bumped when one starts and when one is abandoned. A flush whose
+    /// generation no longer matches discards whatever its late-returning send reports instead of
+    /// touching a newer lease.
+    private var flushGeneration = 0
+    /// Between `enterBackground()` and `start()`; reachability changes must not restart the loop.
+    private var inBackground = false
+    private var backgroundDrainTask: Task<Void, Never>?
+    private var backgroundDrainId = 0
 
     public init(
         clock: SleepClock,
         send: @escaping Send,
         willDrain: (@Sendable () async -> Void)? = nil
     ) {
+        self.init(clock: clock, send: send, willDrain: willDrain, backgroundTasks: .production)
+    }
+
+    package init(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)?,
+        backgroundTasks: BackgroundTaskRunner
+    ) {
         self.clock = clock
         self.send = send
         self.willDrain = willDrain
+        self.backgroundTasks = backgroundTasks
     }
 
     // MARK: - Lifecycle
@@ -62,6 +86,7 @@ public actor RequestQueue {
     /// offline can't park a loop in an endless sleep. `networkConnectivityChanged` starts it when
     /// the network comes back.
     public func start() {
+        inBackground = false
         startLoop(flushImmediately: false)
     }
 
@@ -119,15 +144,121 @@ public actor RequestQueue {
     public func stop() {
         runLoop?.cancel()
         runLoop = nil
-        if !requestsInFlight.isEmpty {
-            QueueStore.shared.prepend(requestsInFlight, persist: .synchronous)
-            requestsInFlight = []
-        }
+        abandonActiveFlush()
+    }
+
+    /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
+    /// returns late is discarded. Does not wait on the network.
+    private func abandonActiveFlush(ifGeneration generation: Int? = nil) {
+        if let generation, generation != flushGeneration { return }
+        activeFlush?.cancel()
+        activeFlush = nil
+        flushGeneration += 1
+        isFlushing = false
+        restoreLease()
     }
 
     /// Immediate flush outside the timed cadence (high-priority path).
     public func flushNow() async {
-        await flush()
+        await flush(propagateCancellation: true)
+    }
+
+    /// Debug log for queue events. Counts and states only: never request bodies or identifiers.
+    private func log(_ message: String) {
+        if #available(iOS 14.0, *) {
+            Logger.networking.debug("\(message, privacy: .public)")
+        }
+    }
+
+    // MARK: - Background
+
+    /// Stops the timed loop but leaves any flush in progress running, so a background drain can wait
+    /// for it. `start()` (foreground) resumes the loop.
+    public func enterBackground() {
+        inBackground = true
+        runLoop?.cancel()
+        runLoop = nil
+    }
+
+    /// Drains the queue under a background task, serially, one 10s budget per request. Returns when the
+    /// drain finishes or the task expires. Joins a drain already running. No-ops (and begins no task)
+    /// when pre-init, offline, or there is nothing to send.
+    public func backgroundDrain() async {
+        guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
+        if let running = backgroundDrainTask {
+            await running.value
+            return
+        }
+        guard activeFlush != nil || hasDueWork else { return }
+        backgroundDrainId += 1
+        let id = backgroundDrainId
+        let task = Task { await self.runBackgroundDrain(id: id) }
+        backgroundDrainTask = task
+        await task.value
+    }
+
+    /// Something is queued and its head isn't waiting out its own backoff.
+    private var hasDueWork: Bool {
+        guard let head = QueueStore.shared.head else { return false }
+        return !head.isAwaitingRetry(at: environment.date())
+    }
+
+    private func runBackgroundDrain(id: Int) async {
+        let handle = await backgroundTasks.begin("com.klaviyo.queue-flush") { [weak self] in
+            // System expiry thread: only schedule the restore. The runner ends the task right after.
+            Task { await self?.expireBackgroundDrain(id: id) }
+        }
+        log("Background drain began (task granted: \(handle != nil))")
+        if let running = activeFlush {
+            // A foreground send has no budget of its own: bound the wait, then put it back and drain.
+            let observed = flushGeneration
+            let finished = await waitWithoutBlocking(
+                on: running, timeout: FlushConstants.backgroundSendTimeout
+            )
+            if !finished, !Task.isCancelled { abandonActiveFlush(ifGeneration: observed) }
+        }
+        if !Task.isCancelled, hasDueWork {
+            await flush(sendTimeout: FlushConstants.backgroundSendTimeout, propagateCancellation: true)
+        }
+        handle?.end()
+        log("Background drain ended")
+        if backgroundDrainId == id { backgroundDrainTask = nil }
+    }
+
+    /// Background task expired: cancel the drain and put the lease back. The lease is already on disk,
+    /// so this only tidies memory; it never waits on the network.
+    private func expireBackgroundDrain(id: Int) {
+        // A late notice from an earlier drain must not cancel the current one.
+        guard backgroundDrainId == id, backgroundDrainTask != nil else { return }
+        log("Background task expired; abandoning the drain")
+        backgroundDrainTask?.cancel()
+        backgroundDrainTask = nil
+        abandonActiveFlush()
+    }
+
+    /// Waits for `task`, returning `false` if `timeout` elapses first and `true` if it finished.
+    /// Also returns at once if the caller is cancelled (a send may ignore cancellation).
+    private func waitWithoutBlocking(on task: Task<Void, Never>, timeout: TimeInterval) async -> Bool {
+        let race = OneShot<Bool>()
+        let clock = clock
+        let waiter = Task {
+            await task.value
+            race.finish(true)
+        }
+        let timer = Task {
+            do {
+                try await clock.sleep(timeout)
+                race.finish(false)
+            } catch {}
+        }
+        let finished = await withTaskCancellationHandler {
+            await race.wait()
+        } onCancel: {
+            race.finish(false)
+        }
+        waiter.cancel()
+        timer.cancel()
+        return finished
     }
 
     /// Pauses the run loop when offline and sets the flush interval for the new connection type.
@@ -142,15 +273,19 @@ public actor RequestQueue {
         guard status != lastNetworkStatus else { return }
         let wasOnline = lastNetworkStatus.map { $0 != .notReachable } ?? false
         lastNetworkStatus = status
-        switch status {
-        case .notReachable:
-            flushInterval = .infinity
+        flushInterval = TimeInterval(flushIntervalFor: status)
+        if inBackground {
+            // No loop while backgrounded: record the state, then let the foreground `start()` resume.
+            if status == .notReachable {
+                stop()
+            } else if !wasOnline {
+                clearBackoffs()
+            }
+            return
+        }
+        guard status != .notReachable else {
             stop()
             return
-        case .reachableViaWiFi:
-            flushInterval = FlushConstants.wifiFlushInterval
-        case .reachableViaWWAN:
-            flushInterval = FlushConstants.cellularFlushInterval
         }
         if wasOnline {
             startIfStopped()
@@ -177,7 +312,15 @@ public actor RequestQueue {
 
     /// Runs `willDrain`, leases the whole `QueueStore` batch, and sends head-first (FIFO). See the
     /// type doc for the success/failure handling.
-    private func flush(retryIfBusy: Bool = false) async {
+    ///
+    /// The body runs in its own task so cancelling the run loop never cancels an in-flight send;
+    /// only `stop()` and background expiry do. `propagateCancellation` ties it to the caller instead.
+    /// `sendTimeout` bounds each send (background drain); `nil` leaves the session's own timeout.
+    private func flush(
+        retryIfBusy: Bool = false,
+        sendTimeout: TimeInterval? = nil,
+        propagateCancellation: Bool = false
+    ) async {
         // Gate: pre-init or offline.
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
         guard !isFlushing else {
@@ -185,18 +328,37 @@ public actor RequestQueue {
             return
         }
         isFlushing = true
-        defer { isFlushing = false }
-
         flushRequested = false
-        await drainAndSend()
-        // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task,
-        // not this one (which `stop()` may have cancelled). No restart if still stopped or offline.
+        flushGeneration += 1
+        let generation = flushGeneration
+        log("Flush started (budgeted: \(sendTimeout != nil), queued: \(QueueStore.shared.entries.count))")
+        let task = Task { await self.runFlush(generation: generation, sendTimeout: sendTimeout) }
+        activeFlush = task
+        if propagateCancellation {
+            await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+        } else {
+            await task.value
+        }
+    }
+
+    private func runFlush(generation: Int, sendTimeout: TimeInterval?) async {
+        await drainAndSend(generation: generation, sendTimeout: sendTimeout)
+        // Abandoned (stop or expiry): the new owner of the flag is not this stale flush.
+        guard generation == flushGeneration else {
+            log("Flush abandoned")
+            return
+        }
+        log("Flush ended (remaining: \(QueueStore.shared.entries.count))")
+        isFlushing = false
+        activeFlush = nil
+        // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task.
+        // No restart if still stopped or offline.
         if flushRequested, flushInterval.isFinite, runLoop != nil {
             startLoop(flushImmediately: true)
         }
     }
 
-    private func drainAndSend() async {
+    private func drainAndSend(generation: Int, sendTimeout: TimeInterval?) async {
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
         // backoff. The per-head check in the send loop is the authoritative gate. The run loop
         // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.
@@ -206,11 +368,17 @@ public actor RequestQueue {
 
         // Let the owner enqueue last-minute requests, then lease everything (incl. those).
         await willDrain?()
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, generation == flushGeneration else { return }
         requestsInFlight = QueueStore.shared.drainAll()
         guard !requestsInFlight.isEmpty else { return }
 
         while let head = requestsInFlight.first {
+            guard generation == flushGeneration else { return }
+            // A cancelled caller stops the drain between sends; what is left stays queued.
+            if Task.isCancelled {
+                restoreLease()
+                return
+            }
             // Serial queue: a head still inside its own backoff blocks the rest (Android parity:
             // `PendingRetry` breaks the serial send). Only the head's own state gates it, so a
             // request front-inserted ahead of a backing-off one sends at once.
@@ -218,19 +386,24 @@ public actor RequestQueue {
                 restoreLease()
                 return
             }
-            switch await sendHead(head) {
+            switch await sendHead(head, generation: generation, sendTimeout: sendTimeout) {
             case .continueSending:
                 continue
             case .stopFlush:
                 return
             }
         }
+        restoreLease() // anything that stalled this flush
     }
 
     /// Sends the head request and applies the result, reporting whether the flush loop should
     /// continue or stop. Stops early if the attempt metadata is invalid or the lease was cleared
     /// mid-send (e.g. by `stop()`).
-    private func sendHead(_ head: QueuedRequest) async -> FailureOutcome {
+    private func sendHead(
+        _ head: QueuedRequest,
+        generation: Int,
+        sendTimeout: TimeInterval?
+    ) async -> FailureOutcome {
         let attemptInfo: RequestAttemptInfo
         do {
             attemptInfo = try RequestAttemptInfo(
@@ -243,8 +416,18 @@ public actor RequestQueue {
             return .stopFlush
         }
 
-        let outcome = await send(head.request, attemptInfo)
-        guard !requestsInFlight.isEmpty else { return .stopFlush }
+        let result: Result<Data, KlaviyoAPIError>?
+        if let sendTimeout {
+            result = await sendWithBudget(head.request, attemptInfo, timeout: sendTimeout)
+        } else {
+            result = await send(head.request, attemptInfo)
+        }
+        // Stale: this flush was abandoned (stop or expiry) while the send was out; drop its result.
+        guard generation == flushGeneration, !requestsInFlight.isEmpty else { return .stopFlush }
+        guard let outcome = result else {
+            // Budget spent or cancelled, not a server answer.
+            return Task.isCancelled ? abandonCurrentAttempt() : putBackStalledHead()
+        }
         switch outcome {
         case .success:
             if case let .registerPushToken(_, payload) = head.request.endpoint {
@@ -259,8 +442,58 @@ public actor RequestQueue {
             return .continueSending
 
         case let .failure(error):
+            // A send cancelled under us can surface as any error (e.g. `CancellationError`, which
+            // classifies as a drop). Never treat it as a failed attempt.
+            if Task.isCancelled { return abandonCurrentAttempt() }
             return handleSendFailure(error, head: head)
         }
+    }
+
+    /// Races one send against `timeout`. Returns `nil` on timeout or cancellation without waiting on
+    /// the send, which on iOS 13/14 can ignore cancellation and return late.
+    private func sendWithBudget(
+        _ request: KlaviyoRequest,
+        _ info: RequestAttemptInfo,
+        timeout: TimeInterval
+    ) async -> Result<Data, KlaviyoAPIError>? {
+        let race = OneShot<Result<Data, KlaviyoAPIError>?>()
+        let send = send
+        let clock = clock
+        let sendTask = Task { await race.finish(send(request, info)) }
+        let timer = Task {
+            do {
+                try await clock.sleep(timeout)
+                guard !Task.isCancelled else { return }
+                race.finish(nil)
+            } catch {}
+        }
+        let result = await withTaskCancellationHandler {
+            await race.wait()
+        } onCancel: {
+            race.finish(nil)
+        }
+        timer.cancel()
+        if result == nil { sendTask.cancel() }
+        return result
+    }
+
+    /// The head stalled past its budget: set it aside untouched (no attempt, no backoff) and keep
+    /// draining the rest of the lease. `restoreLease()` returns it to the queue.
+    private func putBackStalledHead() -> FailureOutcome {
+        stalledHeads.append(requestsInFlight.removeFirst())
+        log("Send stalled past its budget; set aside (\(stalledHeads.count) set aside)")
+        return .continueSending
+    }
+
+    /// Cancelled, not failed: no attempt recorded. A head with a due deadline waits one floor
+    /// interval so a repeatable cancel can't hot-loop.
+    private func abandonCurrentAttempt() -> FailureOutcome {
+        requestsInFlight[0].deferRetry(by: retryFloor, now: environment.date())
+        if #available(iOS 14.0, *) {
+            Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
+        }
+        restoreLease()
+        return .stopFlush
     }
 
     /// Removes the head from the lease and from disk (synchronous), so it is never re-sent after a kill.
@@ -273,8 +506,11 @@ public actor RequestQueue {
     /// clears the in-memory lease. `.synchronous`: the lease is in-memory only and cleared here, so
     /// it must hit disk before we return or a shutdown within a debounce window would drop it.
     private func restoreLease() {
-        guard !requestsInFlight.isEmpty else { return }
-        QueueStore.shared.prepend(requestsInFlight, persist: .synchronous)
+        let entries = stalledHeads + requestsInFlight
+        guard !entries.isEmpty else { return }
+        QueueStore.shared.prepend(entries, persist: .synchronous)
+        log("Restored \(entries.count) leased request(s) to the queue (\(stalledHeads.count) were set aside)")
+        stalledHeads = []
         requestsInFlight = []
     }
 
@@ -311,14 +547,7 @@ public actor RequestQueue {
             return .continueSending
 
         case .abandonAttempt:
-            // Cancelled, not failed: no attempt recorded. A head with a due deadline waits one floor
-            // interval so a repeatable cancel can't hot-loop.
-            requestsInFlight[0].deferRetry(by: retryFloor, now: environment.date())
-            if #available(iOS 14.0, *) {
-                Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
-            }
-            restoreLease()
-            return .stopFlush
+            return abandonCurrentAttempt()
 
         case let .retry(backoff):
             // Transport, rate-limit or server error: the backoff and attempt count belong to this
@@ -330,9 +559,11 @@ public actor RequestQueue {
                 now: environment.date()
             )
             if failed.hasExhaustedRetries {
+                log("Request dropped after exhausting its retries")
                 clearOptimisticPushToken(head.request, error: error)
                 completeHead()
             } else {
+                log("Backoff applied (attempts: \(failed.attempts), retry after: \(Int(backoff))s)")
                 requestsInFlight[0] = failed
             }
             // STOP: restore the remaining lease; retries resume on a later flush.

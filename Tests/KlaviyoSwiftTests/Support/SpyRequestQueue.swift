@@ -16,6 +16,8 @@ actor SpyRequestQueue: RequestQueueProtocol {
     private(set) var startCount = 0
     private(set) var stopCount = 0
     private(set) var flushNowCount = 0
+    private(set) var enterBackgroundCount = 0
+    private(set) var backgroundDrainCount = 0
     private(set) var connectivityStatuses: [Reachability.NetworkStatus] = []
 
     func start() async {
@@ -30,6 +32,14 @@ actor SpyRequestQueue: RequestQueueProtocol {
         flushNowCount += 1
     }
 
+    func enterBackground() async {
+        enterBackgroundCount += 1
+    }
+
+    func backgroundDrain() async {
+        backgroundDrainCount += 1
+    }
+
     func networkConnectivityChanged(_ status: Reachability.NetworkStatus) async {
         connectivityStatuses.append(status)
     }
@@ -39,5 +49,7 @@ actor SpyRequestQueue: RequestQueueProtocol {
     func getStartCount() -> Int { startCount }
     func getStopCount() -> Int { stopCount }
     func getFlushNowCount() -> Int { flushNowCount }
+    func getEnterBackgroundCount() -> Int { enterBackgroundCount }
+    func getBackgroundDrainCount() -> Int { backgroundDrainCount }
     func getConnectivityStatuses() -> [Reachability.NetworkStatus] { connectivityStatuses }
 }

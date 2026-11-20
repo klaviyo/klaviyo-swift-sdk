@@ -34,6 +34,22 @@ class NetworkSessionTests: XCTestCase {
         assertSnapshot(matching: response, as: .dump)
     }
 
+    func testDataTaskFallbackCancelsUnderlyingTask() async throws {
+        let session = createEmphemeralSession(protocolClasses: [HangingURLProtocol.self])
+        let request = URLRequest(url: URL(string: "https://example.com")!)
+        let task = Task { try await NetworkSession.dataTaskFallback(session: session, request: request) }
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            XCTFail("a cancelled request must not succeed")
+        } catch {
+            XCTAssertEqual((error as? URLError)?.code, .cancelled)
+        }
+    }
+
     func testGetPluginConfigurationWithValidPlist() {
         // Create a temporary plist file
         let tempDir = FileManager.default.temporaryDirectory
@@ -122,4 +138,11 @@ private class MockBundle: Bundle {
         }
         return nil
     }
+}
+
+private final class HangingURLProtocol: URLProtocol {
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {}
+    override func stopLoading() {}
 }

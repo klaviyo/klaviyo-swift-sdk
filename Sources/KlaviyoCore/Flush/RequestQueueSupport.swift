@@ -12,6 +12,19 @@ import Foundation
 public enum FlushConstants {
     public static let wifiFlushInterval = 10.0
     public static let cellularFlushInterval = 30.0
+    /// Per-request budget during a background drain, so one stalled send can't use up the window.
+    static let backgroundSendTimeout = 10.0
+}
+
+extension TimeInterval {
+    /// The flush interval for a connection type; `.infinity` when offline.
+    init(flushIntervalFor status: Reachability.NetworkStatus) {
+        switch status {
+        case .notReachable: self = .infinity
+        case .reachableViaWiFi: self = FlushConstants.wifiFlushInterval
+        case .reachableViaWWAN: self = FlushConstants.cellularFlushInterval
+        }
+    }
 }
 
 /// Seconds the run loop should sleep before the next flush: the head's remaining backoff when it has
