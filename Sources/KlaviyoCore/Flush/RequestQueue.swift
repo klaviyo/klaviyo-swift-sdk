@@ -65,8 +65,16 @@ public actor RequestQueue {
     public init(
         clock: SleepClock,
         send: @escaping Send,
-        willDrain: (@Sendable () async -> Void)? = nil,
-        backgroundTasks: BackgroundTaskRunner = .production
+        willDrain: (@Sendable () async -> Void)? = nil
+    ) {
+        self.init(clock: clock, send: send, willDrain: willDrain, backgroundTasks: .production)
+    }
+
+    package init(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)?,
+        backgroundTasks: BackgroundTaskRunner
     ) {
         self.clock = clock
         self.send = send
@@ -181,9 +189,11 @@ public actor RequestQueue {
         }
         startingPriorityOwners.remove(owner)
         if expiredPriorityOwners.remove(owner) != nil {
+            log("Priority flush expired before its task began; not started")
             handle?.end()
             return
         }
+        log("Priority flush started (task granted: \(handle != nil))")
         let scope = Task {
             // A flush already running finishes first; the pass below then drains everything queued by then.
             await self.waitForActiveFlush()
@@ -224,9 +234,17 @@ public actor RequestQueue {
 
     /// Scoped expiry: stop this scope's own waiting, and cancel the flush only if this scope started it.
     private func expireFlush(owner: Int) {
+        log("Background task expired for flush owner")
         priorityScopes[owner]?.cancel()
         if startingPriorityOwners.contains(owner) { expiredPriorityOwners.insert(owner) }
         if activeFlushOwner == owner { abandonActiveFlush() }
+    }
+
+    /// Debug log for queue events. Counts and states only: never request bodies or identifiers.
+    private func log(_ message: String) {
+        if #available(iOS 14.0, *) {
+            Logger.networking.debug("\(message, privacy: .public)")
+        }
     }
 
     // MARK: - Background
@@ -271,6 +289,7 @@ public actor RequestQueue {
             // System expiry thread: only schedule the restore. The runner ends the task right after.
             Task { await self?.expireBackgroundDrain(id: id, owner: owner) }
         }
+        log("Background drain began (task granted: \(handle != nil))")
         // Fold staged profile properties into the queue once, so they go out even if it was empty.
         await willDrain?()
         guard !Task.isCancelled, activeFlush != nil || hasDueWork else {
@@ -287,6 +306,7 @@ public actor RequestQueue {
             )
         }
         handle?.end()
+        log("Background drain ended")
     }
 
     /// Background task expired: cancel the drain and put the lease back. The lease is already on disk,
@@ -294,6 +314,7 @@ public actor RequestQueue {
     private func expireBackgroundDrain(id: Int, owner: Int) {
         // A late notice from an earlier drain must not cancel the current one.
         guard backgroundDrainId == id, backgroundDrainTask != nil else { return }
+        log("Background task expired; abandoning the drain")
         backgroundDrainTask?.cancel()
         backgroundDrainTask = nil
         expireFlush(owner: owner)
@@ -397,6 +418,7 @@ public actor RequestQueue {
         flushRequested = false
         flushGeneration += 1
         let generation = flushGeneration
+        log("Flush started (budgeted: \(sendTimeout != nil), queued: \(QueueStore.shared.entries.count))")
         let task = Task {
             await self.runFlush(generation: generation, sendTimeout: sendTimeout, foldStaged: foldStaged)
         }
@@ -412,7 +434,11 @@ public actor RequestQueue {
     private func runFlush(generation: Int, sendTimeout: TimeInterval?, foldStaged: Bool) async {
         await drainAndSend(generation: generation, sendTimeout: sendTimeout, foldStaged: foldStaged)
         // Abandoned (stop or expiry): the new owner of the flag is not this stale flush.
-        guard generation == flushGeneration else { return }
+        guard generation == flushGeneration else {
+            log("Flush abandoned")
+            return
+        }
+        log("Flush ended (remaining: \(QueueStore.shared.entries.count))")
         isFlushing = false
         activeFlush = nil
         // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task.
@@ -542,6 +568,7 @@ public actor RequestQueue {
         if #available(iOS 14.0, *) {
             Logger.networking.debug("Send cancelled; restoring request without recording an attempt")
         }
+        log("Send stalled or cancelled; the lease is put back in order")
         restoreLease()
         return .stopFlush
     }
@@ -558,6 +585,7 @@ public actor RequestQueue {
     private func restoreLease() {
         guard !requestsInFlight.isEmpty else { return }
         QueueStore.shared.prepend(requestsInFlight, persist: .synchronous)
+        log("Restored \(requestsInFlight.count) leased request(s) to the queue")
         requestsInFlight = []
     }
 
@@ -606,9 +634,11 @@ public actor RequestQueue {
                 now: environment.date()
             )
             if failed.hasExhaustedRetries {
+                log("Request dropped after exhausting its retries")
                 clearOptimisticPushToken(head.request, error: error)
                 completeHead()
             } else {
+                log("Backoff applied (attempts: \(failed.attempts), retry after: \(Int(backoff))s)")
                 requestsInFlight[0] = failed
             }
             // STOP: restore the remaining lease; retries resume on a later flush.
