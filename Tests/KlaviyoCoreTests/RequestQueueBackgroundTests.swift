@@ -591,12 +591,10 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         let active = await queue.hasActiveFlush
         XCTAssertTrue(active, "a flush with its own budget must be left to it")
         XCTAssertEqual(parked.sent, ["a"], "a must not be restored and sent again")
-        parked.releaseAll()
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        parked.releaseAll()
+        parked.openGate() // later sends return at once, but are still recorded
         await priority.value
         await drain.value
-        XCTAssertEqual(parked.sent, ["a"])
+        XCTAssertEqual(parked.sent, ["a"], "a regressed retry of a must fail here, not hang")
         XCTAssertTrue(disk.stored.isEmpty)
     }
 
@@ -640,15 +638,16 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         await queue.enterBackground()
         let first = Task { await queue.backgroundDrain() }
         XCTAssertTrue(gate.waitForSends(atLeast: 1))
-        let entered = Flag()
         let returned = Flag()
         let second = Task {
-            entered.set()
             await queue.backgroundDrain()
             returned.set()
         }
-        XCTAssertTrue(entered.wait())
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        for _ in 0..<2000 where await queue.backgroundDrainJoins == 0 { // wait until the second caller joined
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+        let joins = await queue.backgroundDrainJoins
+        XCTAssertEqual(joins, 1, "the second caller must have joined the running drain")
         XCTAssertFalse(returned.isSet, "the second caller must wait on the first drain")
 
         gate.releaseAll()
@@ -658,6 +657,40 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertTrue(returned.isSet)
         XCTAssertEqual(tasks.begins, 1, "the second caller must join the first drain")
         XCTAssertEqual(spy.sentIds, ["a"])
+    }
+
+    func testPropertyStagedWhileWaitingOnAFlushIsSentInTheDrain() async {
+        enqueue("a")
+        let parked = ParkedSends()
+        let staged = makeCreateProfileRequest(id: "staged")
+        let waiting = Flag()
+        let calls = FoldOnce() // first call is the drain's fold before the wait, then the flush's own
+        let queue = RequestQueue(
+            clock: manual.clock,
+            send: { request, _ in
+                await parked.park(request.id)
+                return .success(Data())
+            },
+            willDrain: {
+                if !calls.take(), waiting.isSet { QueueStore.shared.enqueue(staged, persist: .synchronous) }
+            },
+            backgroundTasks: tasks.runner
+        )
+        let foreground = Task { await queue.flushNow() } // a foreground flush the drain must wait on
+        XCTAssertTrue(parked.waitForSends(atLeast: 1))
+        await queue.enterBackground()
+        let drain = Task { await queue.backgroundDrain() }
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 1))
+        waiting.set() // from here on, the next fold stages a property
+        manual.fireAll() // the drain's wait on the foreground send elapses, so it is put back
+
+        parked.openGate()
+        await foreground.value
+        await drain.value
+
+        XCTAssertTrue(parked.sent.contains("staged"), "a property staged during the wait must go out")
+        XCTAssertTrue(QueueStore.shared.entries.isEmpty)
+        XCTAssertTrue(disk.stored.isEmpty)
     }
 
     func testBackgroundTaskBeginsBeforeStagedWorkIsFolded() async {
@@ -674,7 +707,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
         await queue.backgroundDrain()
 
-        XCTAssertEqual(seen.values, ["begins=1"], "the task must begin first, and willDrain runs once")
+        XCTAssertEqual(seen.values, ["begins=1", "begins=1"], "the task must begin first; folds before and after the wait")
     }
 
     func testPriorityExpiryBeforeBeginReturnsSendsNothing() async {
@@ -734,15 +767,29 @@ private final class ParkedSends: @unchecked Sendable {
     private let lock = NSLock()
     private var _sent: [String] = []
     private var continuations: [CheckedContinuation<Void, Never>] = []
+    private var gateOpen = false
     var sent: [String] { lock.lock(); defer { lock.unlock() }; return _sent }
 
     func park(_ id: String) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             lock.lock()
             _sent.append(id)
+            if gateOpen {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
             continuations.append(continuation)
             lock.unlock()
         }
+    }
+
+    /// Resumes the sends parked so far and lets every later send return without parking.
+    func openGate() {
+        lock.lock()
+        gateOpen = true
+        lock.unlock()
+        releaseAll()
     }
 
     /// Resumes the sends parked so far; later sends park again.

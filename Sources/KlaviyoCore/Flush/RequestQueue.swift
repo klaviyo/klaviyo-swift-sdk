@@ -155,6 +155,8 @@ public actor RequestQueue {
     /// Identity of the current flush, for tests.
     var currentFlushGeneration: Int { flushGeneration }
     var hasActiveFlush: Bool { activeFlush != nil }
+    /// Calls that joined a running background drain, for tests.
+    private(set) var backgroundDrainJoins = 0
     var pendingStartExpiries: Int { expiredPriorityOwners.count }
 
     /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
@@ -258,11 +260,12 @@ public actor RequestQueue {
     }
 
     /// Drains the queue under a background task, serially, one 10s budget per request. Returns when the
-    /// drain finishes or the task expires. Joins a drain already running. No-ops (and begins no task)
-    /// when pre-init, offline, or there is nothing to send.
+    /// drain finishes or the task expires. Joins a drain already running. Pre-init and offline calls
+    /// begin no task; an initialized, online call with no work may begin a task and end it at once.
     public func backgroundDrain() async {
         guard SDKConfigStore.shared.current.apiKey != nil, flushInterval.isFinite else { return }
         if let running = backgroundDrainTask {
+            backgroundDrainJoins += 1
             await running.value
             return
         }
@@ -297,6 +300,8 @@ public actor RequestQueue {
             return
         }
         await waitForActiveFlush()
+        // Fold again: properties staged while waiting on the running flush go out in this pass.
+        await willDrain?()
         if !Task.isCancelled, hasDueWork {
             await flush(
                 owner: owner,
