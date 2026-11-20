@@ -13,13 +13,43 @@ import Testing
 
 /// Records what the observer asked the store and the marker to do, in order.
 private final class Calls: @unchecked Sendable {
+    /// Guards every field. The observer's task and the test body both touch them.
     private let lock = NSLock()
     private var entries: [String] = []
-    var marker: UUID?
-    var failClears = 0
+    private var storedMarker: UUID?
+    private var remainingFailures = 0
 
     var log: [String] { lock.withLock { entries } }
+    var marker: UUID? {
+        get { lock.withLock { storedMarker } }
+        set { lock.withLock { storedMarker = newValue } }
+    }
+
+    var failClears: Int {
+        get { lock.withLock { remainingFailures } }
+        set { lock.withLock { remainingFailures = newValue } }
+    }
+
     func add(_ entry: String) { lock.withLock { entries.append(entry) } }
+
+    /// Removes the marker if it is still `id`, then logs the acknowledgement, as one step. A test that
+    /// sees "ack" in the log therefore knows the removal is already done, and a marker it installs after
+    /// that is never removed by this call.
+    func acknowledge(_ id: UUID) {
+        lock.withLock {
+            if storedMarker == id { storedMarker = nil }
+            entries.append("ack")
+        }
+    }
+
+    /// Consumes one injected failure, if any are left.
+    func takeFailure() -> Bool {
+        lock.withLock {
+            guard remainingFailures > 0 else { return false }
+            remainingFailures -= 1
+            return true
+        }
+    }
 }
 
 @Suite
@@ -33,16 +63,10 @@ struct InboxResetObserverTests {
             await InboxResetObserver.run(
                 resets: resets,
                 pendingMarker: { calls.marker },
-                acknowledge: { id in
-                    calls.add("ack")
-                    if calls.marker == id { calls.marker = nil }
-                },
+                acknowledge: { calls.acknowledge($0) },
                 clearAll: {
                     calls.add("clear")
-                    if calls.failClears > 0 {
-                        calls.failClears -= 1
-                        throw InboxError.storageFailure
-                    }
+                    if calls.takeFailure() { throw InboxError.storageFailure }
                     try await clear()
                 }
             )
