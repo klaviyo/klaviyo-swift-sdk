@@ -22,14 +22,26 @@ final class KlaviyoCarouselHandler {
     /// Well inside the ~30 seconds iOS gives a notification service extension.
     static let batchDeadline: TimeInterval = 20
 
-    /// Downloads `url` to a temporary file, calling back with its location or nil on failure.
+    /// File extensions for the image types `UNNotificationAttachment` accepts, by MIME type.
+    /// Attachments are typed by file extension, and card URLs often have none or a misleading one.
+    static let imageFileExtensions = ["image/jpeg": "jpg", "image/png": "png", "image/gif": "gif"]
+
+    /// A downloaded file and the MIME type the server reported for it.
+    struct DownloadedFile {
+        let location: URL
+        let mimeType: String?
+    }
+
+    /// Downloads `url` to a temporary file, calling back with it or nil on failure.
     /// The file is deleted when the callback returns.
-    typealias Download = (_ url: URL, _ completion: @escaping (URL?) -> Void) -> Void
+    typealias Download = (_ url: URL, _ completion: @escaping (DownloadedFile?) -> Void) -> Void
 
     struct Dependencies {
         var download: Download
         var makeAttachment: (_ identifier: String, _ fileURL: URL) throws -> UNNotificationAttachment
         var registerCarouselCategory: () -> Void
+        /// Cancels downloads still running once the carousel is delivered.
+        var cancelDownloads: () -> Void
 
         static func live() -> Dependencies {
             let configuration = URLSessionConfiguration.ephemeral
@@ -44,7 +56,7 @@ final class KlaviyoCarouselHandler {
                             completion(nil)
                             return
                         }
-                        completion(location)
+                        completion(location.map { DownloadedFile(location: $0, mimeType: response?.mimeType) })
                     }.resume()
                 },
                 makeAttachment: { identifier, fileURL in
@@ -55,7 +67,8 @@ final class KlaviyoCarouselHandler {
                         categoryIdentifier: KlaviyoCategoryManager.carouselCategoryIdentifier,
                         actions: []
                     )
-                }
+                },
+                cancelDownloads: { session.invalidateAndCancel() }
             )
         }
     }
@@ -96,45 +109,45 @@ final class KlaviyoCarouselHandler {
             group.enter()
             download(card) { group.leave() }
         }
-        group.notify(queue: .global()) { [weak self] in self?.finish() }
+        group.notify(queue: .global()) { [weak self] in self?.finish(cutShort: false) }
         DispatchQueue.global().asyncAfter(deadline: .now() + deadline) { [weak self] in
-            if #available(iOS 14.0, *) {
-                Logger.carousel.warning("Carousel downloads passed the \(deadline)s deadline; delivering what attached.")
-            }
-            self?.finish()
+            self?.finish(cutShort: true)
         }
     }
 
     /// Delivers whatever has attached so far. Call from `serviceExtensionTimeWillExpire`.
     func finishNow() {
-        finish()
+        finish(cutShort: true)
     }
 
     // MARK: - Private Methods
 
     private func download(_ card: CarouselCardDefinition, done: @escaping () -> Void) {
-        dependencies.download(card.imageURL) { [weak self] location in
+        dependencies.download(card.imageURL) { [weak self] file in
             defer { done() }
             guard let self else { return }
-            guard let location else {
+            guard let file else {
                 if #available(iOS 14.0, *) {
                     Logger.carousel.warning("Carousel card \(card.position) image failed to download")
                 }
                 return
             }
             // Attachments need a file extension, and the downloaded file is deleted when this closure returns.
-            let pathExtension = card.imageURL.pathExtension.isEmpty ? fallbackMediaType : card.imageURL.pathExtension
             let fileURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension(pathExtension)
+                .appendingPathExtension(fileExtension(for: card, mimeType: file.mimeType))
             do {
-                try FileManager.default.moveItem(at: location, to: fileURL)
+                try FileManager.default.moveItem(at: file.location, to: fileURL)
                 let attachment = try dependencies.makeAttachment(
                     Self.attachmentIdentifierPrefix + String(card.position),
                     fileURL
                 )
-                record(attachment, position: card.position)
+                if !record(attachment, position: card.position) {
+                    // Arrived after delivery, so nothing will ever read it
+                    try? FileManager.default.removeItem(at: fileURL)
+                }
             } catch {
+                try? FileManager.default.removeItem(at: fileURL)
                 if #available(iOS 14.0, *) {
                     Logger.carousel.warning("Carousel card \(card.position) attachment failed: \(error.localizedDescription)")
                 }
@@ -142,14 +155,25 @@ final class KlaviyoCarouselHandler {
         }
     }
 
-    private func record(_ attachment: UNNotificationAttachment, position: Int) {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !finished else { return }
-        attachments[position] = attachment
+    /// The server's MIME type wins, then the URL's extension, then the integrator's fallback type.
+    private func fileExtension(for card: CarouselCardDefinition, mimeType: String?) -> String {
+        if let mimeType, let fileExtension = Self.imageFileExtensions[mimeType.lowercased()] {
+            return fileExtension
+        }
+        return card.imageURL.pathExtension.isEmpty ? fallbackMediaType : card.imageURL.pathExtension
     }
 
-    private func finish() {
+    /// - Returns: `false` if the carousel was already delivered, so the attachment was not kept
+    private func record(_ attachment: UNNotificationAttachment, position: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !finished else { return false }
+        attachments[position] = attachment
+        return true
+    }
+
+    /// - Parameter cutShort: whether the deadline or the NSE's expiry ended the downloads
+    private func finish(cutShort: Bool) {
         lock.lock()
         guard !finished else {
             lock.unlock()
@@ -158,6 +182,11 @@ final class KlaviyoCarouselHandler {
         finished = true
         let attached = attachments.sorted { $0.key < $1.key }.map(\.value)
         lock.unlock()
+
+        dependencies.cancelDownloads()
+        if cutShort, #available(iOS 14.0, *) {
+            Logger.carousel.warning("Carousel downloads were cut short; delivering the \(attached.count) image(s) that attached.")
+        }
 
         guard attached.count >= KlaviyoCarouselParser.minimumCards else {
             if #available(iOS 14.0, *) {
@@ -177,6 +206,10 @@ final class KlaviyoCarouselHandler {
 // MARK: - Content extension detection
 
 extension KlaviyoCarouselHandler {
+    /// Whether this app embeds a carousel content extension. The app bundle can't change while the
+    /// NSE runs, so the PlugIns directory is scanned once per process.
+    static let isContentExtensionInstalled = contentExtensionInstalled()
+
     /// Whether the host app embeds a notification content extension that handles the carousel category.
     ///
     /// Without one, a carousel push would show no buttons, because the carousel category has none.

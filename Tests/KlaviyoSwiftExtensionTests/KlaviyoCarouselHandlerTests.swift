@@ -13,6 +13,8 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=")!
 
     private var registeredCategoryCount = 0
+    private var cancelCount = 0
+    private var attachmentFileURLs: [URL] = []
 
     private func cards(_ count: Int) -> [CarouselCardDefinition] {
         (1...count).map { position in
@@ -29,7 +31,11 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
 
     /// Writes a temporary PNG for each card whose position is in `succeeding`; the others fail.
     /// Positions in `pending` never call back, simulating a download that hangs.
-    private func dependencies(succeeding: Set<Int>, pending: Set<Int> = []) -> KlaviyoCarouselHandler.Dependencies {
+    private func dependencies(
+        succeeding: Set<Int>,
+        pending: Set<Int> = [],
+        mimeType: String? = "image/png"
+    ) -> KlaviyoCarouselHandler.Dependencies {
         KlaviyoCarouselHandler.Dependencies(
             download: { url, completion in
                 let position = Int(url.deletingPathExtension().lastPathComponent.dropFirst("card-".count)) ?? 0
@@ -40,12 +46,14 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
                 }
                 let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 try? Self.pngData.write(to: file)
-                completion(file)
+                completion(KlaviyoCarouselHandler.DownloadedFile(location: file, mimeType: mimeType))
             },
-            makeAttachment: { identifier, fileURL in
-                try UNNotificationAttachment(identifier: identifier, url: fileURL)
+            makeAttachment: { [weak self] identifier, fileURL in
+                self?.attachmentFileURLs.append(fileURL)
+                return try UNNotificationAttachment(identifier: identifier, url: fileURL)
             },
-            registerCarouselCategory: { [weak self] in self?.registeredCategoryCount += 1 }
+            registerCarouselCategory: { [weak self] in self?.registeredCategoryCount += 1 },
+            cancelDownloads: { [weak self] in self?.cancelCount += 1 }
         )
     }
 
@@ -61,7 +69,7 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
         let handler = KlaviyoCarouselHandler(
             cards: cards,
             content: UNMutableNotificationContent(),
-            fallbackMediaType: "png",
+            fallbackMediaType: "jpg",
             dependencies: dependencies
         ) {
             completionCount += 1
@@ -76,6 +84,7 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
         // Extra finishes after completion must not call it again.
         handler.finishNow()
         XCTAssertEqual(completionCount, 1)
+        XCTAssertEqual(cancelCount, 1, "Downloads should be cancelled once, on delivery")
         return outcome
     }
 
@@ -124,6 +133,75 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
 
         guard case let .carousel(content) = outcome else { return XCTFail("Expected a carousel") }
         XCTAssertEqual(content.attachments.count, 2)
+    }
+
+    func testFileExtension_PrefersTheResponseMIMEType() {
+        let card = CarouselCardDefinition(
+            position: 1,
+            imageURL: URL(string: "https://cdn.example.com/card-1.php?id=1")!,
+            title: nil,
+            description: nil,
+            action: .openApp,
+            url: nil
+        )
+        _ = run(cards: [card, cards(2)[1]], dependencies: dependencies(succeeding: [1, 2], mimeType: "image/PNG"))
+
+        XCTAssertEqual(attachmentFileURLs.map(\.pathExtension), ["png", "png"])
+    }
+
+    func testFileExtension_FallsBackToTheURLThenTheFallbackType() {
+        // Named card-2 with no extension, since the test download maps URLs to positions by name.
+        let noExtension = CarouselCardDefinition(
+            position: 2,
+            imageURL: URL(string: "https://cdn.example.com/card-2")!,
+            title: nil,
+            description: nil,
+            action: .openApp,
+            url: nil
+        )
+        _ = run(
+            cards: [cards(1)[0], noExtension],
+            dependencies: dependencies(succeeding: [1, 2], mimeType: "application/octet-stream")
+        )
+
+        // card-1.png keeps its URL extension; card-2 gets the integrator's fallback type.
+        XCTAssertEqual(attachmentFileURLs.map(\.pathExtension), ["png", "jpg"])
+    }
+
+    func testLateDownload_IsDeletedNotAttached() {
+        var lateCompletion: ((KlaviyoCarouselHandler.DownloadedFile?) -> Void)?
+        var deps = dependencies(succeeding: [1, 2])
+        let base = deps.download
+        deps.download = { url, completion in
+            if url.lastPathComponent == "card-3.png" {
+                lateCompletion = completion
+            } else {
+                base(url, completion)
+            }
+        }
+        let finished = expectation(description: "completion")
+        var delivered: UNNotificationContent?
+        // Held for the whole test, so the late download reaches a live handler.
+        let handler = KlaviyoCarouselHandler(
+            cards: cards(3),
+            content: UNMutableNotificationContent(),
+            fallbackMediaType: "jpg",
+            dependencies: deps
+        ) { outcome in
+            if case let .carousel(content) = outcome { delivered = content }
+            finished.fulfill()
+        }
+        handler.start(deadline: 0.2)
+        wait(for: [finished], timeout: 5)
+
+        let lateFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? Self.pngData.write(to: lateFile)
+        lateCompletion?(KlaviyoCarouselHandler.DownloadedFile(location: lateFile, mimeType: "image/png"))
+
+        XCTAssertEqual(delivered?.attachments.count, 2)
+        XCTAssertEqual(attachmentFileURLs.count, 3)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: attachmentFileURLs.last?.path ?? ""))
+        withExtendedLifetime(handler) {}
     }
 
     // MARK: - Content extension detection

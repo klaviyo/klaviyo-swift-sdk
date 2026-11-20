@@ -140,9 +140,15 @@ public enum KlaviyoExtensionSDK {
         contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
         // A carousel still downloading delivers whatever cards have attached
-        if let carouselHandler = CarouselHandlerStore.shared.handler(for: request.identifier) {
+        switch CarouselHandlerStore.shared.state(for: request.identifier) {
+        case let .downloading(carouselHandler):
             carouselHandler.finishNow()
             return
+        case .delivered:
+            // The carousel already called the content handler, which must not be called twice
+            return
+        case nil:
+            break
         }
         // Still try to register action buttons before timeout
         handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
@@ -239,7 +245,7 @@ public enum KlaviyoExtensionSDK {
               KlaviyoCarouselParser.hasCarouselCards(bestAttemptContent.userInfo) else {
             return false
         }
-        guard KlaviyoCarouselHandler.contentExtensionInstalled() else {
+        guard KlaviyoCarouselHandler.isContentExtensionInstalled else {
             if #available(iOS 14.0, *) {
                 Logger.carousel.warning("No notification content extension handles '\(KlaviyoCategoryManager.carouselCategoryIdentifier)'. Falling back to a standard notification.")
             }
@@ -255,7 +261,7 @@ public enum KlaviyoExtensionSDK {
             content: bestAttemptContent,
             fallbackMediaType: fallbackMediaType
         ) { outcome in
-            CarouselHandlerStore.shared.remove(requestIdentifier)
+            CarouselHandlerStore.shared.markDelivered(requestIdentifier)
             switch outcome {
             case let .carousel(content):
                 contentHandler(content)
@@ -305,28 +311,35 @@ public enum KlaviyoExtensionSDK {
 }
 
 /// Keeps in-flight carousel handlers alive and reachable from `serviceExtensionTimeWillExpire`,
-/// since the public API is static and the caller holds no handler reference.
-private final class CarouselHandlerStore {
+/// since the public API is static and the caller holds no handler reference. Delivered carousels
+/// are remembered so a late expiry doesn't call the content handler a second time.
+final class CarouselHandlerStore {
+    enum State {
+        case downloading(KlaviyoCarouselHandler)
+        case delivered
+    }
+
     static let shared = CarouselHandlerStore()
 
     private let lock = NSLock()
-    private var handlers: [String: KlaviyoCarouselHandler] = [:]
+    private var states: [String: State] = [:]
 
     func insert(_ handler: KlaviyoCarouselHandler, for requestIdentifier: String) {
         lock.lock()
         defer { lock.unlock() }
-        handlers[requestIdentifier] = handler
+        states[requestIdentifier] = .downloading(handler)
     }
 
-    func handler(for requestIdentifier: String) -> KlaviyoCarouselHandler? {
+    func state(for requestIdentifier: String) -> State? {
         lock.lock()
         defer { lock.unlock() }
-        return handlers[requestIdentifier]
+        return states[requestIdentifier]
     }
 
-    func remove(_ requestIdentifier: String) {
+    /// Releases the handler but keeps its identifier, which is all a late expiry needs to check.
+    func markDelivered(_ requestIdentifier: String) {
         lock.lock()
         defer { lock.unlock() }
-        handlers[requestIdentifier] = nil
+        states[requestIdentifier] = .delivered
     }
 }
