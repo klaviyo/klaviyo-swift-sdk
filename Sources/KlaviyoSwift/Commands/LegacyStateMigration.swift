@@ -42,9 +42,15 @@ func klaviyoStateFile(apiKey: String) -> URL {
 @discardableResult
 func migrateLegacyStateIfNeeded(apiKey: String) -> String? {
     let legacyFile = klaviyoStateFile(apiKey: apiKey)
-    guard let decoded = validatedLegacyState(apiKey: apiKey, legacyFile: legacyFile) else {
+    guard var decoded = validatedLegacyState(apiKey: apiKey, legacyFile: legacyFile) else {
         return nil
     }
+    // Normalize the decoded identity before anything reads it, so `attemptMigration` WRITES the
+    // normalized profile and `verifyMigration` — which compares the persisted profile against
+    // `decoded.identity` — compares like with like. Normalizing only the store write would make
+    // verification fail forever for a legacy `""`, leaving the file un-retired and re-migrated on
+    // every launch.
+    decoded.identity = decoded.identity.emptyIdentifiersAsNil
     // Captured once, before any attempt: a retry would otherwise read the already-migrated ID.
     let replacedAnonymousId = IdentityStore.shared.current.anonymousId
 

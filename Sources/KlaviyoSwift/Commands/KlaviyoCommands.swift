@@ -184,13 +184,8 @@ enum KlaviyoCommands {
 
         // Compute identifier change against the current canonical identity.
         let current = IdentityStore.shared.current
-        let currentIds: [String?] = [current.email, current.phoneNumber, current.externalId]
-        let incomingIds: [String?] = [
-            profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty()
-        ]
-        let identifiersChanged = currentIds != incomingIds
+        let incomingIds = trimmedIdentifiers(of: profile)
+        let identifiersChanged = Self.identifiersChanged(stored: current, incoming: profile)
 
         // Atomically apply the identity update to IdentityStore.
         var updated = ProfileData()
@@ -343,6 +338,48 @@ enum KlaviyoCommands {
     }
 
     // MARK: - Private helpers
+
+    /// The incoming profile's email, phone number and external ID, trimmed (empty becomes `nil`).
+    private static func trimmedIdentifiers(of profile: Profile) -> [String?] {
+        [
+            profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty()
+        ]
+    }
+
+    /// Whether the incoming profile's identifiers differ from the stored ones, as decided by
+    /// ``IdentityTransition/classify(previous:next:)``.
+    ///
+    /// `next` is built from the trimmed incoming identifiers plus the *stored* `anonymousId`, so the
+    /// anonymous ID can never make the two sides differ: `.unchanged` holds exactly when the three
+    /// identifiers are equal.
+    ///
+    /// The `switch` is exhaustive so a new `IdentityTransition` case fails to compile until this
+    /// consumer has decided how to map it. `enqueueProfile` treats every change as a change.
+    private static func identifiersChanged(stored: ProfileData, incoming: Profile) -> Bool {
+        let ids = trimmedIdentifiers(of: incoming)
+        let next = ProfileData(
+            email: ids[0],
+            phoneNumber: ids[1],
+            externalId: ids[2],
+            anonymousId: stored.anonymousId
+        )
+        switch IdentityTransition.classify(previous: stored, next: next) {
+        case .unchanged:
+            return false
+        case .initial,
+             .anonymousToIdentified,
+             .cleared,
+             .partialConflict,
+             .anonymousIdRotated,
+             .additive,
+             .subtractive,
+             .reshaped,
+             .replacement:
+            return true
+        }
+    }
 
     /// Applies a field-level change to the profile atomically via `IdentityStore.mutate`, then
     /// enqueues the appropriate follow-up sync request:

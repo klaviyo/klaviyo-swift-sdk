@@ -44,6 +44,40 @@ final class IdentityStorePersistenceTests: XCTestCase {
         XCTAssertEqual(store.current.anonymousId, "existing")
     }
 
+    /// A persisted empty-string identifier means "absent": hydration maps it to `nil` so downstream
+    /// identity comparison sees one representation. `anonymousId` is never normalized.
+    func testHydrationMapsEmptyIdentifiersToNil() {
+        savePersisted(
+            PersistedIdentity(
+                version: 1,
+                profile: ProfileData(
+                    email: "", phoneNumber: "", externalId: "", anonymousId: "existing"
+                ),
+                pushToken: nil
+            ),
+            fileName: StoreFile.identity
+        )
+        let store = IdentityStore()
+
+        XCTAssertNil(store.current.email)
+        XCTAssertNil(store.current.phoneNumber)
+        XCTAssertNil(store.current.externalId)
+        XCTAssertEqual(store.current.anonymousId, "existing")
+    }
+
+    func testEmptyIdentifiersAsNilLeavesNonEmptyAndWhitespaceValuesUntouched() {
+        let identity = ProfileData(
+            email: " a@x.com", phoneNumber: "  ", externalId: "ext-1", anonymousId: ""
+        )
+
+        let normalized = identity.emptyIdentifiersAsNil
+
+        XCTAssertEqual(normalized.email, " a@x.com", "no trimming — only exactly-empty becomes nil")
+        XCTAssertEqual(normalized.phoneNumber, "  ", "whitespace-only is not empty")
+        XCTAssertEqual(normalized.externalId, "ext-1")
+        XCTAssertEqual(normalized.anonymousId, "", "anonymousId is never normalized")
+    }
+
     func testUpdateWritesThroughProfileSynchronously() {
         let store = IdentityStore()
         _ = store.current // hydrate + mint

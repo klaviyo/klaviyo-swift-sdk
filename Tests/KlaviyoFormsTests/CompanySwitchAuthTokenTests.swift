@@ -50,7 +50,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
 
         let anonymous = IdentityStore.shared.current
         XCTAssertFalse(anonymous.isIdentified)
-        XCTAssertEqual(IdentityTransition.classify(previous: outgoingIdentity, next: anonymous), .replacement)
+        XCTAssertTrue(IdentityTransition.classify(previous: outgoingIdentity, next: anonymous).discardsAuthToken)
         await assertNoTokenWhileAnonymous()
         let callsWhileAnonymous = await provider.invocationCount
         XCTAssertEqual(callsWhileAnonymous, 1)
@@ -59,7 +59,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
 
         let identified = IdentityStore.shared.current
         XCTAssertEqual(identified.email, "a@x.com")
-        XCTAssertEqual(IdentityTransition.classify(previous: anonymous, next: identified), .replacement)
+        XCTAssertTrue(IdentityTransition.classify(previous: anonymous, next: identified).discardsAuthToken)
         let incomingToken = try await manager.currentToken(mode: .background)
         XCTAssertNotEqual(incomingToken, outgoingToken)
         let callsAfterIdentified = await provider.invocationCount
@@ -119,9 +119,8 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
 
         let incoming = IdentityStore.shared.current
         XCTAssertNotEqual(incoming.anonymousId, outgoingIdentity.anonymousId)
-        XCTAssertEqual(
-            IdentityTransition.classify(previous: outgoingIdentity, next: incoming),
-            .compatible
+        XCTAssertFalse(
+            IdentityTransition.classify(previous: outgoingIdentity, next: incoming).discardsAuthToken
         )
         XCTAssertEqual(emissions, [incoming])
         XCTAssertEqual(manager.currentIdentityGeneration, generation)

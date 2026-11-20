@@ -20,10 +20,11 @@ import OSLog
 ///
 /// The provider is only invoked while the current profile (read from an
 /// ``IdentityReading``) has an identifier. Token state is bound to an identity
-/// generation, which increases whenever a profile change is classified as a
-/// replacement (see ``IdentityTransition/classify(previous:next:)``): a cached token,
-/// in-flight fetch or connectivity retry from an earlier generation is never served,
-/// shared or retried, however many compatible changes lie between the two profiles.
+/// generation, which increases whenever a profile change is classified by
+/// ``IdentityTransition/classify(previous:next:)`` as one that
+/// ``IdentityTransition/discardsAuthToken``: a cached token, in-flight fetch or
+/// connectivity retry from an earlier generation is never served, shared or retried,
+/// however many token-preserving changes lie between the two profiles.
 ///
 /// Concurrent callers requesting a token while a fetch is in flight share the
 /// result of that fetch — they do not trigger additional provider invocations.
@@ -568,7 +569,8 @@ package actor AuthTokenManager {
     }
 
     /// The current identity generation: it increases whenever a profile change is classified
-    /// as a replacement by ``IdentityTransition/classify(previous:next:)`` and whenever all
+    /// by ``IdentityTransition/classify(previous:next:)`` as one that
+    /// ``IdentityTransition/discardsAuthToken`` and whenever all
     /// token state is cleared. A token is deliverable only while its generation is current.
     package nonisolated var currentIdentityGeneration: UInt64 {
         identityTracker.snapshot().generation
