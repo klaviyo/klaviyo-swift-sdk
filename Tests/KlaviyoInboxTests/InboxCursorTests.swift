@@ -16,7 +16,7 @@ import Testing
 struct InboxCursorTests {
     private let company = InboxStoreFixtures.company
     private let position = InboxStoreCursor(
-        sortTime: InboxStoreFixtures.baseDate.addingTimeInterval(7),
+        sentAt: InboxStoreFixtures.baseDate.addingTimeInterval(7),
         transmissionID: "tm-7"
     )
 
@@ -51,7 +51,7 @@ struct InboxCursorTests {
     @Test
     func aCursorKeepsSubSecondSortTimes() throws {
         let precise = InboxStoreCursor(
-            sortTime: InboxStoreFixtures.baseDate.addingTimeInterval(7.123),
+            sentAt: InboxStoreFixtures.baseDate.addingTimeInterval(7.123),
             transmissionID: "tm-7"
         )
         let decodedPosition = try decoded(cursor(position: precise))

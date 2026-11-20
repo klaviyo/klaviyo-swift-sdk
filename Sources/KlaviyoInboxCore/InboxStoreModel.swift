@@ -15,7 +15,10 @@ package enum InboxStoreModel {
     package enum Key {
         package static let companyID = "companyID"
         package static let transmissionID = "transmissionID"
-        package static let sortTime = "sortTime"
+        /// When the message was sent; the push's send time, else the time it was received. Orders the inbox.
+        package static let sentAt = "sentAt"
+        /// When this device first stored the message. Set once at insert and never changed.
+        package static let receivedAt = "receivedAt"
         package static let isRead = "isRead"
         package static let isArchived = "isArchived"
         /// When the message last changed (read or archive). Nil until it first does; a capture does not set it.
@@ -41,7 +44,8 @@ package enum InboxStoreModel {
         let attributes = [
             attribute(Key.companyID, .stringAttributeType),
             attribute(Key.transmissionID, .stringAttributeType),
-            attribute(Key.sortTime, .dateAttributeType),
+            attribute(Key.sentAt, .dateAttributeType),
+            attribute(Key.receivedAt, .dateAttributeType),
             attribute(Key.isRead, .booleanAttributeType, defaultValue: false),
             attribute(Key.isArchived, .booleanAttributeType, defaultValue: false),
             attribute(Key.updatedAt, .dateAttributeType, optional: true),
@@ -51,7 +55,7 @@ package enum InboxStoreModel {
         entity.properties = attributes
         entity.uniquenessConstraints = [[Key.transmissionID]]
         entity.indexes = [
-            index("byCompanyAndSortTime", [Key.companyID, Key.sortTime, Key.transmissionID], in: attributes)
+            index("byCompanyAndSentAt", [Key.companyID, Key.sentAt, Key.transmissionID], in: attributes)
         ]
 
         let model = NSManagedObjectModel()

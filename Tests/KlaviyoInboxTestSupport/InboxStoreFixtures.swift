@@ -131,7 +131,8 @@ package enum InboxStoreFixtures {
                     let object = NSManagedObject(entity: entity, insertInto: context)
                     object.setValue(company, forKey: Key.companyID)
                     object.setValue(transmissionID, forKey: Key.transmissionID)
-                    object.setValue(baseDate, forKey: Key.sortTime)
+                    object.setValue(baseDate, forKey: Key.sentAt)
+                    object.setValue(baseDate, forKey: Key.receivedAt)
                     try object.setValue(JSONEncoder().encode(record), forKey: Key.payload)
                 }
                 try context.save()
