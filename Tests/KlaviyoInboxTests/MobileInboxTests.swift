@@ -187,6 +187,61 @@ struct MobileInboxTests {
     }
 
     @Test
+    func aPendingResetIsAppliedBeforeAPageIsRead() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let page = try await inbox.fetchPage()
+        #expect(page.messages.isEmpty)
+    }
+
+    @Test
+    func aPageIsNotReadWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.fetchPage() }
+        let stored = try await store.message(id: "tm-1")
+        #expect(stored != nil)
+    }
+
+    @Test
+    func aStateChangeWaitsForThePendingReset() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let exists = try await inbox.setMessageState(.read, for: "tm-1")
+        #expect(!exists)
+    }
+
+    @Test
+    func aStateChangeIsRefusedWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read, for: "tm-1") }
+        let stored = try await store.message(id: "tm-1")
+        #expect(stored?.isRead == false)
+    }
+
+    @Test
+    func aClearWaitsForThePendingReset() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let removed = try await inbox.clear(ids: ["tm-1"])
+        #expect(removed == 0)
+    }
+
+    @Test
+    func aClearIsRefusedWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.clear(ids: ["tm-1"]) }
+    }
+
+    @Test
     func clearingOneMessageReportsWhetherItExisted() async throws {
         let (inbox, store) = makeInbox(company: company)
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
