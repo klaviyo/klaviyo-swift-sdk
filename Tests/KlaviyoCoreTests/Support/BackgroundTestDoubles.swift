@@ -10,6 +10,7 @@ import Foundation
 final class ManualSleepClock: @unchecked Sendable {
     private let lock = NSLock()
     private var waiters: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var requestIndexById: [Int: Int] = [:]
     private var nextId = 0
     private var _requested: [TimeInterval] = []
 
@@ -23,6 +24,7 @@ final class ManualSleepClock: @unchecked Sendable {
                     // Record the request and install the waiter together, so a test that sees the
                     // request can always fire it.
                     lock.lock()
+                    requestIndexById[id] = _requested.count
                     _requested.append(seconds)
                     if Task.isCancelled {
                         lock.unlock()
@@ -49,6 +51,15 @@ final class ManualSleepClock: @unchecked Sendable {
         let waiter = waiters.removeValue(forKey: id)
         lock.unlock()
         waiter?.resume(throwing: CancellationError())
+    }
+
+    /// Completes only the parked sleep that was the `index`th request (0-based).
+    func fire(requestIndex index: Int) {
+        lock.lock()
+        let id = requestIndexById.first { $0.value == index }?.key
+        let waiter = id.flatMap { waiters.removeValue(forKey: $0) }
+        lock.unlock()
+        waiter?.resume()
     }
 
     /// Completes every parked sleep normally (the budget "elapses").
@@ -79,6 +90,7 @@ final class FakeBackgroundTasks: @unchecked Sendable {
     private var expiries: [@Sendable () -> Void] = []
     private var handles: [BackgroundTaskHandle] = []
     var deny = false
+    var appActive = true
 
     var begins: Int { lock.lock(); defer { lock.unlock() }; return _begins }
     var ends: Int { lock.lock(); defer { lock.unlock() }; return _ends }
@@ -98,7 +110,19 @@ final class FakeBackgroundTasks: @unchecked Sendable {
             handles.append(handle)
             lock.unlock()
             return handle
+        } isAppActive: { [self] in
+            lock.lock(); defer { lock.unlock() }
+            return appActive
         }
+    }
+
+    func waitForBegins(atLeast count: Int, timeout: TimeInterval = 2.0) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if begins >= count { return true }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return begins >= count
     }
 
     /// Fires a task's expiry handler (the latest by default) and ends it, like the system deadline.
@@ -110,5 +134,24 @@ final class FakeBackgroundTasks: @unchecked Sendable {
         lock.unlock()
         expiry?()
         handle?.end()
+    }
+}
+
+extension BackgroundTaskRunner {
+    /// A foreground app: `isAppActive` answers without hopping actors, and `begin` is a no-op.
+    static let foregroundStub = BackgroundTaskRunner(
+        begin: { _, _ in BackgroundTaskHandle() },
+        isAppActive: { true }
+    )
+}
+
+extension RequestQueue {
+    /// A queue wired to `foregroundStub`, so tests never touch `UIApplication` or the main actor.
+    static func forTests(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)? = nil
+    ) -> RequestQueue {
+        RequestQueue(clock: clock, send: send, willDrain: willDrain, backgroundTasks: .foregroundStub)
     }
 }
