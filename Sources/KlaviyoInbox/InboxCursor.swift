@@ -44,7 +44,7 @@ public struct InboxCursor: Hashable, Sendable {
         let payload = Payload(
             v: Self.version,
             k: Self.localKind,
-            t: position.sortTime.timeIntervalSinceReferenceDate,
+            t: position.sentAt.timeIntervalSinceReferenceDate,
             i: position.transmissionID,
             c: companyID
         )
@@ -66,7 +66,7 @@ public struct InboxCursor: Hashable, Sendable {
             throw InboxError.invalidCursor
         }
         return InboxStoreCursor(
-            sortTime: Date(timeIntervalSinceReferenceDate: payload.t),
+            sentAt: Date(timeIntervalSinceReferenceDate: payload.t),
             transmissionID: payload.i
         )
     }
