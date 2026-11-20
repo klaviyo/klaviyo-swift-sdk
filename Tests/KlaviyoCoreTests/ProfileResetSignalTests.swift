@@ -116,6 +116,64 @@ final class ProfileResetSignalTests: XCTestCase {
         XCTAssertNil(ProfileResetSignal.pendingMarker())
     }
 
+    /// Makes every write fail, as a full disk would, while reads and removals still work.
+    private func failAllWrites() {
+        let working = environment.fileClient
+        environment.fileClient = FileClient(
+            write: { _, _ in throw CocoaError(.fileWriteOutOfSpace) },
+            fileExists: working.fileExists,
+            removeItem: working.removeItem,
+            libraryDirectory: working.libraryDirectory,
+            applicationSupportDirectory: working.applicationSupportDirectory
+        )
+    }
+
+    func testAResetIsStillPendingWhenTheMarkerCannotBeWritten() throws {
+        failAllWrites()
+        ProfileResetSignal.publish()
+        XCTAssertNotNil(ProfileResetSignal.pendingMarker(), "a running listener must still find the reset")
+    }
+
+    func testAnAcknowledgedResetIsGoneEvenWhenItWasNeverWritten() throws {
+        failAllWrites()
+        ProfileResetSignal.publish()
+        let marker = try XCTUnwrap(ProfileResetSignal.pendingMarker())
+        ProfileResetSignal.acknowledge(marker)
+        XCTAssertNil(ProfileResetSignal.pendingMarker())
+    }
+
+    func testAnOldAcknowledgementKeepsANewerResetThatWasNeverWritten() throws {
+        var ids = [UUID(), UUID()]
+        environment.uuid = { ids.removeFirst() }
+        ProfileResetSignal.publish()
+        let first = try XCTUnwrap(ProfileResetSignal.pendingMarker())
+        failAllWrites()
+        ProfileResetSignal.publish()
+        ProfileResetSignal.acknowledge(first)
+        XCTAssertNotNil(ProfileResetSignal.pendingMarker(), "the newer reset must survive the older acknowledgement")
+    }
+
+    func testAcknowledgingAResetAlsoRemovesAnOlderMarkerLeftOnDisk() throws {
+        // Launch 1 leaves a marker on disk; launch 2's reset cannot overwrite it.
+        ProfileResetSignal.publish()
+        ProfileResetSignal.forgetInMemoryStateForTesting()
+        failAllWrites()
+        ProfileResetSignal.publish()
+        let marker = try XCTUnwrap(ProfileResetSignal.pendingMarker())
+        ProfileResetSignal.acknowledge(marker)
+        // A later launch reads from disk only.
+        ProfileResetSignal.forgetInMemoryStateForTesting()
+        XCTAssertNil(ProfileResetSignal.pendingMarker(), "the clear covered the older marker too")
+    }
+
+    func testAMarkerFromAnEarlierLaunchIsFoundAndAcknowledged() throws {
+        ProfileResetSignal.publish()
+        ProfileResetSignal.forgetInMemoryStateForTesting()
+        let marker = try XCTUnwrap(ProfileResetSignal.pendingMarker(), "a new launch reads the disk copy")
+        ProfileResetSignal.acknowledge(marker)
+        XCTAssertNil(ProfileResetSignal.pendingMarker())
+    }
+
     func testTheMarkerIsWrittenUnderApplicationSupport() {
         assertWriteRoutesToApplicationSupport(fileName: StoreFile.profileResetPending) {
             ProfileResetSignal.publish()

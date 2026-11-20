@@ -11,9 +11,12 @@ import Foundation
 ///
 /// Two things carry a reset, because a listener may not exist yet when it happens:
 /// - A live signal, ``resets()``, for a listener that is already running. It does not replay.
-/// - A persisted marker, ``pendingMarker()``, written before the live signal is sent. A listener that
-///   starts later, in this launch or the next, reads it and acts on a reset it missed. It stays until the
-///   listener has acted and calls ``acknowledge(_:)``, so a failed clear is tried again.
+/// - A pending marker, ``pendingMarker()``, recorded before the live signal is sent. A listener that
+///   starts later reads it and acts on a reset it missed. It stays until the listener has acted and calls
+///   ``acknowledge(_:)``, so a failed clear is tried again.
+///
+/// The marker is held in memory and also written to disk. The disk copy is what a later launch reads. The
+/// memory copy means a reset is never lost in this process when the write fails.
 package enum ProfileResetSignal {
     private struct PersistedMarker: Codable, Equatable {
         static let currentVersion = 1
@@ -24,13 +27,19 @@ package enum ProfileResetSignal {
     private static let subject = PassthroughSubject<Void, Never>()
     /// Serializes the marker's read, write and removal, so an acknowledgement never removes a newer marker.
     private static let lock = UnfairLock()
+    /// The newest reset nobody has acknowledged, kept whether or not the disk write worked. Guarded by `lock`.
+    private static var pending: UUID?
 
     /// Records a reset and tells every active listener. Called by `KlaviyoSwift` on every `resetProfile()`
     /// that is not dropped, including one that changes nothing because the profile was already anonymous.
     package static func publish() {
         lock.withLock {
+            let id = environment.uuid()
+            // Kept in memory first: `savePersisted` logs a failed write and returns, and a running listener
+            // must still find this reset.
+            pending = id
             savePersisted(
-                PersistedMarker(version: PersistedMarker.currentVersion, id: environment.uuid()),
+                PersistedMarker(version: PersistedMarker.currentVersion, id: id),
                 fileName: StoreFile.profileResetPending
             )
         }
@@ -51,23 +60,41 @@ package enum ProfileResetSignal {
         }
     }
 
-    /// The id of the reset no listener has acknowledged yet, or nil when there is none.
+    /// The id of the reset no listener has acknowledged yet, or nil when there is none. A reset from this
+    /// process is found even when its disk write failed; one from an earlier launch comes from disk.
     package static func pendingMarker() -> UUID? {
         lock.withLock {
-            loadPersisted(PersistedMarker.self, fileName: StoreFile.profileResetPending)?.id
+            pending ?? loadPersisted(PersistedMarker.self, fileName: StoreFile.profileResetPending)?.id
         }
     }
 
     /// Removes the marker, unless a newer reset replaced it since `id` was read.
     package static func acknowledge(_ id: UUID) {
         lock.withLock {
-            guard loadPersisted(PersistedMarker.self, fileName: StoreFile.profileResetPending)?.id == id else { return }
-            removePersisted(fileName: StoreFile.profileResetPending)
+            if pending == id {
+                // The clear that just succeeded covers every earlier reset too, including an older marker still
+                // on disk because this reset's write failed.
+                pending = nil
+                removePersisted(fileName: StoreFile.profileResetPending)
+            } else if pending == nil,
+                      loadPersisted(PersistedMarker.self, fileName: StoreFile.profileResetPending)?.id == id {
+                // A marker from an earlier launch, which nothing in this process has superseded.
+                removePersisted(fileName: StoreFile.profileResetPending)
+            }
+            // Otherwise a newer reset in this process owns both copies.
         }
     }
 
-    /// Test-support: drops the marker.
+    /// Test-support: forgets the in-memory copy only, as a new launch would, and leaves the disk copy.
+    package static func forgetInMemoryStateForTesting() {
+        lock.withLock { pending = nil }
+    }
+
+    /// Test-support: drops the marker, in memory and on disk.
     package static func reset() {
-        lock.withLock { removePersisted(fileName: StoreFile.profileResetPending) }
+        lock.withLock {
+            pending = nil
+            removePersisted(fileName: StoreFile.profileResetPending)
+        }
     }
 }
