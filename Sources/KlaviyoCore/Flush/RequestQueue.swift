@@ -374,6 +374,11 @@ public actor RequestQueue {
 
         while let head = requestsInFlight.first {
             guard generation == flushGeneration else { return }
+            // A cancelled caller stops the drain between sends; what is left stays queued.
+            if Task.isCancelled {
+                restoreLease()
+                return
+            }
             // Serial queue: a head still inside its own backoff blocks the rest (Android parity:
             // `PendingRetry` breaks the serial send). Only the head's own state gates it, so a
             // request front-inserted ahead of a backing-off one sends at once.
