@@ -18,10 +18,20 @@ package enum InboxStoreModel {
         package static let sortTime = "sortTime"
         package static let isRead = "isRead"
         package static let isArchived = "isArchived"
+        /// When the message last changed (read or archive). Nil until it first does; a capture does not set it.
+        package static let updatedAt = "updatedAt"
+        /// When the message expires. Nil means it does not. A captured push has none, so only a message
+        /// stored from the server will carry one.
+        package static let expiresAt = "expiresAt"
+
         package static let payload = "payload"
     }
 
     package static let current: NSManagedObjectModel = makeCurrent()
+
+    // To change the schema after release: edit `makeCurrent()`. The opener lets Core Data migrate an older
+    // store with an inferred mapping, so the change must be one Core Data can infer (added optional
+    // attributes, renames, and the like). Anything else needs a custom mapping model in the opener.
 
     private static func makeCurrent() -> NSManagedObjectModel {
         let entity = NSEntityDescription()
@@ -34,6 +44,8 @@ package enum InboxStoreModel {
             attribute(Key.sortTime, .dateAttributeType),
             attribute(Key.isRead, .booleanAttributeType, defaultValue: false),
             attribute(Key.isArchived, .booleanAttributeType, defaultValue: false),
+            attribute(Key.updatedAt, .dateAttributeType, optional: true),
+            attribute(Key.expiresAt, .dateAttributeType, optional: true),
             attribute(Key.payload, .binaryDataAttributeType)
         ]
         entity.properties = attributes

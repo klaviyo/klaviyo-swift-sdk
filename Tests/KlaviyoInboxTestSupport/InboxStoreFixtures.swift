@@ -5,6 +5,7 @@
 //  Created by Isobelle Lim on 10/29/26.
 //
 
+import CoreData
 import Foundation
 import KlaviyoInboxCore
 import SQLite3
@@ -32,9 +33,10 @@ package enum InboxStoreFixtures {
     package static func store(
         appGroup: InboxAppGroup,
         maxMessages: Int = InboxStore.defaultMaxMessages,
-        changeSignal: InboxChangeSignaling = RecordingInboxChangeSignal()
+        changeSignal: InboxChangeSignaling = RecordingInboxChangeSignal(),
+        now: @escaping @Sendable () -> Date = { Date() }
     ) -> InboxStore {
-        InboxStore(appGroup: appGroup, maxMessages: maxMessages, changeSignal: changeSignal)
+        InboxStore(appGroup: appGroup, maxMessages: maxMessages, changeSignal: changeSignal, now: now)
     }
 
     package struct SQLFailure: Error {
@@ -97,5 +99,47 @@ package enum InboxStoreFixtures {
     ) async -> InboxCaptureResult {
         let record = record(tm: tm, sentAt: baseDate.addingTimeInterval(seconds))
         return await store.capture(record, companyID: companyID)
+    }
+
+    /// Writes rows straight through Core Data under `model`, the way another build would have, so a test can
+    /// stand in for a store an earlier or later build left behind.
+    package static func writeStore(
+        model: NSManagedObjectModel,
+        transmissionIDs: [String],
+        in appGroup: InboxAppGroup
+    ) throws {
+        typealias Key = InboxStoreModel.Key
+        guard let directory = appGroup.inboxDirectory() else { throw SQLFailure(code: SQLITE_CANTOPEN) }
+        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
+        let store = try coordinator.addPersistentStore(
+            ofType: NSSQLiteStoreType,
+            configurationName: nil,
+            at: directory.appendingPathComponent(InboxStore.storeFileName),
+            options: nil
+        )
+        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        var failure: Error?
+        context.performAndWait {
+            do {
+                for transmissionID in transmissionIDs {
+                    let record = record(tm: transmissionID, sentAt: baseDate)
+                    guard let entity = NSEntityDescription.entity(
+                        forEntityName: InboxStoreModel.entityName,
+                        in: context
+                    ) else { throw SQLFailure(code: SQLITE_ERROR) }
+                    let object = NSManagedObject(entity: entity, insertInto: context)
+                    object.setValue(company, forKey: Key.companyID)
+                    object.setValue(transmissionID, forKey: Key.transmissionID)
+                    object.setValue(baseDate, forKey: Key.sortTime)
+                    try object.setValue(JSONEncoder().encode(record), forKey: Key.payload)
+                }
+                try context.save()
+            } catch {
+                failure = error
+            }
+        }
+        if let failure { throw failure }
+        try coordinator.remove(store)
     }
 }
