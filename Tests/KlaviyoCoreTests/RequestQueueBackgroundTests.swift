@@ -138,6 +138,23 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(disk.stored.map(\.id), ["a"])
     }
 
+    func testCancelledCallerStopsTheDrainBetweenSends() async {
+        enqueue("a", "b")
+        let started = expectation(description: "send parked")
+        let spy = SendSpy(parkFirstCall: true, started: started) // ignores cancellation, like a real send
+        let queue = makeQueue(send: spy.send)
+        let flush = Task { await queue.flushNow() }
+        await fulfillment(of: [started], timeout: 2)
+
+        flush.cancel()
+        spy.release() // a succeeds after the caller was cancelled
+        await flush.value
+
+        XCTAssertEqual(spy.sentIds, ["a"], "b must not start once the caller is cancelled")
+        XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["b"])
+        XCTAssertEqual(disk.stored.map(\.id), ["b"])
+    }
+
     // MARK: - Foreground, terminate, cycles
 
     func testForegroundMidDrainLetsDrainFinish() async {
