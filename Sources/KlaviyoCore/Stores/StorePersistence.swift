@@ -39,6 +39,7 @@ public enum StoreFile {
     public static let identity = "klaviyo-identity.json"
     public static let config = "klaviyo-config.json"
     public static let unattributed = "klaviyo-unattributed.json"
+    public static let profileResetPending = "klaviyo-profile-reset-pending.json"
 }
 
 // MARK: - Load / save helpers
