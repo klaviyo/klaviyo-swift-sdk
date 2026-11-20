@@ -25,7 +25,8 @@ extension KlaviyoSDKModule {
                     apiKey: SDKConfigStore.shared.current.apiKey
                 )
             },
-            changes: { DarwinInboxChangeSignal().changes() }
+            changes: { DarwinInboxChangeSignal().changes() },
+            beforeAccess: { try await InboxResetObserver.settle() }
         )
     }
 }

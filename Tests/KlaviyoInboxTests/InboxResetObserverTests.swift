@@ -149,6 +149,49 @@ struct InboxResetObserverTests {
     }
 
     @Test
+    func clearingAPendingResetDoesNothingWhenNoneIsPending() async throws {
+        let calls = Calls()
+        try await InboxResetObserver.clearPendingReset(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: { calls.add("clear") }
+        )
+        #expect(calls.log.isEmpty)
+    }
+
+    @Test
+    func clearingAPendingResetRemovesTheMarkerAfterTheClear() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        try await InboxResetObserver.clearPendingReset(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: { calls.add("clear") }
+        )
+        #expect(calls.log == ["clear", "ack"])
+        #expect(calls.marker == nil)
+    }
+
+    @Test
+    func aFailedClearThrowsAndKeepsTheMarker() async {
+        let calls = Calls()
+        calls.marker = UUID()
+        calls.failClears = 1
+        await #expect(throws: InboxError.storageFailure) {
+            try await InboxResetObserver.clearPendingReset(
+                pendingMarker: { calls.marker },
+                acknowledge: { calls.acknowledge($0) },
+                clearAll: {
+                    calls.add("clear")
+                    if calls.takeFailure() { throw InboxError.storageFailure }
+                }
+            )
+        }
+        #expect(calls.log == ["clear"])
+        #expect(calls.marker != nil)
+    }
+
+    @Test
     func aResetClearsEveryCompanysMessagesAndRemovesTheMarker() async throws {
         let store = InboxStoreFixtures.store(appGroup: InboxStoreFixtures.temporaryAppGroup())
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
