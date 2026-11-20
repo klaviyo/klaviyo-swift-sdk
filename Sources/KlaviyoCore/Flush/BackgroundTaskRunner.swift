@@ -7,11 +7,11 @@ import Foundation
 import UIKit
 
 /// A begun background task. `end()` is idempotent and safe from any thread.
-public final class BackgroundTaskHandle: @unchecked Sendable {
+package final class BackgroundTaskHandle: @unchecked Sendable {
     private let lock = NSLock()
     private var endAction: (() -> Void)?
 
-    public init(end: (() -> Void)? = nil) {
+    package init(end: (() -> Void)? = nil) {
         endAction = end
     }
 
@@ -22,7 +22,7 @@ public final class BackgroundTaskHandle: @unchecked Sendable {
         lock.unlock()
     }
 
-    public func end() {
+    package func end() {
         lock.lock()
         let action = endAction
         endAction = nil
@@ -33,19 +33,19 @@ public final class BackgroundTaskHandle: @unchecked Sendable {
 
 /// Seam over `UIApplication.beginBackgroundTask` so the queue never touches `UIApplication` directly
 /// and tests can drive expiry by hand. Keep this off any code path an app extension can reach.
-public struct BackgroundTaskRunner: Sendable {
+package struct BackgroundTaskRunner: Sendable {
     /// Begins a background task, or returns `nil` when the system denies it. `onExpire` runs
     /// synchronously on the system's expiry thread, and the task is ended right after it returns.
-    public var begin: @Sendable (_ name: String, _ onExpire: @escaping @Sendable () -> Void) async
+    package var begin: @Sendable (_ name: String, _ onExpire: @escaping @Sendable () -> Void) async
         -> BackgroundTaskHandle?
 
-    public init(
+    package init(
         begin: @escaping @Sendable (String, @escaping @Sendable () -> Void) async -> BackgroundTaskHandle?
     ) {
         self.begin = begin
     }
 
-    public static let production = BackgroundTaskRunner { name, onExpire in
+    package static let production = BackgroundTaskRunner { name, onExpire in
         await MainActor.run { () -> BackgroundTaskHandle? in
             let handle = BackgroundTaskHandle()
             let id = UIApplication.shared.beginBackgroundTask(withName: name) {

@@ -60,8 +60,16 @@ public actor RequestQueue {
     public init(
         clock: SleepClock,
         send: @escaping Send,
-        willDrain: (@Sendable () async -> Void)? = nil,
-        backgroundTasks: BackgroundTaskRunner = .production
+        willDrain: (@Sendable () async -> Void)? = nil
+    ) {
+        self.init(clock: clock, send: send, willDrain: willDrain, backgroundTasks: .production)
+    }
+
+    package init(
+        clock: SleepClock,
+        send: @escaping Send,
+        willDrain: (@Sendable () async -> Void)?,
+        backgroundTasks: BackgroundTaskRunner
     ) {
         self.clock = clock
         self.send = send

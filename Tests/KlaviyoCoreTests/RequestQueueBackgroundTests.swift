@@ -24,7 +24,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
     }
 
     private func makeQueue(send: @escaping RequestQueue.Send) -> RequestQueue {
-        RequestQueue(clock: manual.clock, send: send, backgroundTasks: tasks.runner)
+        RequestQueue(clock: manual.clock, send: send, willDrain: nil, backgroundTasks: tasks.runner)
     }
 
     private func startParkedDrain(_ queue: RequestQueue, started: XCTestExpectation) async -> Task<Void, Never> {
