@@ -75,7 +75,7 @@ final class RequestFactoryTests: XCTestCase {
         }
         XCTAssertEqual(payload.data.attributes.metric.data.attributes.service, "klaviyo")
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
-        let metric = (((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"]) as? [String: Any]
+        let metric = ((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"] as? [String: Any]
         let attributes = (metric?["data"] as? [String: Any])?["attributes"] as? [String: Any]
         XCTAssertEqual(attributes?["service"] as? String, "klaviyo")
         XCTAssertEqual(attributes?["name"] as? String, "Branded")
@@ -89,7 +89,7 @@ final class RequestFactoryTests: XCTestCase {
         }
         XCTAssertNil(payload.data.attributes.metric.data.attributes.service)
         let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
-        let metric = (((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"]) as? [String: Any]
+        let metric = ((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"] as? [String: Any]
         let attributes = (metric?["data"] as? [String: Any])?["attributes"] as? [String: Any]
         XCTAssertNil(attributes?["service"])
     }

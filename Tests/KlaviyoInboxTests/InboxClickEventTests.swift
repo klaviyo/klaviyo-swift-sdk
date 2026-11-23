@@ -150,12 +150,14 @@ struct InboxClickEventTests {
             companyID: { InboxStoreFixtures.company },
             dispatchClick: { captured.add($0) }
         )
-        let stored = try #require(try await inbox.fetchPage().messages.first)
+        let before = try await inbox.fetchPage()
+        let stored = try #require(before.messages.first)
 
         inbox.trackMessageClick(stored)
 
         #expect(captured.events.count == 1)
-        let after = try #require(try await inbox.fetchPage().messages.first)
+        let afterPage = try await inbox.fetchPage()
+        let after = try #require(afterPage.messages.first)
         #expect(after.isRead == stored.isRead)
         #expect(after.isArchived == stored.isArchived)
     }
