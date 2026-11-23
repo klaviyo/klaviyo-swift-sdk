@@ -370,11 +370,13 @@ public actor RequestQueue {
         lastNetworkStatus = status
         flushInterval = TimeInterval(flushIntervalFor: status)
         if inBackground {
-            // No loop while backgrounded: record the state, then let the foreground `start()` resume.
+            // No loop while backgrounded: coming online runs one budgeted drain, and the
+            // foreground `start()` resumes the loop.
             if status == .notReachable {
                 stop()
             } else if !wasOnline {
                 clearBackoffs()
+                Task { await self.backgroundDrain() }
             }
             return
         }

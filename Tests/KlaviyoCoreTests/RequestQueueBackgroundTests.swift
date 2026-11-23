@@ -251,18 +251,31 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         XCTAssertEqual(tasks.begins, tasks.ends, "the task must be ended when nothing is sent")
     }
 
-    func testReachabilityWhileBackgroundedDoesNotRestartLoop() async {
+    func testReconnectWhileBackgroundedDrainsUnderATaskWithoutRestartingLoop() async {
         enqueue("a")
         let spy = SendSpy()
         let queue = makeQueue(send: spy.send)
         await queue.enterBackground()
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
+
+        XCTAssertTrue(spy.waitForSends(atLeast: 1), "coming online while backgrounded must drain")
+        XCTAssertEqual(spy.sentIds, ["a"])
+        XCTAssertTrue(tasks.waitForBegins(atLeast: 1), "the drain runs under a background task")
+        XCTAssertEqual(manual.requested, [FlushConstants.backgroundSendTimeout], "only the send budget, no loop")
+    }
+
+    func testNetworkSwitchWhileBackgroundedDoesNotDrain() async {
+        let spy = SendSpy()
+        let queue = makeQueue(send: spy.send)
+        await queue.networkConnectivityChanged(.reachableViaWiFi)
+        await queue.enterBackground()
+        enqueue("a")
+
+        await queue.networkConnectivityChanged(.reachableViaWWAN)
         try? await Task.sleep(nanoseconds: 150_000_000)
 
-        XCTAssertTrue(spy.sentIds.isEmpty, "a reconnect must not flush while backgrounded")
-        await queue.networkConnectivityChanged(.notReachable)
-        await queue.backgroundDrain()
+        XCTAssertTrue(spy.sentIds.isEmpty, "a Wi-Fi to cellular switch is not a reconnect")
         XCTAssertEqual(tasks.begins, 0)
     }
 
