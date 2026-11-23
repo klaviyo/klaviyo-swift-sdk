@@ -58,6 +58,23 @@ private final class Calls: @unchecked Sendable {
     }
 }
 
+/// Lets a test hold a clear open until it chooses to let it finish.
+private actor Gate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+}
+
 @Suite
 struct InboxResetObserverTests {
     private func run(
@@ -68,13 +85,15 @@ struct InboxResetObserverTests {
         Task {
             await InboxResetObserver.run(
                 resets: resets,
-                pendingMarker: { calls.marker },
-                acknowledge: { calls.acknowledge($0) },
-                clearAll: {
-                    calls.add("clear")
-                    if calls.takeFailure() { throw InboxError.storageFailure }
-                    try await clear()
-                }
+                clearer: ResetClearer(
+                    pendingMarker: { calls.marker },
+                    acknowledge: { calls.acknowledge($0) },
+                    clearAll: {
+                        calls.add("clear")
+                        if calls.takeFailure() { throw InboxError.storageFailure }
+                        try await clear()
+                    }
+                )
             )
         }
     }
@@ -154,14 +173,26 @@ struct InboxResetObserverTests {
         #expect(calls.log == ["clear", "ack", "clear", "ack"])
     }
 
+    private func clearer(
+        _ calls: Calls,
+        acknowledge: (@Sendable (UUID) -> Void)? = nil,
+        clear: @escaping @Sendable () async throws -> Void = {}
+    ) -> ResetClearer {
+        ResetClearer(
+            pendingMarker: { calls.marker },
+            acknowledge: acknowledge ?? { calls.acknowledge($0) },
+            clearAll: {
+                calls.add("clear")
+                if calls.takeFailure() { throw InboxError.storageFailure }
+                try await clear()
+            }
+        )
+    }
+
     @Test
     func clearingAPendingResetDoesNothingWhenNoneIsPending() async throws {
         let calls = Calls()
-        try await InboxResetObserver.clearPendingReset(
-            pendingMarker: { calls.marker },
-            acknowledge: { calls.acknowledge($0) },
-            clearAll: { calls.add("clear") }
-        )
+        try await clearer(calls).clearPending()
         #expect(calls.log.isEmpty)
     }
 
@@ -169,11 +200,7 @@ struct InboxResetObserverTests {
     func clearingAPendingResetRemovesTheMarkerAfterTheClear() async throws {
         let calls = Calls()
         calls.marker = UUID()
-        try await InboxResetObserver.clearPendingReset(
-            pendingMarker: { calls.marker },
-            acknowledge: { calls.acknowledge($0) },
-            clearAll: { calls.add("clear") }
-        )
+        try await clearer(calls).clearPending()
         #expect(calls.log == ["clear", "ack"])
         #expect(calls.marker == nil)
     }
@@ -182,15 +209,11 @@ struct InboxResetObserverTests {
     func aResetThatArrivesDuringAClearIsClearedBeforeReturning() async throws {
         let calls = Calls()
         calls.marker = UUID()
-        try await InboxResetObserver.clearPendingReset(
-            pendingMarker: { calls.marker },
-            acknowledge: { calls.acknowledge($0) },
-            clearAll: {
-                calls.add("clear")
-                // A newer reset lands while the first clear runs, and only the first one is still pending below.
-                if calls.log.filter({ $0 == "clear" }).count == 1 { calls.setNewerMarkerAfterAcknowledge() }
-            }
-        )
+        // A newer reset lands while the first clear runs, so the acknowledgement finds a different marker.
+        let clearer = clearer(calls, clear: {
+            if calls.log.filter({ $0 == "clear" }).count == 1 { calls.setNewerMarkerAfterAcknowledge() }
+        })
+        try await clearer.clearPending()
         #expect(calls.log == ["clear", "ack", "clear", "ack"])
         #expect(calls.marker == nil)
     }
@@ -199,11 +222,7 @@ struct InboxResetObserverTests {
     func aMarkerThatCannotBeRemovedIsClearedOnceNotRepeatedly() async throws {
         let calls = Calls()
         calls.marker = UUID()
-        try await InboxResetObserver.clearPendingReset(
-            pendingMarker: { calls.marker },
-            acknowledge: { _ in calls.add("ack") },
-            clearAll: { calls.add("clear") }
-        )
+        try await clearer(calls, acknowledge: { _ in calls.add("ack") }).clearPending()
         #expect(calls.log == ["clear", "ack"])
         #expect(calls.marker != nil)
     }
@@ -213,18 +232,62 @@ struct InboxResetObserverTests {
         let calls = Calls()
         calls.marker = UUID()
         calls.failClears = 1
-        await #expect(throws: InboxError.storageFailure) {
-            try await InboxResetObserver.clearPendingReset(
-                pendingMarker: { calls.marker },
-                acknowledge: { calls.acknowledge($0) },
-                clearAll: {
-                    calls.add("clear")
-                    if calls.takeFailure() { throw InboxError.storageFailure }
-                }
-            )
-        }
+        await #expect(throws: InboxError.storageFailure) { try await clearer(calls).clearPending() }
         #expect(calls.log == ["clear"])
         #expect(calls.marker != nil)
+    }
+
+    @Test
+    func callersThatFindTheSameResetShareOneClear() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        let started = Gate()
+        let release = Gate()
+        let clearer = clearer(calls, clear: {
+            await started.open()
+            await release.wait()
+        })
+        let first = Task { try await clearer.clearPending() }
+        await started.wait()
+        // The first clear is running and its marker is not acknowledged yet, as when the observer and a read meet.
+        let second = Task { try await clearer.clearPending() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await release.open()
+        try await first.value
+        try await second.value
+        #expect(calls.log == ["clear", "ack"], "a second delete could remove a message captured after the first")
+    }
+
+    @Test
+    func aFailedSharedClearReachesEveryWaiterAndTheNextCallRetries() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        calls.failClears = 1
+        let started = Gate()
+        let release = Gate()
+        let clearer = clearer(calls, clear: {})
+        let slowFailing = ResetClearer(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: {
+                calls.add("clear")
+                await started.open()
+                await release.wait()
+                if calls.takeFailure() { throw InboxError.storageFailure }
+            }
+        )
+        let first = Task { try await slowFailing.clearPending() }
+        await started.wait()
+        let second = Task { try await slowFailing.clearPending() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await release.open()
+        await #expect(throws: InboxError.storageFailure) { try await first.value }
+        await #expect(throws: InboxError.storageFailure) { try await second.value }
+        #expect(calls.log == ["clear"])
+        #expect(calls.marker != nil)
+        // The failure is not remembered: the next call starts a fresh clear and succeeds.
+        try await clearer.clearPending()
+        #expect(calls.marker == nil)
     }
 
     @Test
@@ -238,9 +301,11 @@ struct InboxResetObserverTests {
         let task = Task {
             await InboxResetObserver.run(
                 resets: resets,
-                pendingMarker: { calls.marker },
-                acknowledge: { _ in calls.marker = nil },
-                clearAll: { try await store.clearAll() }
+                clearer: ResetClearer(
+                    pendingMarker: { calls.marker },
+                    acknowledge: { _ in calls.marker = nil },
+                    clearAll: { try await store.clearAll() }
+                )
             )
         }
         await waitFor { calls.marker == nil }
