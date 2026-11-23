@@ -28,11 +28,19 @@ struct MobileInboxBulkStateTests {
         }
     }
 
+    private let notArchived = InboxFilter.where(read: .all, archive: .active)
+
     @Test
-    func aFilterDefaultsToTheMessagesADefaultQueryReturns() {
-        let filter = InboxFilter()
-        #expect(filter.readFilter == InboxQuery().readFilter)
-        #expect(filter.archiveFilter == InboxQuery().archiveFilter)
+    func aFilterCarriesTheStatesItWasBuiltWith() {
+        let filter = InboxFilter.where(read: .unread, archive: .archived)
+        #expect(filter.readFilter == .unread)
+        #expect(filter.archiveFilter == .archived)
+    }
+
+    @Test
+    func allMessagesMatchesEveryReadAndArchiveState() {
+        #expect(InboxFilter.allMessages.readFilter == .all)
+        #expect(InboxFilter.allMessages.archiveFilter == .all)
     }
 
     @Test
@@ -40,7 +48,7 @@ struct MobileInboxBulkStateTests {
         let (inbox, store) = makeInbox(company: company)
         await capture(store, count: 3)
         try await inbox.setMessageState(.read, for: "tm-1")
-        let changed = try await inbox.setMessageState(.read)
+        let changed = try await inbox.setMessageState(.read, matching: notArchived)
         let unread = try await inbox.fetchUnreadCount()
         let page = try await inbox.fetchPage()
         #expect(changed == 2)
@@ -49,25 +57,36 @@ struct MobileInboxBulkStateTests {
     }
 
     @Test
-    func theDefaultFilterLeavesArchivedMessagesAlone() async throws {
+    func aFilterThatLeavesOutArchivedMessagesLeavesThemAlone() async throws {
         let (inbox, store) = makeInbox(company: company)
         await capture(store, count: 2)
         try await inbox.setMessageState(.archived, for: "tm-1")
-        let changed = try await inbox.setMessageState(.read)
+        let changed = try await inbox.setMessageState(.read, matching: notArchived)
         let archived = try await store.message(id: "tm-1")
         #expect(changed == 1)
         #expect(archived?.isRead == false)
     }
 
     @Test
-    func unarchivingWithTheDefaultFilterMatchesNothing() async throws {
+    func unarchivingWithAFilterThatLeavesOutArchivedMessagesMatchesNothing() async throws {
         let (inbox, store) = makeInbox(company: company)
         await capture(store, count: 2)
         try await inbox.setMessageState(.archived, for: "tm-1")
-        let changed = try await inbox.setMessageState(.unarchived)
+        let changed = try await inbox.setMessageState(.unarchived, matching: notArchived)
         let stored = try await store.message(id: "tm-1")
         #expect(changed == 0)
         #expect(stored?.isArchived == true)
+    }
+
+    @Test
+    func unarchivingWithAllMessagesRestoresArchivedOnes() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await capture(store, count: 2)
+        try await inbox.setMessageState(.archived, for: "tm-1")
+        let changed = try await inbox.setMessageState(.unarchived, matching: .allMessages)
+        let stored = try await store.message(id: "tm-1")
+        #expect(changed == 1)
+        #expect(stored?.isArchived == false)
     }
 
     @Test
@@ -76,7 +95,7 @@ struct MobileInboxBulkStateTests {
         await capture(store, count: 3)
         try await inbox.setMessageState(.archived, for: "tm-1")
         try await inbox.setMessageState(.archived, for: "tm-2")
-        let changed = try await inbox.setMessageState(.unarchived, matching: InboxFilter(archiveFilter: .archived))
+        let changed = try await inbox.setMessageState(.unarchived, matching: .where(read: .all, archive: .archived))
         let page = try await inbox.fetchPage()
         #expect(changed == 2)
         #expect(page.messages.count == 3)
@@ -87,7 +106,7 @@ struct MobileInboxBulkStateTests {
         let (inbox, store) = makeInbox(company: company)
         await capture(store, count: 3)
         try await inbox.setMessageState(.read, for: "tm-1")
-        let changed = try await inbox.setMessageState(.unread, matching: InboxFilter(readFilter: .read))
+        let changed = try await inbox.setMessageState(.unread, matching: .where(read: .read, archive: .active))
         let unread = try await inbox.fetchUnreadCount()
         #expect(changed == 1)
         #expect(unread == 3)
@@ -98,7 +117,7 @@ struct MobileInboxBulkStateTests {
         let (inbox, store) = makeInbox(company: company)
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
         await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2, companyID: "XyZ789")
-        let changed = try await inbox.setMessageState(.read, matching: InboxFilter(archiveFilter: .all))
+        let changed = try await inbox.setMessageState(.read, matching: .allMessages)
         let other = try await store.message(id: "tm-2")
         #expect(changed == 1)
         #expect(other?.isRead == false)
@@ -108,7 +127,7 @@ struct MobileInboxBulkStateTests {
     func changingBeforeTheSDKIsInitializedChangesNothing() async throws {
         let (inbox, store) = makeInbox(company: nil)
         await capture(store, count: 2)
-        let changed = try await inbox.setMessageState(.read)
+        let changed = try await inbox.setMessageState(.read, matching: notArchived)
         let stored = try await store.message(id: "tm-1")
         #expect(changed == 0)
         #expect(stored?.isRead == false)
@@ -121,9 +140,9 @@ struct MobileInboxBulkStateTests {
         let inbox = MobileInbox(store: store, companyID: { company })
         await capture(store, count: 3)
         let baseline = signal.postCount
-        try await inbox.setMessageState(.read)
+        try await inbox.setMessageState(.read, matching: notArchived)
         #expect(signal.postCount == baseline + 1)
-        try await inbox.setMessageState(.read)
+        try await inbox.setMessageState(.read, matching: notArchived)
         #expect(signal.postCount == baseline + 1)
     }
 
@@ -132,7 +151,7 @@ struct MobileInboxBulkStateTests {
         let store = InboxStoreFixtures.store(appGroup: appGroup)
         await capture(store, count: 2)
         let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
-        let changed = try await inbox.setMessageState(.read)
+        let changed = try await inbox.setMessageState(.read, matching: notArchived)
         #expect(changed == 0)
     }
 
@@ -141,7 +160,7 @@ struct MobileInboxBulkStateTests {
         let store = InboxStoreFixtures.store(appGroup: appGroup)
         await capture(store, count: 2)
         let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
-        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read) }
+        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read, matching: notArchived) }
         let stored = try await store.message(id: "tm-1")
         #expect(stored?.isRead == false)
     }
@@ -150,7 +169,7 @@ struct MobileInboxBulkStateTests {
     func aStoreThatCannotBeReachedFailsWithStorageFailure() async {
         let unreachable = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
         let inbox = MobileInbox(store: InboxStoreFixtures.store(appGroup: unreachable), companyID: { company })
-        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read) }
+        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read, matching: notArchived) }
     }
 }
 

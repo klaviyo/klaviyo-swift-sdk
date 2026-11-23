@@ -132,10 +132,13 @@ extension MobileInbox {
     /// the same as the single-message call. The whole change is one store update, and ``changes`` fires
     /// once, or not at all when nothing changed.
     ///
-    /// The default filter matches messages that are not archived, so `.unarchived` with it matches
-    /// nothing and returns 0. To restore archived messages, say so:
+    /// There is no default filter, so the call says which messages it changes. A filter that leaves out
+    /// archived messages, such as `archive: .active`, matches none for `.unarchived`, because only archived
+    /// messages can change. To restore archived messages, ask for them:
     ///
-    ///     try await inbox.setMessageState(.unarchived, matching: InboxFilter(archiveFilter: .archived))
+    ///     try await inbox.setMessageState(.unarchived, matching: .where(read: .all, archive: .archived))
+    ///
+    /// To change every message, use ``InboxFilter/allMessages``.
     ///
     /// - Returns: How many messages changed. 0 when none matched or all were already in the state, and
     ///   when the SDK is not initialized yet.
@@ -143,7 +146,7 @@ extension MobileInbox {
     @discardableResult
     public func setMessageState(
         _ state: InboxMessageState,
-        matching filter: InboxFilter = InboxFilter()
+        matching filter: InboxFilter
     ) async throws -> Int {
         guard let companyID = companyID() else { return 0 }
         do {
@@ -228,19 +231,24 @@ public enum InboxArchiveFilter: Hashable, Sendable {
     case all
 }
 
-/// Which messages a bulk call such as ``MobileInbox/setMessageState(_:matching:)`` applies to. The
-/// filters narrow the current company's messages the way they do for ``InboxQuery``, and the default
-/// matches the same messages a default query returns: read or unread, but not archived.
+/// Which messages a bulk call such as ``MobileInbox/setMessageState(_:matching:)`` applies to. There is
+/// no default, so a call that changes many messages says which ones. The filters narrow the current
+/// company's messages the way they do for ``InboxQuery``.
 public struct InboxFilter: Hashable, Sendable {
     /// Whether read messages, unread messages, or both match.
     public let readFilter: InboxReadFilter
     /// Whether archived messages, messages that are not archived, or both match.
     public let archiveFilter: InboxArchiveFilter
 
-    public init(
-        readFilter: InboxReadFilter = .all,
-        archiveFilter: InboxArchiveFilter = .active
-    ) {
+    /// Matches every message, read or unread, archived or not.
+    public static let allMessages = InboxFilter(readFilter: .all, archiveFilter: .all)
+
+    /// Matches the messages in the given read and archive states.
+    public static func `where`(read readFilter: InboxReadFilter, archive archiveFilter: InboxArchiveFilter) -> Self {
+        InboxFilter(readFilter: readFilter, archiveFilter: archiveFilter)
+    }
+
+    private init(readFilter: InboxReadFilter, archiveFilter: InboxArchiveFilter) {
         self.readFilter = readFilter
         self.archiveFilter = archiveFilter
     }
