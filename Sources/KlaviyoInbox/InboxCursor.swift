@@ -47,7 +47,7 @@ public struct InboxCursor: Hashable, Sendable {
         let payload = CursorPayload(
             version: Self.version,
             kind: Self.localKind,
-            sortTime: position.sortTime.timeIntervalSinceReferenceDate,
+            sentAt: position.sentAt.timeIntervalSinceReferenceDate,
             transmissionID: position.transmissionID,
             companyID: companyID,
             readFilter: readFilter.payloadValue,
@@ -77,7 +77,7 @@ public struct InboxCursor: Hashable, Sendable {
             throw InboxError.invalidCursor
         }
         return InboxStoreCursor(
-            sortTime: Date(timeIntervalSinceReferenceDate: payload.sortTime),
+            sentAt: Date(timeIntervalSinceReferenceDate: payload.sentAt),
             transmissionID: payload.transmissionID
         )
     }
@@ -89,7 +89,7 @@ private struct CursorPayload: Codable {
     var version: Int
     var kind: String
     /// Seconds since the reference date, so sub-second sort times survive the round trip.
-    var sortTime: Double
+    var sentAt: Double
     var transmissionID: String
     var companyID: String
     var readFilter: String
@@ -98,7 +98,7 @@ private struct CursorPayload: Codable {
     private enum CodingKeys: String, CodingKey {
         case version = "v"
         case kind = "k"
-        case sortTime = "t"
+        case sentAt = "t"
         case transmissionID = "i"
         case companyID = "c"
         case readFilter = "r"

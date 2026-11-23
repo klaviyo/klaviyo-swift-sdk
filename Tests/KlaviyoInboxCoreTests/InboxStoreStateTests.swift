@@ -50,6 +50,18 @@ struct InboxStoreStateTests {
     }
 
     @Test
+    func receivedAtNeverChangesWhenAMessageIsReadArchivedOrReplayed() async throws {
+        let store = await makeStoreWithMessage(now: clock(firstChange, secondChange))
+        _ = try await store.setRead(true, id: "tm-1", companyID: company)
+        _ = try await store.setArchived(true, id: "tm-1", companyID: company)
+        _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1"), companyID: company)
+        let message = try await store.message(id: "tm-1")
+        #expect(message?.receivedAt == InboxStoreFixtures.record(tm: "tm-1").receivedAt)
+        #expect(message?.sentAt == InboxStoreFixtures.baseDate.addingTimeInterval(1))
+        #expect(message?.updatedAt != nil)
+    }
+
+    @Test
     func markingAMessageReadSetsItReadAndReportsAChange() async throws {
         let store = await makeStoreWithMessage()
         let changed = try await store.setRead(true, id: "tm-1", companyID: company)

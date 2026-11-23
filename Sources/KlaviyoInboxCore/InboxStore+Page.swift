@@ -11,11 +11,11 @@ import OSLog
 
 /// A position in a company's messages: the sort position of the last message on a page.
 package struct InboxStoreCursor: Equatable {
-    package var sortTime: Date
+    package var sentAt: Date
     package var transmissionID: String
 
-    package init(sortTime: Date, transmissionID: String) {
-        self.sortTime = sortTime
+    package init(sentAt: Date, transmissionID: String) {
+        self.sentAt = sentAt
         self.transmissionID = transmissionID
     }
 }
@@ -33,7 +33,7 @@ package struct InboxStorePage: Equatable {
 }
 
 extension InboxStore {
-    /// One page of the company's messages, newest first by `sortTime`, then `transmissionID`.
+    /// One page of the company's messages, newest first by `sentAt`, then `transmissionID`.
     /// Pages by keyset, so a message captured or removed between pages never shifts a page boundary.
     ///
     /// `isRead` and `isArchived` narrow the page to messages in that state; nil matches either. Both are
@@ -59,8 +59,8 @@ extension InboxStore {
             if let after {
                 predicates.append(NSPredicate(
                     format: "%K < %@ OR (%K == %@ AND %K < %@)",
-                    Key.sortTime, after.sortTime as NSDate,
-                    Key.sortTime, after.sortTime as NSDate,
+                    Key.sentAt, after.sentAt as NSDate,
+                    Key.sentAt, after.sentAt as NSDate,
                     Key.transmissionID, after.transmissionID
                 ))
             }
@@ -72,7 +72,7 @@ extension InboxStore {
             }
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
             request.sortDescriptors = [
-                NSSortDescriptor(key: Key.sortTime, ascending: false),
+                NSSortDescriptor(key: Key.sentAt, ascending: false),
                 NSSortDescriptor(key: Key.transmissionID, ascending: false)
             ]
             // One extra row tells whether another page exists, without a second query.
@@ -114,14 +114,14 @@ extension InboxStore {
         }
     }
 
-    /// Built from the stored `sortTime`, the value the query orders by, so the cursor can never
+    /// Built from the stored `sentAt`, the value the query orders by, so the cursor can never
     /// disagree with how `capture` derived it.
     private static func cursor(after object: NSManagedObject) throws -> InboxStoreCursor {
         typealias Key = InboxStoreModel.Key
-        guard let sortTime = object.value(forKey: Key.sortTime) as? Date,
+        guard let sentAt = object.value(forKey: Key.sentAt) as? Date,
               let transmissionID = object.value(forKey: Key.transmissionID) as? String else {
             throw InboxStoreError.unavailable
         }
-        return InboxStoreCursor(sortTime: sortTime, transmissionID: transmissionID)
+        return InboxStoreCursor(sentAt: sentAt, transmissionID: transmissionID)
     }
 }
