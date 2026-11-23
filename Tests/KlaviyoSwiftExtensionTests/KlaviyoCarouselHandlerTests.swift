@@ -110,7 +110,8 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
         guard case let .fallback(content) = outcome else { return XCTFail("Expected a fallback") }
         XCTAssertEqual(content.categoryIdentifier, "")
         XCTAssertTrue(content.attachments.isEmpty)
-        XCTAssertEqual(registeredCategoryCount, 0)
+        // Registered up front, before the outcome is known, so delivery never waits on it
+        XCTAssertEqual(registeredCategoryCount, 1)
     }
 
     func testDeadline_DeliversTheImagesThatAttached() {
@@ -149,23 +150,32 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
         XCTAssertEqual(attachmentFileURLs.map(\.pathExtension), ["png", "png"])
     }
 
-    func testFileExtension_FallsBackToTheURLThenTheFallbackType() {
-        // Named card-2 with no extension, since the test download maps URLs to positions by name.
-        let noExtension = CarouselCardDefinition(
-            position: 2,
-            imageURL: URL(string: "https://cdn.example.com/card-2")!,
-            title: nil,
-            description: nil,
-            action: .openApp,
-            url: nil
-        )
+    func testFileExtension_UsesSupportedURLExtensionThenTheFallbackType() {
+        // Named card-N, since the test download maps URLs to positions by name.
+        func card(_ position: Int, _ path: String) -> CarouselCardDefinition {
+            CarouselCardDefinition(
+                position: position,
+                imageURL: URL(string: "https://cdn.example.com/\(path)")!,
+                title: nil,
+                description: nil,
+                action: .openApp,
+                url: nil
+            )
+        }
         _ = run(
-            cards: [cards(1)[0], noExtension],
-            dependencies: dependencies(succeeding: [1, 2], mimeType: "application/octet-stream")
+            cards: [card(1, "card-1.PNG"), card(2, "card-2"), card(3, "card-3.php?id=3")],
+            dependencies: dependencies(succeeding: [1, 2, 3], mimeType: "application/octet-stream")
         )
 
-        // card-1.png keeps its URL extension; card-2 gets the integrator's fallback type.
-        XCTAssertEqual(attachmentFileURLs.map(\.pathExtension), ["png", "jpg"])
+        // A supported URL extension is kept; a missing or unsupported one gets the fallback type.
+        XCTAssertEqual(Set(attachmentFileURLs.map(\.pathExtension)), ["png", "jpg"])
+        XCTAssertEqual(attachmentFileURLs.filter { $0.pathExtension == "jpg" }.count, 2)
+    }
+
+    func testFileExtension_MapsTheNonStandardJPGMIMEType() {
+        _ = run(cards: cards(2), dependencies: dependencies(succeeding: [1, 2], mimeType: "image/jpg"))
+
+        XCTAssertEqual(attachmentFileURLs.map(\.pathExtension), ["jpg", "jpg"])
     }
 
     func testLateDownload_IsDeletedNotAttached() {

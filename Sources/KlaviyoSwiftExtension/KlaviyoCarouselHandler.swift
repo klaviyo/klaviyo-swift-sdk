@@ -24,7 +24,9 @@ final class KlaviyoCarouselHandler {
 
     /// File extensions for the image types `UNNotificationAttachment` accepts, by MIME type.
     /// Attachments are typed by file extension, and card URLs often have none or a misleading one.
-    static let imageFileExtensions = ["image/jpeg": "jpg", "image/png": "png", "image/gif": "gif"]
+    /// `image/jpg` isn't a registered type, but some servers send it.
+    static let imageFileExtensions = ["image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/gif": "gif"]
+    private static let supportedPathExtensions: Set<String> = ["jpg", "jpeg", "png", "gif"]
 
     /// A downloaded file and the MIME type the server reported for it.
     struct DownloadedFile {
@@ -88,6 +90,7 @@ final class KlaviyoCarouselHandler {
     private let lock = NSLock()
     private var attachments: [Int: UNNotificationAttachment] = [:]
     private var finished = false
+    private var deadlineWorkItem: DispatchWorkItem?
 
     init(
         cards: [CarouselCardDefinition],
@@ -104,15 +107,21 @@ final class KlaviyoCarouselHandler {
     }
 
     func start(deadline: TimeInterval = batchDeadline) {
+        // Registered while the images download, so delivery never waits on it. A push that falls back
+        // leaves the category registered, which is harmless: it has no actions and is never pruned.
+        dependencies.registerCarouselCategory()
+
         let group = DispatchGroup()
         for card in cards {
             group.enter()
             download(card) { group.leave() }
         }
         group.notify(queue: .global()) { [weak self] in self?.finish(cutShort: false) }
-        DispatchQueue.global().asyncAfter(deadline: .now() + deadline) { [weak self] in
-            self?.finish(cutShort: true)
-        }
+        let deadlineWorkItem = DispatchWorkItem { [weak self] in self?.finish(cutShort: true) }
+        lock.lock()
+        self.deadlineWorkItem = deadlineWorkItem
+        lock.unlock()
+        DispatchQueue.global().asyncAfter(deadline: .now() + deadline, execute: deadlineWorkItem)
     }
 
     /// Delivers whatever has attached so far. Call from `serviceExtensionTimeWillExpire`.
@@ -155,12 +164,13 @@ final class KlaviyoCarouselHandler {
         }
     }
 
-    /// The server's MIME type wins, then the URL's extension, then the integrator's fallback type.
+    /// The server's MIME type wins, then a supported URL extension, then the integrator's fallback type.
     private func fileExtension(for card: CarouselCardDefinition, mimeType: String?) -> String {
         if let mimeType, let fileExtension = Self.imageFileExtensions[mimeType.lowercased()] {
             return fileExtension
         }
-        return card.imageURL.pathExtension.isEmpty ? fallbackMediaType : card.imageURL.pathExtension
+        let pathExtension = card.imageURL.pathExtension.lowercased()
+        return Self.supportedPathExtensions.contains(pathExtension) ? pathExtension : fallbackMediaType
     }
 
     /// - Returns: `false` if the carousel was already delivered, so the attachment was not kept
@@ -181,6 +191,8 @@ final class KlaviyoCarouselHandler {
         }
         finished = true
         let attached = attachments.sorted { $0.key < $1.key }.map(\.value)
+        deadlineWorkItem?.cancel()
+        deadlineWorkItem = nil
         lock.unlock()
 
         dependencies.cancelDownloads()
@@ -196,7 +208,6 @@ final class KlaviyoCarouselHandler {
             return
         }
 
-        dependencies.registerCarouselCategory()
         content.categoryIdentifier = KlaviyoCategoryManager.carouselCategoryIdentifier
         content.attachments = attached
         completion(.carousel(content))

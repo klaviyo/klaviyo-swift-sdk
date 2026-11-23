@@ -10,6 +10,7 @@
 // (Sources/KlaviyoSwiftExtension/KlaviyoCategoryManager.swift) because it cannot
 // depend on the main app (NSE/share-extension sandbox restriction). Pruning is
 // only needed in the main app (KlaviyoSwift) and lives exclusively here.
+// carouselCategoryIdentifier must match the extension's copy, or pruning removes the category the NSE registers.
 
 import Foundation
 import OSLog

@@ -110,7 +110,9 @@ enum KlaviyoCarouselParser {
         }
 
         let url = nonBlankString(card["url"])
-        guard isValidActionURLCombination(action: action, url: url, position: position) else {
+        // A non-string url (e.g. 42) still counts as present, as on Android, so open_app rejects it
+        let urlPresent = isPresent(card["url"])
+        guard isValidActionURLCombination(action: action, url: url, urlPresent: urlPresent, position: position) else {
             return nil
         }
 
@@ -126,10 +128,15 @@ enum KlaviyoCarouselParser {
 
     /// Unlike action buttons, a card's `url` must be absent for `open_app`, and present and
     /// parseable for `deep_link` and `open_url`. An `open_url` scheme must be in ``openUrlAllowedSchemes``.
-    private static func isValidActionURLCombination(action: ActionType, url: String?, position: Int) -> Bool {
+    private static func isValidActionURLCombination(
+        action: ActionType,
+        url: String?,
+        urlPresent: Bool,
+        position: Int
+    ) -> Bool {
         switch action {
         case .openApp:
-            guard url == nil else {
+            guard !urlPresent else {
                 warn(position, "open_app must not carry a url")
                 return false
             }
@@ -151,6 +158,15 @@ enum KlaviyoCarouselParser {
             }
             return true
         }
+    }
+
+    /// Absent, `null` and blank strings count as no value, matching Android's `optNonBlankString`.
+    private static func isPresent(_ value: Any?) -> Bool {
+        guard let value, !(value is NSNull) else { return false }
+        if let string = value as? String {
+            return nonBlankString(string) != nil
+        }
+        return true
     }
 
     private static func nonBlankString(_ value: Any?) -> String? {

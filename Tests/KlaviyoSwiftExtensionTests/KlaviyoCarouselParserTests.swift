@@ -113,6 +113,15 @@ class KlaviyoCarouselParserTests: XCTestCase {
         XCTAssertEqual(result?.map(\.action), [.openApp, .deepLink, .openUrl])
     }
 
+    func testParseCards_OpenAppTreatsBlankOrNullURLAsAbsent() {
+        let result = KlaviyoCarouselParser.parseCards(from: userInfo([
+            card(action: "open_app", url: ""),
+            card(action: "open_app", url: NSNull())
+        ]))
+        XCTAssertEqual(result?.map(\.action), [.openApp, .openApp])
+        XCTAssertEqual(result?.compactMap(\.url), [])
+    }
+
     func testParseCards_SkipsInvalidActionURLCombinations() {
         let invalidCards = [
             card(action: nil),
@@ -120,7 +129,8 @@ class KlaviyoCarouselParserTests: XCTestCase {
             card(action: "open_app", url: "myapp://sale"),
             card(action: "deep_link", url: nil),
             card(action: "open_url", url: nil),
-            card(action: "open_url", url: "javascript:alert(1)")
+            card(action: "open_url", url: "javascript:alert(1)"),
+            card(action: "open_app", url: 42)
         ]
         for invalid in invalidCards {
             let result = KlaviyoCarouselParser.parseCards(from: userInfo([card(), card(), invalid]))
