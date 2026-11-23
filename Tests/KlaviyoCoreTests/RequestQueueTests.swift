@@ -17,7 +17,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy()
         let willDrainRequest = makeCreateProfileRequest(id: "from-will-drain")
-        let queue = RequestQueue(
+        let queue = RequestQueue.forTests(
             clock: .immediate,
             send: spy.send,
             willDrain: { QueueStore.shared.enqueue(willDrainRequest, persist: .synchronous) }
@@ -36,7 +36,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "one"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "two"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "three"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -47,7 +47,7 @@ final class RequestQueueTests: RequestQueueTestCase {
     func testEmptyQueueIsNoOp() async {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy()
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -67,7 +67,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             ),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -101,7 +101,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", oldPayload)),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -115,7 +115,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy()
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "one"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -131,7 +131,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "run loop should request its first sleep")
@@ -150,7 +150,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1))
@@ -169,7 +169,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         // never runs after the cancel.
         let didFlush = expectation(description: "flush ran after stop()")
         didFlush.isInverted = true
-        let queue = RequestQueue(clock: gated.clock, send: spy.send, willDrain: { didFlush.fulfill() })
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send, willDrain: { didFlush.fulfill() })
 
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should park in the interval sleep")
@@ -188,7 +188,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1))
@@ -205,7 +205,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore(diskIO: diskSpy))
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.start()
         XCTAssertTrue(gated.waitForRequested(atLeast: 1))
@@ -220,7 +220,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
         await queue.flushNow()
     }
 
@@ -238,7 +238,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(parkFirstCall: true, started: started)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "one"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "two"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         // Flush A: drains ["one", "two"] and parks inside `send` on "one".
         let flushA = Task.detached { await queue.flushNow() }
@@ -269,7 +269,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [networkFailure, .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "net-retry"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         XCTAssertEqual(spy.sentIds, ["net-retry"])
@@ -288,7 +288,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 25)), .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rate"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
         let failedAt = wallClock.now()
 
         await queue.flushNow()
@@ -315,7 +315,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.serverError(statusCode: 503, backOff: 5)), .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "srv"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         await queue.flushNow()
@@ -335,7 +335,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [networkFailure, networkFailure, networkFailure, .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "net-escalate"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         for sent in 1...3 {
@@ -356,7 +356,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 25)), networkFailure, .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "429-then-net"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         wallClock.advance(by: 25)
@@ -382,7 +382,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let gated = GatedSleepClock()
         let spy = SendSpy(results: [networkFailure, .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "offline-net"), persist: .synchronous)
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.flushNow()
         await queue.networkConnectivityChanged(.notReachable)
@@ -406,7 +406,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(results: [.failure(.networkError(URLError(.badURL))), .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "next"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -421,7 +421,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(results: [.failure(.networkError(URLError(.cancelled)))])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "head"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -437,7 +437,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [networkFailure])
         QueueStore.shared.enqueue(makeLowRetryRequest(id: "doomed"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -452,7 +452,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(results: [.failure(.serverError(statusCode: 503, backOff: 1))])
         let request = makeCreateProfileRequest(id: "capped")
         QueueStore.shared.enqueue(request, persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         for _ in 0..<(request.endpoint.maxRetries + 5) {
             await queue.flushNow()
@@ -472,7 +472,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(results: [networkFailure])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "head"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -490,7 +490,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 5)), .success(Data())])
         QueueStore.shared.enqueue(makeLowRetryRequest(id: "backoff-doomed"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         XCTAssertTrue(QueueStore.shared.requests.isEmpty,
@@ -513,7 +513,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 60)), .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "A"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         let aDeadline = QueueStore.shared.entries.first?.nextAttemptAt
@@ -544,7 +544,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "slow"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "tail"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         QueueStore.shared.enqueue(makePriorityEventRequest(id: "urgent"), persist: .synchronous)
@@ -568,7 +568,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 5)), .success(Data())])
         QueueStore.shared.enqueue(makeLowRetryRequest(id: "A"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "B"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         XCTAssertEqual(QueueStore.shared.entries.map(\.id), ["B"], "only A is dropped")
@@ -587,7 +587,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let spy = SendSpy(results: [.failure(.rateLimitError(backOff: 300)), .success(Data())])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "rolled"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
         wallClock.advance(by: -86_400)
@@ -605,7 +605,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore(diskIO: diskSpy))
         let failing = SendSpy(results: [.failure(.rateLimitError(backOff: 120))])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "persisted"), persist: .synchronous)
-        await RequestQueue(clock: .immediate, send: failing.send).flushNow()
+        await RequestQueue.forTests(clock: .immediate, send: failing.send).flushNow()
         XCTAssertNotNil(QueueStore.shared.entries.first?.nextAttemptAt, "backing off before relaunch")
 
         // Relaunch: new store hydrating from the same disk, new engine.
@@ -614,7 +614,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         XCTAssertNil(QueueStore.shared.entries.first?.nextAttemptAt)
 
         let spy = SendSpy()
-        await RequestQueue(clock: .immediate, send: spy.send).flushNow()
+        await RequestQueue.forTests(clock: .immediate, send: spy.send).flushNow()
         XCTAssertEqual(spy.sentIds, ["persisted"], "sends immediately after relaunch")
         XCTAssertEqual(spy.sentAttempts, [1], "attempt count restarts at 1")
         XCTAssertTrue(QueueStore.shared.requests.isEmpty)
@@ -633,7 +633,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "good"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -663,7 +663,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -695,7 +695,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", oldPayload)),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -721,7 +721,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -746,7 +746,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             KlaviyoRequest(id: "reg", endpoint: .registerPushToken("test-api-key", payload)),
             persist: .synchronous
         )
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         // Each network error backs off on this request's own deadline; step the wall clock past the
         // 300s cap each flush so the 50 attempts run back to back.
@@ -771,7 +771,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should request its first sleep")
@@ -791,7 +791,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.reachableViaWWAN)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop should request its first sleep")
@@ -811,7 +811,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         // Start a loop first so we have something to stop.
         await queue.networkConnectivityChanged(.reachableViaWiFi)
@@ -852,7 +852,7 @@ final class RequestQueueTests: RequestQueueTestCase {
 
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "leased"), persist: .synchronous)
 
-        let queue = RequestQueue(clock: .immediate, send: parking.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: parking.send)
 
         // Kick off a flush that parks mid-send; the request is now leased from the store.
         let flushTask = Task.detached { await queue.flushNow() }
@@ -891,7 +891,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         )
 
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "leased"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: parking.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: parking.send)
 
         // flushNow() leases the batch and parks inside send. Cancelling runLoop won't cancel this.
         let flushTask = Task.detached { await queue.flushNow() }
@@ -925,7 +925,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             .failure(.rateLimitError(backOff: 60))
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "durable"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         // Rate-limit failure: the request must be restored to the durable store synchronously.
         await queue.flushNow()
@@ -948,7 +948,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "WiFi loop must park on its first sleep")
@@ -975,7 +975,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let gated = GatedSleepClock()
         let spy = SendSpy()
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "queued"), persist: .synchronous)
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop must park on its first sleep")
@@ -999,7 +999,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         QueueStore.register(makeQueueStore())
         let gated = GatedSleepClock()
         let spy = SendSpy()
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.reachableViaWiFi)
         XCTAssertTrue(gated.waitForRequested(atLeast: 1), "loop must park on its first sleep")
@@ -1020,7 +1020,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let gated = GatedSleepClock()
         let spy = SendSpy()
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "queued-offline"), persist: .synchronous)
-        let queue = RequestQueue(clock: gated.clock, send: spy.send)
+        let queue = RequestQueue.forTests(clock: gated.clock, send: spy.send)
 
         await queue.networkConnectivityChanged(.notReachable)
         await queue.start()
@@ -1058,7 +1058,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             .failure(.httpError(422, errorData))
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad-email"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -1092,7 +1092,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             .failure(.httpError(422, errorData))
         ])
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad-phone"), persist: .synchronous)
-        let queue = RequestQueue(clock: .immediate, send: spy.send)
+        let queue = RequestQueue.forTests(clock: .immediate, send: spy.send)
 
         await queue.flushNow()
 
@@ -1120,7 +1120,7 @@ final class RequestQueueTests: RequestQueueTestCase {
             QueueStore.shared.enqueue(makeCreateProfileRequest(id: id), persist: .synchronous)
         }
         let seen = LockedBox([[String]]())
-        let queue = RequestQueue(clock: .immediate, send: { _, _ in
+        let queue = RequestQueue.forTests(clock: .immediate, send: { _, _ in
             seen.mutate { $0.append(disk.stored.map(\.id)) }
             return .success(Data())
         })
@@ -1168,7 +1168,7 @@ final class RequestQueueTests: RequestQueueTestCase {
         let disk = WriteSpyDiskIO()
         QueueStore.register(makeQueueStore(diskIO: disk))
         QueueStore.shared.enqueue(makeCreateProfileRequest(id: "bad"), persist: .synchronous)
-        let queue = RequestQueue(
+        let queue = RequestQueue.forTests(
             clock: .immediate,
             send: SendSpy(results: [.failure(.httpError(400, Data()))]).send
         )

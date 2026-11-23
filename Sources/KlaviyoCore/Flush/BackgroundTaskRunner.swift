@@ -36,16 +36,22 @@ package final class BackgroundTaskHandle: @unchecked Sendable {
 package struct BackgroundTaskRunner: Sendable {
     /// Begins a background task, or returns `nil` when the system denies it. `onExpire` runs
     /// synchronously on the system's expiry thread, and the task is ended right after it returns.
-    package var begin: @Sendable (_ name: String, _ onExpire: @escaping @Sendable () -> Void) async
+    package let begin: @Sendable (_ name: String, _ onExpire: @escaping @Sendable () -> Void) async
         -> BackgroundTaskHandle?
 
+    /// Whether the app is in the foreground and interactive. Priority flushes only take their own
+    /// background task when it isn't (background or inactive).
+    package let isAppActive: @Sendable () async -> Bool
+
     package init(
-        begin: @escaping @Sendable (String, @escaping @Sendable () -> Void) async -> BackgroundTaskHandle?
+        begin: @escaping @Sendable (String, @escaping @Sendable () -> Void) async -> BackgroundTaskHandle?,
+        isAppActive: @escaping @Sendable () async -> Bool = { true }
     ) {
         self.begin = begin
+        self.isAppActive = isAppActive
     }
 
-    package static let production = BackgroundTaskRunner { name, onExpire in
+    package static let production = BackgroundTaskRunner(begin: { name, onExpire in
         await MainActor.run { () -> BackgroundTaskHandle? in
             let handle = BackgroundTaskHandle()
             let id = UIApplication.shared.beginBackgroundTask(withName: name) {
@@ -63,5 +69,7 @@ package struct BackgroundTaskRunner: Sendable {
             }
             return handle
         }
-    }
+    }, isAppActive: {
+        await MainActor.run { UIApplication.shared.applicationState == .active }
+    })
 }
