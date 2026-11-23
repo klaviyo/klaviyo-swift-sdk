@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import KlaviyoCore
 import KlaviyoInboxCore
 
 /// Read access to the on-device inbox. Reached through `KlaviyoSDK().mobileInbox`.
@@ -20,17 +21,21 @@ public struct MobileInbox: Sendable {
     /// Runs before every read or change of the store. Production applies a pending profile reset here, so
     /// no call sees the previous profile's messages. A throw stops the call.
     fileprivate let beforeAccess: @Sendable () async throws -> Void
+    /// Hands a click event to the SDK's analytics. Injected so tests can capture it.
+    let dispatchClick: @Sendable (Event) -> Void
 
     init(
         store: InboxStore,
         companyID: @escaping @Sendable () -> String?,
         changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } },
-        beforeAccess: @escaping @Sendable () async throws -> Void = {}
+        beforeAccess: @escaping @Sendable () async throws -> Void = {},
+        dispatchClick: @escaping @Sendable (Event) -> Void = { EventDispatcher.shared.dispatch(.createEvent($0)) }
     ) {
         self.store = store
         self.companyID = companyID
         makeChanges = changes
         self.beforeAccess = beforeAccess
+        self.dispatchClick = dispatchClick
     }
 
     /// Fires when the inbox may have changed: a push was captured, a message's state changed, or messages
