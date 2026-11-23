@@ -61,7 +61,7 @@ jobs:
         id: slack_pending
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
@@ -113,7 +113,7 @@ jobs:
         if: steps.ci_check.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_pending.outputs.ts }}
@@ -165,7 +165,7 @@ jobs:
         if: cancelled() && steps.stop.outputs.timed_out != 'true'
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
@@ -200,7 +200,7 @@ jobs:
         if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
@@ -216,32 +216,11 @@ jobs:
             Release|${{ env.RELEASE_URL }}
             Commit|${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
 
-      - name: Checkout full history for Linear sync
-        id: linear-checkout
-        if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true
-        continue-on-error: true
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TAG }}
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Sync release to Linear
-        id: linear-sync
-        if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-checkout.outcome == 'success'
+        if: success()
         continue-on-error: true
-        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/linear-release-sync@master
         with:
-          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
-          command: sync
           version: ${{ env.TAG }}
-          name: ${{ env.TAG }}
-
-      - name: Complete release in Linear
-        if: success() && !contains(env.TAG, '-') && github.event.release.prerelease != true && steps.linear-sync.outcome == 'success'
-        continue-on-error: true
-        uses: linear/linear-release-action@dd4fc407f860b9460d2cf0b3fb1edd8985cf443f # v0.18.2
-        with:
-          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
-          command: complete
-          version: ${{ env.TAG }}
+          token: ${{ secrets.LINEAR_ACCESS_KEY }}
+          ref: ${{ env.TAG }}
