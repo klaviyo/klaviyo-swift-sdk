@@ -38,9 +38,13 @@ enum InboxResetObserver {
         return true
     }()
 
-    /// Clears the inbox if a reset is pending, and removes the marker once the clear has succeeded. Returns
-    /// normally when nothing was pending or the clear worked, and throws when the clear failed, leaving the
-    /// marker for a retry.
+    /// Clears the inbox while a reset is pending, and removes each marker once its clear has succeeded.
+    /// Returns normally when nothing is pending or every clear worked, and throws when a clear failed,
+    /// leaving that marker for a retry.
+    ///
+    /// It reads the marker again after each clear, because a newer reset can arrive while a clear runs.
+    /// It stops if the same marker is still there after its clear, so a marker that cannot be removed
+    /// does not cause repeated clears.
     ///
     /// The observer's loop and ``settle()`` can both call this at once. That is harmless: `clearAll` is
     /// idempotent, and acknowledging removes a marker only if it is still the one that was read.
@@ -49,14 +53,20 @@ enum InboxResetObserver {
         acknowledge: @Sendable (UUID) -> Void,
         clearAll: @Sendable () async throws -> Void
     ) async throws {
-        guard let marker = pendingMarker() else { return }
-        try await clearAll()
-        acknowledge(marker)
+        var lastCleared: UUID?
+        while let marker = pendingMarker(), marker != lastCleared {
+            try await clearAll()
+            acknowledge(marker)
+            lastCleared = marker
+        }
     }
 
-    /// Makes a pending reset take effect before the caller reads or changes the inbox, so a read never sees
+    /// Makes a pending reset take effect before the caller reads or changes the inbox, so a read does not see
     /// the previous profile's messages. The reset is applied here, on the caller's own task, instead of
     /// waiting for the observer's.
+    ///
+    /// This covers every reset published before the call reaches its last check. A reset published after
+    /// that overlaps the access that follows, and the observer clears it moments later.
     ///
     /// - Throws: When the clear fails. The read must not go ahead then, because it could return the
     ///   previous profile's messages.

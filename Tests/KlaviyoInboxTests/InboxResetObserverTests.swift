@@ -32,6 +32,12 @@ private final class Calls: @unchecked Sendable {
 
     func add(_ entry: String) { lock.withLock { entries.append(entry) } }
 
+    /// Simulates a reset that arrives while a clear is running: the next acknowledgement finds a newer
+    /// marker in place of the one it was given, so it removes nothing, and the newer one stays pending.
+    func setNewerMarkerAfterAcknowledge() {
+        lock.withLock { storedMarker = UUID() }
+    }
+
     /// Removes the marker if it is still `id`, then logs the acknowledgement, as one step. A test that
     /// sees "ack" in the log therefore knows the removal is already done, and a marker it installs after
     /// that is never removed by this call.
@@ -170,6 +176,36 @@ struct InboxResetObserverTests {
         )
         #expect(calls.log == ["clear", "ack"])
         #expect(calls.marker == nil)
+    }
+
+    @Test
+    func aResetThatArrivesDuringAClearIsClearedBeforeReturning() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        try await InboxResetObserver.clearPendingReset(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: {
+                calls.add("clear")
+                // A newer reset lands while the first clear runs, and only the first one is still pending below.
+                if calls.log.filter({ $0 == "clear" }).count == 1 { calls.setNewerMarkerAfterAcknowledge() }
+            }
+        )
+        #expect(calls.log == ["clear", "ack", "clear", "ack"])
+        #expect(calls.marker == nil)
+    }
+
+    @Test
+    func aMarkerThatCannotBeRemovedIsClearedOnceNotRepeatedly() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        try await InboxResetObserver.clearPendingReset(
+            pendingMarker: { calls.marker },
+            acknowledge: { _ in calls.add("ack") },
+            clearAll: { calls.add("clear") }
+        )
+        #expect(calls.log == ["clear", "ack"])
+        #expect(calls.marker != nil)
     }
 
     @Test
