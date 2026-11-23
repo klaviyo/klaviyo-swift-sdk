@@ -56,22 +56,11 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name || github.event.inputs.version || github.ref }}
 
-      - name: Checkout Slack action
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        timeout-minutes: 2
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          sparse-checkout: .github/actions
-          persist-credentials: false
-          path: _slack
-
       - name: Notify Slack - publishing
         id: slack_pending
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           thread_ts: ${{ inputs.slack_thread_ts }}
@@ -121,7 +110,7 @@ jobs:
         id: slack_stage
         continue-on-error: true
         timeout-minutes: 2
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_pending.outputs.ts }}
@@ -251,7 +240,7 @@ jobs:
       - name: Notify Slack - cancelled
         if: cancelled() && steps.stop.outputs.timed_out != 'true'
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
@@ -285,7 +274,7 @@ jobs:
       - name: Notify Slack - result
         if: success() || failure() || (cancelled() && steps.stop.outputs.timed_out == 'true')
         continue-on-error: true
-        uses: ./_slack/.github/actions/notify-slack
+        uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
         with:
           token: ${{ secrets.SLACK_BOT_TOKEN }}
           ts: ${{ steps.slack_stage.outputs.ts || steps.slack_pending.outputs.ts }}
