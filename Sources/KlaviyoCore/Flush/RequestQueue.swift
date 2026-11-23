@@ -157,6 +157,9 @@ public actor RequestQueue {
     var hasActiveFlush: Bool { activeFlush != nil }
     /// Calls that joined a running background drain, for tests.
     private(set) var backgroundDrainJoins = 0
+    /// Waits on a running flush, split by kind, for tests.
+    private(set) var untimedFlushWaits = 0
+    private(set) var timedFlushWaits = 0
     var pendingStartExpiries: Int { expiredPriorityOwners.count }
 
     /// Cancels the running flush (if any), restores its lease and invalidates it, so a send that
@@ -219,8 +222,10 @@ public actor RequestQueue {
         while !Task.isCancelled, let running = activeFlush {
             let observed = flushGeneration
             if activeFlushOwner != 0 {
+                untimedFlushWaits += 1
                 _ = await waitWithoutBlocking(on: running, timeout: nil)
             } else {
+                timedFlushWaits += 1
                 let finished = await waitWithoutBlocking(
                     on: running, timeout: FlushConstants.backgroundSendTimeout
                 )

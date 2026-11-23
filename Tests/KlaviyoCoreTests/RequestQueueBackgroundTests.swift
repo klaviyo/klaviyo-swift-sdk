@@ -368,7 +368,7 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
 
         let active = await queue.hasActiveFlush
         XCTAssertTrue(active, "the flush started after the wait must not be abandoned by it")
-        parked.releaseAll()
+        parked.openGate() // a failing run must not hang on a send that parks late
         await second.value
         XCTAssertEqual(parked.sent, ["a", "b"])
         XCTAssertTrue(disk.stored.isEmpty)
@@ -590,8 +590,15 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         await queue.enterBackground()
         let drain = Task { await queue.backgroundDrain() }
         XCTAssertTrue(folded.wait()) // the drain's first fold ran, so its wait decision is next
-        for _ in 0..<50 { _ = await queue.hasActiveFlush } // let the drain reach that decision
-        XCTAssertEqual(manual.requested.count, 1, "only the priority send's budget: no timed wait on a budgeted flush")
+        var untimed = 0
+        for _ in 0..<2000 where untimed < 1 { // only the drain waits; the priority scope owns the flush
+            untimed = await queue.untimedFlushWaits
+            await Task.yield()
+        }
+        let timed = await queue.timedFlushWaits
+        XCTAssertEqual(untimed, 1, "the drain must join the budgeted flush's wait")
+        XCTAssertEqual(timed, 0, "no timed wait on a budgeted flush")
+        XCTAssertEqual(manual.requested.count, 1, "only the priority send's budget")
 
         let active = await queue.hasActiveFlush
         XCTAssertTrue(active, "a flush with its own budget must be left to it")
