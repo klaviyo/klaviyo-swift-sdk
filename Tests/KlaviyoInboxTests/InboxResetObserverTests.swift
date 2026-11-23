@@ -291,6 +291,73 @@ struct InboxResetObserverTests {
     }
 
     @Test
+    func aNewerResetsClearWaitsForAnOlderOneThatHasNotFinished() async throws {
+        let calls = Calls()
+        let first = UUID()
+        let second = UUID()
+        calls.marker = first
+        let olderStarted = Gate()
+        let releaseOlder = Gate()
+        let clearer = ResetClearer(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: {
+                let nth = calls.log.filter { $0.hasSuffix("-begin") }.count + 1
+                calls.add("clear\(nth)-begin")
+                if nth == 1 {
+                    await olderStarted.open()
+                    await releaseOlder.wait()
+                }
+                calls.add("clear\(nth)-end")
+            }
+        )
+        let older = Task { try await clearer.clearPending() }
+        await olderStarted.wait()
+        // A newer reset is published while the older clear is still running, then a second caller settles it.
+        calls.marker = second
+        let newer = Task { try await clearer.clearPending() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        #expect(!calls.log.contains("clear2-begin"), "the newer clear must not reach the store ahead of the older one")
+        await releaseOlder.open()
+        try await older.value
+        try await newer.value
+        let order = calls.log.filter { $0.hasPrefix("clear") }
+        #expect(order == ["clear1-begin", "clear1-end", "clear2-begin", "clear2-end"])
+        #expect(calls.marker == nil)
+    }
+
+    @Test
+    func aNewerResetStillClearsWhenTheOlderOnesClearFailed() async throws {
+        let calls = Calls()
+        calls.marker = UUID()
+        calls.failClears = 1
+        let olderStarted = Gate()
+        let releaseOlder = Gate()
+        let clearer = ResetClearer(
+            pendingMarker: { calls.marker },
+            acknowledge: { calls.acknowledge($0) },
+            clearAll: {
+                calls.add("clear")
+                if calls.log.filter({ $0 == "clear" }).count == 1 {
+                    await olderStarted.open()
+                    await releaseOlder.wait()
+                }
+                if calls.takeFailure() { throw InboxError.storageFailure }
+            }
+        )
+        let older = Task { try await clearer.clearPending() }
+        await olderStarted.wait()
+        calls.marker = UUID()
+        let newer = Task { try await clearer.clearPending() }
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        await releaseOlder.open()
+        await #expect(throws: InboxError.storageFailure) { try await older.value }
+        try await newer.value
+        #expect(calls.log.filter { $0 == "clear" }.count == 2)
+        #expect(calls.marker == nil, "the newer marker was cleared and acknowledged despite the older failure")
+    }
+
+    @Test
     func aResetClearsEveryCompanysMessagesAndRemovesTheMarker() async throws {
         let store = InboxStoreFixtures.store(appGroup: InboxStoreFixtures.temporaryAppGroup())
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)

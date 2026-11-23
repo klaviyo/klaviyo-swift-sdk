@@ -78,7 +78,8 @@ enum InboxResetObserver {
 ///
 /// Callers share one clear per marker. A caller that finds its marker already being cleared awaits that
 /// clear and gets its result, and one that arrives after it finished finds no pending marker and does
-/// nothing. Clearing deletes every row, so a second delete for the same reset could remove a message the
+/// nothing. A clear for a newer marker waits for the one before it, so clears reach the store in the order
+/// the resets happened. Clearing deletes every row, so a second delete for the same reset could remove a message the
 /// Notification Service Extension captured for the new profile after the first delete finished.
 final class ResetClearer: @unchecked Sendable {
     private let pendingMarker: @Sendable () -> UUID?
@@ -118,8 +119,13 @@ final class ResetClearer: @unchecked Sendable {
             // The clear this caller read the marker for may have finished since: it acknowledges before it
             // leaves `inFlight`, so a missing entry with the marker gone means there is nothing left to do.
             guard pendingMarker() == marker else { return nil }
+            // A clear for an older marker may not have reached the store yet. Wait for it, so its delete
+            // cannot run after this one has finished and remove a message captured for the new profile.
+            // Its failure is not this clear's failure: this marker is still pending and gets its own try.
+            let previous = inFlight?.task
             let task = Task { [self] in
                 defer { finish(marker) }
+                _ = await previous?.result
                 try await clearAll()
                 acknowledge(marker)
             }
