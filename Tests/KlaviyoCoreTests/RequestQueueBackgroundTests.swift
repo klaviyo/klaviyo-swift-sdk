@@ -269,6 +269,8 @@ final class RequestQueueBackgroundTests: RequestQueueTestCase {
         let spy = SendSpy()
         let queue = makeQueue(send: spy.send)
         await queue.networkConnectivityChanged(.reachableViaWiFi)
+        // The loop sleeps only after its immediate flush, so that flush can't lease "a" later.
+        XCTAssertTrue(manual.waitForRequested(atLeast: 1))
         await queue.enterBackground()
         enqueue("a")
 
