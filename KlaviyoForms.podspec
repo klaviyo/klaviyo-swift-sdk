@@ -21,5 +21,5 @@ Pod::Spec.new do |s|
   }
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
   s.dependency     'KlaviyoCore', '~> 5.7.0'
-  s.dependency     'KlaviyoFoundation', '~> 5.4.1'
+  s.dependency     'KlaviyoFoundation', '~> 5.7.0'
 end

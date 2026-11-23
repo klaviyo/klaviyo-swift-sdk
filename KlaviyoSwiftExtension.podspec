@@ -16,5 +16,5 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '13.0'
   s.source_files = 'Sources/KlaviyoSwiftExtension/**/*.swift'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
-  s.dependency 'KlaviyoFoundation', '~> 5.4.1'
+  s.dependency 'KlaviyoFoundation', '~> 5.7.0'
 end
