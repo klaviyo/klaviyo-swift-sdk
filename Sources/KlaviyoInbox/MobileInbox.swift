@@ -17,15 +17,20 @@ public struct MobileInbox: Sendable {
     /// The company this session was initialized with, or nil before `initialize`.
     fileprivate let companyID: @Sendable () -> String?
     private let makeChanges: @Sendable () -> AsyncStream<Void>
+    /// Runs before every read or change of the store. Production applies a pending profile reset here, so
+    /// no call sees the previous profile's messages. A throw stops the call.
+    fileprivate let beforeAccess: @Sendable () async throws -> Void
 
     init(
         store: InboxStore,
         companyID: @escaping @Sendable () -> String?,
-        changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } }
+        changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } },
+        beforeAccess: @escaping @Sendable () async throws -> Void = {}
     ) {
         self.store = store
         self.companyID = companyID
         makeChanges = changes
+        self.beforeAccess = beforeAccess
     }
 
     /// Fires when the inbox may have changed: a push was captured, a message's state changed, or messages
@@ -53,6 +58,7 @@ public struct MobileInbox: Sendable {
             archiveFilter: query.archiveFilter
         )
         do {
+            try await beforeAccess()
             let page = try await store.page(
                 companyID: companyID,
                 limit: query.pageSize,
@@ -102,6 +108,7 @@ extension MobileInbox {
     public func setMessageState(_ state: InboxMessageState, for id: String) async throws -> Bool {
         guard let companyID = companyID() else { return false }
         do {
+            try await beforeAccess()
             let update: InboxStateUpdate
             switch state {
             case .read: update = try await store.setRead(true, id: id, companyID: companyID)
@@ -110,6 +117,37 @@ extension MobileInbox {
             case .unarchived: update = try await store.setArchived(false, id: id, companyID: companyID)
             }
             return update.messageExists
+        } catch {
+            throw InboxError.storageFailure
+        }
+    }
+}
+
+extension MobileInbox {
+    /// Removes a message from this device.
+    ///
+    /// - Returns: Whether this device had a message with `id` for the current company. `false` when it
+    ///   had none, or when the SDK is not initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store could not complete the removal.
+    @discardableResult
+    public func clear(id: String) async throws -> Bool {
+        try await clear(ids: [id]) == 1
+    }
+
+    /// Removes messages from this device.
+    ///
+    /// The inbox is also cleared in full, for every company, whenever the app calls `resetProfile()`, so
+    /// one profile's messages are never shown to the next.
+    ///
+    /// - Returns: How many of the messages this device had for the current company. Ids it does not have
+    ///   are skipped, and the count is 0 when the SDK is not initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store could not complete the removal.
+    @discardableResult
+    public func clear(ids: [String]) async throws -> Int {
+        guard let companyID = companyID() else { return 0 }
+        do {
+            try await beforeAccess()
+            return try await store.clear(ids: ids, companyID: companyID)
         } catch {
             throw InboxError.storageFailure
         }

@@ -14,7 +14,10 @@ extension KlaviyoSDKModule {
     /// Reads cover the company `initialize` was called with in this session, so a page is empty until
     /// the SDK is initialized.
     public var mobileInbox: MobileInbox {
-        MobileInbox(
+        // Reading the inbox is the first point this module runs, so this is where it starts listening for a
+        // profile reset. It is a no-op after the first call.
+        InboxResetObserver.startIfNeeded()
+        return MobileInbox(
             store: InboxStore.shared,
             companyID: {
                 MobileInbox.sessionCompanyID(
@@ -22,7 +25,8 @@ extension KlaviyoSDKModule {
                     apiKey: SDKConfigStore.shared.current.apiKey
                 )
             },
-            changes: { DarwinInboxChangeSignal().changes() }
+            changes: { DarwinInboxChangeSignal().changes() },
+            beforeAccess: { try await InboxResetObserver.settle() }
         )
     }
 }

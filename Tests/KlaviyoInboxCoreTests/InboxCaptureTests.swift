@@ -96,7 +96,7 @@ struct InboxCaptureTests {
 
     @Test
     func slowSinkTimesOutWithoutWaitingForTheWrite() async {
-        let sink = SlowSink(delay: 5)
+        let sink = SlowSink(delay: 60)
         let capture = InboxCapture(isAuthorized: { true }, sink: sink, now: { [now] in now }, timeout: 0.05)
         let result = await capture.capture(userInfo: klaviyoPush)
         // The sink only ever answers `.captured`, so `.timedOut` means capture returned without waiting for
