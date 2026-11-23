@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoFoundation"
-  s.version          = "5.4.1"
+  s.version          = "5.7.0"
   s.summary          = "Shared enums and constants for the Klaviyo SDK, safe for app extensions"
   s.description      = <<-DESC
                         Enums and constants shared by the app-facing and extension-facing Klaviyo SDK modules.
