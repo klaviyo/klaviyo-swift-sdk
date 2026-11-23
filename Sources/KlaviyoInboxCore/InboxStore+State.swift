@@ -18,7 +18,7 @@ package enum InboxStateUpdate: Equatable {
 }
 
 /// A message state a user can change.
-enum InboxStateField {
+package enum InboxStateField {
     case read
     case archived
 
@@ -73,6 +73,52 @@ extension InboxStore {
         }
         if update == .changed { changeSignal.post() }
         return update
+    }
+
+    /// Sets `field` to `value` on every message of the company that matches `isRead` and `isArchived`
+    /// (nil matches either) and is not already in that state, and returns how many changed. A message
+    /// already in the state is not matched, so it keeps its `updatedAt`. Every changed message gets the
+    /// same `updatedAt`, from the store's clock.
+    ///
+    /// One SQL `UPDATE`, so it is atomic and no message is loaded, which keeps the Notification Service
+    /// Extension's writes from queueing behind a long fetch. The change signal posts once, and only if
+    /// something changed.
+    @discardableResult
+    package func setState(
+        _ value: Bool,
+        for field: InboxStateField,
+        companyID: String,
+        isRead: Bool? = nil,
+        isArchived: Bool? = nil
+    ) async throws -> Int {
+        let changedAt = now()
+        let changed = try await perform { context -> Int in
+            defer { context.reset() }
+            typealias Key = InboxStoreModel.Key
+            var predicates = [
+                NSPredicate(format: "%K == %@", Key.companyID, companyID),
+                NSPredicate(format: "%K != %@", field.key, NSNumber(value: value))
+            ]
+            if let isRead {
+                predicates.append(NSPredicate(format: "%K == %@", Key.isRead, NSNumber(value: isRead)))
+            }
+            if let isArchived {
+                predicates.append(NSPredicate(format: "%K == %@", Key.isArchived, NSNumber(value: isArchived)))
+            }
+            let update = NSBatchUpdateRequest(entityName: InboxStoreModel.entityName)
+            update.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+            update.propertiesToUpdate = [field.key: value, Key.updatedAt: changedAt]
+            update.resultType = .updatedObjectIDsResultType
+            let result = try context.execute(update) as? NSBatchUpdateResult
+            guard let updated = result?.result as? [NSManagedObjectID] else { return 0 }
+            NSManagedObjectContext.mergeChanges(
+                fromRemoteContextSave: [NSUpdatedObjectsKey: updated],
+                into: [context]
+            )
+            return updated.count
+        }
+        if changed > 0 { changeSignal.post() }
+        return changed
     }
 
     /// The managed object for a company's message, or nil if there is none.

@@ -125,6 +125,51 @@ extension MobileInbox {
 }
 
 extension MobileInbox {
+    /// Puts every message that matches `filter` into a state, for example "mark all as read".
+    ///
+    /// Only the current company's messages are considered, and the filter narrows them the way it does
+    /// for ``InboxQuery``. A message already in the state is left alone and keeps its last-changed time,
+    /// the same as the single-message call. The whole change is one store update, and ``changes`` fires
+    /// once, or not at all when nothing changed.
+    ///
+    /// The default filter matches messages that are not archived, so `.unarchived` with it matches
+    /// nothing and returns 0. To restore archived messages, say so:
+    ///
+    ///     try await inbox.setMessageState(.unarchived, matching: InboxFilter(archiveFilter: .archived))
+    ///
+    /// - Returns: How many messages changed. 0 when none matched or all were already in the state, and
+    ///   when the SDK is not initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store could not complete the change.
+    @discardableResult
+    public func setMessageState(
+        _ state: InboxMessageState,
+        matching filter: InboxFilter = InboxFilter()
+    ) async throws -> Int {
+        guard let companyID = companyID() else { return 0 }
+        do {
+            try await beforeAccess()
+            let field: InboxStateField
+            let value: Bool
+            switch state {
+            case .read: (field, value) = (.read, true)
+            case .unread: (field, value) = (.read, false)
+            case .archived: (field, value) = (.archived, true)
+            case .unarchived: (field, value) = (.archived, false)
+            }
+            return try await store.setState(
+                value,
+                for: field,
+                companyID: companyID,
+                isRead: filter.readFilter.isRead,
+                isArchived: filter.archiveFilter.isArchived
+            )
+        } catch {
+            throw InboxError.storageFailure
+        }
+    }
+}
+
+extension MobileInbox {
     /// Removes a message from this device.
     ///
     /// - Returns: Whether this device had a message with `id` for the current company. `false` when it
@@ -181,6 +226,24 @@ public enum InboxArchiveFilter: Hashable, Sendable {
     case archived
     /// Archived and not archived messages.
     case all
+}
+
+/// Which messages a bulk call such as ``MobileInbox/setMessageState(_:matching:)`` applies to. The
+/// filters narrow the current company's messages the way they do for ``InboxQuery``, and the default
+/// matches the same messages a default query returns: read or unread, but not archived.
+public struct InboxFilter: Hashable, Sendable {
+    /// Whether read messages, unread messages, or both match.
+    public let readFilter: InboxReadFilter
+    /// Whether archived messages, messages that are not archived, or both match.
+    public let archiveFilter: InboxArchiveFilter
+
+    public init(
+        readFilter: InboxReadFilter = .all,
+        archiveFilter: InboxArchiveFilter = .active
+    ) {
+        self.readFilter = readFilter
+        self.archiveFilter = archiveFilter
+    }
 }
 
 /// Which page of the inbox to fetch. Pages run newest first, by send time or by the time this device
