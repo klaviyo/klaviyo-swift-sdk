@@ -17,15 +17,20 @@ public struct MobileInbox: Sendable {
     /// The company this session was initialized with, or nil before `initialize`.
     fileprivate let companyID: @Sendable () -> String?
     private let makeChanges: @Sendable () -> AsyncStream<Void>
+    /// Runs before every read or change of the store. Production applies a pending profile reset here, so
+    /// no call sees the previous profile's messages. A throw stops the call.
+    fileprivate let beforeAccess: @Sendable () async throws -> Void
 
     init(
         store: InboxStore,
         companyID: @escaping @Sendable () -> String?,
-        changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } }
+        changes: @escaping @Sendable () -> AsyncStream<Void> = { AsyncStream { $0.finish() } },
+        beforeAccess: @escaping @Sendable () async throws -> Void = {}
     ) {
         self.store = store
         self.companyID = companyID
         makeChanges = changes
+        self.beforeAccess = beforeAccess
     }
 
     /// Fires when the inbox may have changed: a push was captured, a message's state changed, or messages
@@ -47,6 +52,7 @@ public struct MobileInbox: Sendable {
         guard let companyID = companyID() else { return InboxPage(messages: [], nextCursor: nil) }
         let after = try query.cursor?.position(forCompany: companyID)
         do {
+            try await beforeAccess()
             let page = try await store.page(companyID: companyID, limit: query.pageSize, after: after)
             return InboxPage(
                 messages: page.messages.map { InboxMessage($0) },
@@ -70,6 +76,7 @@ extension MobileInbox {
     public func setMessageState(_ state: InboxMessageState, for id: String) async throws -> Bool {
         guard let companyID = companyID() else { return false }
         do {
+            try await beforeAccess()
             let update: InboxStateUpdate
             switch state {
             case .read: update = try await store.setRead(true, id: id, companyID: companyID)
@@ -107,6 +114,7 @@ extension MobileInbox {
     public func clear(ids: [String]) async throws -> Int {
         guard let companyID = companyID() else { return 0 }
         do {
+            try await beforeAccess()
             return try await store.clear(ids: ids, companyID: companyID)
         } catch {
             throw InboxError.storageFailure
