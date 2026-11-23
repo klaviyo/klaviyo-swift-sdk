@@ -53,7 +53,7 @@ runs:
     - name: Notify Slack of version mismatch
       if: failure() && steps.check.outcome == 'failure'
       continue-on-error: true
-      uses: ./.github/actions/notify-slack
+      uses: klaviyo/klaviyo-react-native-sdk/.github/shared/notify-slack@master
       with:
         token: ${{ inputs.token }}
         thread_ts: ${{ inputs.thread_ts }}
