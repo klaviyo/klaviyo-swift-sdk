@@ -89,6 +89,7 @@ public struct MobileInbox: Sendable {
     public func fetchUnreadCount() async throws -> Int {
         guard let companyID = companyID() else { return 0 }
         do {
+            try await beforeAccess()
             return try await store.unreadCount(companyID: companyID)
         } catch {
             throw InboxError.storageFailure

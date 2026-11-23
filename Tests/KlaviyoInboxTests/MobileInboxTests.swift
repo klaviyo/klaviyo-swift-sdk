@@ -266,6 +266,23 @@ struct MobileInboxTests {
     }
 
     @Test
+    func aPendingResetIsAppliedBeforeTheUnreadCountIsRead() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let count = try await inbox.fetchUnreadCount()
+        #expect(count == 0)
+    }
+
+    @Test
+    func theUnreadCountIsNotReadWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.fetchUnreadCount() }
+    }
+
+    @Test
     func aStateChangeWaitsForThePendingReset() async throws {
         let store = InboxStoreFixtures.store(appGroup: appGroup)
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
