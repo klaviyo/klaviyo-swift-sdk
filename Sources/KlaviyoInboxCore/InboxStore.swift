@@ -27,6 +27,7 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     let appGroup: InboxAppGroup
     let maxMessages: Int
     let changeSignal: InboxChangeSignaling
+    let now: @Sendable () -> Date
 
     /// One coordinator and one private-queue context for the life of the store. Creating them does no
     /// I/O; the persistent store is added on the context's queue the first time it is needed.
@@ -52,11 +53,13 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
     package init(
         appGroup: InboxAppGroup,
         maxMessages: Int = InboxStore.defaultMaxMessages,
-        changeSignal: InboxChangeSignaling
+        changeSignal: InboxChangeSignaling,
+        now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.appGroup = appGroup
         self.maxMessages = maxMessages
         self.changeSignal = changeSignal
+        self.now = now
         stack = Stack(model: InboxStoreModel.current)
     }
 
@@ -164,7 +167,9 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             id: transmissionID,
             record: JSONDecoder().decode(InboxRecord.self, from: payload),
             isRead: object.value(forKey: Key.isRead) as? Bool ?? false,
-            isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false
+            isArchived: object.value(forKey: Key.isArchived) as? Bool ?? false,
+            updatedAt: object.value(forKey: Key.updatedAt) as? Date,
+            expiresAt: object.value(forKey: Key.expiresAt) as? Date
         )
     }
 

@@ -15,7 +15,9 @@ import SQLite3
 /// lost. Any other failure leaves the files alone and fails the open, so the next capture tries again:
 /// losing one capture is better than deleting messages that may be fine.
 ///
-/// There is no migration: the model has one version. The first schema change has to add one here.
+/// A store written by an earlier model is migrated by Core Data while it opens, with an inferred mapping
+/// (see `addStore`), so a schema change that Core Data can infer keeps the user's messages. A change it
+/// cannot infer fails the open and leaves the files alone.
 struct InboxStoreOpener {
     /// The store file and the files SQLite keeps beside it in WAL mode.
     private static let sidecarSuffixes = ["", "-wal", "-shm"]
@@ -109,6 +111,9 @@ struct InboxStoreOpener {
 
     private func addStore(to coordinator: NSPersistentStoreCoordinator, at url: URL) throws {
         let options: [AnyHashable: Any] = [
+            // Core Data reads the store's own model out of the file, so a code-built model needs no bundle.
+            NSMigratePersistentStoresAutomaticallyOption: true,
+            NSInferMappingModelAutomaticallyOption: true,
             // The extension must be able to write while the device is locked.
             NSPersistentStoreFileProtectionKey: Self.protection,
             NSSQLitePragmasOption: [

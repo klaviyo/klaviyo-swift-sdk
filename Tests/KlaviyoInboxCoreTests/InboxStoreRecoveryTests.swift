@@ -63,40 +63,8 @@ struct InboxStoreRecoveryTests {
         return copy
     }
 
-    /// Writes rows straight through Core Data under `model`, the way another build would have.
     private func writeStore(model: NSManagedObjectModel, transmissionIDs: [String]) throws {
-        typealias Key = InboxStoreModel.Key
-        let coordinator = NSPersistentStoreCoordinator(managedObjectModel: model)
-        let store = try coordinator.addPersistentStore(
-            ofType: NSSQLiteStoreType,
-            configurationName: nil,
-            at: storeURL(),
-            options: nil
-        )
-        let context = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
-        context.persistentStoreCoordinator = coordinator
-        var failure: Error?
-        context.performAndWait {
-            do {
-                for tm in transmissionIDs {
-                    let record = InboxStoreFixtures.record(tm: tm, sentAt: epoch)
-                    let entity = try #require(NSEntityDescription.entity(
-                        forEntityName: InboxStoreModel.entityName,
-                        in: context
-                    ))
-                    let object = NSManagedObject(entity: entity, insertInto: context)
-                    object.setValue(company, forKey: Key.companyID)
-                    object.setValue(tm, forKey: Key.transmissionID)
-                    object.setValue(epoch, forKey: Key.sortTime)
-                    try object.setValue(JSONEncoder().encode(record), forKey: Key.payload)
-                }
-                try context.save()
-            } catch {
-                failure = error
-            }
-        }
-        if let failure { throw failure }
-        try coordinator.remove(store)
+        try InboxStoreFixtures.writeStore(model: model, transmissionIDs: transmissionIDs, in: appGroup)
     }
 
     private func journalMode(at url: URL) -> String? {
@@ -306,14 +274,16 @@ struct InboxStoreRecoveryTests {
         #expect(files == [InboxStore.storeFileName])
     }
 
+    /// A store from a newer build (an extra attribute) is migrated down by Core Data's inferred mapping, so
+    /// its messages are kept. Only the attribute this build does not know is dropped.
     @Test
-    func aStoreFromADifferentModelIsRebuilt() async throws {
+    func aStoreFromANewerModelKeepsItsMessages() async throws {
         try writeStore(model: newerModel(), transmissionIDs: ["tm-1"])
         let store = makeStore()
         let result = await store.capture(InboxStoreFixtures.record(tm: "tm-2"), companyID: company)
         #expect(result == .captured)
         let old = try await store.message(id: "tm-1")
-        #expect(old == nil)
+        #expect(old != nil)
         let files = try sqliteFiles()
         #expect(files == [InboxStore.storeFileName])
     }
