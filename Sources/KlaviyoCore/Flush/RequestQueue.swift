@@ -297,13 +297,13 @@ public actor RequestQueue {
             // System expiry thread: only schedule the restore. The runner ends the task right after.
             Task { await self?.expireBackgroundDrain(id: id, owner: owner) }
         }
-        log("Background drain began (task granted: \(handle != nil))")
         // Fold staged profile properties into the queue once, so they go out even if it was empty.
         await willDrain?()
         guard !Task.isCancelled, activeFlush != nil || hasDueWork else {
             handle?.end()
             return
         }
+        log("Background drain began (task granted: \(handle != nil))")
         await waitForActiveFlush()
         // Fold again: properties staged while waiting on the running flush go out in this pass.
         await willDrain?()
@@ -428,7 +428,6 @@ public actor RequestQueue {
         flushRequested = false
         flushGeneration += 1
         let generation = flushGeneration
-        log("Flush started (budgeted: \(sendTimeout != nil), queued: \(QueueStore.shared.entries.count))")
         let task = Task {
             await self.runFlush(generation: generation, sendTimeout: sendTimeout, foldStaged: foldStaged)
         }
@@ -442,13 +441,13 @@ public actor RequestQueue {
     }
 
     private func runFlush(generation: Int, sendTimeout: TimeInterval?, foldStaged: Bool) async {
-        await drainAndSend(generation: generation, sendTimeout: sendTimeout, foldStaged: foldStaged)
+        let leased = await drainAndSend(generation: generation, sendTimeout: sendTimeout, foldStaged: foldStaged)
         // Abandoned (stop or expiry): the new owner of the flag is not this stale flush.
         guard generation == flushGeneration else {
-            log("Flush abandoned")
+            if leased { log("Flush abandoned") }
             return
         }
-        log("Flush ended (remaining: \(QueueStore.shared.entries.count))")
+        if leased { log("Flush ended (remaining: \(QueueStore.shared.entries.count))") }
         isFlushing = false
         activeFlush = nil
         // A reconnect landed mid-flush: restart the loop so its immediate flush runs on a live task.
@@ -458,41 +457,44 @@ public actor RequestQueue {
         }
     }
 
-    private func drainAndSend(generation: Int, sendTimeout: TimeInterval?, foldStaged: Bool) async {
+    /// Returns whether a batch was leased, so empty ticks stay out of the logs.
+    private func drainAndSend(generation: Int, sendTimeout: TimeInterval?, foldStaged: Bool) async -> Bool {
         // Cheap pre-check: skip the drain + restore round trip while the head waits out its own
         // backoff. The per-head check in the send loop is the authoritative gate. The run loop
         // sleeps until the head's deadline, so a due retry flushes without waiting a full tick.
         if QueueStore.shared.head?.isAwaitingRetry(at: environment.date()) == true {
-            return
+            return false
         }
 
         // Let the owner enqueue last-minute requests, then lease everything (incl. those).
         if foldStaged { await willDrain?() }
-        guard !Task.isCancelled, generation == flushGeneration else { return }
+        guard !Task.isCancelled, generation == flushGeneration else { return false }
         requestsInFlight = QueueStore.shared.drainAll()
-        guard !requestsInFlight.isEmpty else { return }
+        guard !requestsInFlight.isEmpty else { return false }
+        log("Flush started (budgeted: \(sendTimeout != nil), leased: \(requestsInFlight.count))")
 
         while let head = requestsInFlight.first {
-            guard generation == flushGeneration else { return }
+            guard generation == flushGeneration else { return true }
             // A cancelled caller stops the drain between sends; what is left stays queued.
             if Task.isCancelled {
                 restoreLease()
-                return
+                return true
             }
             // Serial queue: a head still inside its own backoff blocks the rest (Android parity:
             // `PendingRetry` breaks the serial send). Only the head's own state gates it, so a
             // request front-inserted ahead of a backing-off one sends at once.
             if head.isAwaitingRetry(at: environment.date()) {
                 restoreLease()
-                return
+                return true
             }
             switch await sendHead(head, generation: generation, sendTimeout: sendTimeout) {
             case .continueSending:
                 continue
             case .stopFlush:
-                return
+                return true
             }
         }
+        return true
     }
 
     /// Sends the head request and applies the result, reporting whether the flush loop should
