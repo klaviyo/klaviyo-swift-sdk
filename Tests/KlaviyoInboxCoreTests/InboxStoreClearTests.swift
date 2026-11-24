@@ -21,13 +21,15 @@ struct InboxStoreClearTests {
     }
 
     @Test
-    func clearRemovesOnlyThatCompany() async throws {
+    func clearRemovesOnlyThatCompanyAndCountsTheRemovedMessages() async throws {
         let store = makeStore()
         await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 2, companyID: "XyZ789")
-        try await store.clear(companyID: company)
+        await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2)
+        await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 3, companyID: "XyZ789")
+        let removed = try await store.clear(companyID: company)
         let remaining = try await store.message(id: "tm-1")
         let other = try await store.message(id: "other-1")
+        #expect(removed == 2)
         #expect(remaining == nil)
         #expect(other != nil)
     }
@@ -47,39 +49,13 @@ struct InboxStoreClearTests {
     }
 
     @Test
-    func clearByIdsRemovesOnlyThoseMessagesAndCountsThem() async throws {
-        let store = makeStore()
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2)
-        await InboxStoreFixtures.capture(store, "tm-3", sentAfterBase: 3)
-        let removed = try await store.clear(ids: ["tm-1", "tm-3", "missing"], companyID: company)
-        #expect(removed == 2)
-        let first = try await store.message(id: "tm-1")
-        let second = try await store.message(id: "tm-2")
-        let third = try await store.message(id: "tm-3")
-        #expect(first == nil)
-        #expect(second != nil)
-        #expect(third == nil)
-    }
-
-    @Test
-    func clearByIdsIgnoresAnotherCompanysMessage() async throws {
+    func clearingACompanyWithNoMessagesReturnsZero() async throws {
         let store = makeStore()
         await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 1, companyID: "XyZ789")
-        let removed = try await store.clear(ids: ["other-1"], companyID: company)
-        #expect(removed == 0)
+        let removed = try await store.clear(companyID: company)
         let other = try await store.message(id: "other-1")
-        #expect(other != nil)
-    }
-
-    @Test
-    func clearByNoIdsRemovesNothing() async throws {
-        let store = makeStore()
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        let removed = try await store.clear(ids: [], companyID: company)
-        let stored = try await store.message(id: "tm-1")
         #expect(removed == 0)
-        #expect(stored != nil)
+        #expect(other != nil)
     }
 }
 

@@ -20,8 +20,7 @@ struct MobileInboxQueryTests {
     private let company = InboxStoreFixtures.company
 
     private func makeInbox(company: String?) -> (inbox: MobileInbox, store: InboxStore) {
-        let store = InboxStoreFixtures.store(appGroup: appGroup)
-        return (MobileInbox(store: store, companyID: { company }), store)
+        MobileInboxFixtures.inbox(appGroup: appGroup, company: company)
     }
 
     private func capture(_ store: InboxStore, _ id: String, secondsAfterBase seconds: TimeInterval) async {

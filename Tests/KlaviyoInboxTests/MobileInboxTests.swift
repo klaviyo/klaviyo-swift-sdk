@@ -19,8 +19,7 @@ struct MobileInboxTests {
     private let company = InboxStoreFixtures.company
 
     private func makeInbox(company: String?) -> (inbox: MobileInbox, store: InboxStore) {
-        let store = InboxStoreFixtures.store(appGroup: appGroup)
-        return (MobileInbox(store: store, companyID: { company }), store)
+        MobileInboxFixtures.inbox(appGroup: appGroup, company: company)
     }
 
     @Test
@@ -299,66 +298,6 @@ struct MobileInboxTests {
         await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read, for: "tm-1") }
         let stored = try await store.message(id: "tm-1")
         #expect(stored?.isRead == false)
-    }
-
-    @Test
-    func aClearWaitsForThePendingReset() async throws {
-        let store = InboxStoreFixtures.store(appGroup: appGroup)
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
-        let removed = try await inbox.clear(ids: ["tm-1"])
-        #expect(removed == 0)
-    }
-
-    @Test
-    func aClearIsRefusedWhenThePendingResetCannotBeApplied() async throws {
-        let store = InboxStoreFixtures.store(appGroup: appGroup)
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
-        await #expect(throws: InboxError.storageFailure) { try await inbox.clear(ids: ["tm-1"]) }
-    }
-
-    @Test
-    func clearingOneMessageReportsWhetherItExisted() async throws {
-        let (inbox, store) = makeInbox(company: company)
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2)
-        let removed = try await inbox.clear(id: "tm-1")
-        let missing = try await inbox.clear(id: "tm-1")
-        let page = try await inbox.fetchPage()
-        #expect(removed)
-        #expect(!missing)
-        #expect(page.messages.map(\.id) == ["tm-2"])
-    }
-
-    @Test
-    func clearingSeveralMessagesReportsHowManyExisted() async throws {
-        let (inbox, store) = makeInbox(company: company)
-        await captureMessages(store, count: 3)
-        let removed = try await inbox.clear(ids: ["tm-1", "tm-2", "missing"])
-        let page = try await inbox.fetchPage()
-        #expect(removed == 2)
-        #expect(page.messages.map(\.id) == ["tm-3"])
-    }
-
-    @Test
-    func clearingBeforeTheSDKIsInitializedRemovesNothing() async throws {
-        let (inbox, store) = makeInbox(company: nil)
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        let removed = try await inbox.clear(ids: ["tm-1"])
-        let stored = try await store.message(id: "tm-1")
-        #expect(removed == 0)
-        #expect(stored != nil)
-    }
-
-    @Test
-    func clearingDoesNotTouchAnotherCompanysMessage() async throws {
-        let (inbox, store) = makeInbox(company: company)
-        await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 1, companyID: "XyZ789")
-        let removed = try await inbox.clear(ids: ["other-1"])
-        let stored = try await store.message(id: "other-1")
-        #expect(removed == 0)
-        #expect(stored != nil)
     }
 
     @Test

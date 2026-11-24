@@ -9,27 +9,13 @@ import CoreData
 import Foundation
 
 extension InboxStore {
-    package func clear(companyID: String) async throws {
+    /// Removes every message the company has and returns how many there were. Another company's messages
+    /// are left alone.
+    @discardableResult
+    package func clear(companyID: String) async throws -> Int {
         let removed = try await perform { context in
             defer { context.reset() }
             let predicate = NSPredicate(format: "%K == %@", InboxStoreModel.Key.companyID, companyID)
-            return try Self.batchDelete(matching: predicate, in: context)
-        }
-        if removed > 0 { changeSignal.post() }
-    }
-
-    /// Removes the company's messages with these ids and returns how many existed. Ids the company does
-    /// not have, including another company's, are ignored.
-    @discardableResult
-    package func clear(ids: [String], companyID: String) async throws -> Int {
-        guard !ids.isEmpty else { return 0 }
-        let removed = try await perform { context in
-            defer { context.reset() }
-            let predicate = NSPredicate(
-                format: "%K == %@ AND %K IN %@",
-                InboxStoreModel.Key.companyID, companyID,
-                InboxStoreModel.Key.transmissionID, ids
-            )
             return try Self.batchDelete(matching: predicate, in: context)
         }
         if removed > 0 { changeSignal.post() }
