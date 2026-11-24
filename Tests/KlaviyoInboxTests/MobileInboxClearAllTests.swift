@@ -33,10 +33,14 @@ struct MobileInboxClearAllTests {
     func clearAllRemovesTheCurrentCompanysMessagesAndReportsTheCount() async throws {
         let (inbox, store) = makeInbox(company: company)
         await capture(store, count: 3)
+        // The default page hides archived messages, so archive one and look at every message below.
+        try await inbox.setMessageState(.archived, for: "tm-2")
         let removed = try await inbox.clearAll()
-        let page = try await inbox.fetchPage()
+        let page = try await inbox.fetchPage(InboxQuery(archiveFilter: .all))
+        let archived = try await store.message(id: "tm-2")
         #expect(removed == 3)
         #expect(page.messages.isEmpty)
+        #expect(archived == nil)
     }
 
     @Test
