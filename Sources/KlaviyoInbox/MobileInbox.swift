@@ -125,6 +125,59 @@ extension MobileInbox {
 }
 
 extension MobileInbox {
+    /// Sets `state` on every message matching `filter`, for example "mark all as read".
+    ///
+    /// Applies to the current company's messages. A message already in `state` is never matched, so it
+    /// isn't counted and isn't changed. That means a filter that allows only such messages changes nothing
+    /// and returns 0: `.read` with `read: .read`, `.unread` with `read: .unread`, `.archived` with
+    /// `archive: .archived`, or `.unarchived` with `archive: .active`.
+    ///
+    /// ``changes`` fires once, or not at all when nothing changed.
+    ///
+    /// ```swift
+    /// // Set the state of every message in the inbox to `archived`.
+    /// try await inbox.setMessageState(.archived, matching: .allMessages)
+    ///
+    /// // Mark everything in the visible inbox as read.
+    /// try await inbox.setMessageState(.read, matching: .where(read: .unread, archive: .active))
+    ///
+    /// // Restore archived messages.
+    /// try await inbox.setMessageState(.unarchived, matching: .where(read: .all, archive: .archived))
+    /// ```
+    ///
+    /// - Returns: How many messages changed. 0 when none changed, when the filter can't match (see above),
+    ///   and when the SDK isn't initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store couldn't complete the change.
+    @discardableResult
+    public func setMessageState(
+        _ state: InboxMessageState,
+        matching filter: InboxFilter
+    ) async throws -> Int {
+        guard let companyID = companyID() else { return 0 }
+        do {
+            try await beforeAccess()
+            let field: InboxStateField
+            let value: Bool
+            switch state {
+            case .read: (field, value) = (.read, true)
+            case .unread: (field, value) = (.read, false)
+            case .archived: (field, value) = (.archived, true)
+            case .unarchived: (field, value) = (.archived, false)
+            }
+            return try await store.setState(
+                value,
+                for: field,
+                companyID: companyID,
+                isRead: filter.readFilter.isRead,
+                isArchived: filter.archiveFilter.isArchived
+            )
+        } catch {
+            throw InboxError.storageFailure
+        }
+    }
+}
+
+extension MobileInbox {
     /// Removes a message from this device.
     ///
     /// - Returns: Whether this device had a message with `id` for the current company. `false` when it
@@ -181,6 +234,29 @@ public enum InboxArchiveFilter: Hashable, Sendable {
     case archived
     /// Archived and not archived messages.
     case all
+}
+
+/// Which messages a bulk call such as ``MobileInbox/setMessageState(_:matching:)`` applies to. There is
+/// no default, so a call that changes many messages says which ones. The filters narrow the current
+/// company's messages the way they do for ``InboxQuery``.
+public struct InboxFilter: Hashable, Sendable {
+    /// Whether read messages, unread messages, or both match.
+    public let readFilter: InboxReadFilter
+    /// Whether archived messages, messages that are not archived, or both match.
+    public let archiveFilter: InboxArchiveFilter
+
+    /// Matches every message, read or unread, archived or not.
+    public static let allMessages = InboxFilter(readFilter: .all, archiveFilter: .all)
+
+    /// Matches the messages in the given read and archive states.
+    public static func `where`(read readFilter: InboxReadFilter, archive archiveFilter: InboxArchiveFilter) -> Self {
+        InboxFilter(readFilter: readFilter, archiveFilter: archiveFilter)
+    }
+
+    private init(readFilter: InboxReadFilter, archiveFilter: InboxArchiveFilter) {
+        self.readFilter = readFilter
+        self.archiveFilter = archiveFilter
+    }
 }
 
 /// Which page of the inbox to fetch. Pages run newest first, by send time or by the time this device
