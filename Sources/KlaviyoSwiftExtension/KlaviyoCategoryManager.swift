@@ -8,6 +8,7 @@
 // cannot depend on the main app (NSE/share-extension sandbox restriction).
 // The two copies are intentionally kept in sync. If you change registerCategory,
 // fetchExistingCategories, or mergeCategories here, mirror the changes there.
+// carouselCategoryIdentifier must also match there, or the app prunes the category the NSE registers.
 
 import Foundation
 import OSLog
@@ -23,6 +24,10 @@ class KlaviyoCategoryManager {
 
     /// Prefix used for all Klaviyo notification category identifiers
     static let categoryIdentifierPrefix = "com.klaviyo.button."
+
+    /// Static category shared by every carousel push. A notification content extension can only
+    /// match exact category identifiers listed in its Info.plist, so this one is never pruned.
+    static let carouselCategoryIdentifier = "com.klaviyo.carousel"
 
     /// Serial queue to ensure thread-safe category registration
     private let queue = DispatchQueue(label: "com.klaviyo.category.registration", qos: .userInitiated)

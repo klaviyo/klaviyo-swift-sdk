@@ -43,8 +43,19 @@ public enum KlaviyoExtensionSDK {
         contentHandler: @escaping (UNNotificationContent) -> Void,
         fallbackMediaType: String = "jpg"
     ) {
+        // A new request may reuse an earlier carousel's identifier (apns-collapse-id), so forget that carousel
+        CarouselHandlerStore.shared.reset(request.identifier)
         // handle badge setting from the push notification payload
         handleBadge(bestAttemptContent: bestAttemptContent)
+        // carousel pushes download their card images and finish on their own
+        if handleCarousel(
+            request: request,
+            bestAttemptContent: bestAttemptContent,
+            contentHandler: contentHandler,
+            fallbackMediaType: fallbackMediaType
+        ) {
+            return
+        }
         // handle dynamic action buttons
         handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         // handle rich media setup
@@ -130,6 +141,17 @@ public enum KlaviyoExtensionSDK {
         bestAttemptContent: UNMutableNotificationContent,
         contentHandler: @escaping (UNNotificationContent) -> Void
     ) {
+        // A carousel still downloading delivers whatever cards have attached
+        switch CarouselHandlerStore.shared.state(for: request.identifier) {
+        case let .downloading(carouselHandler, _):
+            carouselHandler.finishNow()
+            return
+        case .delivered:
+            // The carousel already called the content handler, which must not be called twice
+            return
+        case nil:
+            break
+        }
         // Still try to register action buttons before timeout
         handleActionButtons(request: request, bestAttemptContent: bestAttemptContent)
         contentHandler(bestAttemptContent)
@@ -205,6 +227,63 @@ public enum KlaviyoExtensionSDK {
         completion(attachment)
     }
 
+    /// Starts carousel handling when the push carries valid carousel cards and the app embeds a
+    /// content extension that can render them.
+    ///
+    /// Without that extension the carousel category would show no buttons, so the push takes the
+    /// standard path instead. Carousel pushes carry no `rich-media`, so that path shows the title,
+    /// body and buttons.
+    ///
+    /// - Returns: `true` if carousel handling started and will call `contentHandler` itself
+    private static func handleCarousel(
+        request: UNNotificationRequest,
+        bestAttemptContent: UNMutableNotificationContent,
+        contentHandler: @escaping (UNNotificationContent) -> Void,
+        fallbackMediaType: String
+    ) -> Bool {
+        guard bestAttemptContent.isKlaviyoNotification,
+              KlaviyoCarouselParser.hasCarouselCards(bestAttemptContent.userInfo) else {
+            return false
+        }
+        // Respect developer-set categories, as action buttons do
+        guard request.content.categoryIdentifier.isEmpty else {
+            if #available(iOS 14.0, *) {
+                Logger.carousel.warning("Notification already has category '\(request.content.categoryIdentifier)'. Falling back to a standard notification.")
+            }
+            return false
+        }
+        guard KlaviyoCarouselHandler.isContentExtensionInstalled else {
+            if #available(iOS 14.0, *) {
+                Logger.carousel.warning("No notification content extension handles '\(KlaviyoCategoryManager.carouselCategoryIdentifier)'. Falling back to a standard notification.")
+            }
+            return false
+        }
+        guard let cards = KlaviyoCarouselParser.parseCards(from: bestAttemptContent.userInfo) else {
+            return false
+        }
+
+        let requestIdentifier = request.identifier
+        // Identifies this attempt in the store, since the completion can't capture the handler it belongs to
+        let attempt = CarouselHandlerStore.Attempt()
+        let handler = KlaviyoCarouselHandler(
+            cards: cards,
+            content: bestAttemptContent,
+            fallbackMediaType: fallbackMediaType
+        ) { outcome in
+            CarouselHandlerStore.shared.markDelivered(requestIdentifier, attempt: attempt)
+            switch outcome {
+            case let .carousel(content):
+                contentHandler(content)
+            case let .fallback(content):
+                handleActionButtons(request: request, bestAttemptContent: content)
+                contentHandler(content)
+            }
+        }
+        CarouselHandlerStore.shared.insert(handler, attempt: attempt, for: requestIdentifier)
+        handler.start()
+        return true
+    }
+
     /// Handles dynamic action button registration from push notification payload
     /// - Parameters:
     ///   - request: the notification request
@@ -237,5 +316,51 @@ public enum KlaviyoExtensionSDK {
 
         // Set category on notification content
         bestAttemptContent.categoryIdentifier = categoryIdentifier
+    }
+}
+
+/// Keeps in-flight carousel handlers alive and reachable from `serviceExtensionTimeWillExpire`,
+/// since the public API is static and the caller holds no handler reference. Delivered carousels
+/// are remembered so a late expiry doesn't call the content handler a second time.
+final class CarouselHandlerStore {
+    /// One carousel attempt. A newer request reusing the identifier gets a different attempt.
+    final class Attempt {}
+
+    enum State {
+        case downloading(KlaviyoCarouselHandler, Attempt)
+        case delivered
+    }
+
+    static let shared = CarouselHandlerStore()
+
+    private let lock = NSLock()
+    private var states: [String: State] = [:]
+
+    func insert(_ handler: KlaviyoCarouselHandler, attempt: Attempt, for requestIdentifier: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        states[requestIdentifier] = .downloading(handler, attempt)
+    }
+
+    func state(for requestIdentifier: String) -> State? {
+        lock.lock()
+        defer { lock.unlock() }
+        return states[requestIdentifier]
+    }
+
+    /// Releases the handler but keeps its identifier, which is all a late expiry needs to check.
+    /// Does nothing if a newer request has since taken the identifier.
+    func markDelivered(_ requestIdentifier: String, attempt: Attempt) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard case let .downloading(_, current) = states[requestIdentifier], current === attempt else { return }
+        states[requestIdentifier] = .delivered
+    }
+
+    /// Forgets any earlier carousel with this identifier, so its state can't apply to a new request.
+    func reset(_ requestIdentifier: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        states[requestIdentifier] = nil
     }
 }
