@@ -76,8 +76,8 @@ public struct InboxMessage: Hashable, Sendable {
     public let customData: [String: String]
     /// In the order the push configured them.
     public let actions: [InboxAction]
-    /// Server send time, from the push's `_k.timestamp`. Falls back to ``receivedAt`` when the push
-    /// carried no valid timestamp.
+    /// Server send time, from the push's `_k.timestamp`. Always present: a push without a valid timestamp
+    /// is not captured to the inbox.
     public let sentAt: Date
     /// When this device captured the push.
     public let receivedAt: Date

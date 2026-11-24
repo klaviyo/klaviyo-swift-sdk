@@ -19,20 +19,18 @@ struct InboxMessageMappingTests {
 
     private func stored(
         _ tm: String = "tm-1",
-        sentAfterBase: TimeInterval? = 1,
         isRead: Bool = false,
         isArchived: Bool = false
     ) -> StoredInboxMessage {
+        let sent = base.addingTimeInterval(1)
         let received = base.addingTimeInterval(5)
-        let sent = sentAfterBase.map { base.addingTimeInterval($0) }
         let record = InboxStoreFixtures.record(tm: tm, sentAt: sent, receivedAt: received)
-        // The store resolves the stored `sentAt` as the push's send time, else its receive time.
         return StoredInboxMessage(
             id: tm,
             record: record,
             isRead: isRead,
             isArchived: isArchived,
-            sentAt: sent ?? received,
+            sentAt: sent,
             receivedAt: received
         )
     }
@@ -66,13 +64,10 @@ struct InboxMessageMappingTests {
     }
 
     @Test
-    func timestampsCarryOverAndAMissingSendTimeFallsBackToReceivedAt() {
-        let sent = InboxMessage(stored(sentAfterBase: 1))
-        let unsent = InboxMessage(stored(sentAfterBase: nil))
-        #expect(sent.sentAt == base.addingTimeInterval(1))
-        #expect(sent.receivedAt == base.addingTimeInterval(5))
-        #expect(unsent.sentAt == unsent.receivedAt)
-        #expect(unsent.sentAt == base.addingTimeInterval(5))
+    func timestampsCarryOver() {
+        let message = InboxMessage(stored())
+        #expect(message.sentAt == base.addingTimeInterval(1))
+        #expect(message.receivedAt == base.addingTimeInterval(5))
     }
 
     @Test

@@ -44,9 +44,12 @@ struct InboxPayloadParserTests {
 
     // MARK: Company (`_k.c`)
 
-    /// A payload whose `_k` holds `tm` plus the given extra members, so `c` can vary.
+    /// A payload whose `_k` holds `tm` and `timestamp` plus the given extra members, so `c` can vary.
     private func parseMetadata(_ members: String) -> InboxRecord? {
-        parse(#"{"body": {"_k": {"tm": "\#(tm)"\#(members.isEmpty ? "" : ", \(members)")}}}"#)
+        let extra = members.isEmpty ? "" : ", \(members)"
+        return parse(
+            #"{"body": {"_k": {"tm": "\#(tm)", "timestamp": "\#(InboxPayloadFixtures.timestamp)"\#(extra)}}}"#
+        )
     }
 
     @Test
@@ -119,7 +122,7 @@ struct InboxPayloadParserTests {
 
     @Test
     func numericTransmissionIDIsStringified() {
-        #expect(parse(#"{"body": {"_k": {"tm": 12345, "c": "AbC123"}}}"#)?.attribution.transmissionID == "12345")
+        #expect(parse(#"{"body": {"_k": {"tm": 12345, "c": "AbC123", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}}}"#)?.attribution.transmissionID == "12345")
     }
 
     @Test
@@ -211,16 +214,20 @@ struct InboxPayloadParserTests {
     }
 
     @Test
-    func unparseableTimestampKeepsTheRecordWithNilSentAt() throws {
-        let record = try #require(parse(#"{"body": {"_k": {"tm": "t", "c": "AbC123", "timestamp": "garbage"}}}"#))
-        #expect(record.sentAt == nil)
+    func unparseableTimestampIsNotParsed() {
+        #expect(parse(#"{"body": {"_k": {"tm": "t", "c": "AbC123", "timestamp": "garbage"}}}"#) == nil)
     }
 
     @Test
-    func nonFiniteTimestampKeepsTheRecordWithNilSentAt() throws {
+    func missingTimestampIsNotParsed() {
+        #expect(parse(#"{"body": {"_k": {"tm": "t", "c": "AbC123"}}}"#) == nil)
+    }
+
+    @Test
+    func nonFiniteTimestampIsNotParsed() {
         for value in ["nan", "inf", "-infinity"] {
-            let record = try #require(parse(#"{"body": {"_k": {"tm": "t", "c": "AbC123", "timestamp": "\#(value)"}}}"#))
-            #expect(record.sentAt == nil, Comment(rawValue: value))
+            let payload = #"{"body": {"_k": {"tm": "t", "c": "AbC123", "timestamp": "\#(value)"}}}"#
+            #expect(parse(payload) == nil, Comment(rawValue: value))
         }
     }
 
@@ -247,7 +254,7 @@ struct InboxPayloadParserTests {
     // MARK: Action buttons
 
     private func actions(_ buttons: String) throws -> [InboxAction] {
-        let json = #"{"body": {"_k": {"tm": "t", "c": "AbC123"}, "action_buttons": \#(buttons)}}"#
+        let json = #"{"body": {"_k": {"tm": "t", "c": "AbC123", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}, "action_buttons": \#(buttons)}}"#
         return try #require(parse(json)).actions
     }
 
@@ -359,7 +366,10 @@ struct InboxPayloadParserTests {
     @Test
     func unmappedKeysAreNotKept() throws {
         let record = try #require(parse(InboxPayloadFixtures.minimal(#""m": "alias", "t": 2"#)))
-        #expect(record.sentAt == nil, "the non-normative `t` alias is never read into a typed field")
+        #expect(
+            record.sentAt == Date(iso8601: InboxPayloadFixtures.timestamp),
+            "the non-normative `t` alias is never read into a typed field"
+        )
         let properties = try #require(JSONSerialization.jsonObject(with: record.attribution.rawProperties) as? [String: Any])
         #expect(properties["m"] == nil)
     }
@@ -376,7 +386,7 @@ struct InboxPayloadParserTests {
     @Test
     func payloadWithUnrepresentableValuesStillParses() throws {
         let userInfo: [AnyHashable: Any] = [
-            "body": ["_k": ["tm": "t", "c": "AbC123", "pt": "x"]],
+            "body": ["_k": ["tm": "t", "c": "AbC123", "timestamp": InboxPayloadFixtures.timestamp, "pt": "x"]],
             "weird": [Double.nan, Data([1]), Date(timeIntervalSince1970: 0)],
             7: "non-string key"
         ]

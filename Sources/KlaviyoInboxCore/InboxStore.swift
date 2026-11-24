@@ -71,13 +71,12 @@ package final class InboxStore: InboxCapturing, @unchecked Sendable {
             // `record.receivedAt` is stamped from the injectable clock when the push is captured, so it is
             // the moment the device first saw the message; a replay is a duplicate and never reaches here.
             let receivedAt = record.receivedAt
-            let sentAt = record.sentAt ?? receivedAt
             let result = try await perform { context in
                 defer { context.reset() }
                 let result = try Self.insert(
                     record,
                     payload: payload,
-                    sentAt: sentAt,
+                    sentAt: record.sentAt,
                     companyID: companyID,
                     into: context
                 )

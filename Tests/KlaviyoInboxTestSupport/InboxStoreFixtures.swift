@@ -58,7 +58,7 @@ package enum InboxStoreFixtures {
     /// A record with every optional field filled in, so round-trip tests exercise all of them.
     package static func record(
         tm: String,
-        sentAt: Date? = nil,
+        sentAt: Date = baseDate,
         receivedAt: Date = Date(timeIntervalSince1970: 1_800_000_000)
     ) -> InboxRecord {
         InboxRecord(

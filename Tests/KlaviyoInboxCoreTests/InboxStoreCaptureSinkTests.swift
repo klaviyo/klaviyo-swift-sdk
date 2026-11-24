@@ -23,7 +23,7 @@ struct InboxStoreCaptureSinkTests {
 
     /// A Klaviyo push with its own `tm` and company, so two companies can share one store.
     private func push(tm: String, company: String) -> [AnyHashable: Any] {
-        InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": "\#(tm)", "c": "\#(company)"}}}"#)
+        InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": "\#(tm)", "c": "\#(company)", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}}}"#)
     }
 
     private func makeCapture(

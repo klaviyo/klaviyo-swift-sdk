@@ -179,22 +179,6 @@ struct InboxStorePageTests {
         #expect(ids(second) == ["tm-2", "tm-1"])
     }
 
-    @Test
-    func aMessageWithNoSentTimeSortsByWhenItWasReceived() async throws {
-        let store = makeStore()
-        await capture(store, "sent", secondsAfterBase: 10)
-        let received = InboxStoreFixtures.record(
-            tm: "received",
-            sentAt: nil,
-            receivedAt: InboxStoreFixtures.baseDate.addingTimeInterval(20)
-        )
-        _ = await store.capture(received, companyID: company)
-        let page = try await store.page(companyID: company, limit: 1, after: nil)
-        let next = try await store.page(companyID: company, limit: 1, after: page.next)
-        #expect(ids(page) == ["received"])
-        #expect(ids(next) == ["sent"])
-    }
-
     // MARK: - Read and archive filters
 
     /// Captures one message in each combination of read and archived, newest first:
