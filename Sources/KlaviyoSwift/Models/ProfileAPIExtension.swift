@@ -43,7 +43,10 @@ extension ProfilePayload {
     ) {
         self.init(
             email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty()
+                ?? profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty().flatMap {
+                    PhoneNumberValidator.isValid($0) ? $0 : nil
+                },
             externalId: externalId?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
             firstName: profile.firstName,
             lastName: profile.lastName,

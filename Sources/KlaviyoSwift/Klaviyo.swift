@@ -159,7 +159,12 @@ public struct KlaviyoSDK {
     }
 
     /// Set the current user's phone number.
-    /// NOTE: The phone number should be in a format that Klaviyo accepts.
+    /// NOTE: The phone number must start with `+` and a country code (E.164, e.g. `+12345678901`),
+    /// which is the format Klaviyo recommends. Spaces, dashes, dots and parentheses are tolerated,
+    /// but E.164 without punctuation is safest. A number that does not start with `+` or is not
+    /// 7-15 digits, or that contains letters, is ignored and a developer warning is logged.
+    /// This is a basic format check only: Klaviyo may still discard a number that is not valid for
+    /// its country code.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
     /// - Parameter phoneNumber: a string containing the user's phone number.
