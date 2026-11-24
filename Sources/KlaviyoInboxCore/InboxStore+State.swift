@@ -75,14 +75,12 @@ extension InboxStore {
         return update
     }
 
-    /// Sets `field` to `value` on every message of the company that matches `isRead` and `isArchived`
-    /// (nil matches either) and is not already in that state, and returns how many changed. A message
-    /// already in the state is not matched, so it keeps its `updatedAt`. Every changed message gets the
-    /// same `updatedAt`, from the store's clock.
+    /// Sets `field` to `value` on the company's messages that match `isRead` and `isArchived` (nil matches
+    /// either) and are not already in that state, and returns how many changed. The changed messages all get
+    /// the same `updatedAt`; the rest keep theirs.
     ///
-    /// One SQL `UPDATE`, so it is atomic and no message is loaded, which keeps the Notification Service
-    /// Extension's writes from queueing behind a long fetch. The change signal posts once, and only if
-    /// something changed.
+    /// One batch `UPDATE`: atomic, and no message is loaded, so the Notification Service Extension's writes
+    /// don't queue behind a long fetch. Posts the change signal once, and only if something changed.
     @discardableResult
     package func setState(
         _ value: Bool,
