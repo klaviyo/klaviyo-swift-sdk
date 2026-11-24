@@ -125,24 +125,29 @@ extension MobileInbox {
 }
 
 extension MobileInbox {
-    /// Puts every message that matches `filter` into a state, for example "mark all as read".
+    /// Sets `state` on every message matching `filter`, for example "mark all as read".
     ///
-    /// Only the current company's messages are considered, and the filter narrows them the way it does
-    /// for ``InboxQuery``. A message already in the state is left alone and keeps its last-changed time,
-    /// the same as the single-message call. The whole change is one store update, and ``changes`` fires
-    /// once, or not at all when nothing changed.
+    /// Applies to the current company's messages. A message already in `state` is never matched, so it
+    /// isn't counted and isn't changed. That means a filter that allows only such messages changes nothing
+    /// and returns 0: `.read` with `read: .read`, `.unread` with `read: .unread`, `.archived` with
+    /// `archive: .archived`, or `.unarchived` with `archive: .active`.
     ///
-    /// There is no default filter, so the call says which messages it changes. A filter that leaves out
-    /// archived messages, such as `archive: .active`, matches none for `.unarchived`, because only archived
-    /// messages can change. To restore archived messages, ask for them:
+    /// ``changes`` fires once, or not at all when nothing changed.
     ///
-    ///     try await inbox.setMessageState(.unarchived, matching: .where(read: .all, archive: .archived))
+    /// ```swift
+    /// // Set the state of every message in the inbox to `archived`.
+    /// try await inbox.setMessageState(.archived, matching: .allMessages)
     ///
-    /// To change every message, use ``InboxFilter/allMessages``.
+    /// // Mark everything in the visible inbox as read.
+    /// try await inbox.setMessageState(.read, matching: .where(read: .unread, archive: .active))
     ///
-    /// - Returns: How many messages changed. 0 when none matched or all were already in the state, and
-    ///   when the SDK is not initialized yet.
-    /// - Throws: ``InboxError/storageFailure`` when the store could not complete the change.
+    /// // Restore archived messages.
+    /// try await inbox.setMessageState(.unarchived, matching: .where(read: .all, archive: .archived))
+    /// ```
+    ///
+    /// - Returns: How many messages changed. 0 when none changed, when the filter can't match (see above),
+    ///   and when the SDK isn't initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store couldn't complete the change.
     @discardableResult
     public func setMessageState(
         _ state: InboxMessageState,
