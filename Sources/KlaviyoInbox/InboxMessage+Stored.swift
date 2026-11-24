@@ -28,7 +28,7 @@ extension InboxMessage {
                     destination: InboxDestination(action.destination)
                 )
             },
-            sentAt: record.sentAt,
+            sentAt: stored.sentAt,
             receivedAt: record.receivedAt,
             collapseID: nil,
             badge: record.badge.map { InboxBadge($0) },

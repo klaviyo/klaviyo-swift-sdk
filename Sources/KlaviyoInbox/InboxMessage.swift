@@ -76,8 +76,9 @@ public struct InboxMessage: Hashable, Sendable {
     public let customData: [String: String]
     /// In the order the push configured them.
     public let actions: [InboxAction]
-    /// Server send time, when known.
-    public let sentAt: Date?
+    /// Server send time, from the push's `_k.timestamp`. Falls back to ``receivedAt`` when the push
+    /// carried no valid timestamp.
+    public let sentAt: Date
     /// When this device captured the push.
     public let receivedAt: Date
     /// Only populated where the platform exposes it reliably. iOS does not expose `apns-collapse-id` to
