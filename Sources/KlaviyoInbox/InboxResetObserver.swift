@@ -8,8 +8,9 @@ import KlaviyoCore
 import KlaviyoInboxCore
 import OSLog
 
-/// Clears the inbox when the app resets the profile, so one profile's messages are never shown to the
-/// next. `KlaviyoSwift` cannot import this module, so it reports a reset through Core's
+/// Clears the inbox, for every company, when the app resets the profile, so one profile's messages are
+/// never shown to the next. This is not ``MobileInbox/clearAll()``, which removes only the current
+/// company's messages. `KlaviyoSwift` cannot import this module, so it reports a reset through Core's
 /// ``ProfileResetSignal``, and this observer acts on it.
 ///
 /// It starts the first time the app reads ``KlaviyoSDKModule/mobileInbox``. A reset from before that is
