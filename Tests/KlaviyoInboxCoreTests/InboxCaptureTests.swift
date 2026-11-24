@@ -70,6 +70,18 @@ struct InboxCaptureTests {
     }
 
     @Test
+    func klaviyoPushWithoutAValidTimestampIsSkipped() async {
+        let ids = #""tm": "\#(InboxPayloadFixtures.transmissionID)", "c": "\#(InboxPayloadFixtures.companyID)""#
+        for timestamp in ["", #", "timestamp": "garbage""#] {
+            let sink = RecordingInboxCaptureSink()
+            let userInfo = InboxPayloadFixtures.userInfo(#"{"body": {"_k": {\#(ids)\#(timestamp)}}}"#)
+            let result = await makeCapture(sink: sink).capture(userInfo: userInfo)
+            #expect(result == .skipped, Comment(rawValue: timestamp))
+            #expect(sink.records.isEmpty, Comment(rawValue: timestamp))
+        }
+    }
+
+    @Test
     func sinkResultsPassThrough() async {
         for expected in [InboxCaptureResult.duplicate, .skipped, .captured, .failed, .timedOut] {
             let sink = RecordingInboxCaptureSink(result: expected)

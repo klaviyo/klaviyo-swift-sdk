@@ -19,22 +19,19 @@ struct InboxMessageMappingTests {
 
     private func stored(
         _ tm: String = "tm-1",
-        sentAfterBase: TimeInterval? = 1,
         isRead: Bool = false,
         isArchived: Bool = false
     ) -> StoredInboxMessage {
-        let record = InboxStoreFixtures.record(
-            tm: tm,
-            sentAt: sentAfterBase.map { base.addingTimeInterval($0) },
-            receivedAt: base.addingTimeInterval(5)
-        )
+        let sent = base.addingTimeInterval(1)
+        let received = base.addingTimeInterval(5)
+        let record = InboxStoreFixtures.record(tm: tm, sentAt: sent, receivedAt: received)
         return StoredInboxMessage(
             id: tm,
             record: record,
             isRead: isRead,
             isArchived: isArchived,
-            sentAt: base,
-            receivedAt: base
+            sentAt: sent,
+            receivedAt: received
         )
     }
 
@@ -67,12 +64,10 @@ struct InboxMessageMappingTests {
     }
 
     @Test
-    func timestampsCarryOverAndASendTimeCanBeAbsent() {
-        let sent = InboxMessage(stored(sentAfterBase: 1))
-        let unsent = InboxMessage(stored(sentAfterBase: nil))
-        #expect(sent.sentAt == base.addingTimeInterval(1))
-        #expect(sent.receivedAt == base.addingTimeInterval(5))
-        #expect(unsent.sentAt == nil)
+    func timestampsCarryOver() {
+        let message = InboxMessage(stored())
+        #expect(message.sentAt == base.addingTimeInterval(1))
+        #expect(message.receivedAt == base.addingTimeInterval(5))
     }
 
     @Test
