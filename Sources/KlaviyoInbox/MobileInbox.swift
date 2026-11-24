@@ -178,30 +178,21 @@ extension MobileInbox {
 }
 
 extension MobileInbox {
-    /// Removes a message from this device.
+    /// Removes every message this device has for the current company.
     ///
-    /// - Returns: Whether this device had a message with `id` for the current company. `false` when it
-    ///   had none, or when the SDK is not initialized yet.
+    /// Messages for other companies on the device are left alone. This does not clear the inbox for a
+    /// profile reset: calling `resetProfile()` clears the inbox in full, for every company, so one
+    /// profile's messages are never shown to the next.
+    ///
+    /// - Returns: How many messages were removed. 0 when there were none, or when the SDK is not
+    ///   initialized yet.
     /// - Throws: ``InboxError/storageFailure`` when the store could not complete the removal.
     @discardableResult
-    public func clear(id: String) async throws -> Bool {
-        try await clear(ids: [id]) == 1
-    }
-
-    /// Removes messages from this device.
-    ///
-    /// The inbox is also cleared in full, for every company, whenever the app calls `resetProfile()`, so
-    /// one profile's messages are never shown to the next.
-    ///
-    /// - Returns: How many of the messages this device had for the current company. Ids it does not have
-    ///   are skipped, and the count is 0 when the SDK is not initialized yet.
-    /// - Throws: ``InboxError/storageFailure`` when the store could not complete the removal.
-    @discardableResult
-    public func clear(ids: [String]) async throws -> Int {
+    public func clearAll() async throws -> Int {
         guard let companyID = companyID() else { return 0 }
         do {
             try await beforeAccess()
-            return try await store.clear(ids: ids, companyID: companyID)
+            return try await store.clear(companyID: companyID)
         } catch {
             throw InboxError.storageFailure
         }
