@@ -41,12 +41,12 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
                 let position = Int(url.deletingPathExtension().lastPathComponent.dropFirst("card-".count)) ?? 0
                 guard !pending.contains(position) else { return }
                 guard succeeding.contains(position) else {
-                    completion(nil)
+                    completion(.failure(.httpStatus(404)))
                     return
                 }
                 let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
                 try? Self.pngData.write(to: file)
-                completion(KlaviyoCarouselHandler.DownloadedFile(location: file, mimeType: mimeType))
+                completion(.success(KlaviyoCarouselHandler.DownloadedFile(location: file, mimeType: mimeType)))
             },
             makeAttachment: { [weak self] identifier, fileURL in
                 self?.attachmentFileURLs.append(fileURL)
@@ -179,7 +179,8 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
     }
 
     func testLateDownload_IsDeletedNotAttached() {
-        var lateCompletion: ((KlaviyoCarouselHandler.DownloadedFile?) -> Void)?
+        typealias DownloadResult = Result<KlaviyoCarouselHandler.DownloadedFile, KlaviyoCarouselHandler.DownloadFailure>
+        var lateCompletion: ((DownloadResult) -> Void)?
         var deps = dependencies(succeeding: [1, 2])
         let base = deps.download
         deps.download = { url, completion in
@@ -206,12 +207,22 @@ class KlaviyoCarouselHandlerTests: XCTestCase {
 
         let lateFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try? Self.pngData.write(to: lateFile)
-        lateCompletion?(KlaviyoCarouselHandler.DownloadedFile(location: lateFile, mimeType: "image/png"))
+        lateCompletion?(.success(KlaviyoCarouselHandler.DownloadedFile(location: lateFile, mimeType: "image/png")))
 
         XCTAssertEqual(delivered?.attachments.count, 2)
         XCTAssertEqual(attachmentFileURLs.count, 3)
         XCTAssertFalse(FileManager.default.fileExists(atPath: attachmentFileURLs.last?.path ?? ""))
         withExtendedLifetime(handler) {}
+    }
+
+    func testDownloadFailure_MapsCancellationAndTransportErrors() {
+        typealias Failure = KlaviyoCarouselHandler.DownloadFailure
+        XCTAssertEqual(Failure(URLError(.cancelled)), .cancelled)
+        XCTAssertEqual(
+            Failure(URLError(.timedOut)),
+            .transport(domain: NSURLErrorDomain, code: URLError.Code.timedOut.rawValue)
+        )
+        XCTAssertEqual(Failure.httpStatus(403).reason, "HTTP status 403")
     }
 
     // MARK: - Content extension detection

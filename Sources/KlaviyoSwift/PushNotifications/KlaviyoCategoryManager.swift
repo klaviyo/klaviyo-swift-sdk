@@ -81,8 +81,8 @@ class KlaviyoCategoryManager {
 
     /// Computes the categories to keep after a notification with `categoryIdentifier` is opened or dismissed.
     ///
-    /// - Removes `categoryIdentifier`, plus any `com.klaviyo.button.*` category not used by a displayed
-    ///   notification when `displayedCategoryIdentifiers` is known.
+    /// - Removes `categoryIdentifier` if it is a `com.klaviyo.button.*` category, plus any other one not used by
+    ///   a displayed notification when `displayedCategoryIdentifiers` is known.
     /// - Never removes non-Klaviyo categories or the shared carousel category.
     ///
     /// - Parameters:
@@ -97,14 +97,14 @@ class KlaviyoCategoryManager {
     ) -> Set<UNNotificationCategory> {
         existingCategories.filter { category in
             let identifier = category.identifier
-            if identifier == carouselCategoryIdentifier {
+            // A developer-set category can ride on a Klaviyo push, so only button categories are removed
+            guard identifier.hasPrefix(categoryIdentifierPrefix) else {
                 return true
             }
             if identifier == categoryIdentifier {
                 return false
             }
-            guard let displayedCategoryIdentifiers,
-                  identifier.hasPrefix(categoryIdentifierPrefix) else {
+            guard let displayedCategoryIdentifiers else {
                 return true
             }
             return displayedCategoryIdentifiers.contains(identifier)

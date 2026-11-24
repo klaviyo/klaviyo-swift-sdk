@@ -34,9 +34,37 @@ final class KlaviyoCarouselHandler {
         let mimeType: String?
     }
 
-    /// Downloads `url` to a temporary file, calling back with it or nil on failure.
+    /// Why a card's image didn't download. Never carries the URL, so it is safe to log.
+    enum DownloadFailure: Error, Equatable {
+        /// Cancelled by ``Dependencies/cancelDownloads`` after delivery, so not worth logging.
+        case cancelled
+        /// A transport error, such as offline, a timeout or ATS blocking `http`.
+        case transport(domain: String, code: Int)
+        case httpStatus(Int)
+        case missingFile
+
+        init(_ error: Error) {
+            let error = error as NSError
+            if error.domain == NSURLErrorDomain, error.code == NSURLErrorCancelled {
+                self = .cancelled
+            } else {
+                self = .transport(domain: error.domain, code: error.code)
+            }
+        }
+
+        var reason: String {
+            switch self {
+            case .cancelled: return "cancelled"
+            case let .transport(domain, code): return "\(domain) error \(code)"
+            case let .httpStatus(status): return "HTTP status \(status)"
+            case .missingFile: return "no downloaded file"
+            }
+        }
+    }
+
+    /// Downloads `url` to a temporary file, calling back with it or the reason it failed.
     /// The file is deleted when the callback returns.
-    typealias Download = (_ url: URL, _ completion: @escaping (DownloadedFile?) -> Void) -> Void
+    typealias Download = (_ url: URL, _ completion: @escaping (Result<DownloadedFile, DownloadFailure>) -> Void) -> Void
 
     struct Dependencies {
         var download: Download
@@ -53,12 +81,17 @@ final class KlaviyoCarouselHandler {
             return Dependencies(
                 download: { url, completion in
                     session.downloadTask(with: url) { location, response, error in
-                        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-                        guard error == nil, (200..<300).contains(status) else {
-                            completion(nil)
-                            return
+                        if let error {
+                            return completion(.failure(DownloadFailure(error)))
                         }
-                        completion(location.map { DownloadedFile(location: $0, mimeType: response?.mimeType) })
+                        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                        guard (200..<300).contains(status) else {
+                            return completion(.failure(.httpStatus(status)))
+                        }
+                        guard let location else {
+                            return completion(.failure(.missingFile))
+                        }
+                        completion(.success(DownloadedFile(location: location, mimeType: response?.mimeType)))
                     }.resume()
                 },
                 makeAttachment: { identifier, fileURL in
@@ -132,12 +165,20 @@ final class KlaviyoCarouselHandler {
     // MARK: - Private Methods
 
     private func download(_ card: CarouselCardDefinition, done: @escaping () -> Void) {
-        dependencies.download(card.imageURL) { [weak self] file in
+        dependencies.download(card.imageURL) { [weak self] result in
             defer { done() }
             guard let self else { return }
-            guard let file else {
+            let file: DownloadedFile
+            switch result {
+            case let .success(downloaded):
+                file = downloaded
+            case .failure(.cancelled):
+                return
+            case let .failure(failure):
                 if #available(iOS 14.0, *) {
-                    Logger.carousel.warning("Carousel card \(card.position) image failed to download")
+                    Logger.carousel.warning(
+                        "Carousel card \(card.position) image failed to download: \(failure.reason, privacy: .public)"
+                    )
                 }
                 return
             }

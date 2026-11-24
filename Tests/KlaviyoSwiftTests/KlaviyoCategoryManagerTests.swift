@@ -62,4 +62,10 @@ final class KlaviyoCategoryManagerTests: XCTestCase {
 
         XCTAssertTrue(remaining.contains(developer))
     }
+
+    func testOpeningADeveloperCategorizedPushKeepsTheDeveloperCategory() {
+        let remaining = prunedIdentifiers(removing: developer, displayed: [displayedButton])
+
+        XCTAssertEqual(remaining, [carousel, displayedButton, developer])
+    }
 }
