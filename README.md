@@ -187,7 +187,8 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ### Reset Profile
 Call `KlaviyoSDK().resetProfile()` when a user logs out or before switching users on a shared device.
 This clears the current profile identifiers and, if `KlaviyoInbox` is installed, clears the on-device Inbox for every company.
-Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers. Only `resetProfile()` signs out the current SDK profile and triggers an all-company Inbox clear.
+Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers. If your app implements a JWT provider for authentication 
+(e.g. for personalized In-App Forms) a reset or identifier change will invalidate and request an updated JWT.
 
 ```swift
 // start a profile for Blob Jr.
@@ -233,7 +234,7 @@ If your app should never create a profile in Klaviyo until the user is known (em
 Things to keep in mind:
 
 - **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
-- **Logout and switching users.** Call `resetProfile()` at logout or before switching users on a shared device. If `KlaviyoInbox` is installed, this clears the on-device Inbox for every company.
+- **Logout and switching users.** Call `resetProfile()` at logout or before switching users on a shared device. If `KlaviyoInbox` is installed, this clears the on-device Inbox automatically for privacy reasons.
   - On logout, also stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
   - On the next login, call `set(profile:)` with all of the new user's identifiers. This updates or replaces identifiers. Signing out and clearing the Inbox require `resetProfile()`.
   - If the SDK has a stored push token, `resetProfile()` keeps it and queues registration under an anonymous identity. This can create an anonymous profile in Klaviyo.
