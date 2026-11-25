@@ -185,8 +185,9 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ```
 
 ### Reset Profile
-To start a new profile altogether (e.g. if a user logs out) either call `KlaviyoSDK().resetProfile()` to clear the currently tracked profile identifiers,
-or use `KlaviyoSDK().set(profile: profile)` to overwrite it with a new profile object.
+Call `KlaviyoSDK().resetProfile()` when a user logs out or before switching users on a shared device.
+This clears the current profile identifiers and, if `KlaviyoInbox` is installed, clears the on-device Inbox for every company.
+Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers. Only `resetProfile()` signs out the current SDK profile and triggers an all-company Inbox clear.
 
 ```swift
 // start a profile for Blob Jr.
@@ -232,10 +233,10 @@ If your app should never create a profile in Klaviyo until the user is known (em
 Things to keep in mind:
 
 - **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
-- **Logout and switching users.** `resetProfile()` keeps the push token and registers it to a new anonymous profile, so don't call it on logout. Instead:
-  - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
-  - On the next login, call `set(profile:)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `set(email:)` on its own keeps the previous user's other identifiers.
-  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Logout and switching users.** Call `resetProfile()` at logout or before switching users on a shared device. If `KlaviyoInbox` is installed, this clears the on-device Inbox for every company.
+  - On logout, also stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
+  - On the next login, call `set(profile:)` with all of the new user's identifiers. This updates or replaces identifiers. Signing out and clearing the Inbox require `resetProfile()`.
+  - If the SDK has a stored push token, `resetProfile()` keeps it and queues registration under an anonymous identity. This can create an anonymous profile in Klaviyo.
 - **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event tracking
