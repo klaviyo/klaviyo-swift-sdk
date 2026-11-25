@@ -149,3 +149,40 @@ extension MobileInbox {
         dispatchClick(event)
     }
 }
+
+extension MobileInbox {
+    /// Reports a tap on the stored message `messageID`, or on one of its buttons, as
+    /// ``trackMessageClick(_:action:properties:)`` does for a message your app already holds. For callers
+    /// that keep only a message ID, such as a wrapper SDK.
+    ///
+    /// Nothing is recorded when the message is no longer stored, because the stored push is what the
+    /// event is attributed from, or when `actionID` names no button on the message.
+    ///
+    /// - Parameters:
+    ///   - messageID: The tapped message's ``InboxMessage/id``.
+    ///   - actionID: The tapped button's ``InboxAction/id``, or nil for a tap on the message itself.
+    ///   - properties: Extra properties to record on the event. See ``trackMessageClick(_:action:properties:)``.
+    /// - Returns: Whether the click was queued. `false` when the current company has no message with
+    ///   `messageID`, the message has no button `actionID`, or the SDK is not initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store could not be read.
+    @discardableResult
+    public func trackMessageClick(
+        messageID: String,
+        actionID: String? = nil,
+        properties: [String: Any] = [:]
+    ) async throws -> Bool {
+        guard let message = try await storedMessage(id: messageID) else { return false }
+        let action: InboxAction?
+        if let actionID {
+            guard let match = message.actions.first(where: { $0.id == actionID }) else { return false }
+            action = match
+        } else {
+            action = nil
+        }
+        guard let event = InboxClickEvent.make(message: message, action: action, properties: properties) else {
+            return false
+        }
+        dispatchClick(event)
+        return true
+    }
+}

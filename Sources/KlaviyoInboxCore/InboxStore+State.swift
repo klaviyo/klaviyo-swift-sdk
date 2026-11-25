@@ -119,6 +119,15 @@ extension InboxStore {
         return changed
     }
 
+    /// The company's message with `id`, or nil when the company has none.
+    package func message(id: String, companyID: String) async throws -> StoredInboxMessage? {
+        try await perform { context in
+            defer { context.reset() }
+            guard let object = try Self.message(id: id, companyID: companyID, in: context) else { return nil }
+            return try Self.storedMessage(from: object)
+        }
+    }
+
     /// The managed object for a company's message, or nil if there is none.
     static func message(id: String, companyID: String, in context: NSManagedObjectContext) throws -> NSManagedObject? {
         typealias Key = InboxStoreModel.Key

@@ -103,6 +103,20 @@ public struct MobileInbox: Sendable {
 }
 
 extension MobileInbox {
+    /// The current company's stored message with `id`, or nil when there is none or the SDK is not
+    /// initialized yet.
+    func storedMessage(id: String) async throws -> InboxMessage? {
+        guard let companyID = companyID() else { return nil }
+        do {
+            try await beforeAccess()
+            return try await store.message(id: id, companyID: companyID).map { InboxMessage($0) }
+        } catch {
+            throw InboxError.storageFailure
+        }
+    }
+}
+
+extension MobileInbox {
     /// Puts a message into a state. Read and archived are independent, and putting a message into the
     /// state it is already in changes nothing.
     ///
