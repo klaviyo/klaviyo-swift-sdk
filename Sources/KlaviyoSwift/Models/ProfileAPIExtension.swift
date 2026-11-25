@@ -43,7 +43,7 @@ extension ProfilePayload {
     ) {
         self.init(
             email: email?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            phoneNumber: phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            phoneNumber: Self.validPhoneNumber(phoneNumber) ?? Self.validPhoneNumber(profile.phoneNumber),
             externalId: externalId?.trimWhiteSpaceOrReturnNilIfEmpty() ?? profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty(),
             firstName: profile.firstName,
             lastName: profile.lastName,
@@ -54,6 +54,12 @@ extension ProfilePayload {
             properties: profile.properties,
             anonymousId: anonymousId
         )
+    }
+
+    /// Trimmed phone number, or nil if empty or not in a valid format. Applies to an explicit override too,
+    /// since a number persisted before validation existed can still reach here.
+    private static func validPhoneNumber(_ phoneNumber: String?) -> String? {
+        phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty().flatMap { PhoneNumberValidator.isValid($0) ? $0 : nil }
     }
 }
 

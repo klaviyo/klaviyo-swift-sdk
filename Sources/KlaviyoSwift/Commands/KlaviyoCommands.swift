@@ -40,6 +40,7 @@ enum KlaviyoCommands {
         ) else {
             return
         }
+        guard validPhoneOrNil(phoneNumber) != nil else { return }
         applyIdentifierChange { $0.phoneNumber = phoneNumber.trimWhiteSpaceOrReturnNilIfEmpty() }
     }
 
@@ -159,6 +160,16 @@ enum KlaviyoCommands {
 
     // MARK: - Profile & subscription
 
+    /// Trimmed phone number, or `nil` (with a developer warning) when empty or malformed.
+    private static func validPhoneOrNil(_ phoneNumber: String?) -> String? {
+        guard let trimmed = phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty() else { return nil }
+        guard PhoneNumberValidator.isValid(trimmed) else {
+            environment.emitDeveloperWarning(PhoneNumberValidator.invalidFormatWarning)
+            return nil
+        }
+        return trimmed
+    }
+
     /// Syncs a `Profile` to Klaviyo:
     ///
     /// 1. Detect identifier changes vs. the canonical `IdentityStore` identity.
@@ -187,7 +198,7 @@ enum KlaviyoCommands {
         let currentIds: [String?] = [current.email, current.phoneNumber, current.externalId]
         let incomingIds: [String?] = [
             profile.email?.trimWhiteSpaceOrReturnNilIfEmpty(),
-            profile.phoneNumber?.trimWhiteSpaceOrReturnNilIfEmpty(),
+            validPhoneOrNil(profile.phoneNumber),
             profile.externalId?.trimWhiteSpaceOrReturnNilIfEmpty()
         ]
         let identifiersChanged = currentIds != incomingIds
