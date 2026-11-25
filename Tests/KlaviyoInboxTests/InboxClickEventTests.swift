@@ -16,10 +16,15 @@ struct InboxClickEventTests {
         InboxDestination(type: type, url: url.flatMap { URL(string: $0) })
     }
 
+    private static let attribution = Data(
+        #"{"tm":"tm-7","$message":"msg-1","Message Type":"campaign","Message Name":"BF Sale","c":"Abc123"}"#.utf8
+    )
+
     private func message(
         id: String = "tm-7",
         defaultDestination: InboxDestination? = nil,
-        actions: [InboxAction]? = nil
+        actions: [InboxAction]? = nil,
+        attributionJSON: Data? = InboxClickEventTests.attribution
     ) -> InboxMessage {
         InboxMessage(
             id: id,
@@ -34,22 +39,23 @@ struct InboxClickEventTests {
                 InboxAction(id: "site", label: "Visit", destination: destination(.openUrl, "https://a.com")),
                 InboxAction(id: "open", label: "Open", destination: destination(.openApp, nil))
             ],
-            sentAt: nil,
+            sentAt: Date(),
             receivedAt: Date(),
             collapseID: nil,
             badge: nil,
             isRead: false,
             isArchived: false,
-            source: .captured
+            source: .captured,
+            attributionJSON: attributionJSON
         )
     }
 
     private func make(
         _ message: InboxMessage,
         action: InboxAction? = nil,
-        element: InboxClickElement? = nil
+        properties: [String: Any] = [:]
     ) -> Event? {
-        InboxClickEvent.make(message: message, action: action, element: element)
+        InboxClickEvent.make(message: message, action: action, properties: properties)
     }
 
     private func property(_ event: Event?, _ key: String) -> String? {
@@ -67,8 +73,7 @@ struct InboxClickEventTests {
     @Test
     func aBodyClickReportsTheDefaultDestination() {
         let event = make(message())
-        #expect(property(event, "Inbox Message ID") == "tm-7")
-        #expect(property(event, "Element") == "body")
+        #expect(property(event, "Inbox Transmission ID") == "tm-7")
         #expect(property(event, "Action Type") == "deep_link")
         #expect(property(event, "Action URL") == "myapp://sale")
         #expect(property(event, "Button Label") == nil)
@@ -78,7 +83,6 @@ struct InboxClickEventTests {
     func aButtonClickReportsTheButtonsDestinationAndLabel() {
         let message = message()
         let event = make(message, action: message.actions[1])
-        #expect(property(event, "Element") == "button")
         #expect(property(event, "Action Type") == "open_url")
         #expect(property(event, "Action URL") == "https://a.com")
         #expect(property(event, "Button Label") == "Visit")
@@ -105,15 +109,81 @@ struct InboxClickEventTests {
     }
 
     @Test
+    func theEventCarriesNoElementProperty() throws {
+        let event = try #require(make(message()))
+        #expect(event.properties["Element"] == nil)
+    }
+
+    @Test
+    func attributionFieldsAreCopiedFromTheStoredK() {
+        let event = make(message())
+        #expect(property(event, "$message") == "msg-1")
+        #expect(property(event, "Message Type") == "campaign")
+        #expect(property(event, "Message Name") == "BF Sale")
+    }
+
+    @Test
+    func aMissingAttributionFieldIsLeftOffTheEvent() {
+        let partial = message(attributionJSON: Data(#"{"tm":"tm-7","Message Type":"flow"}"#.utf8))
+        let event = make(partial)
+        #expect(property(event, "Message Type") == "flow")
+        #expect(property(event, "$message") == nil)
+        #expect(property(event, "Message Name") == nil)
+    }
+
+    @Test
+    func aMessageWithNoAttributionStillProducesAClick() {
+        let event = make(message(attributionJSON: nil))
+        #expect(property(event, "Inbox Transmission ID") == "tm-7")
+        #expect(property(event, "$message") == nil)
+    }
+
+    @Test
+    func unreadableAttributionIsIgnored() {
+        let event = make(message(attributionJSON: Data("{not json".utf8)))
+        #expect(property(event, "Inbox Transmission ID") == "tm-7")
+        #expect(property(event, "$message") == nil)
+    }
+
+    @Test
+    func customPropertiesAreAddedToTheEvent() {
+        let event = make(message(), properties: ["screen": "inbox", "position": 3])
+        #expect(property(event, "screen") == "inbox")
+        #expect(event?.properties["position"] as? Int == 3)
+    }
+
+    @Test
+    func aCustomPropertyCannotReplaceABuiltInOne() {
+        let message = message()
+        let event = make(
+            message,
+            action: message.actions[0],
+            properties: [
+                "Action Type": "forged",
+                "Inbox Transmission ID": "forged",
+                "Button Label": "forged",
+                "$message": "forged",
+                "screen": "inbox"
+            ]
+        )
+        #expect(property(event, "Action Type") == "deep_link")
+        #expect(property(event, "Inbox Transmission ID") == "tm-7")
+        #expect(property(event, "Button Label") == "Shop now")
+        #expect(property(event, "$message") == "msg-1")
+        #expect(property(event, "screen") == "inbox")
+    }
+
+    @Test
+    func aReservedCustomKeyIsDroppedEvenWhenTheSDKHasNoValueForIt() {
+        let event = make(message(attributionJSON: nil), properties: ["$message": "forged"])
+        #expect(property(event, "$message") == nil)
+    }
+
+    @Test
     func eachClickGetsItsOwnUniqueID() throws {
         let first = try #require(make(message()))
         let second = try #require(make(message()))
         #expect(first.uniqueId != second.uniqueId)
-    }
-
-    @Test
-    func aButtonClickWithoutAnActionIsDropped() {
-        #expect(make(message(), element: .button) == nil)
     }
 
     @Test

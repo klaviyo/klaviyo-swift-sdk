@@ -88,4 +88,7 @@ public struct InboxMessage: Hashable, Sendable {
     public let isRead: Bool
     public let isArchived: Bool
     public let source: InboxMessageSource
+    /// The push's full `_k` as JSON, with the device push token removed. Click events draw their
+    /// attribution fields from it. Not part of the public API.
+    let attributionJSON: Data?
 }

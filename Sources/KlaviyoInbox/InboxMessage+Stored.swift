@@ -34,7 +34,8 @@ extension InboxMessage {
             badge: record.badge.map { InboxBadge($0) },
             isRead: stored.isRead,
             isArchived: stored.isArchived,
-            source: .captured
+            source: .captured,
+            attributionJSON: record.attribution.rawProperties
         )
     }
 }

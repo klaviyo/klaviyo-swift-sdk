@@ -53,6 +53,15 @@ struct InboxMessageMappingTests {
     }
 
     @Test
+    func theStoredAttributionCarriesOver() throws {
+        let message = InboxMessage(stored())
+        let data = try #require(message.attributionJSON)
+        let object = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["tm"] as? String == "tm-1")
+        #expect(object["pt"] == nil)
+    }
+
+    @Test
     func contentFieldsCarryOver() {
         let message = InboxMessage(stored())
         #expect(message.id == "tm-1")
