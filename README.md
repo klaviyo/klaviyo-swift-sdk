@@ -187,7 +187,7 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ### Reset Profile
 Call `KlaviyoSDK().resetProfile()` when a user logs out or before switching users on a shared device.
 This clears the current profile identifiers and, if `KlaviyoInbox` is installed, clears the on-device Inbox for every company.
-Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers. If your app implements a JWT provider for authentication 
+Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers. If your app implements a JWT provider for authentication
 (e.g. for personalized In-App Forms) a reset or identifier change will invalidate and request an updated JWT.
 
 ```swift
