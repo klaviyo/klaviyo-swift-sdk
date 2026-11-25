@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoInboxCore"
-  s.version          = "5.4.1"
+  s.version          = "5.7.0"
   s.summary          = "Shared internals for Klaviyo Mobile Inbox, safe for app extensions"
   s.description      = <<-DESC
                         Shared App Group plumbing used by both the app-facing KlaviyoInbox
@@ -15,5 +15,5 @@ Pod::Spec.new do |s|
   s.source_files     = 'Sources/KlaviyoInboxCore/**/*.swift'
   s.frameworks       = 'CoreData'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
-  s.dependency       'KlaviyoFoundation', '~> 5.4.1'
+  s.dependency       'KlaviyoFoundation', '~> 5.7.0'
 end

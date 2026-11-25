@@ -42,15 +42,17 @@ package enum InboxPayloadParser {
         klaviyoMetadata(in: userInfo) != nil
     }
 
-    /// `nil` when the payload is not a Klaviyo push or has no usable `_k.tm` (the dedup key) or `_k.c`
-    /// (the company the record is filed under). A company is never guessed.
+    /// `nil` when the payload is not a Klaviyo push or has no usable `_k.tm` (the dedup key), `_k.c`
+    /// (the company the record is filed under) or `_k.timestamp` (the send time messages are ordered by).
+    /// A company or send time is never guessed.
     package static func parse(userInfo: [AnyHashable: Any], receivedAt: Date) -> InboxRecord? {
         guard let metadata = klaviyoMetadata(in: userInfo),
               let transmissionID = InboxPayload.string(metadata[Key.transmissionID]),
               !transmissionID.isEmpty,
               let companyID = InboxPayload.string(metadata[Key.companyID])?
               .trimmingCharacters(in: .whitespacesAndNewlines),
-              !companyID.isEmpty else {
+              !companyID.isEmpty,
+              let sentAt = InboxPayload.date(metadata[Key.timestamp]) else {
             return nil
         }
         let payload = PayloadValue.dictionary(userInfo) ?? [:]
@@ -70,7 +72,7 @@ package enum InboxPayloadParser {
             mediaType: InboxPayload.string(payload[Key.richMediaType]),
             customData: customData(from: payload[Key.keyValuePairs]),
             actions: actions(from: userInfo),
-            sentAt: InboxPayload.date(metadata[Key.timestamp]),
+            sentAt: sentAt,
             receivedAt: receivedAt,
             badge: badge(from: payload, aps: aps),
             transport: transport(from: payload, aps: aps)

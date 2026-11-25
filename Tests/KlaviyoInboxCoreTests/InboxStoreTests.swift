@@ -70,16 +70,6 @@ struct InboxStoreTests {
     }
 
     @Test
-    func aPushWithNoSendTimeFallsBackToTheClockForSentAt() async throws {
-        let received = Date(timeIntervalSince1970: 1_800_000_500)
-        let store = makeStore()
-        _ = await store.capture(InboxStoreFixtures.record(tm: "tm-1", sentAt: nil, receivedAt: received), companyID: company)
-        let stored = try await store.message(id: "tm-1")
-        #expect(stored?.sentAt == received)
-        #expect(stored?.receivedAt == received)
-    }
-
-    @Test
     func everyRecordFieldSurvivesAWriteAndRead() async throws {
         let store = makeStore()
         let record = InboxStoreFixtures.record(tm: "tm-1", sentAt: Date(timeIntervalSince1970: 1_799_999_000))

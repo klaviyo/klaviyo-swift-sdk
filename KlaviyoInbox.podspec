@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = "KlaviyoInbox"
-  s.version          = "5.4.1"
+  s.version          = "5.7.0"
   s.summary          = "Klaviyo Mobile Inbox for your app"
   s.description      = <<-DESC
                         Klaviyo Mobile Inbox for your app. Link this in your app target; link
@@ -14,6 +14,6 @@ Pod::Spec.new do |s|
   s.platform         = :ios, '13.0'
   s.source_files     = 'Sources/KlaviyoInbox/**/*.swift'
   s.pod_target_xcconfig = { 'OTHER_SWIFT_FLAGS' => '-package-name KlaviyoCore' }
-  s.dependency       'KlaviyoCore', '~> 5.4.1'
-  s.dependency       'KlaviyoInboxCore', '~> 5.4.1'
+  s.dependency       'KlaviyoCore', '~> 5.7.0'
+  s.dependency       'KlaviyoInboxCore', '~> 5.7.0'
 end

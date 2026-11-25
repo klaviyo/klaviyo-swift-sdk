@@ -47,6 +47,7 @@ struct InboxRecordTests {
     func defaultsAreEmptyAndOpenApp() {
         let record = InboxRecord(
             attribution: InboxAttribution(transmissionID: "tm", companyID: "AbC123", rawProperties: Data()),
+            sentAt: Date(timeIntervalSince1970: 0),
             receivedAt: Date(timeIntervalSince1970: 0)
         )
         #expect(record.defaultDestination == .openApp)

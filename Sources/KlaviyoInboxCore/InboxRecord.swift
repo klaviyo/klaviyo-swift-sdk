@@ -20,7 +20,8 @@ package struct InboxRecord: Equatable, Codable {
     package var customData: [String: String]
     /// In payload order.
     package var actions: [InboxAction]
-    package var sentAt: Date?
+    /// `_k.timestamp`. A push without a valid one is never turned into a record.
+    package var sentAt: Date
     /// Set by capture from the device clock, never by the parser.
     package var receivedAt: Date
     package var badge: InboxBadge?
@@ -35,7 +36,7 @@ package struct InboxRecord: Equatable, Codable {
         mediaType: String? = nil,
         customData: [String: String] = [:],
         actions: [InboxAction] = [],
-        sentAt: Date? = nil,
+        sentAt: Date,
         receivedAt: Date,
         badge: InboxBadge? = nil,
         transport: InboxTransportFlags = InboxTransportFlags()

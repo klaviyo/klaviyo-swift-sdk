@@ -14,7 +14,7 @@ package struct StoredInboxMessage: Equatable {
     package var record: InboxRecord
     package var isRead: Bool
     package var isArchived: Bool
-    /// When the message was sent: the push's send time, or its receive time if it carried none.
+    /// When the message was sent: the push's `_k.timestamp`.
     package var sentAt: Date
     /// When this device first stored the message. Set once; read, archive and update never change it.
     package var receivedAt: Date
