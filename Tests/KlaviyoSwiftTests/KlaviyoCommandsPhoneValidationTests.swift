@@ -98,6 +98,26 @@ class KlaviyoCommandsPhoneValidationTests: KlaviyoBaseTestCase {
         XCTAssertEqual(payload.data.attributes.phoneNumber, "+18005551234")
     }
 
+    // MARK: - ProfilePayload
+
+    /// A number persisted before validation existed (e.g. `21`) reaches `ProfilePayload` as the explicit
+    /// override, so it must be validated there too. The rest of the profile is kept.
+    func testProfilePayloadDropsInvalidPhoneOverride() {
+        let profile = Profile(email: "walter@example.com", phoneNumber: "+18005550199")
+        let payload = ProfilePayload(profile, phoneNumber: "21", anonymousId: "anon")
+
+        XCTAssertEqual(payload.attributes.phoneNumber, "+18005550199", "falls back to a valid profile number")
+        XCTAssertEqual(payload.attributes.email, "walter@example.com")
+
+        let noFallback = ProfilePayload(Profile(), phoneNumber: "21", anonymousId: "anon")
+        XCTAssertNil(noFallback.attributes.phoneNumber)
+    }
+
+    func testProfilePayloadKeepsValidPhoneOverride() {
+        let payload = ProfilePayload(Profile(), phoneNumber: "  +1 (800) 555-0199 ", anonymousId: "anon")
+        XCTAssertEqual(payload.attributes.phoneNumber, "+1 (800) 555-0199")
+    }
+
     // MARK: - Helpers
 
     /// Post-init with an anonymous identity and no push token, so `enqueueProfile` enqueues `createProfile`.
