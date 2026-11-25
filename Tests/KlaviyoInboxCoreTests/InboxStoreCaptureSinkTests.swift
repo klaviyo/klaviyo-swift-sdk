@@ -22,8 +22,8 @@ struct InboxStoreCaptureSinkTests {
     }
 
     /// A Klaviyo push with its own `tm` and company, so two companies can share one store.
-    private func push(tm: String, company: String) -> [AnyHashable: Any] {
-        InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": "\#(tm)", "c": "\#(company)", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}}}"#)
+    private func push(tm transmissionID: String, company: String) -> [AnyHashable: Any] {
+        InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": "\#(transmissionID)", "c": "\#(company)", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}}}"#)
     }
 
     private func makeCapture(
@@ -93,10 +93,11 @@ struct InboxStoreCaptureSinkTests {
     }
 
     @Test
-    func unreachableAppGroupFailsOpen() async {
+    func unreachableAppGroupFailsOpen() async throws {
         let unreachable = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
         let store = InboxStoreFixtures.store(appGroup: unreachable)
-        let result = await makeCapture(sink: makeSink { store }).capture(userInfo: klaviyoPush)
+        let record = try #require(InboxPayloadParser.parse(userInfo: klaviyoPush, receivedAt: now))
+        let result = await makeSink { store }.capture(record)
         #expect(result == .failed)
     }
 
