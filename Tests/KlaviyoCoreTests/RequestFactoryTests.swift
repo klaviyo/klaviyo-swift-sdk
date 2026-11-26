@@ -67,6 +67,33 @@ final class RequestFactoryTests: XCTestCase {
         XCTAssertEqual(props?["Push Token"] as? String, "tok")
     }
 
+    func testBrandedEventWritesServiceToTheMetric() throws {
+        let event = Event(name: .customEvent("Branded"), service: "klaviyo")
+        let request = RequestFactory.eventRequest(identity: identity, event: event, pushToken: nil)
+        guard case let .createEvent(_, payload) = request.endpoint else {
+            return XCTFail("expected createEvent")
+        }
+        XCTAssertEqual(payload.data.attributes.metric.data.attributes.service, "klaviyo")
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
+        let metric = ((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"] as? [String: Any]
+        let attributes = (metric?["data"] as? [String: Any])?["attributes"] as? [String: Any]
+        XCTAssertEqual(attributes?["service"] as? String, "klaviyo")
+        XCTAssertEqual(attributes?["name"] as? String, "Branded")
+    }
+
+    func testCustomEventOmitsService() throws {
+        let event = Event(name: .customEvent("Purchase"))
+        let request = RequestFactory.eventRequest(identity: identity, event: event, pushToken: nil)
+        guard case let .createEvent(_, payload) = request.endpoint else {
+            return XCTFail("expected createEvent")
+        }
+        XCTAssertNil(payload.data.attributes.metric.data.attributes.service)
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(payload)) as? [String: Any]
+        let metric = ((json?["data"] as? [String: Any])?["attributes"] as? [String: Any])?["metric"] as? [String: Any]
+        let attributes = (metric?["data"] as? [String: Any])?["attributes"] as? [String: Any]
+        XCTAssertNil(attributes?["service"])
+    }
+
     func testEventRequestThreadsValueAndCurrency() {
         let event = Event(name: .customEvent("Purchase"), value: 9.99, valueCurrency: "USD")
         let request = RequestFactory.eventRequest(identity: identity, event: event, pushToken: nil)

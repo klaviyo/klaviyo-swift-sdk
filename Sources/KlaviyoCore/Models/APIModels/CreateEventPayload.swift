@@ -19,17 +19,19 @@ public struct CreateEventPayload: Equatable, Codable {
 
                     public let attributes: MetricAttributes
 
-                    public init(name: String) {
-                        attributes = .init(name: name)
+                    public init(name: String, service: String? = nil) {
+                        attributes = .init(name: name, service: service)
                     }
 
                     public struct MetricAttributes: Equatable, Codable {
                         public let name: String
+                        /// Written only for an SDK-branded metric, so custom events are unchanged.
+                        public let service: String?
                     }
                 }
 
-                public init(name: String) {
-                    data = .init(name: name)
+                public init(name: String, service: String? = nil) {
+                    data = .init(name: name, service: service)
                 }
             }
 
@@ -57,8 +59,9 @@ public struct CreateEventPayload: Equatable, Codable {
                         value: Double? = nil,
                         valueCurrency: String? = nil,
                         time: Date? = nil,
-                        uniqueId: String? = nil) {
-                metric = Metric(name: name)
+                        uniqueId: String? = nil,
+                        service: String? = nil) {
+                metric = Metric(name: name, service: service)
                 self.properties = AnyCodable(properties ?? [:])
                 self.value = value
                 self.valueCurrency = valueCurrency
@@ -97,7 +100,8 @@ public struct CreateEventPayload: Equatable, Codable {
                     valueCurrency: String? = nil,
                     time: Date? = nil,
                     uniqueId: String? = nil,
-                    pushToken: String? = nil) {
+                    pushToken: String? = nil,
+                    service: String? = nil) {
             attributes = Attributes(
                 name: name,
                 properties: properties?.appendMetadataToProperties(pushToken: pushToken),
@@ -108,7 +112,8 @@ public struct CreateEventPayload: Equatable, Codable {
                 value: value,
                 valueCurrency: valueCurrency,
                 time: time,
-                uniqueId: uniqueId
+                uniqueId: uniqueId,
+                service: service
             )
         }
     }

@@ -35,6 +35,7 @@ extension Event {
                      valueCurrency: valueCurrency,
                      time: time,
                      uniqueId: uniqueId,
-                     priority: priority)
+                     priority: priority,
+                     service: metric.service)
     }
 }

@@ -31,8 +31,18 @@ public struct Event: Equatable {
     public struct Metric: Equatable {
         public let name: EventName
 
+        /// The service this metric is branded under in the request, or nil for an ordinary metric.
+        /// Set only by SDK-internal producers, so a custom event never carries one.
+        package let service: String?
+
         public init(name: EventName) {
             self.name = name
+            service = nil
+        }
+
+        package init(name: EventName, service: String?) {
+            self.name = name
+            self.service = service
         }
 
         /// Returns true if this event is a geofence-related event
@@ -80,8 +90,9 @@ public struct Event: Equatable {
                  valueCurrency: String? = nil,
                  time: Date = environment.date(),
                  uniqueId: String = environment.uuid().uuidString,
-                 priority: RequestPriority = .standard) {
-        metric = .init(name: name)
+                 priority: RequestPriority = .standard,
+                 service: String? = nil) {
+        metric = .init(name: name, service: service)
         _properties = AnyCodable(properties ?? [:])
         self.time = time
         self.value = value

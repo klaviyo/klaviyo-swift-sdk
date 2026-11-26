@@ -148,7 +148,8 @@ public enum RequestFactory {
                 valueCurrency: stamped.valueCurrency,
                 time: stamped.time,
                 uniqueId: stamped.uniqueId,
-                pushToken: pushToken
+                pushToken: pushToken,
+                service: stamped.metric.service
             ))
     }
 
