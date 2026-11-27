@@ -207,7 +207,7 @@ extension MobileInbox {
     /// - Throws: ``InboxError/storageFailure`` when the store couldn't complete the change.
     @discardableResult
     public func setMessageState(_ state: InboxMessageState, for ids: [String]) async throws -> Int {
-        guard let companyID = companyID() else { return 0 }
+        guard !ids.isEmpty, let companyID = companyID() else { return 0 }
         do {
             try await beforeAccess()
             let (field, value) = state.stateChange

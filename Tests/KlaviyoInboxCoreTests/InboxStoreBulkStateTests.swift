@@ -288,6 +288,33 @@ struct InboxStoreBulkStateTests {
             #expect(message?.updatedAt == bulkChange)
         }
     }
+
+    @Test
+    func chunkedUpdatesSumEveryChunk() {
+        var chunks: [[String]] = []
+        let outcome = InboxStore.updateInChunks(["a", "b", "c", "d", "e"], of: 2) { chunk in
+            chunks.append(chunk)
+            return chunk.count
+        }
+        #expect(chunks == [["a", "b"], ["c", "d"], ["e"]])
+        #expect(outcome.changed == 5)
+        #expect(outcome.failure == nil)
+    }
+
+    /// Batch updates are already written when a later chunk fails, so their count is kept for the signal.
+    @Test
+    func aFailingChunkKeepsTheCountOfTheChunksBeforeItAndStops() {
+        struct ChunkFailed: Error {}
+        var calls = 0
+        let outcome = InboxStore.updateInChunks(["a", "b", "c", "d", "e"], of: 2) { chunk in
+            calls += 1
+            if calls == 2 { throw ChunkFailed() }
+            return chunk.count
+        }
+        #expect(calls == 2)
+        #expect(outcome.changed == 2)
+        #expect(outcome.failure is ChunkFailed)
+    }
 }
 
 #endif

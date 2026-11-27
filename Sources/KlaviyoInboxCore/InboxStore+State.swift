@@ -118,7 +118,9 @@ extension InboxStore {
     /// message for are ignored. The changed messages all get the same `updatedAt`; the rest keep theirs.
     ///
     /// Large ID sets run as several batch `UPDATE`s, each below SQLite's bound-variable limit, inside one
-    /// call. Posts the change signal once, and only if something changed.
+    /// call. Posts the change signal once, and only if something changed. A batch update writes straight to
+    /// the store, so when a later chunk fails the earlier chunks stay changed: the signal still posts for
+    /// them before the error is thrown.
     @discardableResult
     package func setState(
         _ value: Bool,
@@ -129,13 +131,11 @@ extension InboxStore {
         let unique = Array(Set(ids))
         guard !unique.isEmpty else { return 0 }
         let changedAt = now()
-        let changed = try await perform { context -> Int in
+        let outcome = try await perform { context -> ChunkedUpdate in
             defer { context.reset() }
             typealias Key = InboxStoreModel.Key
-            var total = 0
-            for start in stride(from: 0, to: unique.count, by: Self.maxIDsPerBatch) {
-                let chunk = Array(unique[start..<min(start + Self.maxIDsPerBatch, unique.count)])
-                total += try Self.batchUpdate(
+            return Self.updateInChunks(unique, of: Self.maxIDsPerBatch) { chunk in
+                try Self.batchUpdate(
                     value,
                     for: field,
                     matching: [
@@ -147,10 +147,35 @@ extension InboxStore {
                     in: context
                 )
             }
-            return total
         }
-        if changed > 0 { changeSignal.post() }
-        return changed
+        if outcome.changed > 0 { changeSignal.post() }
+        if let failure = outcome.failure { throw failure }
+        return outcome.changed
+    }
+
+    /// How many messages a chunked update changed, and the error that stopped it early, if any.
+    struct ChunkedUpdate {
+        var changed = 0
+        var failure: Error?
+    }
+
+    /// Runs `update` on `ids` in chunks of at most `size` and sums what each chunk changed. Stops at the
+    /// first chunk that throws, keeping the count of the chunks before it, since those are already written.
+    static func updateInChunks(
+        _ ids: [String],
+        of size: Int,
+        _ update: ([String]) throws -> Int
+    ) -> ChunkedUpdate {
+        var outcome = ChunkedUpdate()
+        for start in stride(from: 0, to: ids.count, by: size) {
+            do {
+                outcome.changed += try update(Array(ids[start..<min(start + size, ids.count)]))
+            } catch {
+                outcome.failure = error
+                break
+            }
+        }
+        return outcome
     }
 
     /// One batch `UPDATE` of `field` and `updatedAt` on the messages matching all `predicates`. Returns how

@@ -268,6 +268,14 @@ struct MobileInboxBulkStateTests {
     }
 
     @Test
+    func anEmptyIdListSkipsThePendingResetAndReturnsZero() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        let changed = try await inbox.setMessageState(.read, for: [String]())
+        #expect(changed == 0)
+    }
+
+    @Test
     func aStoreThatCannotBeReachedFailsByIdsWithStorageFailure() async {
         let unreachable = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
         let inbox = MobileInbox(store: InboxStoreFixtures.store(appGroup: unreachable), companyID: { company })
