@@ -26,9 +26,14 @@ struct InboxStoreCaptureSinkTests {
         InboxPayloadFixtures.userInfo(#"{"body": {"_k": {"tm": "\#(transmissionID)", "c": "\#(company)", "timestamp": "\#(InboxPayloadFixtures.timestamp)"}}}"#)
     }
 
+    /// Most tests here are about what the sink stores, not about the capture timeout, so they wait far longer
+    /// than production does. The production default is one second, and a loaded CI runner can stall past it
+    /// and turn an answer into `.timedOut`. A test that is about the timeout passes its own.
+    private static let patientTimeout: TimeInterval = 30
+
     private func makeCapture(
         sink: InboxCaptureSink,
-        timeout: TimeInterval = InboxCapture.defaultTimeout
+        timeout: TimeInterval = patientTimeout
     ) -> InboxCapture {
         InboxCapture(isAuthorized: { true }, sink: sink, now: { [now] in now }, timeout: timeout)
     }
