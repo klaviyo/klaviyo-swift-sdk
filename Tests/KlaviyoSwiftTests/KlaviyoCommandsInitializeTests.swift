@@ -527,13 +527,15 @@ final class KlaviyoCommandsInitializeTests: KlaviyoBaseTestCase {
         XCTAssertEqual(startCount, 2, "launch kickoff + one foreground = two start calls")
     }
 
-    /// `.backgrounded` and `.terminated` run handleBackground: stop.
+    /// `.backgrounded` enters background mode and `.terminated` stops.
     func testBackgroundedAndTerminatedCallStop() async throws {
         installLifecycle([.backgrounded, .terminated])
         LifecycleState.shared.beginInitializing()
         await KlaviyoCommands.completeInitialization(apiKey: "bg-test")
         let stopCount = await spyQueue.getStopCount()
-        XCTAssertEqual(stopCount, 2, "background + terminate = two stop calls")
+        XCTAssertEqual(stopCount, 1, "only terminate stops the queue")
+        let enterCount = await spyQueue.getEnterBackgroundCount()
+        XCTAssertEqual(enterCount, 1, "background enters background mode")
     }
 
     /// `.reachabilityChanged` forwards to `networkConnectivityChanged`.

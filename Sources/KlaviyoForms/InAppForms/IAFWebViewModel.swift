@@ -35,6 +35,10 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private(set) var authToken: String?
     private let assetSource: String?
     private let authTokenManager: AuthTokenManager
+    /// The forms preview token this page was built with, or `nil` for published forms. Fixed for
+    /// the page's lifetime; starting or ending a preview builds a new page.
+    let previewToken: String?
+    private let previewTokenStore: FormsPreviewTokenStore
 
     private var identityUserScript: WKUserScript?
 
@@ -65,11 +69,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             apiURL.queryItems?.append(assetSourceQueryItem)
         }
 
+        let previewTokenAssignment = previewToken.map {
+            "document.head.setAttribute('data-klaviyo-forms-preview-token', \($0.javaScriptStringLiteral));"
+        } ?? ""
+
         let klaviyoJsScript = """
+            \(previewTokenAssignment)
             var script = document.createElement('script');
             script.id = 'klaviyoJS';
             script.type = 'text/javascript';
-            script.src = '\(apiURL)';
+            script.src = \(String(describing: apiURL).javaScriptStringLiteral);
             document.head.appendChild(script)
         """
 
@@ -79,28 +88,28 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private var sdkNameWKScript: WKUserScript {
         let sdkName = environment.sdkName()
-        let sdkNameScript = "document.head.setAttribute('data-sdk-name', '\(sdkName)');"
+        let sdkNameScript = String.setHeadAttributeScript("data-sdk-name", sdkName)
         return WKUserScript(source: sdkNameScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var sdkVersionWKScript: WKUserScript {
         let sdkVersion = environment.sdkVersion()
-        let sdkVersionScript = "document.head.setAttribute('data-sdk-version', '\(sdkVersion)');"
+        let sdkVersionScript = String.setHeadAttributeScript("data-sdk-version", sdkVersion)
         return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var dataEnvironmentWKScript: WKUserScript? {
         guard let formsEnv = environment.formsDataEnvironment()?.rawValue else { return nil }
-        let sdkVersionScript = "document.head.setAttribute('data-forms-data-environment', '\(formsEnv)');"
-        return WKUserScript(source: sdkVersionScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        let dataEnvironmentScript = String.setHeadAttributeScript("data-forms-data-environment", formsEnv)
+        return WKUserScript(source: dataEnvironmentScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
     @MainActor
     private var handshakeWKScript: WKUserScript {
         let handshakeStringified = IAFNativeBridgeEvent.handshake
-        let handshakeScript = "document.head.setAttribute('data-native-bridge-handshake', '\(handshakeStringified)');"
+        let handshakeScript = String.setHeadAttributeScript("data-native-bridge-handshake", handshakeStringified)
         return WKUserScript(source: handshakeScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
     }
 
@@ -143,7 +152,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileData: ProfileData?,
         authToken: String? = nil,
         assetSource: String? = nil,
-        authTokenManager: AuthTokenManager = .shared
+        authTokenManager: AuthTokenManager = .shared,
+        previewTokenStore: FormsPreviewTokenStore? = nil
     ) {
         self.url = url
         self.apiKey = apiKey
@@ -151,6 +161,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         self.authToken = authToken
         self.assetSource = assetSource
         self.authTokenManager = authTokenManager
+        let previewTokenStore = previewTokenStore ?? .shared
+        self.previewTokenStore = previewTokenStore
+        previewToken = previewTokenStore.token
 
         let (stream, continuation) = AsyncStream.makeStream(of: IAFLifecycleEvent.self)
         formLifecycleStream = stream
@@ -256,13 +269,12 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func createProfileAttributesScript(from profileData: ProfileData) -> String? {
         guard let profileDataString = try? profileData.toHtmlString() else { return nil }
-        let literal = profileDataString.javaScriptStringLiteral
-        return "document.head.setAttribute('data-klaviyo-profile', \(literal));"
+        return .setHeadAttributeScript("data-klaviyo-profile", profileDataString)
     }
 
     @MainActor
     private func createAuthTokenScript(from token: String) -> String {
-        "document.head.setAttribute('data-klaviyo-jwt', \(token.javaScriptStringLiteral));"
+        .setHeadAttributeScript("data-klaviyo-jwt", token)
     }
 
     /// Writes `newProfileData` to the page. When ``IdentityTransition/classify(previous:next:)``
@@ -469,18 +481,16 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                 return
             }
 
-            if #available(iOS 14.0, *) {
-                Logger.webViewLogger.debug("Received native bridge message: \(jsonString.prettyPrintedJSON)")
-            }
-
             do {
                 let jsonData = Data(jsonString.utf8) // Convert string to Data
                 let messageBusEvent = try JSONDecoder().decode(IAFNativeBridgeEvent.self, from: jsonData)
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.debug("Received native bridge message: \(messageBusEvent.typeName, privacy: .public)")
+                }
                 handleNativeBridgeEvent(messageBusEvent)
             } catch {
                 if #available(iOS 14.0, *) {
-                    Logger.webViewLogger.warning("Failed to decode JSON: \(error)")
-                    Logger.webViewLogger.warning("Raw JSON: \(jsonString.prettyPrintedJSON)")
+                    Logger.webViewLogger.warning("Failed to decode native bridge message")
                 }
             }
         }
@@ -530,7 +540,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
                   let metricName = envelope["metric"] as? String, !metricName.isEmpty else {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "trackProfileEvent payload is malformed or has no metric name — skipping event")
+                        "trackProfileEvent payload is malformed or has no metric name — skipping event"
+                    )
                 }
                 return
             }
@@ -539,7 +550,8 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if properties == nil {
                 if #available(iOS 14.0, *) {
                     Logger.webViewLogger.warning(
-                        "trackProfileEvent payload has no properties object — sending event without them")
+                        "trackProfileEvent payload has no properties object — sending event without them"
+                    )
                 }
             }
 
@@ -642,6 +654,20 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             Task { [authTokenManager] in
                 await authTokenManager.refreshRejectedToken()
             }
+        case let .formsPreviewEnded(reason, token):
+            if let token, token != previewTokenStore.token {
+                if #available(iOS 14.0, *) {
+                    Logger.webViewLogger.debug("Ignoring 'formsPreviewEnded' from an older preview session")
+                }
+                return
+            }
+            if #available(iOS 14.0, *) {
+                Logger.webViewLogger.warning(
+                    "Forms preview ended, reason: \(reason, privacy: .public). Published forms resume on the next app launch or session timeout."
+                )
+            }
+            // The page stays in place, inert; the next session loads published forms.
+            previewTokenStore.clear()
         }
     }
 

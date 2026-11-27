@@ -153,7 +153,7 @@ public enum KlaviyoEndpoint: Equatable, Codable {
     }
 
     var revision: String {
-        "2026-07-15"
+        "2026-10-15"
     }
 
     func body() throws -> Data? {

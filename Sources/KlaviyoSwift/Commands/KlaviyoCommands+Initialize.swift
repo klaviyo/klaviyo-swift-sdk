@@ -189,7 +189,7 @@ extension KlaviyoCommands {
     private static func runLifecycle() async {
         let requestQueue = klaviyoSwiftEnvironment.requestQueue
 
-        @Sendable
+        @MainActor
         func handleForeground() async {
             await requestQueue.start()
             let settings = await environment.getNotificationSettings()
@@ -204,19 +204,36 @@ extension KlaviyoCommands {
         }
 
         @Sendable
-        func handleBackground() async {
+        func handleBackgrounded() async {
+            await requestQueue.enterBackground()
+            // Detached from the lifecycle loop so a quick return to the foreground isn't delayed.
+            // Started before the badge sync so the background task begins as early as possible.
+            Task { await requestQueue.backgroundDrain() }
+            await MainActor.run { BadgeManager.syncBadgeCount() }
+        }
+
+        @Sendable
+        func handleTerminated() async {
             await requestQueue.stop()
             await MainActor.run { BadgeManager.syncBadgeCount() }
         }
 
+        // Subscribe before starting reachability so its first status reaches the queue.
+        let lifecycleEvents = environment.lifecycleEventsWithReachability().lifecycleEventStream()
         // Launch kickoff — start the queue and sync push enablement immediately on init.
         await handleForeground()
-        for await event in environment.lifecycleEventsWithReachability().lifecycleEventStream() {
+        // `didBecomeActive` has usually already fired by now, so the `.foregrounded` handler won't
+        // start reachability for this launch. Start it here so a launch while offline pauses the
+        // queue instead of flushing at the default interval.
+        environment.startReachability()
+        for await event in lifecycleEvents {
             switch event {
             case .foregrounded:
                 await handleForeground()
-            case .backgrounded, .terminated:
-                await handleBackground()
+            case .backgrounded:
+                await handleBackgrounded()
+            case .terminated:
+                await handleTerminated()
             case let .reachabilityChanged(status):
                 await requestQueue.networkConnectivityChanged(status)
             }

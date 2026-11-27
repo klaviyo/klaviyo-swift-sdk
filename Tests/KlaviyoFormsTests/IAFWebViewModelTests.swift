@@ -134,14 +134,12 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertNotNil(handshakeScript, "Handshake script should be injected")
 
-        // Extract the handshake string from the script source
-        let scriptSource = handshakeScript?.source ?? ""
-        let components = scriptSource.components(separatedBy: "'")
-        guard components.count >= 2 else {
-            XCTFail("Could not find handshake data in script")
-            return
-        }
-        let handshakeString = components[components.count - 2]
+        // The value is a JSON string literal: decode it back to the handshake string
+        let prefix = #"document.head.setAttribute("data-native-bridge-handshake", "#
+        let scriptSource = try XCTUnwrap(handshakeScript?.source)
+        XCTAssertTrue(scriptSource.hasPrefix(prefix) && scriptSource.hasSuffix(");"))
+        let literal = scriptSource.dropFirst(prefix.count).dropLast(2)
+        let handshakeString = try JSONDecoder().decode(String.self, from: Data(literal.utf8))
 
         // Verify handshake data
         struct TestableHandshakeData: Codable, Equatable {
@@ -151,7 +149,7 @@ final class IAFWebViewModelTests: XCTestCase {
 
         let expectedHandshakeString =
             """
-            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1}]
+            [{"type":"formWillAppear","version":2},{"type":"formDisappeared","version":1},{"type":"trackProfileEvent","version":2},{"type":"trackAggregateEvent","version":1},{"type":"openDeepLink","version":3},{"type":"abort","version":1},{"type":"lifecycleEvent","version":1},{"type":"profileEvent","version":1},{"type":"profileMutation","version":1},{"type":"jwtMutation","version":1},{"type":"refreshJwt","version":1},{"type":"formsPreviewEnded","version":1}]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))
         let expectedHandshakeData = try JSONDecoder().decode([TestableHandshakeData].self, from: expectedData)
