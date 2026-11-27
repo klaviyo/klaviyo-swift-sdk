@@ -1,12 +1,15 @@
 # Automatically publish to CocoaPods when a GitHub release is published
 #
-# This workflow publishes all six podspecs in dependency order:
+# This workflow publishes all nine podspecs in dependency order:
 # 1. KlaviyoFoundation (shared enums and constants, no dependencies)
 # 2. KlaviyoCore (no dependencies on other Klaviyo pods)
-# 3. KlaviyoSwiftExtension (depends on KlaviyoFoundation)
-# 4. KlaviyoSwift (depends on KlaviyoCore and KlaviyoFoundation)
-# 5. KlaviyoForms (depends on KlaviyoCore and KlaviyoFoundation)
-# 6. KlaviyoLocation (depends on KlaviyoSwift)
+# 3. KlaviyoInboxCore (depends on KlaviyoFoundation)
+# 4. KlaviyoInbox (depends on KlaviyoCore and KlaviyoInboxCore)
+# 5. KlaviyoInboxExtension (depends on KlaviyoInboxCore)
+# 6. KlaviyoSwiftExtension (depends on KlaviyoFoundation)
+# 7. KlaviyoSwift (depends on KlaviyoCore and KlaviyoFoundation)
+# 8. KlaviyoForms (depends on KlaviyoCore and KlaviyoFoundation)
+# 9. KlaviyoLocation (depends on KlaviyoSwift)
 
 name: Publish to CocoaPods
 
@@ -100,6 +103,9 @@ jobs:
           echo "Validating all podspecs in dependency order..."
           pod lib lint KlaviyoFoundation.podspec --allow-warnings
           pod lib lint KlaviyoCore.podspec --allow-warnings
+          pod lib lint KlaviyoInboxCore.podspec --allow-warnings --include-podspecs='*.podspec'
+          pod lib lint KlaviyoInbox.podspec --allow-warnings --include-podspecs='*.podspec'
+          pod lib lint KlaviyoInboxExtension.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoSwiftExtension.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoSwift.podspec --allow-warnings --include-podspecs='*.podspec'
           pod lib lint KlaviyoForms.podspec --allow-warnings --include-podspecs='*.podspec'
@@ -212,6 +218,16 @@ jobs:
           wait_for_pod_availability KlaviyoCore
           pause_between_pods
 
+          publish_pod KlaviyoInboxCore.podspec KlaviyoInboxCore
+          wait_for_pod_availability KlaviyoInboxCore
+          pause_between_pods
+
+          publish_pod KlaviyoInbox.podspec KlaviyoInbox
+          pause_between_pods
+
+          publish_pod KlaviyoInboxExtension.podspec KlaviyoInboxExtension
+          pause_between_pods
+
           publish_pod KlaviyoSwiftExtension.podspec KlaviyoSwiftExtension
           pause_between_pods
 
@@ -281,7 +297,7 @@ jobs:
           thread_ts: ${{ inputs.slack_thread_ts }}
           status: ${{ job.status == 'success' && 'success' || (job.status == 'cancelled' && 'stopped' || 'failure') }}
           title: Swift SDK `${{ env.VERSION }}` ${{ job.status == 'success' && 'published to CocoaPods' || (job.status == 'cancelled' && 'CocoaPods publish timed out' || (steps.failed.outputs.gate == 'true' && format('CocoaPods publish blocked, {0} failed', steps.failed.outputs.name) || 'CocoaPods publish failed')) }}
-          body: ${{ job.status == 'success' && 'Published KlaviyoCore, KlaviyoSwiftExtension, KlaviyoSwift, KlaviyoForms and KlaviyoLocation.' || 'Failed to publish one or more podspecs to CocoaPods trunk. Re-running resumes after the pods already on trunk.' }}
+          body: ${{ job.status == 'success' && 'Published KlaviyoFoundation, KlaviyoCore, KlaviyoInboxCore, KlaviyoInbox, KlaviyoInboxExtension, KlaviyoSwiftExtension, KlaviyoSwift, KlaviyoForms and KlaviyoLocation.' || 'Failed to publish one or more podspecs to CocoaPods trunk. Re-running resumes after the pods already on trunk.' }}
           fields: |
             Version: `${{ env.VERSION }}`
             Commit: `${{ env.SHORT_SHA }}`
