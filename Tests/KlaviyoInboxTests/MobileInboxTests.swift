@@ -222,28 +222,24 @@ struct MobileInboxTests {
 
     @Test
     func theChangeStreamFiresWhenTheStoreChanges() async throws {
-        // One identifier for the whole test: the post and the listener must agree on the name.
-        let identifier = "group.test.\(UUID().uuidString)"
-        let group = InboxAppGroup(
-            identifier: { identifier },
-            containerURL: { [appGroup] _ in appGroup.containerURL(InboxStoreFixtures.groupIdentifier) }
-        )
-        let signal = DarwinInboxChangeSignal(appGroup: group)
-        let store = InboxStore(appGroup: group, changeSignal: signal)
-        let inbox = MobileInbox(store: store, companyID: { company }, changes: signal.changes)
-        var iterator = inbox.changes.makeAsyncIterator()
-        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
-        let fired = await withTaskGroup(of: Bool.self) { group in
-            group.addTask { await iterator.next() != nil }
-            group.addTask {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                return false
+        struct StreamSignal: InboxChangeSignaling {
+            let continuation: AsyncStream<Void>.Continuation
+
+            func post() {
+                continuation.yield()
             }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
         }
-        #expect(fired)
+
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
+        let store = InboxStoreFixtures.store(appGroup: appGroup, changeSignal: StreamSignal(continuation: continuation))
+        let inbox = MobileInbox(store: store, companyID: { company }, changes: { stream })
+        var iterator = inbox.changes.makeAsyncIterator()
+
+        let result = await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        continuation.finish()
+        try #require(result == .captured)
+        let change = await iterator.next()
+        #expect(change != nil)
     }
 
     @Test
