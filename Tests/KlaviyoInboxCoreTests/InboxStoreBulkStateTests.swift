@@ -173,6 +173,121 @@ struct InboxStoreBulkStateTests {
         let unread = try await store.page(companyID: company, limit: 10, after: nil, isRead: false)
         #expect(unread.messages.map(\.id) == ["tm-3"])
     }
+
+    // MARK: - By ID
+
+    @Test
+    func onlyTheListedMessagesChange() async throws {
+        let (store, _) = makeStore()
+        try await seedFourStates(store)
+        let before = try await store.message(id: "tm-3")
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1"])
+        #expect(changed == 1)
+        let states = try await readStates(store)
+        #expect(states == ["tm-1": true, "tm-2": true, "tm-3": false, "tm-4": true])
+        let untouched = try await store.message(id: "tm-3")
+        #expect(untouched?.updatedAt == before?.updatedAt)
+    }
+
+    @Test
+    func idsAlreadyInTheStateKeepTheirUpdatedAtAndAreNotCounted() async throws {
+        let (store, _) = makeStore()
+        try await seedFourStates(store)
+        let before = try await store.message(id: "tm-2")
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1", "tm-2"])
+        let after = try await store.message(id: "tm-2")
+        let changedMessage = try await store.message(id: "tm-1")
+        #expect(changed == 1)
+        #expect(after?.updatedAt == before?.updatedAt)
+        #expect(changedMessage?.updatedAt == bulkChange)
+    }
+
+    @Test
+    func unknownAndOtherCompanyIdsAreIgnored() async throws {
+        let (store, signal) = makeStore()
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        await InboxStoreFixtures.capture(store, "tm-2", sentAfterBase: 2, companyID: otherCompany)
+        let baseline = signal.postCount
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1", "tm-2", "missing"])
+        let other = try await store.message(id: "tm-2")
+        #expect(changed == 1)
+        #expect(other?.isRead == false)
+        #expect(other?.updatedAt == nil)
+        #expect(signal.postCount == baseline + 1)
+    }
+
+    @Test
+    func duplicateIdsCountOnce() async throws {
+        let (store, _) = makeStore()
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1", "tm-1", "tm-1"])
+        #expect(changed == 1)
+    }
+
+    @Test
+    func anEmptyListChangesNothingAndPostsNoSignal() async throws {
+        let (store, signal) = makeStore()
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let baseline = signal.postCount
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: [])
+        let message = try await store.message(id: "tm-1")
+        #expect(changed == 0)
+        #expect(message?.isRead == false)
+        #expect(signal.postCount == baseline)
+    }
+
+    @Test
+    func theSignalPostsOncePerIdCallAndNotWhenNothingChanged() async throws {
+        let (store, signal) = makeStore()
+        for index in 1...3 {
+            await InboxStoreFixtures.capture(store, "tm-\(index)", sentAfterBase: TimeInterval(index))
+        }
+        let baseline = signal.postCount
+        let first = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1", "tm-2"])
+        #expect(first == 2)
+        #expect(signal.postCount == baseline + 1)
+        let second = try await store.setState(true, for: .read, companyID: company, ids: ["tm-1", "tm-2", "missing"])
+        #expect(second == 0)
+        #expect(signal.postCount == baseline + 1)
+    }
+
+    @Test
+    func archivingByIdLeavesReadAloneAndUnarchivingRestores() async throws {
+        let (store, _) = makeStore()
+        try await seedFourStates(store)
+        let archived = try await store.setState(true, for: .archived, companyID: company, ids: ["tm-1", "tm-3"])
+        let unarchived = try await store.setState(false, for: .archived, companyID: company, ids: ["tm-3", "tm-4"])
+        let first = try await store.message(id: "tm-1")
+        let fourth = try await store.message(id: "tm-4")
+        #expect(archived == 1)
+        #expect(unarchived == 2)
+        #expect(first?.isArchived == true)
+        #expect(first?.isRead == false)
+        #expect(fourth?.isArchived == false)
+        #expect(fourth?.isRead == true)
+    }
+
+    /// More IDs than one batch binds: the counts add up across batches and the signal still posts once.
+    @Test
+    func aVeryLongListRunsInChunksAndPostsOneSignal() async throws {
+        let (store, signal) = makeStore()
+        for index in 1...3 {
+            await InboxStoreFixtures.capture(store, "tm-\(index)", sentAfterBase: TimeInterval(index))
+        }
+        let filler = (0..<(InboxStore.maxIDsPerBatch * 2 + 100)).map { "unknown-\($0)" }
+        // The three real IDs land in different chunks.
+        let ids = ["tm-1"] + filler.prefix(InboxStore.maxIDsPerBatch)
+            + ["tm-2"] + filler.dropFirst(InboxStore.maxIDsPerBatch) + ["tm-3"]
+        let baseline = signal.postCount
+        let changed = try await store.setState(true, for: .read, companyID: company, ids: ids)
+        #expect(changed == 3)
+        #expect(signal.postCount == baseline + 1)
+        for index in 1...3 {
+            let message = try await store.message(id: "tm-\(index)")
+            #expect(message?.isRead == true)
+            #expect(message?.updatedAt == bulkChange)
+        }
+    }
 }
 
 #endif
