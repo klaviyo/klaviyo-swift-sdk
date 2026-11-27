@@ -1,0 +1,310 @@
+//
+//  MobileInboxTests.swift
+//  klaviyo-swift-sdk
+//
+//  Created by Isobelle Lim on 11/4/26.
+//
+
+@testable import KlaviyoInbox
+import Foundation
+import KlaviyoCore
+import KlaviyoInboxCore
+import KlaviyoInboxTestSupport
+#if canImport(Testing)
+import Testing
+
+@Suite
+struct MobileInboxTests {
+    private let appGroup = InboxStoreFixtures.temporaryAppGroup()
+    private let company = InboxStoreFixtures.company
+
+    private func makeInbox(company: String?) -> (inbox: MobileInbox, store: InboxStore) {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        return (MobileInbox(store: store, companyID: { company }), store)
+    }
+
+    @Test
+    func aPageBeforeTheSDKIsInitializedIsEmpty() async throws {
+        let (inbox, store) = makeInbox(company: nil)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let page = try await inbox.fetchPage()
+        #expect(page.messages.isEmpty)
+        #expect(page.nextCursor == nil)
+    }
+
+    private func captureMessages(_ store: InboxStore, count: Int) async {
+        for index in 1...count {
+            await InboxStoreFixtures.capture(store, "tm-\(index)", sentAfterBase: TimeInterval(index))
+        }
+    }
+
+    @Test
+    func aPageIsNewestFirstAndAnEmptyInboxIsAnEmptyPage() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        let empty = try await inbox.fetchPage()
+        await captureMessages(store, count: 3)
+        let page = try await inbox.fetchPage()
+        #expect(empty.messages.isEmpty)
+        #expect(page.messages.map(\.id) == ["tm-3", "tm-2", "tm-1"])
+        #expect(page.nextCursor == nil)
+    }
+
+    @Test
+    func theNextCursorContinuesThroughEveryMessage() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 5)
+        let first = try await inbox.fetchPage(InboxQuery(pageSize: 2))
+        let second = try await inbox.fetchPage(InboxQuery(pageSize: 2, cursor: first.nextCursor))
+        let third = try await inbox.fetchPage(InboxQuery(pageSize: 2, cursor: second.nextCursor))
+        #expect(first.messages.map(\.id) == ["tm-5", "tm-4"])
+        #expect(second.messages.map(\.id) == ["tm-3", "tm-2"])
+        #expect(third.messages.map(\.id) == ["tm-1"])
+        #expect(third.nextCursor == nil)
+    }
+
+    @Test
+    func thePageSizeIsClampedToTheAllowedRange() {
+        #expect(InboxQuery().pageSize == 20)
+        #expect(InboxQuery(pageSize: 0).pageSize == 1)
+        #expect(InboxQuery(pageSize: -5).pageSize == 1)
+        #expect(InboxQuery(pageSize: 500).pageSize == 100)
+    }
+
+    @Test
+    func aQueryDefaultsToEveryMessageThatIsNotArchived() {
+        let query = InboxQuery()
+        #expect(query.cursor == nil)
+        #expect(query.readFilter == .all)
+        #expect(query.archiveFilter == .active)
+    }
+
+    @Test
+    func queriesWithDifferentFiltersAreNotEqual() {
+        #expect(InboxQuery() != InboxQuery(readFilter: .unread))
+        #expect(InboxQuery() != InboxQuery(archiveFilter: .all))
+        #expect(InboxQuery(readFilter: .read) == InboxQuery(readFilter: .read))
+    }
+
+    @Test
+    func aCursorUsedWithADifferentReadFilterFailsWithInvalidCursor() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 2)
+        let page = try await inbox.fetchPage(InboxQuery(pageSize: 1, readFilter: .unread))
+        let invalid = await expectInvalidCursor {
+            try await inbox.fetchPage(InboxQuery(cursor: page.nextCursor, readFilter: .read))
+        }
+        #expect(invalid)
+    }
+
+    @Test
+    func aCursorUsedWithADifferentArchiveFilterFailsWithInvalidCursor() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 2)
+        let page = try await inbox.fetchPage(InboxQuery(pageSize: 1))
+        let invalid = await expectInvalidCursor {
+            try await inbox.fetchPage(InboxQuery(cursor: page.nextCursor, archiveFilter: .all))
+        }
+        #expect(invalid)
+    }
+
+    /// A host can persist a cursor token and rebuild it, so a public round trip must keep working.
+    @Test
+    func aPublicCursorTokenRoundTripsThroughTheNextPage() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await captureMessages(store, count: 3)
+        let first = try await inbox.fetchPage(InboxQuery(pageSize: 2))
+        let token = try #require(first.nextCursor?.token)
+        let second = try await inbox.fetchPage(InboxQuery(pageSize: 2, cursor: InboxCursor(token: token)))
+        #expect(second.messages.map(\.id) == ["tm-1"])
+    }
+
+    private func expectInvalidCursor(_ body: () async throws -> InboxPage) async -> Bool {
+        do {
+            _ = try await body()
+            return false
+        } catch let error as InboxError {
+            return error == .invalidCursor
+        } catch {
+            return false
+        }
+    }
+
+    @Test
+    func aMalformedCursorFailsWithInvalidCursor() async {
+        let (inbox, _) = makeInbox(company: company)
+        var thrown: InboxError?
+        do {
+            _ = try await inbox.fetchPage(InboxQuery(cursor: InboxCursor(token: "nope")))
+        } catch let error as InboxError {
+            thrown = error
+        } catch {}
+        #expect(thrown == .invalidCursor)
+    }
+
+    @Test
+    func aCursorFromAnotherCompanyFailsWithInvalidCursor() async throws {
+        let (other, otherStore) = makeInbox(company: "XyZ789")
+        await InboxStoreFixtures.capture(otherStore, "tm-1", sentAfterBase: 1, companyID: "XyZ789")
+        await InboxStoreFixtures.capture(otherStore, "tm-2", sentAfterBase: 2, companyID: "XyZ789")
+        let page = try await other.fetchPage(InboxQuery(pageSize: 1))
+        let (mine, _) = makeInbox(company: company)
+        var thrown: InboxError?
+        do {
+            _ = try await mine.fetchPage(InboxQuery(cursor: page.nextCursor))
+        } catch let error as InboxError {
+            thrown = error
+        } catch {}
+        #expect(thrown == .invalidCursor)
+    }
+
+    @Test
+    func aPageOnlyHoldsTheInitializedCompanysMessages() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        await InboxStoreFixtures.capture(store, "other-1", sentAfterBase: 2, companyID: "XyZ789")
+        let page = try await inbox.fetchPage()
+        #expect(page.messages.map(\.id) == ["tm-1"])
+    }
+
+    @Test
+    func aPersistedKeyOnlyCountsOnceInitializeHasBegunThisLaunch() {
+        #expect(MobileInbox.sessionCompanyID(isInitialized: false, apiKey: "AbC123") == nil)
+        #expect(MobileInbox.sessionCompanyID(isInitialized: true, apiKey: "AbC123") == "AbC123")
+        #expect(MobileInbox.sessionCompanyID(isInitialized: true, apiKey: nil) == nil)
+        #expect(MobileInbox.sessionCompanyID(isInitialized: true, apiKey: "") == nil)
+    }
+
+    @Test
+    func theSDKExposesTheInboxAndItReadsThisSessionsCompany() async throws {
+        struct FakeSDK: KlaviyoSDKModule {}
+        let inbox = FakeSDK().mobileInbox
+        // Not initialized in this process, so there is no session company yet.
+        let page = try await inbox.fetchPage()
+        #expect(page.messages.isEmpty)
+    }
+
+    @Test
+    func settingAMessageStateIsVisibleOnTheNextPage() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        try await inbox.setMessageState(.read, for: "tm-1")
+        try await inbox.setMessageState(.archived, for: "tm-1")
+        // Archived messages are left out of the default page, so ask for them.
+        let message = try await inbox.fetchPage(InboxQuery(archiveFilter: .all)).messages.first
+        #expect(message?.isRead == true)
+        #expect(message?.isArchived == true)
+    }
+
+    @Test
+    func settingAStateReportsWhetherTheMessageExists() async throws {
+        let (inbox, store) = makeInbox(company: company)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let first = try await inbox.setMessageState(.read, for: "tm-1")
+        // Already read: nothing changes, but the message is there.
+        let repeated = try await inbox.setMessageState(.read, for: "tm-1")
+        let missing = try await inbox.setMessageState(.read, for: "missing")
+        let page = try await inbox.fetchPage()
+        #expect(first)
+        #expect(repeated)
+        #expect(!missing)
+        #expect(page.messages.map(\.isRead) == [true])
+    }
+
+    @Test
+    func settingAStateBeforeTheSDKIsInitializedChangesNothing() async throws {
+        let (inbox, store) = makeInbox(company: nil)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let exists = try await inbox.setMessageState(.read, for: "tm-1")
+        let stored = try await store.message(id: "tm-1")
+        #expect(!exists)
+        #expect(stored?.isRead == false)
+    }
+
+    @Test
+    func theChangeStreamFiresWhenTheStoreChanges() async throws {
+        struct StreamSignal: InboxChangeSignaling {
+            let continuation: AsyncStream<Void>.Continuation
+
+            func post() {
+                continuation.yield()
+            }
+        }
+
+        let (stream, continuation) = AsyncStream.makeStream(of: Void.self)
+        let store = InboxStoreFixtures.store(appGroup: appGroup, changeSignal: StreamSignal(continuation: continuation))
+        let inbox = MobileInbox(store: store, companyID: { company }, changes: { stream })
+        var iterator = inbox.changes.makeAsyncIterator()
+
+        let result = await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        continuation.finish()
+        try #require(result == .captured)
+        let change = await iterator.next()
+        #expect(change != nil)
+    }
+
+    @Test
+    func aPendingResetIsAppliedBeforeAPageIsRead() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let page = try await inbox.fetchPage()
+        #expect(page.messages.isEmpty)
+    }
+
+    @Test
+    func aPageIsNotReadWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.fetchPage() }
+        let stored = try await store.message(id: "tm-1")
+        #expect(stored != nil)
+    }
+
+    @Test
+    func aPendingResetIsAppliedBeforeTheUnreadCountIsRead() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let count = try await inbox.fetchUnreadCount()
+        #expect(count == 0)
+    }
+
+    @Test
+    func theUnreadCountIsNotReadWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.fetchUnreadCount() }
+    }
+
+    @Test
+    func aStateChangeWaitsForThePendingReset() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { try await store.clearAll() })
+        let exists = try await inbox.setMessageState(.read, for: "tm-1")
+        #expect(!exists)
+    }
+
+    @Test
+    func aStateChangeIsRefusedWhenThePendingResetCannotBeApplied() async throws {
+        let store = InboxStoreFixtures.store(appGroup: appGroup)
+        await InboxStoreFixtures.capture(store, "tm-1", sentAfterBase: 1)
+        let inbox = MobileInbox(store: store, companyID: { company }, beforeAccess: { throw InboxError.storageFailure })
+        await #expect(throws: InboxError.storageFailure) { try await inbox.setMessageState(.read, for: "tm-1") }
+        let stored = try await store.message(id: "tm-1")
+        #expect(stored?.isRead == false)
+    }
+
+    @Test
+    func aStoreThatCannotBeReachedFailsWithStorageFailure() async {
+        let unreachable = InboxAppGroup(identifier: { nil }, containerURL: { _ in nil })
+        let inbox = MobileInbox(store: InboxStoreFixtures.store(appGroup: unreachable), companyID: { "AbC123" })
+        var thrown: InboxError?
+        do { _ = try await inbox.fetchPage() } catch let error as InboxError { thrown = error } catch {}
+        #expect(thrown == .storageFailure)
+    }
+}
+
+#endif

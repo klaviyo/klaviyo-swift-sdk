@@ -11,6 +11,7 @@
 
 import Foundation
 import KlaviyoCore
+import KlaviyoFoundation
 import OSLog
 import UserNotifications
 
@@ -93,12 +94,15 @@ extension UNNotificationResponse {
         }
 
         if var body = properties["body"] as? [String: Any],
-           let buttons = body["action_buttons"] as? [[String: Any]] {
+           let buttons = body["action_buttons"] as? [Any] {
             var changed = false
-            let strippedButtons = buttons.map { button -> [String: Any] in
-                guard let urlString = button["url"] as? String,
+            // Each entry is sanitized on its own: a non-dictionary entry is kept as is and must not
+            // stop the dictionary entries around it from being stripped.
+            let strippedButtons = buttons.map { element -> Any in
+                guard let button = element as? [String: Any],
+                      let urlString = button["url"] as? String,
                       let parameter = FormsPreview.previewTokenParameter(inURLString: urlString) else {
-                    return button
+                    return element
                 }
                 if isActionButtonTap, button["id"] as? String == actionIdentifier {
                     token = token ?? parameter
@@ -212,39 +216,19 @@ extension UNNotificationResponse {
         return actionIdentifier
     }
 
-    /// Returns the tapped action button's URL from `properties`, a Klaviyo notification payload
-    /// that may have had its forms preview token removed.
-    func actionButtonURL(in properties: [String: Any]) -> URL? {
-        guard let urlString = matchingActionButton(in: properties)?["url"] as? String else { return nil }
-        return URL(string: urlString)
+    /// The validated payload button the user tapped, if any. `nil` for a body tap or dismiss, a
+    /// non-Klaviyo notification, or a button that the shared parser rejects (and the extension therefore
+    /// never registered as an action).
+    var tappedActionButton: ActionButton? {
+        klaviyoProperties.flatMap(tappedActionButton(in:))
     }
 
-    /// Returns the button label text (for analytics).
-    var actionButtonLabel: String? {
-        matchingActionButton?["label"] as? String
-    }
-
-    /// Returns the action type for the tapped button.
-    var actionButtonType: ActionType? {
-        guard let actionString = matchingActionButton?["action"] as? String else { return nil }
-        return ActionType(rawValue: actionString)
-    }
-
-    // MARK: - Private Helpers
-
-    /// Returns the action button dictionary matching the tapped action identifier, if any.
-    private var matchingActionButton: [String: Any]? {
-        klaviyoProperties.flatMap(matchingActionButton(in:))
-    }
-
-    /// Returns the action button dictionary in `properties` matching the tapped action identifier.
-    private func matchingActionButton(in properties: [String: Any]) -> [String: Any]? {
-        guard isActionButtonTap,
-              isKlaviyoNotification,
-              let body = properties["body"] as? [String: Any],
-              let actionButtons = body["action_buttons"] as? [[String: Any]] else {
-            return nil
-        }
-        return actionButtons.first { $0["id"] as? String == actionIdentifier }
+    /// The validated button the user tapped, parsed from `properties`: a Klaviyo notification payload
+    /// that may have had its forms preview token removed (see ``klaviyoFormsPreview(in:)``), so the
+    /// button's URL is the one that should be opened and tracked.
+    func tappedActionButton(in properties: [String: Any]) -> ActionButton? {
+        guard isActionButtonTap, isKlaviyoNotification else { return nil }
+        return ActionButtonParser.parse(userInfo: properties)
+            .first { $0.id == actionIdentifier }
     }
 }

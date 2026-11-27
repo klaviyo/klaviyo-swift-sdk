@@ -185,8 +185,10 @@ KlaviyoSDK().set(profileAttribute: .lastName, value: "Jr.")
 ```
 
 ### Reset Profile
-To start a new profile altogether (e.g. if a user logs out) either call `KlaviyoSDK().resetProfile()` to clear the currently tracked profile identifiers,
-or use `KlaviyoSDK().set(profile: profile)` to overwrite it with a new profile object.
+Call `KlaviyoSDK().resetProfile()` when a user logs out or before switching users on a shared device.
+This clears the current profile identifiers and, if `KlaviyoInbox` is installed, clears the on-device Inbox for every company.
+Use `KlaviyoSDK().set(profile: profile)` to update or replace identifiers.
+If your app provides JWTs for personalized In-App Forms, resetting or replacing the profile invalidates the cached JWT. The SDK requests a fresh token when needed for an identified profile.
 
 ```swift
 // start a profile for Blob Jr.

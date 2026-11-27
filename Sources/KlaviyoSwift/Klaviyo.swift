@@ -11,6 +11,7 @@ import Foundation
 import KlaviyoAutomaticPushBootstrap
 #endif
 import KlaviyoCore
+import KlaviyoFoundation
 import OSLog
 import UIKit
 
@@ -130,6 +131,8 @@ public struct KlaviyoSDK {
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
     /// NOTE: if a push token was registered to the current profile, Klaviyo will disassociate it
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
+    /// If you use `KlaviyoInbox`, this also removes every message stored on this device by the Mobile Inbox,
+    /// so the next profile never sees the previous one's messages.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
         dispatchOnMainThread { KlaviyoCommands.resetProfile() }
@@ -472,35 +475,22 @@ public struct KlaviyoSDK {
     ) {
         // Create event properties with action metadata
         var actionProperties = properties
-        if let label = notificationResponse.actionButtonLabel {
-            actionProperties["Button Label"] = label
-        }
-
         if let buttonId = notificationResponse.actionButtonId {
             actionProperties["Button ID"] = buttonId
         }
 
-        if let actionType = notificationResponse.actionButtonType {
-            actionProperties["Button Action"] = actionType.displayName()
-        }
+        if let button = notificationResponse.tappedActionButton(in: properties) {
+            actionProperties["Button Label"] = button.label
+            actionProperties["Button Action"] = button.destination.type.displayName()
 
-        if let url = notificationResponse.actionButtonURL(in: properties) {
-            switch notificationResponse.actionButtonType {
-            case .deepLink:
+            switch button.destination {
+            case let .deepLink(url):
                 actionProperties["Button Link"] = url.absoluteString
                 Task { @MainActor in await DeepLinkManager.openDeepLink(url) }
-            case .openUrl:
+            case let .openUrl(url):
                 actionProperties["Button Link"] = url.absoluteString
-                guard url.hasAllowedOpenUrlScheme else {
-                    if #available(iOS 14.0, *) {
-                        Logger.notifications.warning(
-                            "Action button open_url scheme not in the allowed list; ignoring."
-                        )
-                    }
-                    break
-                }
                 Task { @MainActor in await DeepLinkManager.openExternalURL(url) }
-            case .openApp, .none:
+            case .openApp:
                 break
             }
         }

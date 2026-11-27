@@ -14,6 +14,8 @@ import Foundation
 import XCTest
 
 class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
+    private var resetSignalDisk: InMemoryEnvironment?
+
     // MARK: - Test lifecycle
 
     @MainActor
@@ -320,12 +322,55 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
                        "resetProfile on an anonymous profile must preserve anonymousId")
     }
 
+    /// Installs an environment whose file client really stores what is written, so a persisted reset
+    /// marker can be read back. The default test `FileClient` discards writes.
+    private func installReadableDisk() {
+        // Held in a property: the environment's file client only references it weakly.
+        let inMemory = InMemoryEnvironment(
+            libraryRoot: URL(fileURLWithPath: "/tmp/klaviyo-reset-signal/library"),
+            appSupportRoot: URL(fileURLWithPath: "/tmp/klaviyo-reset-signal/app-support")
+        )
+        resetSignalDisk = inMemory
+        environment = inMemory.makeEnvironment()
+        resetCanonicalCoreStores()
+        ProfileResetSignal.reset()
+    }
+
+    /// The reset signal drives per-profile cleanup in modules `KlaviyoSwift` cannot import, such as the
+    /// Mobile Inbox, so it must fire even when the reset changed nothing.
+    @MainActor
+    func testResetProfileOnAnonymousProfileStillPublishesTheResetSignal() {
+        installReadableDisk()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(anonymousId: "anon-already-anonymous"))
+        markSessionInitialized()
+
+        KlaviyoCommands.resetProfile()
+
+        XCTAssertNotNil(ProfileResetSignal.pendingMarker())
+        ProfileResetSignal.reset()
+    }
+
+    @MainActor
+    func testResetProfileOfAnIdentifiedProfilePublishesTheResetSignal() {
+        installReadableDisk()
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: TEST_API_KEY))
+        IdentityStore.shared.update(ProfileData(email: "id@x.com", anonymousId: "anon-1"))
+        markSessionInitialized()
+
+        KlaviyoCommands.resetProfile()
+
+        XCTAssertNotNil(ProfileResetSignal.pendingMarker())
+        ProfileResetSignal.reset()
+    }
+
     /// Parity: a pre-init `resetProfile` is a no-op — no identity mutation, no request. Matches
     /// Swift/Android, and avoids a warm-start reset that logs the device out locally while the server
     /// keeps the token on the old profile.
     @MainActor
     func testResetProfilePreInitIsNoOpUnderParity() {
-        resetCanonicalCoreStores()
+        installReadableDisk()
+        defer { ProfileResetSignal.reset() }
         UnattributedBuffer.shared.reset()
         PreInitMemoryBuffer.shared.reset()
         // Warm start: persisted identity + token, but initialize() has not run this session.
@@ -342,6 +387,8 @@ class KlaviyoCommandsIdentityTests: KlaviyoBaseTestCase {
 
         XCTAssertEqual(IdentityStore.shared.current.email, "id@x.com",
                        "pre-init reset must not clear PII")
+        XCTAssertNil(ProfileResetSignal.pendingMarker(),
+                     "a dropped pre-init reset must not clear the inbox either")
         XCTAssertEqual(IdentityStore.shared.current.anonymousId, "anon-keep",
                        "pre-init reset must not mint a new anonymousId")
         XCTAssertTrue(readQueue().isEmpty, "pre-init reset must not enqueue")
