@@ -103,20 +103,101 @@ extension InboxStore {
             if let isArchived {
                 predicates.append(NSPredicate(format: "%K == %@", Key.isArchived, NSNumber(value: isArchived)))
             }
-            let update = NSBatchUpdateRequest(entityName: InboxStoreModel.entityName)
-            update.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
-            update.propertiesToUpdate = [field.key: value, Key.updatedAt: changedAt]
-            update.resultType = .updatedObjectIDsResultType
-            let result = try context.execute(update) as? NSBatchUpdateResult
-            guard let updated = result?.result as? [NSManagedObjectID] else { return 0 }
-            NSManagedObjectContext.mergeChanges(
-                fromRemoteContextSave: [NSUpdatedObjectsKey: updated],
-                into: [context]
-            )
-            return updated.count
+            return try Self.batchUpdate(value, for: field, matching: predicates, at: changedAt, in: context)
         }
         if changed > 0 { changeSignal.post() }
         return changed
+    }
+
+    /// The most IDs bound into one `IN` predicate. SQLite caps bound variables per statement at 999 on older
+    /// versions, and the company ID and the state take two of them.
+    static let maxIDsPerBatch = 500
+
+    /// Sets `field` to `value` on the company's messages whose ID is in `ids` and that are not already in
+    /// that state, and returns how many changed. Duplicate IDs count once, and IDs the company has no
+    /// message for are ignored. The changed messages all get the same `updatedAt`; the rest keep theirs.
+    ///
+    /// Large ID sets run as several batch `UPDATE`s, each below SQLite's bound-variable limit, inside one
+    /// call. Posts the change signal once, and only if something changed. A batch update writes straight to
+    /// the store, so when a later chunk fails the earlier chunks stay changed: the signal still posts for
+    /// them before the error is thrown.
+    @discardableResult
+    package func setState(
+        _ value: Bool,
+        for field: InboxStateField,
+        companyID: String,
+        ids: [String]
+    ) async throws -> Int {
+        let unique = Array(Set(ids))
+        guard !unique.isEmpty else { return 0 }
+        let changedAt = now()
+        let outcome = try await perform { context -> ChunkedUpdate in
+            defer { context.reset() }
+            typealias Key = InboxStoreModel.Key
+            return Self.updateInChunks(unique, of: Self.maxIDsPerBatch) { chunk in
+                try Self.batchUpdate(
+                    value,
+                    for: field,
+                    matching: [
+                        NSPredicate(format: "%K == %@", Key.companyID, companyID),
+                        NSPredicate(format: "%K IN %@", Key.transmissionID, chunk),
+                        NSPredicate(format: "%K != %@", field.key, NSNumber(value: value))
+                    ],
+                    at: changedAt,
+                    in: context
+                )
+            }
+        }
+        if outcome.changed > 0 { changeSignal.post() }
+        if let failure = outcome.failure { throw failure }
+        return outcome.changed
+    }
+
+    /// How many messages a chunked update changed, and the error that stopped it early, if any.
+    struct ChunkedUpdate {
+        var changed = 0
+        var failure: Error?
+    }
+
+    /// Runs `update` on `ids` in chunks of at most `size` and sums what each chunk changed. Stops at the
+    /// first chunk that throws, keeping the count of the chunks before it, since those are already written.
+    static func updateInChunks(
+        _ ids: [String],
+        of size: Int,
+        _ update: ([String]) throws -> Int
+    ) -> ChunkedUpdate {
+        var outcome = ChunkedUpdate()
+        for start in stride(from: 0, to: ids.count, by: size) {
+            do {
+                outcome.changed += try update(Array(ids[start..<min(start + size, ids.count)]))
+            } catch {
+                outcome.failure = error
+                break
+            }
+        }
+        return outcome
+    }
+
+    /// One batch `UPDATE` of `field` and `updatedAt` on the messages matching all `predicates`. Returns how
+    /// many it changed.
+    private static func batchUpdate(
+        _ value: Bool,
+        for field: InboxStateField,
+        matching predicates: [NSPredicate],
+        at date: Date,
+        in context: NSManagedObjectContext
+    ) throws -> Int {
+        let update = NSBatchUpdateRequest(entityName: InboxStoreModel.entityName)
+        update.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        update.propertiesToUpdate = [field.key: value, InboxStoreModel.Key.updatedAt: date]
+        update.resultType = .updatedObjectIDsResultType
+        let result = try context.execute(update) as? NSBatchUpdateResult
+        guard let updated = result?.result as? [NSManagedObjectID] else { return 0 }
+        NSManagedObjectContext.mergeChanges(
+            fromRemoteContextSave: [NSUpdatedObjectsKey: updated],
+            into: [context]
+        )
+        return updated.count
     }
 
     /// The company's message with `id`, or nil when the company has none.

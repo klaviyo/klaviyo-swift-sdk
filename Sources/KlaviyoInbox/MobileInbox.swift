@@ -175,14 +175,7 @@ extension MobileInbox {
         guard let companyID = companyID() else { return 0 }
         do {
             try await beforeAccess()
-            let field: InboxStateField
-            let value: Bool
-            switch state {
-            case .read: (field, value) = (.read, true)
-            case .unread: (field, value) = (.read, false)
-            case .archived: (field, value) = (.archived, true)
-            case .unarchived: (field, value) = (.archived, false)
-            }
+            let (field, value) = state.stateChange
             return try await store.setState(
                 value,
                 for: field,
@@ -190,6 +183,35 @@ extension MobileInbox {
                 isRead: filter.readFilter.isRead,
                 isArchived: filter.archiveFilter.isArchived
             )
+        } catch {
+            throw InboxError.storageFailure
+        }
+    }
+}
+
+extension MobileInbox {
+    /// Sets `state` on the messages with the given IDs, for example "archive the selected messages".
+    ///
+    /// Applies to the current company's messages. IDs this device has no message for, including IDs that
+    /// belong to another company, are ignored, and an ID repeated in `ids` counts once. A message already in
+    /// `state` isn't changed, so it isn't counted and keeps its `updatedAt`.
+    ///
+    /// ``changes`` fires once, or not at all when nothing changed.
+    ///
+    /// ```swift
+    /// let archived = try await inbox.setMessageState(.archived, for: selectedIDs)
+    /// ```
+    ///
+    /// - Returns: How many messages changed. 0 when none changed, when `ids` is empty, and when the SDK
+    ///   isn't initialized yet.
+    /// - Throws: ``InboxError/storageFailure`` when the store couldn't complete the change.
+    @discardableResult
+    public func setMessageState(_ state: InboxMessageState, for ids: [String]) async throws -> Int {
+        guard !ids.isEmpty, let companyID = companyID() else { return 0 }
+        do {
+            try await beforeAccess()
+            let (field, value) = state.stateChange
+            return try await store.setState(value, for: field, companyID: companyID, ids: ids)
         } catch {
             throw InboxError.storageFailure
         }
@@ -330,4 +352,16 @@ public struct InboxPage: Hashable, Sendable {
     public let messages: [InboxMessage]
     /// Pass in ``InboxQuery/cursor`` for the next page. Nil on the last page.
     public let nextCursor: InboxCursor?
+}
+
+extension InboxMessageState {
+    /// The stored field this state sets, and the value it sets it to.
+    fileprivate var stateChange: (field: InboxStateField, value: Bool) {
+        switch self {
+        case .read: (.read, true)
+        case .unread: (.read, false)
+        case .archived: (.archived, true)
+        case .unarchived: (.archived, false)
+        }
+    }
 }
