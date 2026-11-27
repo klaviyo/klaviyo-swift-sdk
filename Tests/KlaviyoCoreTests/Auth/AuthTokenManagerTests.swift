@@ -28,7 +28,7 @@ struct AuthTokenManagerTests {
 
     @Test
     func currentTokenInvokesProviderAndReturnsTokenString() async throws {
-        let manager = AuthTokenManager(identity: identifiedIdentity)
+        let manager = makeUnboundedManager()
         let token = try makeJWT()
 
         await manager.registerProvider { token }
