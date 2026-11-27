@@ -236,7 +236,13 @@ struct MobileInboxTests {
         let fired = await withTaskGroup(of: Bool.self) { group in
             group.addTask { await iterator.next() != nil }
             group.addTask {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                // Darwin delivery is asynchronous, so a post made right after the observer registers can be
+                // missed or arrive late on a loaded runner. Post again until the stream hears one, up to 10s.
+                for _ in 0..<100 {
+                    try? await Task.sleep(nanoseconds: 100_000_000)
+                    if Task.isCancelled { return false }
+                    signal.post()
+                }
                 return false
             }
             let first = await group.next() ?? false
