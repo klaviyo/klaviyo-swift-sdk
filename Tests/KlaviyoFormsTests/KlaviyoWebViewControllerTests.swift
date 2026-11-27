@@ -197,7 +197,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
 
         // Then
         XCTAssertTrue(userScripts.contains(where: { $0.source.contains("data-sdk-version") }), "SDK version script should be present in userContentController")
-        XCTAssertTrue(userScripts.contains(where: { $0.source.contains("document.head.setAttribute('data-sdk-version', '0.0.1')") }), "SDK version script should contain the correct version")
+        XCTAssertTrue(userScripts.contains(where: { $0.source.contains("document.head.setAttribute(\"data-sdk-version\", \"0.0.1\")") }), "SDK version script should contain the correct version")
     }
 
     @MainActor

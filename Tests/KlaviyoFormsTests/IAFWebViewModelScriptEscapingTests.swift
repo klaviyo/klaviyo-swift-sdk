@@ -107,6 +107,29 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
         }
     }
 
+    func testSetHeadAttributeScriptSetsValueUnchanged() throws {
+        for value in testValues {
+            let page = try JavaScriptPage()
+            try page.run(String.setHeadAttributeScript(Self.profileAttribute, value))
+
+            XCTAssertEqual(page.attributes[Self.profileAttribute], value, value)
+        }
+    }
+
+    func testStringLiteralCannotCloseScriptElement() {
+        XCTAssertEqual("</script>".javaScriptStringLiteral, #""<\/script>""#)
+    }
+
+    func testLoadScriptSetsApostropheProfileUnchanged() throws {
+        let profile = ProfileData(email: "o'brien@example.com", externalId: "St. John's Lane")
+        let page = try runLoadScript(profile: profile, token: nil)
+
+        XCTAssertEqual(
+            try jsonObject(page.attributes[Self.profileAttribute]),
+            ["email": "o'brien@example.com", "external_id": "St. John's Lane"]
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeProfile(_ value: String) -> ProfileData {
