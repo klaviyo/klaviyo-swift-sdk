@@ -328,7 +328,6 @@ extension IAFPresentationManagerOverlapTests {
             self.activeViewModel != nil && self.lifecycleObserver != nil
         }
         XCTAssertTrue(firstInstalled)
-        completeActiveHandshake()
         let first = try XCTUnwrap(activeViewModel)
 
         lifecycleEvents.send(.backgrounded)
@@ -336,7 +335,7 @@ extension IAFPresentationManagerOverlapTests {
         XCTAssertTrue(firstBackgroundObserved)
         try await gateTokenFetch()
         lifecycleEvents.send(.foregrounded)
-        await waitForParkedBuilds(1)
+        try await waitForParkedBuilds(1)
         XCTAssertNil(lastBackgrounded)
         XCTAssertNil(manager.viewController)
 
@@ -353,17 +352,15 @@ extension IAFPresentationManagerOverlapTests {
         )
         let rebuilt = try XCTUnwrap(activeViewModel)
         XCTAssertFalse(rebuilt === first)
-        completeActiveHandshake()
 
         lifecycleEvents.send(.foregrounded)
-        await waitForParkedBuilds(2)
+        try await waitForParkedBuilds(2)
         XCTAssertNil(manager.viewController, "The retained background must expire the next session")
         await gate.releaseAll()
         let nextInstalled = await waitUntil {
             self.activeViewModel != nil && self.activeViewModel !== rebuilt
         }
         XCTAssertTrue(nextInstalled)
-        completeActiveHandshake()
     }
 }
 
