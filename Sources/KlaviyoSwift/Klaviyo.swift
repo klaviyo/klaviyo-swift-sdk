@@ -14,9 +14,11 @@ import KlaviyoCore
 import OSLog
 import UIKit
 
-func dispatchOnMainThread(action: KlaviyoAction) {
+/// Funnels SDK entry-point work onto the main queue, ensuring all orchestration work is serialised
+/// on the main queue (FIFO) so call ordering is deterministic.
+func dispatchOnMainThread(_ work: @escaping () -> Void) {
     DispatchQueue.main.async {
-        _ = klaviyoSwiftEnvironment.send(action)
+        work()
     }
 }
 
@@ -58,28 +60,24 @@ public struct KlaviyoSDK {
         _ = Self.registerEventDispatcher
     }
 
-    private var state: KlaviyoState {
-        klaviyoSwiftEnvironment.state()
-    }
-
     /// Returns the email for the current user, if any.
     public var email: String? {
-        state.email
+        IdentityStore.shared.current.email
     }
 
     /// Returns the phoneNumber for the current user, if any.
     public var phoneNumber: String? {
-        state.phoneNumber
+        IdentityStore.shared.current.phoneNumber
     }
 
     /// Returns the external id for the current user, if any.
     public var externalId: String? {
-        state.externalId
+        IdentityStore.shared.current.externalId
     }
 
     /// Returns the push token for the current user, if any.
     public var pushToken: String? {
-        state.pushTokenData?.pushToken
+        IdentityStore.shared.pushToken?.pushToken
     }
 
     /// Whether logging is currently enabled for the Klaviyo SDK.
@@ -115,10 +113,7 @@ public struct KlaviyoSDK {
     @discardableResult
     public func initialize(with apiKey: String) -> KlaviyoSDK {
         KlaviyoAutomaticPushBootstrapLinkerAnchor()
-        DispatchQueue.main.async {
-            SharedStoreMirror.setup()
-            _ = klaviyoSwiftEnvironment.send(.initialize(apiKey))
-        }
+        dispatchOnMainThread { KlaviyoCommands.initialize(apiKey) }
         klaviyoSwiftEnvironment.injectNotificationDelegate()
         return self
     }
@@ -129,7 +124,7 @@ public struct KlaviyoSDK {
     /// NOTE: this will trigger a reset of existing profile see ``resetProfile()`` for details.
     /// - Parameter profile: a profile object to send to Klaviyo
     public func set(profile: Profile) {
-        dispatchOnMainThread(action: .enqueueProfile(profile))
+        dispatchOnMainThread { KlaviyoCommands.enqueueProfile(profile) }
     }
 
     /// Clears all stored profile identifiers (e.g. email or phone) and starts a new tracked profile.
@@ -137,7 +132,7 @@ public struct KlaviyoSDK {
     /// from the current profile. Existing token data will be associated with a new anonymous profile.
     /// This should be called whenever an active user in your app is removed (e.g. after a logout).
     public func resetProfile() {
-        dispatchOnMainThread(action: .resetProfile)
+        dispatchOnMainThread { KlaviyoCommands.resetProfile() }
     }
 
     /// Sets the badge number on the application icon. Syncs with the persisted count
@@ -155,11 +150,11 @@ public struct KlaviyoSDK {
     }
 
     /// Set the current user's email.
-    /// - Parameter email: a string contining the users email.
+    /// - Parameter email: a string containing the user's email.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(email: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setEmail(email))
+        dispatchOnMainThread { KlaviyoCommands.setEmail(email) }
         return self
     }
 
@@ -167,11 +162,11 @@ public struct KlaviyoSDK {
     /// NOTE: The phone number should be in a format that Klaviyo accepts.
     /// See https://help.klaviyo.com/hc/en-us/articles/360046055671-Accepted-phone-number-formats-for-SMS-in-Klaviyo
     /// for information on phone numbers Klaviyo accepts.
-    /// - Parameter phoneNumber: a string contining the users phone number.
+    /// - Parameter phoneNumber: a string containing the user's phone number.
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(phoneNumber: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setPhoneNumber(phoneNumber))
+        dispatchOnMainThread { KlaviyoCommands.setPhoneNumber(phoneNumber) }
         return self
     }
 
@@ -183,7 +178,7 @@ public struct KlaviyoSDK {
     /// - Returns: a KlaviyoSDK instance
     @discardableResult
     public func set(externalId: String) -> KlaviyoSDK {
-        dispatchOnMainThread(action: .setExternalId(externalId))
+        dispatchOnMainThread { KlaviyoCommands.setExternalId(externalId) }
         return self
     }
 
@@ -194,14 +189,16 @@ public struct KlaviyoSDK {
     @discardableResult
     public func set(profileAttribute: Profile.ProfileKey, value: Any) -> KlaviyoSDK {
         // This seems tricky to implement with Any - might need to restrict to something equatable, encodable....
-        dispatchOnMainThread(action: .setProfileProperty(profileAttribute, AnyEncodable(value)))
+        dispatchOnMainThread {
+            KlaviyoCommands.setProfileProperty(profileAttribute, AnyEncodable(value))
+        }
         return self
     }
 
     /// Create and send an event for the current user.
     /// - Parameter event: the event to be tracked in Klaviyo
     public func create(event: Event) {
-        dispatchOnMainThread(action: .enqueueEvent(event))
+        dispatchOnMainThread { KlaviyoCommands.enqueueEvent(event) }
     }
 
     /// Creates a subscription and consent record for the email, SMS, and/or WhatsApp channels.
@@ -218,7 +215,7 @@ public struct KlaviyoSDK {
     /// - Parameter subscription: A ``Subscription`` with the list ID, the channels to request consent
     ///   for, and an optional `customSource` label.
     public func create(subscription: Subscription) {
-        dispatchOnMainThread(action: .enqueueSubscription(subscription))
+        dispatchOnMainThread { KlaviyoCommands.enqueueSubscription(subscription) }
     }
 
     /// Set the current user's push token. This will be associated with profile and can be used to send them push notifications.
@@ -233,7 +230,7 @@ public struct KlaviyoSDK {
     public func set(pushToken: String) {
         Task {
             let enablement = await environment.getNotificationSettings()
-            dispatchOnMainThread(action: .setPushToken(pushToken, enablement))
+            dispatchOnMainThread { KlaviyoCommands.setPushToken(pushToken, enablement) }
         }
     }
 
@@ -246,7 +243,7 @@ public struct KlaviyoSDK {
             let enablement = await environment.getNotificationSettings()
             DispatchQueue.main.async {
                 Self.automaticPushTokenSequence.performIfLatest(generation) {
-                    _ = klaviyoSwiftEnvironment.send(.setAutomaticPushToken(apnDeviceToken, enablement))
+                    KlaviyoCommands.setPushToken(apnDeviceToken, enablement)
                 }
             }
         }
@@ -264,7 +261,7 @@ public struct KlaviyoSDK {
             return false
         }
 
-        dispatchOnMainThread(action: .trackingLinkReceived(url))
+        dispatchOnMainThread { KlaviyoCommands.trackingLinkReceived(url) }
         return true
     }
 
@@ -300,7 +297,7 @@ public struct KlaviyoSDK {
     /// - Returns: true if the notification originated from Klaviyo, false otherwise.
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -320,13 +317,16 @@ public struct KlaviyoSDK {
             return true
         }
 
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
+
         // Detect if this is an action button tap
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
             // Regular notification body tap
-            create(event: Event(name: ._openedPush, properties: properties))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: nil)
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: nil)
         }
 
         Task { @MainActor in
@@ -352,7 +352,7 @@ public struct KlaviyoSDK {
     @available(*, deprecated, message: "This will be removed in v6.0; use `handle(notificationResponse:withCompletionHandler:)` instead")
     public func handle(notificationResponse: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void, deepLinkHandler: ((URL) -> Void)? = nil) -> Bool {
         guard notificationResponse.isKlaviyoNotification,
-              let properties = notificationResponse.klaviyoProperties else {
+              let preview = formsPreview(from: notificationResponse) else {
             Task { @MainActor in BadgeManager.syncBadgeCount() }
             return false
         }
@@ -372,16 +372,41 @@ public struct KlaviyoSDK {
             return true
         }
 
+        startFormsPreview(token: preview.token)
+        let properties = preview.properties
+
         if notificationResponse.isActionButtonTap {
             handleActionButtonTap(notificationResponse: notificationResponse, properties: properties)
         } else {
-            create(event: Event(name: ._openedPush, properties: properties))
-            resolveOpenAction(for: notificationResponse, deepLinkHandler: deepLinkHandler)
+            create(event: Event(name: ._openedPush, properties: properties, priority: .high))
+            resolveOpenAction(for: notificationResponse, properties: properties, deepLinkHandler: deepLinkHandler)
         }
         Task { @MainActor in
             completionHandler()
         }
         return true
+    }
+
+    /// The notification's forms preview token and its properties with the token removed, or `nil`
+    /// when the properties can't be read. Has no side effects; see ``startFormsPreview(token:)``.
+    private func formsPreview(
+        from notificationResponse: UNNotificationResponse
+    ) -> (token: String?, properties: [String: Any])? {
+        guard let properties = notificationResponse.klaviyoProperties else { return nil }
+        return notificationResponse.klaviyoFormsPreview(in: properties)
+    }
+
+    /// Starts a forms preview session with `token` through the shared ``FormsPreviewTokenStore``,
+    /// restarting registered forms; without KlaviyoForms the token is held and has no effect.
+    /// A `nil` token does nothing, and a malformed one logs a warning that omits it. Called only
+    /// for a real open, after the dismiss and auto-track checks.
+    private func startFormsPreview(token: String?) {
+        guard let token else { return }
+        if let validated = FormsPreviewTokenStore.validate(token), validated == token {
+            Task { @MainActor in FormsPreviewTokenStore.shared.startPreview(validated) }
+        } else if #available(iOS 14.0, *) {
+            Logger.notifications.warning("Ignoring opened push with a malformed forms preview token")
+        }
     }
 
     /// Returns `true` and fires the completion handler when the Klaviyo proxy delegate has
@@ -410,10 +435,11 @@ public struct KlaviyoSDK {
     /// route through `DeepLinkManager.openExternalURL` and intentionally bypass the closure.
     private func resolveOpenAction(
         for notificationResponse: UNNotificationResponse,
+        properties: [String: Any],
         deepLinkHandler: ((URL) -> Void)?
     ) {
-        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL {
-            if notificationResponse.klaviyoWebUrl != nil, #available(iOS 14.0, *) {
+        if let deepLinkURL = notificationResponse.klaviyoDeepLinkURL(in: properties) {
+            if notificationResponse.klaviyoWebUrl(in: properties) != nil, #available(iOS 14.0, *) {
                 Logger.notifications.warning(
                     "Both url and web_url are present; url (deep link) takes precedence and web_url is ignored."
                 )
@@ -425,7 +451,7 @@ public struct KlaviyoSDK {
             } else {
                 Task { @MainActor in await DeepLinkManager.openDeepLink(deepLinkURL) }
             }
-        } else if let webUrl = notificationResponse.klaviyoWebUrl {
+        } else if let webUrl = notificationResponse.klaviyoWebUrl(in: properties) {
             Task { @MainActor in await DeepLinkManager.openExternalURL(webUrl) }
         }
     }
@@ -458,7 +484,7 @@ public struct KlaviyoSDK {
             actionProperties["Button Action"] = actionType.displayName()
         }
 
-        if let url = notificationResponse.actionButtonURL {
+        if let url = notificationResponse.actionButtonURL(in: properties) {
             switch notificationResponse.actionButtonType {
             case .deepLink:
                 actionProperties["Button Link"] = url.absoluteString
@@ -480,7 +506,7 @@ public struct KlaviyoSDK {
         }
 
         // Track action button event
-        create(event: Event(name: ._openedPush, properties: actionProperties))
+        create(event: Event(name: ._openedPush, properties: actionProperties, priority: .high))
     }
 }
 

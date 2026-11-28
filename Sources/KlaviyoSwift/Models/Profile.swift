@@ -25,6 +25,14 @@ public struct Profile: Equatable, Codable {
         case latitude
         case longitude
         case custom(customKey: String)
+
+        static let timezoneKey = "timezone"
+
+        /// Time zone name, sent as `location.timezone`.
+        /// We recommend using time zones from the IANA Time Zone Database, such as `America/New_York`.
+        public static var timezone: ProfileKey {
+            .custom(customKey: timezoneKey)
+        }
     }
 
     public struct Location: Equatable, Codable {
@@ -146,6 +154,7 @@ extension Profile {
         var image: String?
         var latitude: Double?
         var longitude: Double?
+        var timezone: String?
         var customProperties: [String: Any] = [:]
 
         for (key, value) in dict {
@@ -176,6 +185,8 @@ extension Profile {
                 latitude = value.value as? Double
             case .longitude:
                 longitude = value.value as? Double
+            case .custom(customKey: ProfileKey.timezoneKey):
+                timezone = value.value as? String
             case let .custom(customKey: customKey):
                 customProperties[customKey] = value.value
             }
@@ -189,7 +200,8 @@ extension Profile {
             latitude: latitude,
             longitude: longitude,
             region: region,
-            zip: zip
+            zip: zip,
+            timezone: timezone
         )
 
         let profile = Profile(

@@ -6,6 +6,7 @@
 //
 
 import KlaviyoCore
+import UIKit
 import XCTest
 
 /// Upper bound for waits on state that is expected to change.
@@ -14,6 +15,22 @@ let presentationEventTimeout: TimeInterval = 10
 /// Upper bound for ``XCTestCase/awaitBounded(_:timeout:file:line:_:)``, which only exists to
 /// fail a test whose awaited work never finishes.
 let hangSafeguard: TimeInterval = 60
+
+/// Touches `UIScreen` on the main thread, so the process registers with the simulator's UIKit
+/// services before any test runs. Called from the class `setUp` of suites that build a form
+/// web view.
+func registerWithUIKitServicesOnMain() {
+    if Thread.isMainThread {
+        touchMainScreen()
+    } else {
+        DispatchQueue.main.sync { touchMainScreen() }
+    }
+}
+
+/// Reads `UIScreen.main` through the Objective-C runtime.
+private func touchMainScreen() {
+    _ = (UIScreen.self as AnyObject).perform(NSSelectorFromString("mainScreen"))
+}
 
 /// Resets the global stores the presentation manager reads.
 func resetPresentationManagerStores() {
