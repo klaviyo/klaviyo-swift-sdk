@@ -14,6 +14,7 @@
 - [Profile Identification](#profile-identification)
   - [Reset Profile](#reset-profile)
   - [Anonymous Tracking Notice](#anonymous-tracking-notice)
+    - [Avoiding anonymous profiles](#avoiding-anonymous-profiles)
 - [Event tracking](#event-tracking)
   - [Arguments](#arguments)
 - [List Subscriptions](#list-subscriptions)
@@ -48,6 +49,7 @@
   - [In-App Forms Session Configuration](#in-app-forms-session-configuration)
   - [Unregistering from In-App Forms](#unregistering-from-in-app-forms)
   - [Personalized Forms Authentication](#personalized-forms-authentication)
+  - [Previewing Draft Forms on a Device](#previewing-draft-forms-on-a-device)
   - [Monitoring Form Lifecycle Events](#monitoring-form-lifecycle-events)
 - [Geofencing](#geofencing)
   - [Prerequisites](#prerequisites-2)
@@ -210,6 +212,31 @@ When an identifier is provided, Klaviyo will merge the anonymous user with an id
 > happens after your app calls `registerForRemoteNotifications()`. Because this can occur before you
 > call `setProfile`, `setEmail`, or `setPhoneNumber`, an anonymous profile will be created in Klaviyo
 > until you provide identifying information. This is expected behavior.
+
+#### Avoiding anonymous profiles
+
+If your app should never create a profile in Klaviyo until the user is known (email, phone number, or external ID), initialize the SDK as usual and hold back the calls below until after you call `set(email:)`, `set(phoneNumber:)`, or `set(externalId:)`. This guidance was verified against SDK version 5.4.0.
+
+1. **Leave automatic push token forwarding off.** Do not set `klaviyo_automatic_push_token_forwarding` to `true` in `Info.plist`; it is off when absent.
+2. **Before identifying the user, do not call:**
+   - `set(pushToken:)`
+   - `create(event:)`
+   - `set(profileAttribute:value:)` or `set(profile:)` with no email, phone number, or external ID
+   - `registerForInAppForms()`
+   - `registerGeofencing()`
+   - `handleUniversalTrackingLink(_:)`
+3. **After identifying the user,** call `set(pushToken:)` and register for forms and geofencing as normal.
+
+`handle(notificationResponse:)` and `klaviyo_automatic_push_open_tracking` are safe to use at any time: Klaviyo attributes push opens to the profile the notification was sent to, without creating a new one.
+
+Things to keep in mind:
+
+- **Requests are tagged with identity when they are queued.** Calling `set(email:)` later does not change requests that were already queued, and queued requests persist across app launches.
+- **Logout and switching users.** `resetProfile()` keeps the push token and registers it to a new anonymous profile, so don't call it on logout. Instead:
+  - On logout, stop making the calls listed above, and call `unregisterFromInAppForms()` and `unregisterGeofencing()`.
+  - On the next login, call `set(profile:)` with all of the new user's identifiers. When the identifiers differ, the SDK starts a fresh profile and sends the stored push token with the new identifiers in a single request. Calling `set(email:)` on its own keeps the previous user's other identifiers.
+  - Until someone logs in again, the previous user's profile keeps this device's push token and can still receive pushes on it.
+- **Existing installs.** If an earlier version of your app already created anonymous profiles, those profiles stay in Klaviyo. A user who later logs in on the same device is merged into their identified profile; users who never log in remain anonymous and must be cleaned up in Klaviyo. Requests queued by the earlier version still send after the update, and users who do not update keep the old behavior.
 
 ## Event tracking
 
@@ -977,6 +1004,27 @@ The SDK does not time out your provider, so your code must:
 - **Fail fast.** If you cannot produce a token, for example when no user is signed in, throw instead of waiting or retrying.
 - **Pass on the original network error.** The SDK retries after reconnect when the provider throws a `URLError`, so rethrow the original `URLError` without wrapping it.
 
+### Previewing Draft Forms on a Device
+
+>  ℹ️ Previewing draft forms, by push or by preview link, is available in SDK version [5.7.0](https://github.com/klaviyo/klaviyo-swift-sdk/releases/tag/5.7.0) and higher.
+
+There are two ways to preview a draft form in your app. Push is the preferred one.
+
+Push: in the form editor, choose **Preview on device** > **Send push** and send it to a saved test device. Tap the notification and the draft form opens in your app. It needs no code beyond the standard push setup (see [Push Notifications](#push-notifications)): automatic push handling, or your own call to `handle(notificationResponse:withCompletionHandler:)`, starts the preview when the notification is tapped.
+
+QR code or preview link: the **Preview on device** dialog also shows a QR code and a preview link for the draft form. The link is a deep link into your app with a `klaviyo-forms-preview` query parameter holding a short-lived preview token. Pass deep links to `handleFormsPreviewLink(_:)` before your own routing: it starts a preview session and returns `true` for a preview link, and returns `false`, changing nothing, for every other link. It works with custom schemes and universal links. If forms are registered, they restart in preview mode; if not, the preview starts when you call `registerForInAppForms()`.
+
+Call `handleFormsPreviewLink(_:)` wherever you already route deep links, before your own routing, as described in [Handling Universal Links](#handling-universal-links):
+
+```swift
+if KlaviyoSDK().handleFormsPreviewLink(url) { return }
+// Your own deep link handling
+```
+
+On cold launch the link arrives in `scene(_:willConnectTo:options:)` (or `application(_:didFinishLaunchingWithOptions:)` for App Delegate-based apps), so call it there too.
+
+You can also start a preview with a token directly using `KlaviyoSDK().startFormsPreview(_:)`, and end it with `KlaviyoSDK().endFormsPreview()`. Preview tokens only read a saved draft and expire after 30 minutes. The SDK keeps them in memory only and never logs them.
+
 ### Monitoring Form Lifecycle Events
 
 > ℹ️ Form lifecycle events are available in SDK version 5.3.0 and higher
@@ -1137,12 +1185,12 @@ app-extension process.
 Starting with version 1.7.0, the SDK will cache incoming data and flush it back to the Klaviyo API on an interval.
 The interval is based on the network link currently in use by the app. The table below shows the flush interval used for each type of connection:
 
-| Network   | Interval   |
-| :-------- | :--------- |
-| WWAN/Wifi | 10 seconds |
-| Cellular  | 30 seconds |
+| Network                                                     | Interval   |
+| :---------------------------------------------------------- | :--------- |
+| Wi-Fi or wired                                              | 10 seconds |
+| Cellular, personal hotspot, or any network in Low Data Mode | 30 seconds |
 
-Connection determination is based on notifications from our reachability service.
+Connection determination is based on Apple's `NWPathMonitor`, which reports whether a network is expensive or constrained.
 When there is no network available, the SDK will cache data until the network becomes available again.
 All data sent by the SDK should be available shortly after it is flushed by the SDK.
 

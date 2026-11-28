@@ -14,6 +14,11 @@ import XCTest
 
 @MainActor
 final class IAFWebViewModelScriptEscapingTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     private static let profileAttribute = "data-klaviyo-profile"
     private static let jwtAttribute = "data-klaviyo-jwt"
 
@@ -100,6 +105,29 @@ final class IAFWebViewModelScriptEscapingTests: XCTestCase {
             try assertAttributes(of: page, profile: profile, token: cached.token, value)
             IdentityStore.shared.reset()
         }
+    }
+
+    func testSetHeadAttributeScriptSetsValueUnchanged() throws {
+        for value in testValues {
+            let page = try JavaScriptPage()
+            try page.run(String.setHeadAttributeScript(Self.profileAttribute, value))
+
+            XCTAssertEqual(page.attributes[Self.profileAttribute], value, value)
+        }
+    }
+
+    func testStringLiteralCannotCloseScriptElement() {
+        XCTAssertEqual("</script>".javaScriptStringLiteral, #""<\/script>""#)
+    }
+
+    func testLoadScriptSetsApostropheProfileUnchanged() throws {
+        let profile = ProfileData(email: "o'brien@example.com", externalId: "St. John's Lane")
+        let page = try runLoadScript(profile: profile, token: nil)
+
+        XCTAssertEqual(
+            try jsonObject(page.attributes[Self.profileAttribute]),
+            ["email": "o'brien@example.com", "external_id": "St. John's Lane"]
+        )
     }
 
     // MARK: - Helpers

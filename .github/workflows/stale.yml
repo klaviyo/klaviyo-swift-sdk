@@ -3,29 +3,13 @@ name: Mark stale pull requests
 on:
   workflow_dispatch:
   schedule:
-  - cron: "0 17 * * *"
+    - cron: '0 17 * * *'
 
 jobs:
   stale:
-
     runs-on: ubuntu-latest
-
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
-    - uses: actions/stale@v5
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
-        only-labels: 'awaiting-reporter-response,missing-details'
-        remove-stale-when-updated: true
-        days-before-issue-stale: 14
-        days-before-issue-close: 14
-        stale-issue-label: 'stale'
-        stale-issue-message: 'This issue is stale due to inactivity. Please let us know if you are still encountering issues, otherwise this issue will automatically close in 14 days.'
-        close-issue-message: 'This issue has seen no updates in the past 28 days and will now be closed. Please open a new issue if you wish to report an update.'
-        exempt-issue-labels: 'evergreen,investigating,awaiting-team'
-        days-before-pr-stale: 16
-        days-before-pr-close: 14
-        stale-pr-message: 'This PR has not seen any updates in the last 16 days. Without further action this PR will be closed in 14 days. To disable further staleness checks add the `evergreen` label.'
-        close-pr-message: 'This PR has seen no updates in the past 30 days and will now be closed. Restore the branch and create a new PR if you wish to continue work.'
-        stale-pr-label: 'stale'
-        exempt-pr-labels: 'evergreen'
-        operations-per-run: 300
+      - uses: klaviyo/klaviyo-react-native-sdk/.github/shared/stale@master

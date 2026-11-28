@@ -46,6 +46,11 @@ private final class MockIAFWebViewModel: KlaviyoWebViewModeling {
 }
 
 final class KlaviyoWebViewControllerTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     /// Test to validate that the ``KlaviyoWebViewController`` removes any script message handlers
     /// from its ``WKWebView``'s ``WKUserContentController`` when it gets deallocated.
     @MainActor
@@ -96,6 +101,11 @@ final class KlaviyoWebViewControllerTests: XCTestCase {
 }
 
 final class IAFWebViewModelScriptTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // MARK: - Properties
 
     private var config: WKWebViewConfiguration!
@@ -119,18 +129,8 @@ final class IAFWebViewModelScriptTests: XCTestCase {
         }
         environment = testEnvironment
 
-        // Reset Klaviyo state
+        // Seed canonical Core stores for this test.
         seedCoreStores()
-        let testState = KlaviyoState(
-            apiKey: "abc123",
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
 
         // Create view model
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
@@ -197,7 +197,7 @@ final class IAFWebViewModelScriptTests: XCTestCase {
 
         // Then
         XCTAssertTrue(userScripts.contains(where: { $0.source.contains("data-sdk-version") }), "SDK version script should be present in userContentController")
-        XCTAssertTrue(userScripts.contains(where: { $0.source.contains("document.head.setAttribute('data-sdk-version', '0.0.1')") }), "SDK version script should contain the correct version")
+        XCTAssertTrue(userScripts.contains(where: { $0.source.contains("document.head.setAttribute(\"data-sdk-version\", \"0.0.1\")") }), "SDK version script should contain the correct version")
     }
 
     @MainActor

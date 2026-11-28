@@ -130,72 +130,40 @@ class UNNotificationResponseExtensionTests: XCTestCase {
     // MARK: - klaviyoDeepLinkURL Tests
 
     func testKlaviyoDeepLinkURL_WithValidURL_ReturnsURL() throws {
-        // Arrange
-        let validURLPayload: [AnyHashable: Any] = [
+        let payload: [String: Any] = [
             "body": ["_k": "some-value"],
             "url": "https://example.com/deeplink"
         ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
 
-        // Act
-        let response = try UNNotificationResponse.with(userInfo: validURLPayload)
-
-        // Assert
-        XCTAssertNotNil(response.klaviyoDeepLinkURL)
-        XCTAssertEqual(response.klaviyoDeepLinkURL?.absoluteString, "https://example.com/deeplink")
+        XCTAssertEqual(response.klaviyoDeepLinkURL(in: payload)?.absoluteString, "https://example.com/deeplink")
     }
 
     func testKlaviyoDeepLinkURL_WithInvalidURLString_ReturnsNil() throws {
-        // Arrange
-        let invalidURLPayload: [AnyHashable: Any] = [
+        let payload: [String: Any] = [
             "body": ["_k": "some-value"],
             "url": "ht tp://invalid-url" // Space in URL makes it invalid
         ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
 
-        // Act
-        let response = try UNNotificationResponse.with(userInfo: invalidURLPayload)
-
-        // Assert
-        XCTAssertNil(response.klaviyoDeepLinkURL)
+        XCTAssertNil(response.klaviyoDeepLinkURL(in: payload))
     }
 
     func testKlaviyoDeepLinkURL_WithoutURLProperty_ReturnsNil() throws {
-        // Arrange
-        let noURLPayload: [AnyHashable: Any] = [
-            "body": ["_k": "some-value"]
-        ]
+        let payload: [String: Any] = ["body": ["_k": "some-value"]]
+        let response = try UNNotificationResponse.with(userInfo: payload)
 
-        // Act
-        let response = try UNNotificationResponse.with(userInfo: noURLPayload)
-
-        // Assert
-        XCTAssertNil(response.klaviyoDeepLinkURL)
-    }
-
-    func testKlaviyoDeepLinkURL_WithNonKlaviyoNotification_ReturnsNil() throws {
-        // Arrange
-        let nonKlaviyoPayload: [AnyHashable: Any] = [
-            "url": "https://example.com/deeplink"
-        ]
-
-        // Act
-        let response = try UNNotificationResponse.with(userInfo: nonKlaviyoPayload)
-
-        // Assert
-        XCTAssertNil(response.klaviyoDeepLinkURL)
+        XCTAssertNil(response.klaviyoDeepLinkURL(in: payload))
     }
 
     func testKlaviyoDeepLinkURL_WithNonStringURL_ReturnsNil() throws {
-        // Arrange
-        let invalidURLTypePayload: [AnyHashable: Any] = [
+        let payload: [String: Any] = [
             "body": ["_k": "some-value"],
             "url": 12_345
         ]
+        let response = try UNNotificationResponse.with(userInfo: payload)
 
-        // Act
-        let response = try UNNotificationResponse.with(userInfo: invalidURLTypePayload)
-
-        // Assert
-        XCTAssertNil(response.klaviyoDeepLinkURL)
+        XCTAssertNil(response.klaviyoDeepLinkURL(in: payload))
     }
 
     // MARK: - klaviyoDedupKey Tests
@@ -375,5 +343,85 @@ class UNNotificationResponseExtensionTests: XCTestCase {
         ]
         let response = try UNNotificationResponse.with(userInfo: payload)
         XCTAssertNil(response.klaviyoWebUrl)
+    }
+
+    // MARK: - Forms Preview
+
+    private let previewToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ0123-_6"
+
+    private func formsPreview(for properties: [String: Any]) throws -> (token: String?, properties: [String: Any]) {
+        let response = try UNNotificationResponse.with(userInfo: properties)
+        return response.klaviyoFormsPreview(in: properties)
+    }
+
+    func testKlaviyoFormsPreview_ReadsAndStripsKeyValuePairs() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": previewToken, "other": "1"]
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
+    }
+
+    func testKlaviyoFormsPreview_PrefersKeyValuePairsAndStripsTheLinkToo() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": previewToken],
+            "url": "klaviyo://home?klaviyo-forms-preview=other&x=1"
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
+    }
+
+    func testKlaviyoFormsPreview_WithoutTokenReturnsPropertiesUnchanged() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["other": "1"],
+            "url": "klaviyo://home?x=1"
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertNil(preview.token)
+        XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
+        XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
+    }
+
+    func testKlaviyoFormsPreview_NonStringKeyValuePairFallsBackToLinkAndStripsKey() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": 42, "other": "1"],
+            "url": "klaviyo://home?klaviyo-forms-preview=\(previewToken)&x=1"
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["key_value_pairs"] as? [String: String], ["other": "1"])
+        XCTAssertEqual(preview.properties["url"] as? String, "klaviyo://home?x=1")
+    }
+
+    func testKlaviyoFormsPreview_NonStringKeyValuePairWithoutLinkHasNoToken() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "key_value_pairs": ["klaviyo-forms-preview": 42]
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertNil(preview.token)
+        XCTAssertEqual((preview.properties["key_value_pairs"] as? [String: Any])?.isEmpty, true)
+    }
+
+    func testKlaviyoFormsPreview_StripsFromUnparseableLinkAndKeepsSiblingBytes() throws {
+        let properties: [String: Any] = [
+            "body": ["_k": "{}"],
+            "url": "ht tp://home?q=a%2Bb&klaviyo-forms-preview=\(previewToken)#top"
+        ]
+        let preview = try formsPreview(for: properties)
+
+        XCTAssertEqual(preview.token, previewToken)
+        XCTAssertEqual(preview.properties["url"] as? String, "ht tp://home?q=a%2Bb#top")
     }
 }

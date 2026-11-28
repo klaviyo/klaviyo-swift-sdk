@@ -34,6 +34,33 @@ class NetworkSessionTests: XCTestCase {
         assertSnapshot(matching: response, as: .dump)
     }
 
+    func testDataTaskFallbackCancelsUnderlyingTask() async throws {
+        let started = expectation(description: "request started")
+        HangingURLProtocol.onStart = { started.fulfill() }
+        let session = createEmphemeralSession(protocolClasses: [HangingURLProtocol.self])
+        defer {
+            HangingURLProtocol.onStart = nil
+            session.invalidateAndCancel()
+        }
+        let request = URLRequest(url: URL(string: "https://example.com")!)
+        let finished = expectation(description: "request finished")
+        let outcome = ResultBox()
+        let task = Task {
+            do {
+                _ = try await NetworkSession.dataTaskFallback(session: session, request: request)
+            } catch {
+                outcome.error = error
+            }
+            finished.fulfill()
+        }
+        await fulfillment(of: [started], timeout: 2)
+
+        task.cancel()
+        await fulfillment(of: [finished], timeout: 2) // a broken cancel fails here instead of hanging
+
+        XCTAssertEqual((outcome.error as? URLError)?.code, .cancelled)
+    }
+
     func testGetPluginConfigurationWithValidPlist() {
         // Create a temporary plist file
         let tempDir = FileManager.default.temporaryDirectory
@@ -61,7 +88,7 @@ class NetworkSessionTests: XCTestCase {
 
             // Verify the result
             XCTAssertNotNil(result)
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.5.0 (test-plugin/1.0.0)")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.7.0 (test-plugin/1.0.0)")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
@@ -77,7 +104,7 @@ class NetworkSessionTests: XCTestCase {
         // Call the function with our mock bundle
         let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
-        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.5.0")
+        XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.7.0")
     }
 
     func testGetPluginConfigurationWithInvalidPlist() {
@@ -97,7 +124,7 @@ class NetworkSessionTests: XCTestCase {
             let result = NetworkSession.defaultUserAgent(bundle: mockBundle)
 
             // Verify the result is default
-            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.5.0")
+            XCTAssertEqual(result, "FooApp/1.2.3 (com.klaviyo.fooapp; build:1; iOS 1.1.1) klaviyo-swift/5.7.0")
 
             // Clean up
             try FileManager.default.removeItem(at: plistURL)
@@ -122,4 +149,27 @@ private class MockBundle: Bundle {
         }
         return nil
     }
+}
+
+private final class ResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _error: Error?
+    var error: Error? {
+        get { lock.lock(); defer { lock.unlock() }; return _error }
+        set { lock.lock(); _error = newValue; lock.unlock() }
+    }
+}
+
+private final class HangingURLProtocol: URLProtocol {
+    private static let lock = NSLock()
+    private nonisolated(unsafe) static var _onStart: (() -> Void)?
+    static var onStart: (() -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onStart }
+        set { lock.lock(); _onStart = newValue; lock.unlock() }
+    }
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.onStart?() }
+    override func stopLoading() {}
 }
