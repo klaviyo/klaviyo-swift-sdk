@@ -1,3 +1,4 @@
+import KlaviyoForms
 import KlaviyoSwift
 import SwiftUI
 
@@ -8,11 +9,23 @@ struct MenuView: View {
     @State private var showingCheckout = false
     @State private var showingPushLog = false
     @State private var showingAuthSettings = false
+    @State private var manualFormId = ""
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    HStack {
+                        TextField("Form ID", text: $manualFormId)
+                            .textFieldStyle(.roundedBorder)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        Button("Open Form") {
+                            KlaviyoSDK().openForm(manualFormId)
+                            print("📨 [Forms] Requested form: \(manualFormId)")
+                        }
+                        .disabled(manualFormId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                     ForEach(menuItems, id: \.id) { item in
                         MenuItemRow(item: item, onAddToCart: { item in
                             appState.addToCart(item)

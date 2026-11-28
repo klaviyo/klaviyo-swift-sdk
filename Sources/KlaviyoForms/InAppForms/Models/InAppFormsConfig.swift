@@ -20,7 +20,8 @@ public struct InAppFormsConfig {
     public let loadTimeout: TimeInterval?
 
     /// Recent analytics history to replay after the handshake, bounded to 0...30 seconds.
-    /// Zero disables historical replay; live events are still observed.
+    /// Also bounds how long the latest manual form request waits for forms data on an active runtime.
+    /// Zero disables historical replay and manual waiting; live events and ready requests still dispatch.
     public let eventReplayWindow: TimeInterval
 
     /// Called on the main thread after teardown for a terminal initialization failure.
@@ -37,7 +38,8 @@ public struct InAppFormsConfig {
     ///     To disable session timeout altogether, use ``TimeInterval.infinity``.
     ///   - loadTimeout: Positive, finite loading budget in seconds, after the initial JWT wait.
     ///     Omitted or invalid values use the existing SDK network timeout.
-    ///   - eventReplayWindow: Historical replay in seconds, clamped to 0...30. Defaults to 10.
+    ///   - eventReplayWindow: Analytics replay and manual form waiting in seconds, clamped to 0...30.
+    ///     Defaults to 10. Pending requests expire when their age reaches this window.
     ///   - onFailure: Main-thread callback after teardown for terminal pre-handshake initialization failure.
     public init(
         sessionTimeoutDuration: TimeInterval = 3600,

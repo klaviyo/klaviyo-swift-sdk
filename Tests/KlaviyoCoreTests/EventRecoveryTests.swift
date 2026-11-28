@@ -3,6 +3,45 @@ import Combine
 import XCTest
 
 final class EventRecoveryTests: XCTestCase {
+    func testOriginValidityUsesStrictOriginalAgeAndOptionalAgeCheck() {
+        var time: TimeInterval = 100
+        let eventBus = EventBus(buffer: EventBuffer(clock: { time }))
+        let origin = eventBus.captureOrigin(apiKey: "company", identity: ProfileData(anonymousId: "anon"))
+        XCTAssertTrue(eventBus.isCurrent(origin, within: 10))
+        XCTAssertFalse(eventBus.isCurrent(origin, within: 0))
+        time = 109.999
+        XCTAssertTrue(eventBus.isCurrent(origin, within: 10))
+        time = 110
+        XCTAssertFalse(eventBus.isCurrent(origin, within: 10))
+        XCTAssertTrue(eventBus.isCurrent(origin))
+        time = 130
+        XCTAssertFalse(eventBus.isCurrent(origin, within: 30))
+    }
+
+    func testOriginValidityPreservesCompatibleContextAndRejectsReplacementCompanyAndReset() {
+        let eventBus = EventBus()
+        let anonymous = ProfileData(anonymousId: "anon")
+        let origin = eventBus.captureOrigin(apiKey: "company", identity: anonymous)
+        eventBus.updateContext(
+            apiKey: "company", identity: ProfileData(email: "a@example.com", anonymousId: "anon")
+        )
+        XCTAssertTrue(eventBus.isCurrent(origin))
+        eventBus.updateContext(apiKey: "company", identity: ProfileData(
+            email: "a@example.com", externalId: "id", anonymousId: "anon"
+        ))
+        XCTAssertTrue(eventBus.isCurrent(origin))
+        eventBus.updateContext(
+            apiKey: "company", identity: ProfileData(email: "b@example.com", anonymousId: "anon")
+        )
+        XCTAssertFalse(eventBus.isCurrent(origin))
+        let replacement = eventBus.captureOrigin(apiKey: "company", identity: anonymous)
+        eventBus.updateContext(apiKey: "other", identity: anonymous)
+        XCTAssertFalse(eventBus.isCurrent(replacement))
+        let otherCompany = eventBus.captureOrigin(apiKey: "other", identity: anonymous)
+        eventBus.reset()
+        XCTAssertFalse(eventBus.isCurrent(otherCompany))
+    }
+
     func testReplayUsesOriginalMonotonicArrivalAndStrictConfiguredWindow() {
         var currentTime: TimeInterval = 0
         let buffer = EventBuffer(maxBufferAge: 30, clock: { currentTime })

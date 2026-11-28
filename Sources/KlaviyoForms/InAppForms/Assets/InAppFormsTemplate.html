@@ -5,6 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover">
             <title>Klaviyo In-App Form Template</title>
             <script type="text/javascript">
+                window.openForm = function(formId) {
+                    window._klOnsite = window._klOnsite || [];
+                    window._klOnsite.push(['openForm', formId]);
+                };
                 window.dispatchLifecycleEvent = function(type) {
                     console.log('Dispatching lifecycle event:', type);
                     document.head.dispatchEvent(new CustomEvent('lifecycleEvent', {
