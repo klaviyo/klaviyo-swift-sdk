@@ -9,21 +9,24 @@ final class ProfileResetEventRecoveryTests: XCTestCase {
 
     override func setUp() {
         environment = KlaviyoEnvironment.test()
+        featureFlags = .production
         klaviyoSwiftEnvironment = KlaviyoSwiftEnvironment.test()
-        SharedStoreMirror.reset()
+        resetCanonicalCoreStores()
+        LifecycleState.shared.reset()
+        EventBus.shared.reset()
     }
 
     override func tearDown() {
         cancellables.removeAll()
-        SharedStoreMirror.reset()
+        EventBus.shared.reset()
+        LifecycleState.shared.reset()
+        resetCanonicalCoreStores()
     }
 
     func testAnonymousResetRejectsHistoryQueuedDeliveryAndDeferredPublicationWithoutChangingIdentity() {
-        let state = anonymousState()
-        let store = Store(initialState: state, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { store.state.eraseToAnyPublisher() }
-        SharedStoreMirror.setup()
-        let origin = EventBus.shared.captureOrigin(apiKey: state.apiKey, identity: state.identity)
+        let identity = seedAnonymousIdentity()
+        markSessionInitialized()
+        let origin = EventBus.shared.captureOrigin(apiKey: "company", identity: identity)
         var queued: [EventBus.Delivery] = []
         EventBus.shared.formEventPublisher(replayWindow: 0)
             .receive(on: DispatchQueue.main)
@@ -31,8 +34,8 @@ final class ProfileResetEventRecoveryTests: XCTestCase {
             .store(in: &cancellables)
         EventBus.shared.publish(Event(name: .customEvent("queued-before-reset")), origin: origin)
 
-        _ = store.send(.resetProfile)
-        XCTAssertEqual(IdentityStore.shared.current, state.identity)
+        KlaviyoCommands.resetProfile()
+        XCTAssertEqual(IdentityStore.shared.current, identity)
         enrichAndPublishEvent(Event(name: .customEvent("deferred-before-reset")), origin: origin)
         var replay: [Event] = []
         EventBus.shared.eventPublisher().sink { replay.append($0) }.store(in: &cancellables)
@@ -45,13 +48,11 @@ final class ProfileResetEventRecoveryTests: XCTestCase {
     }
 
     func testAnonymousIdentificationStillPreservesHistoryAndDeferredOrigin() {
-        let state = anonymousState()
-        let store = Store(initialState: state, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { store.state.eraseToAnyPublisher() }
-        SharedStoreMirror.setup()
-        let origin = EventBus.shared.captureOrigin(apiKey: state.apiKey, identity: state.identity)
+        let identity = seedAnonymousIdentity()
+        markSessionInitialized()
+        let origin = EventBus.shared.captureOrigin(apiKey: "company", identity: identity)
         EventBus.shared.publish(Event(name: .customEvent("anonymous-history")), origin: origin)
-        _ = store.send(.setEmail("identified@example.com"))
+        KlaviyoCommands.setEmail("identified@example.com")
         enrichAndPublishEvent(Event(name: .customEvent("anonymous-deferred")), origin: origin)
         var names: [String] = []
         EventBus.shared.eventPublisher().sink { names.append($0.metric.name.value) }.store(in: &cancellables)
@@ -60,22 +61,20 @@ final class ProfileResetEventRecoveryTests: XCTestCase {
     }
 
     func testUninitializedResetDoesNotInvalidateEvents() {
-        var state = anonymousState()
-        state.initalizationState = .uninitialized
-        let store = Store(initialState: state, reducer: KlaviyoReducer())
-        let origin = EventBus.shared.captureOrigin(apiKey: state.apiKey, identity: state.identity)
+        let identity = seedAnonymousIdentity()
+        let origin = EventBus.shared.captureOrigin(apiKey: "company", identity: identity)
         EventBus.shared.publish(Event(name: .customEvent("history")), origin: origin)
-        _ = store.send(.resetProfile)
+        KlaviyoCommands.resetProfile()
         enrichAndPublishEvent(Event(name: .customEvent("deferred")), origin: origin)
         var names: [String] = []
         EventBus.shared.eventPublisher().sink { names.append($0.metric.name.value) }.store(in: &cancellables)
         XCTAssertEqual(names, ["history", "deferred"])
     }
 
-    private func anonymousState() -> KlaviyoState {
-        KlaviyoState(
-            apiKey: "company", anonymousId: "anonymous-id", queue: [],
-            requestsInFlight: [], initalizationState: .initialized
-        )
+    private func seedAnonymousIdentity() -> ProfileData {
+        let identity = ProfileData(anonymousId: "anonymous-id")
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "company"))
+        IdentityStore.shared.update(identity)
+        return identity
     }
 }

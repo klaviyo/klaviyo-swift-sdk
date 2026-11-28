@@ -12,64 +12,6 @@ import KlaviyoCore
 
 let TEST_API_KEY = "fake-key"
 
-let INITIALIZED_TEST_STATE = {
-    KlaviyoState(
-        apiKey: TEST_API_KEY,
-        anonymousId: environment.uuid().uuidString,
-        pushTokenData: .init(pushToken: "blob_token",
-                             pushEnablement: .authorized,
-                             pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
-    )
-}
-
-let INITILIZING_TEST_STATE = {
-    KlaviyoState(
-        apiKey: TEST_API_KEY,
-        anonymousId: environment.uuid().uuidString,
-        queue: [],
-        requestsInFlight: [],
-        initalizationState: .initializing,
-        flushing: true
-    )
-}
-
-let INITIALIZED_TEST_STATE_INVALID_PHONE = {
-    KlaviyoState(
-        apiKey: TEST_API_KEY,
-        anonymousId: environment.uuid().uuidString,
-        phoneNumber: "invalid_phone_number",
-        pushTokenData: .init(pushToken: "blob_token",
-                             pushEnablement: .authorized,
-                             pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
-    )
-}
-
-let INITIALIZED_TEST_STATE_INVALID_EMAIL = {
-    KlaviyoState(
-        apiKey: TEST_API_KEY,
-        email: "invalid_email",
-        anonymousId: environment.uuid().uuidString,
-        pushTokenData: .init(pushToken: "blob_token",
-                             pushEnablement: .authorized,
-                             pushBackground: .available,
-                             deviceData: .init(context: environment.appContextInfo())),
-        queue: [],
-        requestsInFlight: [],
-        initalizationState: .initialized,
-        flushing: true
-    )
-}
-
 extension Profile {
     static let SAMPLE_PROPERTIES = [
         "blob": "blob",
@@ -128,31 +70,6 @@ extension Event.Metric {
     static let test = Self(name: .customEvent("blob"))
 }
 
-extension KlaviyoState {
-    static let test = KlaviyoState(apiKey: "foo",
-                                   email: "test@test.com",
-                                   anonymousId: environment.uuid().uuidString,
-                                   phoneNumber: "phoneNumber",
-                                   externalId: "externalId",
-                                   pushTokenData: PushTokenData(
-                                       pushToken: "blob_token",
-                                       pushEnablement: .authorized,
-                                       pushBackground: .available,
-                                       deviceData: DeviceMetadata(context: environment.appContextInfo())
-                                   ),
-                                   queue: [],
-                                   requestsInFlight: [],
-                                   initalizationState: .initialized,
-                                   flushing: true)
-}
-
-let SAMPLE_DATA: NSMutableArray = [
-    [
-        "properties": [
-            "foo": "bar"
-        ]
-    ]
-]
 let TEST_URL = URL(string: "fake_url")!
 let TEST_RETURN_DATA = Data()
 
@@ -211,18 +128,8 @@ let TEST_FAILURE_JSON_INVALID_EMAIL = """
 """
 
 extension KlaviyoSwiftEnvironment {
-    static let testStore = Store(initialState: KlaviyoState(queue: []), reducer: KlaviyoReducer())
-
     static let test = {
-        KlaviyoSwiftEnvironment(send: { action in
-            testStore.send(action)
-        }, state: {
-            KlaviyoSwiftEnvironment.testStore.state.value
-        }, statePublisher: {
-            Just(INITIALIZED_TEST_STATE()).eraseToAnyPublisher()
-        }, stateChangePublisher: {
-            Empty<KlaviyoAction, Never>().eraseToAnyPublisher()
-        }, pruneCategory: { _ in
+        KlaviyoSwiftEnvironment(pruneCategory: { _ in
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
         }, injectNotificationDelegate: {
             // no-op: UNUserNotificationCenter.current() is unavailable in test runner
@@ -236,6 +143,16 @@ extension KlaviyoSwiftEnvironment {
             false
         }, notificationCenter: {
             MockNotificationCenter()
-        })
+        }, requestQueue: RequestQueue(
+            // The timed run loop is a NO-OP in tests: the clock throws, so a `start()`ed loop exits on
+            // its first sleep instead of periodically draining `QueueStore` in the background (which
+            // caused cross-test nondeterminism now that `completeInitialization` drives `start()`).
+            // `flushNow()` bypasses the loop, so tests that need a real drain still work.
+            clock: SleepClock { _ in throw CancellationError() },
+            // Mirror the production wiring so the env-reachable queue is observable through the
+            // standard `environment.klaviyoAPI.send` stub and exercises the real `willDrain`.
+            send: { request, info in await environment.klaviyoAPI.send(request, info) },
+            willDrain: { await ProfilePropertyBuffer.shared.flushIntoQueue() }
+        ))
     }
 }

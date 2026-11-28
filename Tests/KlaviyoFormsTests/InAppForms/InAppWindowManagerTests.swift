@@ -10,6 +10,11 @@ import UIKit
 import XCTest
 
 final class InAppWindowManagerTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // A representative iPhone-ish layout for tests.
     private let screenBounds = CGRect(x: 0, y: 0, width: 400, height: 800)
     private let safeArea = UIEdgeInsets(top: 47, left: 0, bottom: 34, right: 0)

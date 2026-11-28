@@ -43,6 +43,8 @@ struct LoginView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .keyboardType(.default)
                                 .font(.body)
+                                .accessibilityLabel("Zipcode")
+                                .accessibilityIdentifier("login_zipcode_text_field")
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -56,8 +58,12 @@ struct LoginView: View {
                                 .keyboardType(.emailAddress)
                                 .autocapitalization(.none)
                                 .font(.body)
+                                .accessibilityLabel("Email")
+                                .accessibilityIdentifier("login_email_text_field")
 
                             AuthTokenProviderSettings()
+
+                            FormsPreviewSettings()
                         }
                     }
 
@@ -70,6 +76,8 @@ struct LoginView: View {
 
                         Toggle("", isOn: $rememberMe)
                             .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            .accessibilityLabel("Remember Me")
+                            .accessibilityIdentifier("login_remember_me_toggle")
                     }
 
                     // Collect marketing consent at signup, shown only when a list ID is configured
@@ -80,6 +88,7 @@ struct LoginView: View {
                                 .foregroundColor(.secondary)
                         }
                         .toggleStyle(SwitchToggleStyle(tint: .blue))
+                        .accessibilityIdentifier("login_subscribe_marketing_toggle")
                     }
 
                     Button(action: login) {
@@ -101,6 +110,7 @@ struct LoginView: View {
                     }
                     .disabled(isFormInvalid)
                     .opacity(isFormInvalid ? 0.6 : 1.0)
+                    .accessibilityIdentifier("login_get_started_button")
                 }
                 .padding(.horizontal, 32)
             }
@@ -136,6 +146,7 @@ struct AuthTokenProviderSettings: View {
                 .onChange(of: appState.isAuthTokenProviderEnabled) {
                     appState.setAuthTokenProvider(enabled: $0)
                 }
+                .accessibilityIdentifier("auth_token_provider_toggle")
 
             if appState.isAuthTokenProviderEnabled {
                 SecureField("Paste a JWT", text: $appState.pastedJWT)
@@ -145,6 +156,46 @@ struct AuthTokenProviderSettings: View {
                     .font(.body)
                     .lineLimit(1)
                     .frame(height: 44)
+                    .accessibilityLabel("JWT")
+                    .accessibilityIdentifier("auth_token_jwt_secure_field")
+            }
+        }
+    }
+}
+
+struct FormsPreviewSettings: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Forms preview", isOn: $appState.isFormsPreviewEnabled)
+                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                .onChange(of: appState.isFormsPreviewEnabled) {
+                    appState.setFormsPreview(enabled: $0)
+                }
+                .accessibilityIdentifier("forms_preview_toggle")
+
+            if appState.isFormsPreviewEnabled {
+                HStack {
+                    TextField("Paste a forms preview token", text: $appState.formsPreviewToken)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .keyboardType(.asciiCapable)
+                        .submitLabel(.done)
+                        .onSubmit { appState.applyFormsPreviewToken() }
+                        .font(.body)
+                        .lineLimit(1)
+                        .frame(height: 44)
+                        .accessibilityIdentifier("forms_preview_token_text_field")
+
+                    Button("Set") {
+                        appState.applyFormsPreviewToken()
+                    }
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityHint("Loads draft forms with the pasted preview token.")
+                    .accessibilityIdentifier("forms_preview_set_button")
+                }
             }
         }
     }

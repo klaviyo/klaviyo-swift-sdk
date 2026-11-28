@@ -1,7 +1,7 @@
 CONFIG = debug
-XCODE = 15.4
+XCODE = 16.4
 # Simulator runtime *major family* to test against. Default is for local runs; CI
-# overrides per matrix row (macos-14 -> iOS 17, macos-15 -> iOS 18, macos-26 -> iOS 26)
+# overrides per matrix row (macos-15 -> iOS 18, macos-26 -> iOS 26)
 # so each runner tests its own OS generation. Resolved to the newest installed minor
 # (e.g. "iOS 26" -> "iOS 26.5") below, so the choice is deterministic when several
 # minors are installed. The test-library guard fails loudly if none is installed.
