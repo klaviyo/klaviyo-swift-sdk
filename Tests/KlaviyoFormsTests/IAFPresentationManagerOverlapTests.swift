@@ -301,7 +301,7 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         let foregroundBuild = Task { await manager.handleAppLifecycleEvent(.foregrounded) }
         try await waitForParkedBuilds(2)
 
-        await gate.releaseAll()
+        await gate.releaseNewest()
         await foregroundBuild.value
         let secondInstalled = await waitUntil { self.activeViewModel?.apiKey == "second-key" }
         XCTAssertTrue(secondInstalled)
@@ -313,6 +313,54 @@ final class IAFPresentationManagerOverlapTests: XCTestCase {
         lifecycleEvents.send(.backgrounded)
         let backgroundObserved = await waitUntil { self.lastBackgrounded != nil }
         XCTAssertTrue(backgroundObserved, "Lifecycle observation stopped after the superseded build")
+    }
+}
+
+extension IAFPresentationManagerOverlapTests {
+    func testSessionRebuildRetainsBackgroundQueuedDuringTokenFetch() async throws {
+        let lifecycleEvents = PassthroughSubject<LifeCycleEvents, Never>()
+        environment.appLifeCycle = AppLifeCycleEvents(lifeCycleEvents: {
+            lifecycleEvents.eraseToAnyPublisher()
+        })
+        manager.initializeIAF(configuration: InAppFormsConfig(sessionTimeoutDuration: 0))
+        SDKConfigStore.shared.update(KlaviyoConfig(apiKey: "session-key"))
+        let firstInstalled = await waitUntil {
+            self.activeViewModel != nil && self.lifecycleObserver != nil
+        }
+        XCTAssertTrue(firstInstalled)
+        let first = try XCTUnwrap(activeViewModel)
+
+        lifecycleEvents.send(.backgrounded)
+        let firstBackgroundObserved = await waitUntil { self.lastBackgrounded != nil }
+        XCTAssertTrue(firstBackgroundObserved)
+        try await gateTokenFetch()
+        lifecycleEvents.send(.foregrounded)
+        try await waitForParkedBuilds(1)
+        XCTAssertNil(lastBackgrounded)
+        XCTAssertNil(manager.viewController)
+
+        lifecycleEvents.send(.backgrounded)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+        XCTAssertNil(lastBackgrounded)
+        await gate.releaseNewest()
+        let backgroundRetained = await waitUntil { self.lastBackgrounded != nil }
+        XCTAssertTrue(
+            backgroundRetained,
+            "Session rebuild dropped the background event queued during JWT fetch"
+        )
+        let rebuilt = try XCTUnwrap(activeViewModel)
+        XCTAssertFalse(rebuilt === first)
+
+        lifecycleEvents.send(.foregrounded)
+        try await waitForParkedBuilds(2)
+        XCTAssertNil(manager.viewController, "The retained background must expire the next session")
+        await gate.releaseAll()
+        let nextInstalled = await waitUntil {
+            self.activeViewModel != nil && self.activeViewModel !== rebuilt
+        }
+        XCTAssertTrue(nextInstalled)
     }
 }
 

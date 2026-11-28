@@ -7,8 +7,13 @@ import KlaviyoCore
 
 /// Enriches an event with device/SDK metadata and pushes it to the `KlaviyoCore` `EventBus`.
 /// Called from `KlaviyoCommands.enqueueEvent` via `Task.detached`.
-func enrichAndPublishEvent(_ event: Event) {
-    EventBus.shared.publish(enrichEventWithMetadata(event))
+func enrichAndPublishEvent(_ event: Event, origin: EventBus.Origin? = nil) {
+    let enriched = enrichEventWithMetadata(event)
+    if let origin {
+        EventBus.shared.publish(enriched, origin: origin)
+    } else {
+        EventBus.shared.publish(enriched)
+    }
 }
 
 /// Returns a copy of `event` with device/SDK/app metadata appended to its properties.

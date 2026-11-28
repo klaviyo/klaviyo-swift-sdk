@@ -64,6 +64,7 @@ enum KlaviyoCommands {
             environment.emitDeveloperWarning("Klaviyo SDK not initialized; dropping pre-init resetProfile")
             return
         }
+        EventBus.shared.reset()
         // Capture the token BEFORE the mutate (IdentityStore writeLock is non-reentrant).
         let tokenBeforeReset = IdentityStore.shared.pushToken
 
@@ -221,6 +222,7 @@ enum KlaviyoCommands {
             }
             updated = profile // capture post-mutation identity for enqueue below
         }
+        EventBus.shared.updateContext(apiKey: SDKConfigStore.shared.current.apiKey, identity: updated)
 
         // Clear staged profile properties.
         // Must run OUTSIDE mutate (writeLock is non-reentrant) and only when reset actually fired.
@@ -278,6 +280,7 @@ enum KlaviyoCommands {
         RequestEnqueuer.enqueueEvent(event)
         guard LifecycleState.shared.current == .initialized else { return }
         let identity = IdentityStore.shared.current
+        let origin = EventBus.shared.captureOrigin(apiKey: SDKConfigStore.shared.current.apiKey, identity: identity)
         let publishedEvent = event.updateEventWithIdentifiers(
             email: identity.email,
             phoneNumber: identity.phoneNumber,
@@ -291,7 +294,7 @@ enum KlaviyoCommands {
             let requestQueue = klaviyoSwiftEnvironment.requestQueue
             Task { await requestQueue.flushNow() }
         }
-        Task.detached { enrichAndPublishEvent(publishedEvent) }
+        Task.detached { enrichAndPublishEvent(publishedEvent, origin: origin) }
     }
 
     /// Enqueues an aggregate-event payload directly via `RequestEnqueuer`. No init gate.
@@ -368,6 +371,7 @@ enum KlaviyoCommands {
             apply(&profile)
             updated = profile // capture post-mutation identity for enqueue below
         }
+        EventBus.shared.updateContext(apiKey: SDKConfigStore.shared.current.apiKey, identity: updated)
         guard let anonymousId = updated.anonymousId else { return }
 
         // Read the token AFTER mutate returns (non-reentrant writeLock).

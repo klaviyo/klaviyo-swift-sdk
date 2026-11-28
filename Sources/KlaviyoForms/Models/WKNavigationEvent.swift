@@ -23,4 +23,5 @@ enum WKNavigationEvent: String {
 
     /// Invoked when an error occurs during a committed main frame navigation.
     case didFailNavigation
+    case webContentProcessTerminated
 }

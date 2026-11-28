@@ -48,6 +48,7 @@ extension KlaviyoCommands {
             }
 
             // Switch the config to the new company.
+            EventBus.shared.reset()
             SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
 
             let previousPushTokenData = IdentityStore.shared.pushToken
@@ -98,6 +99,7 @@ extension KlaviyoCommands {
         if LifecycleState.shared.current == .uninitialized,
            let previousApiKey = SDKConfigStore.shared.current.apiKey,
            previousApiKey != apiKey {
+            EventBus.shared.reset()
             let previous = IdentityStore.shared.current
             if let anonymousId = previous.anonymousId, let tokenData = IdentityStore.shared.pushToken {
                 let request = RequestFactory.unregisterRequest(

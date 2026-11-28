@@ -59,11 +59,7 @@ extension KlaviyoSDKModule {
     @MainActor
     @discardableResult
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig()) -> Self {
-        Task {
-            await MainActor.run {
-                IAFPresentationManager.shared.initializeIAF(configuration: configuration)
-            }
-        }
+        IAFPresentationManager.shared.initializeIAF(configuration: configuration)
         return self
     }
 
@@ -137,11 +133,7 @@ extension KlaviyoSDKModule {
     public func unregisterFromInAppForms() -> Self {
         // Registering again loads published forms
         FormsPreviewTokenStore.shared.clear()
-        Task {
-            await MainActor.run {
-                IAFPresentationManager.shared.destroyWebviewAndListeners()
-            }
-        }
+        IAFPresentationManager.shared.destroyWebviewAndListeners()
 
         return self
     }
@@ -226,13 +218,6 @@ extension KlaviyoSDKModule {
     @_spi(KlaviyoPrivate)
     @available(*, deprecated, message: "This function is for internal use only, and should not be used in production applications")
     public func registerForInAppForms(configuration: InAppFormsConfig = InAppFormsConfig(), assetSource: String) {
-        Task {
-            await MainActor.run {
-                IAFPresentationManager.shared.initializeIAF(
-                    configuration: configuration,
-                    assetSource: assetSource
-                )
-            }
-        }
+        IAFPresentationManager.shared.initializeIAF(configuration: configuration, assetSource: assetSource)
     }
 }

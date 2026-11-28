@@ -22,6 +22,9 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     private static let maxIdentityTokenFetchAttempts = 3
 
     weak var delegate: KlaviyoWebViewDelegate?
+    var onLoadFailure: (@MainActor () -> Void)?
+    private(set) var hasCompletedHandshake = false
+    private var isInvalidated = false
 
     let url: URL
     var loadScripts: Set<WKUserScript>? = Set<WKUserScript>()
@@ -79,6 +82,11 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             script.id = 'klaviyoJS';
             script.type = 'text/javascript';
             script.src = \(String(describing: apiURL).javaScriptStringLiteral);
+            script.onerror = function() {
+                window.webkit.messageHandlers.KlaviyoNativeBridge.postMessage(
+                    JSON.stringify({type: 'abort', data: {reason: 'Unable to load klaviyo.js'}})
+                );
+            };
             document.head.appendChild(script)
         """
 
@@ -221,6 +229,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     func establishHandshake(timeout: TimeInterval) async throws {
+        guard !isInvalidated else { throw CancellationError() }
         guard let delegate else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.warning("Required reference to `KlaviyoWebViewDelegate` is `nil`; unable to establish handshake")
@@ -229,11 +238,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         }
 
         delegate.preloadUrl()
+        guard !isInvalidated, !Task.isCancelled else { throw CancellationError() }
 
         do {
             try await withTimeout(seconds: timeout) { [weak self] in
                 guard let self else { throw ObjectStateError.objectDeallocated }
-                await self.handshakeStream.first { _ in true }
+                let handshake: Void? = await self.handshakeStream.first { _ in true }
+                guard handshake != nil else { throw CancellationError() }
             }
         } catch let error as TimeoutError {
             if #available(iOS 14.0, *) {
@@ -255,7 +266,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
         profileUpdatesCancellable = IdentityStore.shared.publisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newProfileData in
-                guard let self else { return }
+                guard let self, !isInvalidated else { return }
 
                 if newProfileData != self.profileData {
                     if #available(iOS 14.0, *) {
@@ -311,13 +322,14 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if let profileAttributesScript {
                 profileWritten = await self?.writeProfileAttributes(profileAttributesScript) ?? false
             }
+            guard !Task.isCancelled, self?.isInvalidated == false else { return false }
             await authTokenManager.clearReplacedProfileTokenState()
             return profileWritten
         }
         pendingIdentityReplacement = replacement
         profileUpdateTask = Task { @MainActor [weak self] in
             let profileWritten = await replacement.value
-            guard let self else { return }
+            guard let self, !isInvalidated, !Task.isCancelled else { return }
             if pendingIdentityReplacement == replacement {
                 pendingIdentityReplacement = nil
             }
@@ -331,6 +343,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     @discardableResult
     private func writeProfileAttributes(_ script: String) async -> Bool {
+        guard !isInvalidated, !Task.isCancelled else { return false }
         do {
             let result = try await delegate?.evaluateJavaScript(script)
             if #available(iOS 14.0, *) {
@@ -354,7 +367,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     private func refreshAuthToken(for identity: ProfileData) async {
         for _ in 0..<Self.maxIdentityTokenFetchAttempts {
-            guard isCompatibleWithPage(identity) else { return }
+            guard !isInvalidated, !Task.isCancelled, isCompatibleWithPage(identity) else { return }
             do {
                 let refresh = try await authTokenManager.currentTokenRefresh(mode: .background)
                 if refresh.generation == authTokenManager.currentIdentityGeneration {
@@ -411,7 +424,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
     @MainActor
     @discardableResult
     func pushAuthToken(_ token: String, generation: UInt64) async -> Bool {
-        guard !isPageBehindIdentityStore,
+        guard !isInvalidated, !Task.isCancelled, !isPageBehindIdentityStore,
               await isDeliverable(token, generation: generation) else { return false }
         var awaitedReplacement: Task<Bool, Never>?
         while let replacement = pendingIdentityReplacement, replacement != awaitedReplacement {
@@ -419,7 +432,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             awaitedReplacement = replacement
             guard await isDeliverable(token, generation: generation) else { return false }
         }
-        guard !isPageBehindIdentityStore else {
+        guard !isInvalidated, !Task.isCancelled, !isPageBehindIdentityStore else {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Holding auth token until the profile change reaches In-App Forms")
             }
@@ -457,6 +470,13 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     func handleNavigationEvent(_ event: WKNavigationEvent) {
+        guard !isInvalidated else { return }
+        switch event {
+        case .didFailNavigation, .didFailProvisionalNavigation, .webContentProcessTerminated:
+            if !hasCompletedHandshake { onLoadFailure?() }
+        default:
+            break
+        }
         if #available(iOS 14.0, *) {
             Logger.webViewLogger.debug("Received navigation event: \(event.rawValue)")
         }
@@ -464,6 +484,7 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
 
     @MainActor
     func handleScriptMessage(_ message: WKScriptMessage) {
+        guard !isInvalidated else { return }
         guard let handler = MessageHandler(rawValue: message.name) else {
             // script message has no handler
             if #available(iOS 14.0, *) {
@@ -629,8 +650,15 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Received 'abort' event from KlaviyoJS with reason: \(reason, privacy: .public)")
             }
-            formLifecycleContinuation.yield(.abort)
+            if !hasCompletedHandshake, let onLoadFailure {
+                onLoadFailure()
+            } else {
+                formLifecycleContinuation.yield(.abort)
+            }
         case .handShook:
+            guard !hasCompletedHandshake else { return }
+            hasCompletedHandshake = true
+            onLoadFailure = nil
             if #available(iOS 14.0, *) {
                 Logger.webViewLogger.info("Successful handshake with JS")
             }
@@ -669,6 +697,21 @@ class IAFWebViewModel: KlaviyoWebViewModeling {
             // The page stays in place, inert; the next session loads published forms.
             previewTokenStore.clear()
         }
+    }
+
+    @MainActor
+    func invalidate() {
+        isInvalidated = true
+        onLoadFailure = nil
+        profileUpdatesCancellable?.cancel()
+        profileUpdatesCancellable = nil
+        profileUpdateTask?.cancel()
+        profileUpdateTask = nil
+        pendingIdentityReplacement?.cancel()
+        pendingIdentityReplacement = nil
+        delegate = nil
+        handshakeContinuation.finish()
+        formLifecycleContinuation.finish()
     }
 
     /// Invokes the form lifecycle handler for a CTA tap when form identity fields are present.
