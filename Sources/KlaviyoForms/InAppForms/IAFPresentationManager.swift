@@ -115,6 +115,10 @@ class IAFPresentationManager {
         formLifecycleHandler = nil
     }
 
+    var hasFormLifecycleHandler: Bool {
+        formLifecycleHandler != nil
+    }
+
     // MARK: - Registration State
 
     /// Yields the current registration state, then every change, including the SDK's own

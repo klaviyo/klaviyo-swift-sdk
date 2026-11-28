@@ -405,4 +405,152 @@ final class FormLifecycleHandlerTests: XCTestCase {
         )
         XCTAssertEqual(ctaForEventName.eventName, "formCtaClicked")
     }
+
+    // MARK: - FormWillDisplay Tests
+
+    func testFormWillDisplayEventName() {
+        let continuation = FormDisplayContinuation { _ in }
+        let event = FormLifecycleEvent.formWillDisplay(
+            formId: "form1", formName: "Test", formType: "POPUP", continuation: continuation
+        )
+        XCTAssertEqual(event.eventName, "formWillDisplay")
+    }
+
+    func testFormWillDisplayComputedProperties() {
+        let continuation = FormDisplayContinuation { _ in }
+        let event = FormLifecycleEvent.formWillDisplay(
+            formId: "gateId", formName: "Gate Form", formType: "FLYOUT", continuation: continuation
+        )
+        XCTAssertEqual(event.formId, "gateId")
+        XCTAssertEqual(event.formName, "Gate Form")
+    }
+
+    func testFormWillDisplayEquality() {
+        let cont1 = FormDisplayContinuation { _ in }
+        let cont2 = FormDisplayContinuation { _ in }
+        let event1 = FormLifecycleEvent.formWillDisplay(
+            formId: "abc", formName: "Form", formType: "POPUP", continuation: cont1
+        )
+        let event2 = FormLifecycleEvent.formWillDisplay(
+            formId: "abc", formName: "Form", formType: "POPUP", continuation: cont2
+        )
+        // Equality ignores continuation reference
+        XCTAssertEqual(event1, event2)
+    }
+
+    func testFormWillDisplayInequalityByFormType() {
+        let cont = FormDisplayContinuation { _ in }
+        let popup = FormLifecycleEvent.formWillDisplay(
+            formId: "abc", formName: "Form", formType: "POPUP", continuation: cont
+        )
+        let flyout = FormLifecycleEvent.formWillDisplay(
+            formId: "abc", formName: "Form", formType: "FLYOUT", continuation: cont
+        )
+        XCTAssertNotEqual(popup, flyout)
+    }
+
+    @MainActor
+    func testHandlerCalledForFormWillDisplay() {
+        // Given
+        let expectation = expectation(description: "Handler called for formWillDisplay")
+        var receivedEvent: FormLifecycleEvent?
+
+        presentationManager.registerFormLifecycleHandler { event in
+            receivedEvent = event
+            expectation.fulfill()
+        }
+
+        let continuation = FormDisplayContinuation { _ in }
+
+        // When
+        presentationManager.invokeLifecycleHandler(for: .formWillDisplay(
+            formId: "gate123", formName: "Gated Form", formType: "POPUP", continuation: continuation
+        ))
+
+        // Then
+        wait(for: [expectation], timeout: 1.0)
+        guard case let .formWillDisplay(formId, formName, formType, _) = receivedEvent else {
+            XCTFail("Handler should receive formWillDisplay event, got \(String(describing: receivedEvent))")
+            return
+        }
+        XCTAssertEqual(formId, "gate123")
+        XCTAssertEqual(formName, "Gated Form")
+        XCTAssertEqual(formType, "POPUP")
+    }
+
+    // MARK: - FormDisplayContinuation Tests
+
+    func testContinuationAccept() {
+        let expectation = expectation(description: "Accept callback called")
+        var receivedAllowed: Bool?
+
+        let continuation = FormDisplayContinuation { allowed in
+            receivedAllowed = allowed
+            expectation.fulfill()
+        }
+
+        continuation.accept()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedAllowed, true)
+    }
+
+    func testContinuationReject() {
+        let expectation = expectation(description: "Reject callback called")
+        var receivedAllowed: Bool?
+
+        let continuation = FormDisplayContinuation { allowed in
+            receivedAllowed = allowed
+            expectation.fulfill()
+        }
+
+        continuation.reject()
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedAllowed, false)
+    }
+
+    func testContinuationDoubleCallIgnored() {
+        let expectation = expectation(description: "Callback called only once")
+        var callCount = 0
+
+        let continuation = FormDisplayContinuation { _ in
+            callCount += 1
+            expectation.fulfill()
+        }
+
+        continuation.accept()
+        continuation.reject() // should be ignored
+        continuation.accept() // should be ignored
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(callCount, 1, "Callback should only be called once despite multiple calls")
+    }
+
+    func testContinuationFirstCallWins() {
+        let expectation = expectation(description: "First call wins")
+        var receivedAllowed: Bool?
+
+        let continuation = FormDisplayContinuation { allowed in
+            receivedAllowed = allowed
+            expectation.fulfill()
+        }
+
+        continuation.reject() // first call: reject
+        continuation.accept() // second call: should be ignored
+
+        wait(for: [expectation], timeout: 1.0)
+        XCTAssertEqual(receivedAllowed, false, "First call (reject) should win")
+    }
+
+    @MainActor
+    func testHasFormLifecycleHandler() {
+        XCTAssertFalse(presentationManager.hasFormLifecycleHandler)
+
+        presentationManager.registerFormLifecycleHandler { _ in }
+        XCTAssertTrue(presentationManager.hasFormLifecycleHandler)
+
+        presentationManager.unregisterFormLifecycleHandler()
+        XCTAssertFalse(presentationManager.hasFormLifecycleHandler)
+    }
 }
