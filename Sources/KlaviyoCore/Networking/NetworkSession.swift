@@ -64,6 +64,52 @@ public struct NetworkSession {
         return userAgent
     }
 
+    /// iOS 13/14 path: `dataTask` ignores Swift cancellation, so cancel the task explicitly.
+    /// A task cancelled before it starts never runs its handler, so resume that case ourselves.
+    static func dataTaskFallback(session: URLSession, request: URLRequest) async throws -> (Data, URLResponse) {
+        let box = DataTaskBox()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<(Data, URLResponse), Error>) in
+                let task = session.dataTask(with: request) { data, response, error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else if let data, let response {
+                        continuation.resume(returning: (data, response))
+                    } else {
+                        continuation.resume(throwing: URLError(.badServerResponse))
+                    }
+                }
+                box.set(task)
+                if Task.isCancelled { task.cancel() }
+                task.resume()
+            }
+        } onCancel: {
+            box.cancel()
+        }
+    }
+
+    private final class DataTaskBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var task: URLSessionDataTask?
+        private var cancelled = false
+
+        func set(_ task: URLSessionDataTask) {
+            lock.lock()
+            self.task = task
+            let wasCancelled = cancelled
+            lock.unlock()
+            if wasCancelled { task.cancel() }
+        }
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            let task = task
+            lock.unlock()
+            task?.cancel()
+        }
+    }
+
     public static let production = { () -> NetworkSession in
         let session = createEmphemeralSession()
 
@@ -73,16 +119,7 @@ public struct NetworkSession {
             if #available(iOS 15, *) {
                 return try await session.data(for: request)
             } else {
-                return try await withCheckedThrowingContinuation {
-                    (continuation: CheckedContinuation<(Data, URLResponse), Error>) in
-                    session.dataTask(with: request) { data, response, error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume(with: Result.success((data!, response!)))
-                        }
-                    }.resume()
-                }
+                return try await dataTaskFallback(session: session, request: request)
             }
         })
     }()

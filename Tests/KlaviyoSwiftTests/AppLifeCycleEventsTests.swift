@@ -51,20 +51,22 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    func testAppTerminateGetsStopAction() {
+    func testAppTerminateEmitsTerminatedEvent() {
         environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.willTerminateNotification)
-        let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
-        stopActionExpection.assertForOverFulfill = true
-        var receivedAction: KlaviyoAction?
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action.transformToKlaviyoAction
-            stopActionExpection.fulfill()
+        let terminatedExpectation = XCTestExpectation(description: "Terminated lifecycle event is received.")
+        terminatedExpectation.assertForOverFulfill = true
+        var receivedEvent: LifeCycleEvents?
+        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { event in
+            receivedEvent = event
+            terminatedExpectation.fulfill()
         }
 
         passThroughSubject.send(Notification(name: UIApplication.willTerminateNotification.self))
 
-        wait(for: [stopActionExpection], timeout: 0.1)
-        XCTAssertEqual(KlaviyoAction.stop, receivedAction)
+        wait(for: [terminatedExpectation], timeout: 0.1)
+        guard case .terminated = receivedEvent else {
+            return XCTFail("expected .terminated, got \(String(describing: receivedEvent))")
+        }
         cancellable.cancel()
     }
 
@@ -87,20 +89,22 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    func testAppBackgroundGetsStopAction() {
+    func testAppBackgroundEmitsBackgroundedEvent() {
         environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.didEnterBackgroundNotification)
-        let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
-        stopActionExpection.assertForOverFulfill = true
-        var receivedAction: KlaviyoAction?
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action.transformToKlaviyoAction
-            stopActionExpection.fulfill()
+        let backgroundedExpectation = XCTestExpectation(description: "Backgrounded lifecycle event is received.")
+        backgroundedExpectation.assertForOverFulfill = true
+        var receivedEvent: LifeCycleEvents?
+        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { event in
+            receivedEvent = event
+            backgroundedExpectation.fulfill()
         }
 
         passThroughSubject.send(Notification(name: UIApplication.didEnterBackgroundNotification.self))
 
-        wait(for: [stopActionExpection], timeout: 0.1)
-        XCTAssertEqual(KlaviyoAction.stop, receivedAction)
+        wait(for: [backgroundedExpectation], timeout: 0.1)
+        guard case .backgrounded = receivedEvent else {
+            return XCTFail("expected .backgrounded, got \(String(describing: receivedEvent))")
+        }
         cancellable.cancel()
     }
 
@@ -123,44 +127,23 @@ class AppLifeCycleEventsTests: XCTestCase {
         cancellable.cancel()
     }
 
-    func testAppBecomeActiveGetsStartAction() {
+    func testAppBecomeActiveEmitsForegroundedEvent() {
         environment.notificationCenterPublisher = getFilteredNotificationPublished(name: UIApplication.didBecomeActiveNotification)
-        let stopActionExpection = XCTestExpectation(description: "Stop action is received.")
-        stopActionExpection.assertForOverFulfill = true
-        var receivedAction: KlaviyoAction?
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action.transformToKlaviyoAction
-            stopActionExpection.fulfill()
+        let foregroundedExpectation = XCTestExpectation(description: "Foregrounded lifecycle event is received.")
+        foregroundedExpectation.assertForOverFulfill = true
+        var receivedEvent: LifeCycleEvents?
+        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { event in
+            receivedEvent = event
+            foregroundedExpectation.fulfill()
         }
 
         passThroughSubject.send(Notification(name: UIApplication.didBecomeActiveNotification.self))
 
-        wait(for: [stopActionExpection], timeout: 0.1)
-        XCTAssertEqual(KlaviyoAction.start, receivedAction)
-        cancellable.cancel()
-    }
-
-    // MARK: Reachability start failure
-
-    func testReachabilityStartFailureIsHandled() async {
-        environment = KlaviyoEnvironment.test()
-        let expectation = XCTestExpectation(description: "Start reachability is called")
-        environment.startReachability = {
-            expectation.fulfill()
-            throw KlaviyoAPIError.internalError("foo")
+        wait(for: [foregroundedExpectation], timeout: 0.1)
+        guard case .foregrounded = receivedEvent else {
+            return XCTFail("expected .foregrounded, got \(String(describing: receivedEvent))")
         }
-
-        let lifecycleSubject = PassthroughSubject<LifeCycleEvents, Never>()
-        let customLifeCycleEvents = AppLifeCycleEvents(lifeCycleEvents: {
-            lifecycleSubject.eraseToAnyPublisher()
-        })
-        environment.appLifeCycle = customLifeCycleEvents
-        let cancellable = environment.lifecycleEventsWithReachability().sink { _ in }
-
-        lifecycleSubject.send(.foregrounded)
-        await fulfillment(of: [expectation], timeout: 1.0)
         cancellable.cancel()
-        XCTAssertEqual(1, expectation.expectedFulfillmentCount)
     }
 
     // MARK: Reachability notifications
@@ -174,7 +157,7 @@ class AppLifeCycleEventsTests: XCTestCase {
         }
         let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
@@ -196,27 +179,30 @@ class AppLifeCycleEventsTests: XCTestCase {
             XCTFail()
         } receiveValue: { _ in }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
         wait(for: [expection], timeout: 0.1)
         cancellable.cancel()
     }
 
-    func testReachaibilityNotificationGetsRightAction() {
+    func testReachaibilityNotificationEmitsReachabilityChangedEvent() {
         environment.reachabilityStatus = { .reachableViaWWAN }
         environment.notificationCenterPublisher = getFilteredNotificationPublished(name: ReachabilityChangedNotification)
-        let reachabilityAction = XCTestExpectation(description: "Reachabilty changed is received.")
-        var receivedAction: KlaviyoAction?
-        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { action in
-            receivedAction = action.transformToKlaviyoAction
-            reachabilityAction.fulfill()
+        let reachabilityExpectation = XCTestExpectation(description: "Reachabilty changed is received.")
+        var receivedEvent: LifeCycleEvents?
+        let cancellable = AppLifeCycleEvents().lifeCycleEvents().sink { event in
+            receivedEvent = event
+            reachabilityExpectation.fulfill()
         }
 
-        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: Reachability()))
+        passThroughSubject.send(Notification(name: ReachabilityChangedNotification, object: nil))
 
-        wait(for: [reachabilityAction], timeout: 0.1)
-        XCTAssertEqual(KlaviyoAction.networkConnectivityChanged(.reachableViaWWAN), receivedAction)
+        wait(for: [reachabilityExpectation], timeout: 0.1)
+        guard case let .reachabilityChanged(status) = receivedEvent else {
+            return XCTFail("expected .reachabilityChanged, got \(String(describing: receivedEvent))")
+        }
+        XCTAssertEqual(status, .reachableViaWWAN)
         cancellable.cancel()
     }
 }

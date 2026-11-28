@@ -1,0 +1,82 @@
+# Baseline rules: SDK Dependabot Bot project, see the rules page.
+version: 2
+updates:
+- package-ecosystem: swift
+  directories:
+  - '/'
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 4
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    swift-shipped-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - 'github.com/flight-school/anycodable'
+      update-types:
+      - minor
+      - patch
+    swift-shipped-security:
+      applies-to: security-updates
+      patterns:
+      - 'github.com/flight-school/anycodable'
+    swift-tooling-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - '*'
+      exclude-patterns:
+      - 'github.com/flight-school/anycodable'
+      update-types:
+      - minor
+      - patch
+    swift-tooling-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
+      exclude-patterns:
+      - 'github.com/flight-school/anycodable'
+- package-ecosystem: bundler
+  directories:
+  - '/'
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 3
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    bundler-tooling-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - '*'
+      update-types:
+      - minor
+      - patch
+    bundler-tooling-security:
+      applies-to: security-updates
+      patterns:
+      - '*'
+- package-ecosystem: github-actions
+  directories:
+  - '/'
+  - '/.github/actions/*'
+  schedule:
+    interval: monthly
+  open-pull-requests-limit: 3
+  commit-message:
+    prefix: chore
+    include: scope
+  groups:
+    actions-minor-patch:
+      applies-to: version-updates
+      patterns:
+      - '*'
+      update-types:
+      - minor
+      - patch
+    actions-security:
+      applies-to: security-updates
+      patterns:
+      - '*'

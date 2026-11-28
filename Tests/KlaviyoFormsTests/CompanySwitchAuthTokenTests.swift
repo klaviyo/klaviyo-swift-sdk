@@ -3,8 +3,8 @@
 //  klaviyo-swift-sdk
 //
 //  Drives identity changes (a company switch via `initialize` with a new API key, and a
-//  compatible change followed by a replacing one) through the KlaviyoSwift reducer, the
-//  shared store mirror and IdentityStore into an AuthTokenManager.
+//  compatible change followed by a replacing one) through the KlaviyoSwift commands into
+//  the canonical Core stores and an AuthTokenManager.
 //
 
 @testable import KlaviyoCore
@@ -15,14 +15,15 @@ import XCTest
 @MainActor
 final class CompanySwitchAuthTokenTests: XCTestCase {
     private let outgoingIdentity = ProfileData(email: "a@x.com", anonymousId: "anon-A")
-    private var store: Store<KlaviyoState, KlaviyoAction>!
     private var provider: ScriptedTokenProvider!
     private var manager: AuthTokenManager!
 
     override func setUp() async throws {
         try await super.setUp()
         environment = KlaviyoEnvironment.test()
-        SharedStoreMirror.reset()
+        // iOS behavior: an apiKey switch resets an identified profile (fresh anonymousId,
+        // PII cleared). Post-modularization that behavior sits behind this flag.
+        featureFlags.enableCompanySwitchReset = true
         provider = ScriptedTokenProvider()
         manager = AuthTokenManager(
             lifeCycle: AppLifeCycleEvents(lifeCycleEvents: { Empty().eraseToAnyPublisher() }),
@@ -33,8 +34,9 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
 
     override func tearDown() async throws {
         await manager.unregisterProvider()
-        SharedStoreMirror.reset()
-        store = nil
+        featureFlags = .production
+        seedCoreStores()
+        LifecycleState.shared.reset()
         manager = nil
         provider = nil
         try await super.tearDown()
@@ -44,7 +46,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
         let outgoingToken = try await startIdentifiedStore()
         XCTAssertEqual(IdentityStore.shared.current.email, outgoingIdentity.email)
 
-        _ = store.send(.initialize("new-api-key"))
+        await KlaviyoCommands.initialize("new-api-key")
 
         let anonymous = IdentityStore.shared.current
         XCTAssertFalse(anonymous.isIdentified)
@@ -53,7 +55,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
         let callsWhileAnonymous = await provider.invocationCount
         XCTAssertEqual(callsWhileAnonymous, 1)
 
-        _ = store.send(.setEmail("a@x.com"))
+        KlaviyoCommands.setEmail("a@x.com")
 
         let identified = IdentityStore.shared.current
         XCTAssertEqual(identified.email, "a@x.com")
@@ -67,8 +69,8 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
     func testCompatibleChangeFollowedByReplacingChangeDropsOutgoingToken() async throws {
         let outgoingToken = try await startIdentifiedStore()
 
-        _ = store.send(.setPhoneNumber("+15551234567"))
-        _ = store.send(.setPhoneNumber("+15557654321"))
+        KlaviyoCommands.setPhoneNumber("+15551234567")
+        KlaviyoCommands.setPhoneNumber("+15557654321")
 
         let incomingToken = try await manager.currentToken(mode: .background)
         XCTAssertNotEqual(incomingToken, outgoingToken)
@@ -79,7 +81,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
     func testScalarReplacementKeepsAnonymousIdButDropsOutgoingToken() async throws {
         let outgoingToken = try await startIdentifiedStore(phoneNumber: "+15551234567")
 
-        _ = store.send(.setEmail("b@x.com"))
+        KlaviyoCommands.setEmail("b@x.com")
 
         let incoming = IdentityStore.shared.current
         XCTAssertEqual(incoming.anonymousId, outgoingIdentity.anonymousId)
@@ -91,13 +93,12 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
     }
 
     func testScalarAndBulkReplacementsGiveTheSameTokenOutcome() async throws {
-        for action in [
-            KlaviyoAction.setEmail("b@x.com"),
-            .enqueueProfile(Profile(email: "b@x.com"))
-        ] {
+        func applyScalarChange() { KlaviyoCommands.setEmail("b@x.com") }
+        func applyBulkChange() { KlaviyoCommands.enqueueProfile(Profile(email: "b@x.com")) }
+        for applyChange in [applyScalarChange, applyBulkChange] {
             let outgoingToken = try await startIdentifiedStore()
 
-            _ = store.send(action)
+            applyChange()
 
             let incomingToken = try await manager.currentToken(mode: .background)
             XCTAssertNotEqual(incomingToken, outgoingToken)
@@ -114,7 +115,7 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
         let observation = IdentityStore.shared.publisher.dropFirst().sink { emissions.append($0) }
         defer { observation.cancel() }
 
-        _ = store.send(.enqueueProfile(Profile(email: "a@x.com", phoneNumber: "+15551234567")))
+        KlaviyoCommands.enqueueProfile(Profile(email: "a@x.com", phoneNumber: "+15551234567"))
 
         let incoming = IdentityStore.shared.current
         XCTAssertNotEqual(incoming.anonymousId, outgoingIdentity.anonymousId)
@@ -134,25 +135,24 @@ final class CompanySwitchAuthTokenTests: XCTestCase {
 
     private func tearDownRound() async {
         await manager.unregisterProvider()
-        SharedStoreMirror.reset()
+        seedCoreStores()
+        LifecycleState.shared.reset()
         provider = ScriptedTokenProvider()
     }
 
-    /// Starts an initialized store for an identified profile, mirrors it into the shared
-    /// Core stores and returns the token the manager caches for that profile.
+    /// Seeds the canonical Core stores for an identified profile under an initialized
+    /// session and returns the token the manager caches for that profile.
     private func startIdentifiedStore(phoneNumber: String? = nil) async throws -> String {
-        let state = KlaviyoState(
-            apiKey: "abc123",
-            email: outgoingIdentity.email,
-            anonymousId: outgoingIdentity.anonymousId,
-            phoneNumber: phoneNumber,
-            queue: [],
-            initalizationState: .initialized
+        seedCoreStores()
+        IdentityStore.shared.update(
+            ProfileData(
+                email: outgoingIdentity.email,
+                phoneNumber: phoneNumber,
+                anonymousId: outgoingIdentity.anonymousId
+            )
         )
-        let store = Store(initialState: state, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = { store.state.eraseToAnyPublisher() }
-        SharedStoreMirror.setup()
-        self.store = store
+        LifecycleState.shared.beginInitializing()
+        await KlaviyoCommands.completeInitialization(apiKey: "abc123")
         let provider = try XCTUnwrap(provider)
         await manager.registerProvider { try await provider.provide() }
         return try await manager.currentToken(mode: .background)

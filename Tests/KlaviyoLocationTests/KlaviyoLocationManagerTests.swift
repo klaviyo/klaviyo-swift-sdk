@@ -6,11 +6,11 @@
 //
 
 @testable import KlaviyoLocation
+@testable import KlaviyoSwift
+import Combine
 import CoreLocation
 import Foundation
 import KlaviyoCore
-@_spi(KlaviyoPrivate) @testable import KlaviyoSwift
-import Combine
 import XCTest
 
 // MARK: - Test Class
@@ -38,25 +38,16 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         // Set up environment with mock authorization status BEFORE creating location manager
         environment = createMockEnvironment()
 
-        // Set up state publisher BEFORE creating location manager
-        let initialState = KlaviyoState(queue: [])
-        let testStore = Store(initialState: initialState, reducer: KlaviyoReducer())
-
+        // Drive the KlaviyoCore config store (what the migrated observer reads) so api-key-change
+        // tests exercise the real observation path.
         mockApiKeyPublisher
             .compactMap { $0 }
             .sink { apiKey in
-                // Drive the KlaviyoCore config store (what the migrated observer reads) alongside the
-                // TCA store, so api-key-change tests exercise the real observation path.
                 SDKConfigStore.shared.update(KlaviyoConfig(apiKey: apiKey))
-                _ = testStore.send(.initialize(apiKey))
             }
             .store(in: &cancellables)
 
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
-
-        // Create location manager AFTER setting up environment and state publisher
+        // Create location manager AFTER setting up environment and config store
         locationManager = MockKlaviyoLocationManager(locationManager: mockLocationManager)
         locationManager.reset()
     }
@@ -135,17 +126,20 @@ final class KlaviyoLocationManagerTests: XCTestCase {
         // GIVEN - Initialize with an initial API key
         mockAuthorizationStatus = .authorizedAlways
         await locationManager.startGeofenceMonitoring()
-        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
         XCTAssertEqual(locationManager.syncGeofencesCallCount, 1,
                        "syncGeofences should be called once when setting up")
 
         // WHEN - New API key is received (different from initial)
+        let resynced = expectation(description: "syncGeofences runs for the new API key")
+        locationManager.onSyncGeofences = { count in
+            if count == 2 { resynced.fulfill() }
+        }
         mockApiKeyPublisher.send("new-key")
-        try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
 
         // THEN - syncGeofences should be called again
+        await fulfillment(of: [resynced], timeout: 10)
         XCTAssertEqual(locationManager.syncGeofencesCallCount, 2,
-                       "syncGeofences should be called once after foreground")
+                       "syncGeofences should be called once more for the new API key")
     }
 
     // MARK: - Klaviyo Geofence Isolation Tests
@@ -374,8 +368,12 @@ private final class MockKlaviyoLocationManager: KlaviyoLocationManager {
         super.init(locationManager: locationManager, geofenceService: geofenceService)
     }
 
+    /// Called with the running call count each time `syncGeofences()` starts.
+    var onSyncGeofences: ((Int) -> Void)?
+
     override func syncGeofences() async {
         syncGeofencesCallCount += 1
+        onSyncGeofences?(syncGeofencesCallCount)
         await super.syncGeofences()
     }
 

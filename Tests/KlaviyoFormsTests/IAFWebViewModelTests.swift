@@ -28,6 +28,11 @@ private final class SpyDispatcher: EventDispatching {
 }
 
 final class IAFWebViewModelTests: XCTestCase {
+    override class func setUp() {
+        super.setUp()
+        registerWithUIKitServicesOnMain()
+    }
+
     // MARK: - Properties
 
     var viewModel: IAFWebViewModel!
@@ -52,19 +57,8 @@ final class IAFWebViewModelTests: XCTestCase {
 
         seedCoreStores()
 
-        // Reset klaviyoSwiftEnvironment state to clean test state with expected API key
-        let testState = KlaviyoState(
-            apiKey: "abc123",
-            queue: [],
-            requestsInFlight: [],
-            initalizationState: .initialized
-        )
-        let testStore = Store(initialState: testState, reducer: KlaviyoReducer())
-        klaviyoSwiftEnvironment.statePublisher = {
-            testStore.state.eraseToAnyPublisher()
-        }
-
-        // Read the seeded config/identity from the canonical Core stores
+        // Read the seeded config/identity from the canonical Core stores (the Forms view model
+        // observes IdentityStore / SDKConfigStore directly).
         let apiKey = try XCTUnwrap(SDKConfigStore.shared.current.apiKey)
         let profileData = IdentityStore.shared.current
 
@@ -140,14 +134,12 @@ final class IAFWebViewModelTests: XCTestCase {
         // Then
         XCTAssertNotNil(handshakeScript, "Handshake script should be injected")
 
-        // Extract the handshake string from the script source
-        let scriptSource = handshakeScript?.source ?? ""
-        let components = scriptSource.components(separatedBy: "'")
-        guard components.count >= 2 else {
-            XCTFail("Could not find handshake data in script")
-            return
-        }
-        let handshakeString = components[components.count - 2]
+        // The value is a JSON string literal: decode it back to the handshake string
+        let prefix = #"document.head.setAttribute("data-native-bridge-handshake", "#
+        let scriptSource = try XCTUnwrap(handshakeScript?.source)
+        XCTAssertTrue(scriptSource.hasPrefix(prefix) && scriptSource.hasSuffix(");"))
+        let literal = scriptSource.dropFirst(prefix.count).dropLast(2)
+        let handshakeString = try JSONDecoder().decode(String.self, from: Data(literal.utf8))
 
         // Verify handshake data
         struct TestableHandshakeData: Codable, Equatable {
@@ -169,7 +161,8 @@ final class IAFWebViewModelTests: XCTestCase {
                 {"type":"profileEvent","version":1},
                 {"type":"profileMutation","version":1},
                 {"type":"jwtMutation","version":1},
-                {"type":"refreshJwt","version":1}
+                {"type":"refreshJwt","version":1},
+                {"type":"formsPreviewEnded","version":1}
             ]
             """
         let expectedData = try XCTUnwrap(expectedHandshakeString.data(using: .utf8))

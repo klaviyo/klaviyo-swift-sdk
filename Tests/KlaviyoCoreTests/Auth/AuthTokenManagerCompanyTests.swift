@@ -5,6 +5,8 @@ import Combine
 import Testing
 
 /// Config backed by a real `SDKConfigStore` that counts reads of `current`.
+/// A read is counted, and its waiters resumed, only after its value is taken, so a
+/// test that changes the config once a read is counted never changes what that read sees.
 /// With `publishes: false` the publisher never emits, so the manager observes
 /// company changes only when it reads `current` itself.
 private final class ReadCountingConfig: ConfigReading {
@@ -20,13 +22,14 @@ private final class ReadCountingConfig: ConfigReading {
     }
 
     var current: KlaviyoConfig {
+        let value = store.current
         lock.lock()
         count += 1
         let ready = waiters.filter { count >= $0.threshold }
         waiters.removeAll { count >= $0.threshold }
         lock.unlock()
         ready.forEach { $0.continuation.resume() }
-        return store.current
+        return value
     }
 
     var publisher: AnyPublisher<KlaviyoConfig, Never> {
@@ -170,7 +173,12 @@ struct AuthTokenManagerCompanyTests {
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let releaseFetch = Latch()
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
+        let manager = AuthTokenManager(
+            currentDate: { Date() },
+            identity: identifiedIdentity,
+            fetchTimeoutSleep: neverTimesOut,
+            config: config
+        )
         let calls = await registerCountingProvider(on: manager, returning: tokenA, gate: releaseFetch)
         try await calls.waitFor(atLeast: 1)
 
@@ -192,7 +200,12 @@ struct AuthTokenManagerCompanyTests {
 
         let tokenA = try makeJWT(extraClaims: ["sub": "A"])
         let releaseFetch = Latch()
-        let manager = AuthTokenManager(currentDate: { Date() }, identity: identifiedIdentity, config: config)
+        let manager = AuthTokenManager(
+            currentDate: { Date() },
+            identity: identifiedIdentity,
+            fetchTimeoutSleep: neverTimesOut,
+            config: config
+        )
         let calls = await registerCountingProvider(on: manager, returning: tokenA, gate: releaseFetch)
         try await calls.waitFor(atLeast: 1)
 
